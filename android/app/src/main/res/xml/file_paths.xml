@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Scoped FileProvider paths.
+  Each entry grants permission to a specific subfolder only — NEVER the
+  whole storage root (a bare path="." is a pin-level security leak).
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- App-private external files, used for PDFs/images shared out via FileProvider -->
+    <external-files-path name="shared_files" path="shared/" />
+    <!-- Cache dir for transient shareable files (e.g. jsPDF exports) -->
+    <cache-path name="shared_cache" path="shared/" />
+</paths>

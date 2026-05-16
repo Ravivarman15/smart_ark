@@ -1,0 +1,28 @@
+project_id = "vxyshcucwdbpxrhddaeh"
+
+# ─── Client-invoked functions: require a valid user JWT ──────────────────────
+# Both are called from the authenticated app via supabase.functions.invoke(...).
+# The SDK automatically forwards the user's access token, which the Supabase
+# platform verifies at the edge before the function runs.
+[functions.send-daily-report]
+verify_jwt = true
+
+[functions.send-whatsapp]
+verify_jwt = true
+
+# ─── end-of-day-check: client-invoked by admin, verify JWT at the edge ───────
+[functions.end-of-day-check]
+verify_jwt = true
+
+# ─── Cron-invoked functions: gated by CRON_SECRET header inside the function ─
+# The platform cannot verify a JWT here (cron has no user session), so the
+# function itself checks `x-cron-key` against the CRON_SECRET env var.
+[functions.kpi-engine]
+verify_jwt = false
+
+[functions.sla-checker]
+verify_jwt = false
+
+# ─── seed-users: one-time setup, gated by management role inside the function ─
+[functions.seed-users]
+verify_jwt = true
