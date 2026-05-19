@@ -1,6 +1,22 @@
 import React, { createContext, useContext, useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { studentsService } from "@/features/students";
+import {
+  feesService,
+  installmentsService,
+  refundsService,
+} from "@/features/fees";
+import {
+  enquiriesService,
+  followupsService,
+  admissionsService,
+} from "@/features/enquiries";
+import {
+  staffService,
+  attendanceService,
+  formatTime as formatLocalTime,
+} from "@/features/staff";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export type TaskStatus = "pending" | "completed";
@@ -1004,236 +1020,82 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setAttendance(prev => ({ ...prev, [teacherId]: { ...(prev[teacherId] || {}), [date]: record } }));
   }, [students, user]);
 
+  // ── Attendance check-in / check-out ───────────────────────────────────────
+  // Both teacher and admin go through the same `teacher_attendance` table —
+  // the distinction is purely the role on the profile row. Service is the
+  // single writer; the two local state mirrors stay so existing pages
+  // (DailyControlBoard, TeacherCheckins, AdminCheckinApprovals) keep working.
   const teacherCheckin = useCallback(async (teacherId: string, geoValid: boolean) => {
+    await attendanceService.checkIn(teacherId, today, geoValid);
     const now = new Date();
-    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // Write to Supabase first — do NOT update local state if DB write failed.
-    const { error } = await supabase.from("teacher_attendance").upsert({
-      teacher_id: teacherId,
-      date: today,
-      check_in_time: now.toISOString(),
-      geo_valid: geoValid,
-      status: null,
-    }, { onConflict: "teacher_id,date" });
-    if (error) {
-      console.error("[teacherCheckin] DB upsert failed:", error.message);
-      throw new Error(error.message || "Failed to record check-in");
-    }
-
-    // Then update local state
     setCheckins(prev => ({
       ...prev,
       [teacherId]: {
         ...(prev[teacherId] || {}),
-        [today]: { time, geoValid, status: "pending", checkinTimestamp: now.toISOString() },
+        [today]: { time: formatLocalTime(now), geoValid, status: "pending", checkinTimestamp: now.toISOString() },
       },
     }));
   }, [today]);
 
   const adminCheckIn = useCallback(async (adminId: string, geoValid: boolean) => {
+    await attendanceService.checkIn(adminId, today, geoValid);
     const now = new Date();
-    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const { error } = await supabase.from("teacher_attendance").upsert({
-      teacher_id: adminId,
-      date: today,
-      check_in_time: now.toISOString(),
-      geo_valid: geoValid,
-      status: null,
-    }, { onConflict: "teacher_id,date" });
-    if (error) {
-      console.error("[adminCheckIn] DB upsert failed:", error.message);
-      throw new Error(error.message || "Failed to record admin check-in");
-    }
     setAdminCheckins(prev => ({
       ...prev,
       [adminId]: {
         ...(prev[adminId] || {}),
-        [today]: { time, geoValid, status: "pending", checkinTimestamp: now.toISOString() },
+        [today]: { time: formatLocalTime(now), geoValid, status: "pending", checkinTimestamp: now.toISOString() },
       },
     }));
   }, [today]);
 
   const approveAdminCheckin = useCallback(async (adminId: string, comments?: string, overrideTime?: string) => {
-    const { data: attRecord } = await supabase
-      .from("teacher_attendance")
-      .select("check_in_time")
-      .eq("teacher_id", adminId)
-      .eq("date", today)
-      .single();
-    
-    // Use override time if provided, otherwise the recorded time
-    const checkinTime = overrideTime ? new Date(overrideTime) : (attRecord?.check_in_time ? new Date(attRecord.check_in_time) : new Date());
-    const isLate = checkinTime.getHours() > 8 || (checkinTime.getHours() === 8 && checkinTime.getMinutes() > 59);
-    const finalStatus = isLate ? "late" : "on-time";
-    const dbStatus = isLate ? "late" : "on_time";
-    
-    const updatePayload: any = { status: dbStatus };
-    if (comments) updatePayload.comments = comments;
-    if (overrideTime) updatePayload.override_check_in_time = overrideTime;
-    
-    const { error: adminCheckinErr } = await supabase.from("teacher_attendance").update(updatePayload).eq("teacher_id", adminId).eq("date", today);
-    if (adminCheckinErr) console.error("[approveAdminCheckin] DB update failed (check RLS policy):", adminCheckinErr.message);
-
+    const result = await attendanceService.approveCheckIn({ staffId: adminId, date: today, comments, overrideTime });
     setAdminCheckins(prev => {
       const existing = prev[adminId]?.[today] || { time: "", geoValid: false, status: "absent" as const };
-      return {
-        ...prev,
-        [adminId]: {
-          ...(prev[adminId] || {}),
-          [today]: {
-            ...existing,
-            status: finalStatus as "on-time" | "late",
-            time: checkinTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        }
-      };
+      return { ...prev, [adminId]: { ...(prev[adminId] || {}), [today]: { ...existing, status: result.status, time: result.time } } };
     });
   }, [today]);
 
   const approveCheckin = useCallback(async (teacherId: string, comments?: string, overrideTime?: string) => {
-    const { data: attRecord } = await supabase
-      .from("teacher_attendance")
-      .select("check_in_time")
-      .eq("teacher_id", teacherId)
-      .eq("date", today)
-      .single();
-      
-    const checkinTime = overrideTime ? new Date(overrideTime) : (attRecord?.check_in_time ? new Date(attRecord.check_in_time) : new Date());
-    const isLate = checkinTime.getHours() > 8 || (checkinTime.getHours() === 8 && checkinTime.getMinutes() > 59);
-    const finalStatus = isLate ? "late" : "on-time";
-    const dbStatus = isLate ? "late" : "on_time";
-    
-    const updatePayload: any = { status: dbStatus };
-    if (comments) updatePayload.comments = comments;
-    if (overrideTime) updatePayload.override_check_in_time = overrideTime;
-    
-    const { error: checkinErr } = await supabase.from("teacher_attendance").update(updatePayload).eq("teacher_id", teacherId).eq("date", today);
-    if (checkinErr) console.error("[approveCheckin] DB update failed (check RLS policy):", checkinErr.message);
-
+    const result = await attendanceService.approveCheckIn({ staffId: teacherId, date: today, comments, overrideTime });
     setCheckins(prev => {
       const existing = prev[teacherId]?.[today] || { time: "", geoValid: false, status: "absent" as const };
-      return {
-        ...prev,
-        [teacherId]: {
-          ...(prev[teacherId] || {}),
-          [today]: {
-            ...existing,
-            status: finalStatus as "on-time" | "late",
-            time: checkinTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        }
-      };
+      return { ...prev, [teacherId]: { ...(prev[teacherId] || {}), [today]: { ...existing, status: result.status, time: result.time } } };
     });
   }, [today]);
 
   const teacherCheckout = useCallback(async (teacherId: string, geoValid: boolean) => {
+    await attendanceService.checkOut(teacherId, today, geoValid);
     const now = new Date();
-    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const { error } = await supabase.from("teacher_attendance").upsert({
-      teacher_id: teacherId,
-      date: today,
-      check_out_time: now.toISOString(),
-      checkout_geo_valid: geoValid,
-      check_out_status: null,
-    } as any, { onConflict: "teacher_id,date" });
-    if (error) {
-      console.error("[teacherCheckout] DB upsert failed:", error.message);
-      throw new Error(error.message || "Failed to record check-out");
-    }
     setCheckins(prev => {
       const existing = prev[teacherId]?.[today] || { time: "", geoValid: false, status: "absent" };
-      return { ...prev, [teacherId]: { ...(prev[teacherId] || {}), [today]: { ...existing, checkoutTime: time, checkoutGeoValid: geoValid, checkoutStatus: "pending", checkoutTimestamp: now.toISOString() } } };
+      return { ...prev, [teacherId]: { ...(prev[teacherId] || {}), [today]: { ...existing, checkoutTime: formatLocalTime(now), checkoutGeoValid: geoValid, checkoutStatus: "pending", checkoutTimestamp: now.toISOString() } } };
     });
   }, [today]);
 
   const adminCheckout = useCallback(async (adminId: string, geoValid: boolean) => {
+    await attendanceService.checkOut(adminId, today, geoValid);
     const now = new Date();
-    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const { error } = await supabase.from("teacher_attendance").upsert({
-      teacher_id: adminId,
-      date: today,
-      check_out_time: now.toISOString(),
-      checkout_geo_valid: geoValid,
-      check_out_status: null,
-    } as any, { onConflict: "teacher_id,date" });
-    if (error) {
-      console.error("[adminCheckout] DB upsert failed:", error.message);
-      throw new Error(error.message || "Failed to record admin check-out");
-    }
     setAdminCheckins(prev => {
       const existing = prev[adminId]?.[today] || { time: "", geoValid: false, status: "absent" };
-      return { ...prev, [adminId]: { ...(prev[adminId] || {}), [today]: { ...existing, checkoutTime: time, checkoutGeoValid: geoValid, checkoutStatus: "pending", checkoutTimestamp: now.toISOString() } } };
+      return { ...prev, [adminId]: { ...(prev[adminId] || {}), [today]: { ...existing, checkoutTime: formatLocalTime(now), checkoutGeoValid: geoValid, checkoutStatus: "pending", checkoutTimestamp: now.toISOString() } } };
     });
   }, [today]);
 
   const approveCheckout = useCallback(async (teacherId: string, comments?: string, overrideTime?: string) => {
-    const { data: attRecord } = await supabase
-      .from("teacher_attendance")
-      .select("check_out_time")
-      .eq("teacher_id", teacherId)
-      .eq("date", today)
-      .single();
-      
-    const checkoutTime = overrideTime ? new Date(overrideTime) : (attRecord?.check_out_time ? new Date(attRecord.check_out_time) : new Date());
-    const isEarly = checkoutTime.getHours() < 16;
-    const finalStatus = isEarly ? "early" : "on_time";
-    
-    const updatePayload: any = { check_out_status: finalStatus };
-    if (comments) updatePayload.comments = (updatePayload.comments || "") + (comments ? " | Checkout: " + comments : ""); // Append or handle accordingly
-    if (overrideTime) updatePayload.override_check_out_time = overrideTime;
-    
-    const { error: checkoutErr } = await supabase.from("teacher_attendance").update(updatePayload).eq("teacher_id", teacherId).eq("date", today);
-    if (checkoutErr) console.error("[approveCheckout] DB update failed (check RLS policy):", checkoutErr.message);
-
+    const result = await attendanceService.approveCheckOut({ staffId: teacherId, date: today, comments, overrideTime });
     setCheckins(prev => {
       const existing = prev[teacherId]?.[today] || { time: "", geoValid: false, status: "absent" as const };
-      return {
-        ...prev,
-        [teacherId]: {
-          ...(prev[teacherId] || {}),
-          [today]: {
-            ...existing,
-            checkoutStatus: finalStatus === "on_time" ? "on-time" : "early",
-            checkoutTime: checkoutTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        }
-      };
+      return { ...prev, [teacherId]: { ...(prev[teacherId] || {}), [today]: { ...existing, checkoutStatus: result.status, checkoutTime: result.time } } };
     });
   }, [today]);
 
   const approveAdminCheckout = useCallback(async (adminId: string, comments?: string, overrideTime?: string) => {
-    const { data: attRecord } = await supabase
-      .from("teacher_attendance")
-      .select("check_out_time")
-      .eq("teacher_id", adminId)
-      .eq("date", today)
-      .single();
-      
-    const checkoutTime = overrideTime ? new Date(overrideTime) : (attRecord?.check_out_time ? new Date(attRecord.check_out_time) : new Date());
-    const isEarly = checkoutTime.getHours() < 16;
-    const finalStatus = isEarly ? "early" : "on_time";
-    
-    const updatePayload: any = { check_out_status: finalStatus };
-    if (comments) updatePayload.comments = (updatePayload.comments || "") + (comments ? " | Checkout: " + comments : "");
-    if (overrideTime) updatePayload.override_check_out_time = overrideTime;
-    
-    const { error: adminCheckoutErr } = await supabase.from("teacher_attendance").update(updatePayload).eq("teacher_id", adminId).eq("date", today);
-    if (adminCheckoutErr) console.error("[approveAdminCheckout] DB update failed (check RLS policy):", adminCheckoutErr.message);
-
+    const result = await attendanceService.approveCheckOut({ staffId: adminId, date: today, comments, overrideTime });
     setAdminCheckins(prev => {
       const existing = prev[adminId]?.[today] || { time: "", geoValid: false, status: "absent" as const };
-      return {
-        ...prev,
-        [adminId]: {
-          ...(prev[adminId] || {}),
-          [today]: {
-            ...existing,
-            checkoutStatus: finalStatus === "on_time" ? "on-time" : "early",
-            checkoutTime: checkoutTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        }
-      };
+      return { ...prev, [adminId]: { ...(prev[adminId] || {}), [today]: { ...existing, checkoutStatus: result.status, checkoutTime: result.time } } };
     });
   }, [today]);
 
@@ -1325,230 +1187,102 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setWeeklyPlans(prev => prev.filter(p => p.id !== id));
   }, []);
 
+  // ── Fees CRUD ──────────────────────────────────────────────────────────────
+  // All DB access now lives in src/features/fees/services/*. Local state
+  // mirror is kept so consumer pages still re-render off `feeRecords`.
+  // Calculations (pending/status) use the shared utils inside the services
+  // — no money math should ever be inlined here again.
+  // TODO(phase-2): replace consumers with the React Query hooks
+  // (useFees / useMarkFeePaid / useAddInstallment / useIssueRefund) and
+  // remove the local mirror entirely.
   const markFeePaid = useCallback(async (id: string) => {
-    const { error } = await supabase.from("fee_transactions")
-      .update({ paid: true, paid_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) {
-      console.error("[markFeePaid] DB update failed:", error.message);
-      throw new Error(error.message || "Failed to mark fee as paid");
-    }
+    await feesService.markPaid(id);
     setFeeRecords(prev => prev.map(f => f.id === id ? { ...f, paid: true, paidDate: today } : f));
   }, [today]);
 
   const addFeeRecord = useCallback(async (fee: Omit<FeeRecord, "id">) => {
-    const { data, error } = await supabase.from("fee_transactions").insert({
-      student_name: fee.student,
-      batch_name: fee.batch,
-      amount: fee.amount,
-      due_since: fee.dueSince,
-      paid: fee.paid,
-      entered_by: user?.profileId,
-    }).select().single();
-
-    if (error) { console.error("Failed to add fee:", error); return; }
-    if (data) {
-      const newFee: FeeRecord = {
-        ...fee,
-        id: data.id,
-        discount: fee.discount || 0,
-        finalAmount: fee.finalAmount || fee.amount,
-        received: fee.received || 0,
-        refund: fee.refund || 0,
-        pending: fee.pending !== undefined ? fee.pending : fee.amount,
-        installments: fee.installments || []
-      };
-      setFeeRecords(prev => [newFee, ...prev]);
-    }
+    const { id } = await feesService.create(fee as any, user?.profileId);
+    const newFee: FeeRecord = {
+      ...fee,
+      id,
+      discount: fee.discount || 0,
+      finalAmount: fee.finalAmount || fee.amount,
+      received: fee.received || 0,
+      refund: fee.refund || 0,
+      pending: fee.pending !== undefined ? fee.pending : fee.amount,
+      installments: fee.installments || [],
+    };
+    setFeeRecords(prev => [newFee, ...prev]);
   }, [user]);
 
   const applyDiscount = useCallback(async (id: string, discount: number) => {
-    // Persist discount to student_fees table — fee_transactions is legacy.
-    // Money flows through this method — a silent failure here corrupts
-    // the books, so we throw on any DB error and skip the state update.
-    const feeRecord = feeRecords.find(f => f.id === id);
-    if (feeRecord) {
-      const { data: sfRow, error: sfLookupErr } = await supabase
-        .from('student_fees')
-        .select('id, total_amount, amount_received')
-        .eq('student_id', id)
-        .maybeSingle();
-      if (sfLookupErr) {
-        console.error("[applyDiscount] student_fees lookup failed:", sfLookupErr.message);
-        throw new Error(sfLookupErr.message || "Failed to look up fee record");
-      }
-
-      if (sfRow) {
-        const finalAmount = sfRow.total_amount - discount;
-        const pending = finalAmount - (sfRow.amount_received || 0);
-        const { error: updErr } = await supabase.from('student_fees').update({
-          discount_amount: discount,
-          amount_pending: Math.max(0, pending),
-          status: pending <= 0 ? 'paid' : pending < sfRow.total_amount ? 'partial' : 'pending',
-          updated_at: new Date().toISOString(),
-        }).eq('id', sfRow.id);
-        if (updErr) {
-          console.error("[applyDiscount] student_fees update failed:", updErr.message);
-          throw new Error(updErr.message || "Failed to save discount");
-        }
-      } else {
-        // Legacy fee_transactions row
-        const { error: legacyErr } = await supabase.from('fee_transactions').update({ discount }).eq('id', id);
-        if (legacyErr) {
-          console.error("[applyDiscount] fee_transactions update failed:", legacyErr.message);
-          throw new Error(legacyErr.message || "Failed to save discount (legacy)");
-        }
-      }
-    }
-
+    await feesService.applyDiscount(id, discount);
     setFeeRecords(prev => prev.map(f => {
-      if (f.id === id) {
-        const finalAmount = f.amount - discount;
-        const pending = finalAmount - (f.received || 0) + (f.refund || 0);
-        return { ...f, discount, finalAmount, pending };
-      }
-      return f;
+      if (f.id !== id) return f;
+      const finalAmount = f.amount - discount;
+      const pending = finalAmount - (f.received || 0) + (f.refund || 0);
+      return { ...f, discount, finalAmount, pending };
     }));
-  }, [feeRecords]);
+  }, []);
 
   const addInstallment = useCallback(async (id: string, amount: number, method: string) => {
-    // Money in → book it hard. Any DB error throws so the caller can show
-    // a retry toast; silently updating local state here means a receipt
-    // exists in the UI but no payment row in the DB.
-    if (!(amount > 0)) throw new Error("Installment amount must be greater than 0");
-    const receiptNo = `REC-${Math.floor(Math.random() * 100000)}`;
+    const result = await installmentsService.add({
+      feeRefId: id,
+      amount,
+      method,
+      createdByProfileId: user?.profileId,
+    });
     const now = new Date();
-
-    const feeRecord = feeRecords.find(f => f.id === id);
-    const { data: sfRow, error: sfErr } = await supabase
-      .from('student_fees')
-      .select('id, total_amount, discount_amount, amount_received, amount_pending')
-      .eq('student_id', id)
-      .maybeSingle();
-    if (sfErr) {
-      console.error("[addInstallment] student_fees lookup failed:", sfErr.message);
-      throw new Error(sfErr.message || "Failed to look up fee record");
-    }
-
-    if (sfRow) {
-      const { error: instErr } = await supabase.from('fee_installments').insert({
-        student_fee_id: sfRow.id,
-        amount,
-        payment_date: now.toISOString().split('T')[0],
-        payment_method: method,
-        receipt_no: receiptNo,
-        created_by: user?.profileId || null,
-      }).select('id').single();
-      if (instErr) {
-        console.error("[addInstallment] fee_installments insert failed:", instErr.message);
-        throw new Error(instErr.message || "Failed to record payment");
-      }
-
-      const newReceived = (sfRow.amount_received || 0) + amount;
-      const finalAmount = sfRow.total_amount - (sfRow.discount_amount || 0);
-      const newPending = Math.max(0, finalAmount - newReceived);
-      const { error: updErr } = await supabase.from('student_fees').update({
-        amount_received: newReceived,
-        amount_pending: newPending,
-        status: newPending <= 0 ? 'paid' : newReceived > 0 ? 'partial' : 'pending',
-        updated_at: now.toISOString(),
-      }).eq('id', sfRow.id);
-      if (updErr) {
-        // Payment was inserted but totals didn't update — flag loudly.
-        console.error("[addInstallment] student_fees totals update failed (payment inserted but balance stale):", updErr.message);
-        throw new Error("Payment recorded but balance update failed — please refresh and verify.");
-      }
-    } else if (feeRecord) {
-      // Legacy fallback
-      const { error: legacyErr } = await supabase.from('fee_transactions').update({ paid: true, paid_at: now.toISOString() }).eq('id', id);
-      if (legacyErr) {
-        console.error("[addInstallment] legacy fee_transactions update failed:", legacyErr.message);
-        throw new Error(legacyErr.message || "Failed to record payment (legacy)");
-      }
-    }
-
     setFeeRecords(prev => prev.map(f => {
-      if (f.id === id) {
-        const newInstallment: Installment = {
-          id: `inst-${now.getTime()}`,
-          amount,
-          date: now.toISOString(),
-          receiptNo,
-          method,
-        };
-        const received = (f.received || 0) + amount;
-        const pending = (f.finalAmount || f.amount) - received + (f.refund || 0);
-        const paid = pending <= 0;
-        return { ...f, received, pending, paid, paidDate: paid ? now.toISOString() : f.paidDate, installments: [...(f.installments || []), newInstallment] };
-      }
-      return f;
+      if (f.id !== id) return f;
+      const newInstallment: Installment = {
+        id: result.installmentId ?? `inst-${now.getTime()}`,
+        amount,
+        date: now.toISOString(),
+        receiptNo: result.receiptNo,
+        method,
+      };
+      const received = (f.received || 0) + amount;
+      const pending = (f.finalAmount || f.amount) - received + (f.refund || 0);
+      const paid = pending <= 0;
+      return {
+        ...f,
+        received,
+        pending,
+        paid,
+        paidDate: paid ? now.toISOString() : f.paidDate,
+        installments: [...(f.installments || []), newInstallment],
+      };
     }));
-  }, [feeRecords, user]);
+  }, [user]);
 
   const issueRefund = useCallback(async (id: string, amount: number) => {
-    if (!(amount > 0)) throw new Error("Refund amount must be greater than 0");
-    // Money out → book it hard. Throw on any DB error so the UI does
-    // not show a refund that never persisted.
-    const { data: sfRow, error: sfErr } = await supabase
-      .from('student_fees')
-      .select('id, amount_received, amount_pending, total_amount, discount_amount')
-      .eq('student_id', id)
-      .maybeSingle();
-    if (sfErr) {
-      console.error("[issueRefund] student_fees lookup failed:", sfErr.message);
-      throw new Error(sfErr.message || "Failed to look up fee record");
-    }
-
-    if (sfRow) {
-      const newReceived = Math.max(0, (sfRow.amount_received || 0) - amount);
-      const finalAmount = sfRow.total_amount - (sfRow.discount_amount || 0);
-      const newPending = Math.max(0, finalAmount - newReceived);
-      const { error: updErr } = await supabase.from('student_fees').update({
-        amount_received: newReceived,
-        amount_pending: newPending,
-        status: newPending <= 0 ? 'paid' : newReceived > 0 ? 'partial' : 'pending',
-        updated_at: new Date().toISOString(),
-      }).eq('id', sfRow.id);
-      if (updErr) {
-        console.error("[issueRefund] student_fees update failed:", updErr.message);
-        throw new Error(updErr.message || "Failed to save refund");
-      }
-    }
-
+    await refundsService.issue({ feeRefId: id, amount });
     setFeeRecords(prev => prev.map(f => {
-      if (f.id === id) {
-        const refund = (f.refund || 0) + amount;
-        const pending = (f.finalAmount || f.amount) - (f.received || 0) + refund;
-        return { ...f, refund, pending, paid: pending <= 0 };
-      }
-      return f;
+      if (f.id !== id) return f;
+      const refund = (f.refund || 0) + amount;
+      const pending = (f.finalAmount || f.amount) - (f.received || 0) + refund;
+      return { ...f, refund, pending, paid: pending <= 0 };
     }));
-  }, [feeRecords]);
+  }, []);
 
+  // ── Enquiry/admission CRUD ────────────────────────────────────────────────
+  // Delegated to feature services. The local state mirror is kept so legacy
+  // consumers keep updating; replace with `useEnquiries()` to drop the mirror.
+  // TODO(phase-2): migrate EnquiryManagement.tsx to the React Query hooks.
   const addAdmissionCall = useCallback(async (call: Omit<AdmissionCall, "id" | "history">) => {
-    const dbStatus = call.status.replace("-", "_");
-    const { data } = await supabase.from("admission_calls").insert({
-      prospect_name: call.name,
-      phone: call.phone,
-      date: call.date,
-      status: dbStatus as any,
+    const created = await enquiriesService.create(call as any, user?.profileId);
+    const initialHistory = [{
+      date: new Date().toISOString(),
+      status: call.status,
       notes: call.notes,
-      is_walkin: call.type === "walk-in",
-      admin_id: user?.profileId,
-    }).select().single();
-
-    if (data) {
-      const initialHistory = [{ date: new Date().toISOString(), status: call.status, notes: call.notes, updatedBy: user?.name || "System" }];
-      setAdmissionCalls(prev => [{ ...call, id: data.id, history: initialHistory }, ...prev]);
-    }
+      updatedBy: user?.name || "System",
+    }];
+    setAdmissionCalls(prev => [{ ...call, id: created.id, history: initialHistory }, ...prev]);
   }, [user]);
 
   const updateCallStatus = useCallback(async (id: string, status: AdmissionCall["status"]) => {
-    const { error } = await supabase.from("admission_calls").update({ status: status.replace("-", "_") as any }).eq("id", id);
-    if (error) {
-      console.error("[updateCallStatus] DB update failed:", error.message);
-      throw new Error(error.message || "Failed to update enquiry status");
-    }
+    await enquiriesService.updateStatus(id, status);
     setAdmissionCalls(prev => prev.map(c => c.id === id ? { ...c, status } : c));
   }, []);
 
@@ -1596,47 +1330,33 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, []);
 
+  // ── Staff CRUD ────────────────────────────────────────────────────────────
+  // Delegated to staffService. DB column mapping (campus name → id, role,
+  // is_active) lives in the service. Local state mirror kept so existing
+  // consumer pages (StaffControl, TeacherRanking, etc.) keep working.
+  // TODO(phase-2): swap consumers to useStaff() and drop the mirror.
   const addTeacher = useCallback(async (teacher: Omit<TeacherInfo, "id">) => {
-    // Resolve campus UUID
-    let campusId: string | null = null;
-    if (teacher.campus) {
-      const { data: campusRow } = await supabase.from('campuses').select('id').eq('name', teacher.campus).single();
-      campusId = campusRow?.id || null;
-    }
-
-    // Insert a new profile row with role=teacher
-    const tempPassword = `ARK${Math.floor(Math.random() * 9000) + 1000}`; // admin must reset via Supabase Auth
-    const { data: profileRow, error } = await supabase.from('profiles').insert({
+    const created = await staffService.create({
       name: teacher.name,
-      role: 'teacher',
-      campus_id: campusId,
-      subject: teacher.subject || null,
-      is_active: true,
-    } as any).select('id').single();
-
-    if (error || !profileRow) {
-      console.error('[addTeacher] DB insert failed:', error?.message);
-      throw new Error(error?.message || "Failed to create teacher profile");
-    }
-
-    setTeachers(prev => [...prev, { ...teacher, id: profileRow.id, profileId: profileRow.id }]);
+      role: "teacher",
+      campus: teacher.campus,
+      subject: teacher.subject,
+    });
+    setTeachers(prev => [...prev, { ...teacher, id: created.id, profileId: created.id }]);
     // Re-sync so the teacher list reflects the real DB state.
     setTimeout(() => refreshData(), 500);
   }, [refreshData]);
 
   const updateTeacher = useCallback(async (id: string, updates: Partial<TeacherInfo>) => {
-    // Persist name/subject changes to profiles table
-    const dbUpdates: any = {};
-    if (updates.name    !== undefined) dbUpdates.name    = updates.name;
-    if (updates.subject !== undefined) dbUpdates.subject = updates.subject;
-    if (Object.keys(dbUpdates).length > 0) {
-      await supabase.from('profiles').update(dbUpdates).eq('id', id);
-    }
+    await staffService.update(id, {
+      name: updates.name,
+      subject: updates.subject,
+    });
     setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
   }, []);
 
   const deleteTeacher = useCallback(async (id: string) => {
-    await supabase.from('profiles').update({ is_active: false }).eq('id', id);
+    await staffService.deactivate(id);
     setTeachers(prev => prev.map(t => t.id === id ? { ...t, active: false } as any : t));
   }, []);
 
@@ -1779,60 +1499,24 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setDailyChecklistState({ date: today, checked: {}, signName: "", signTime: "", signedOff: false });
   }, []);
 
+  // ── Students CRUD ─────────────────────────────────────────────────────────
+  // Delegated to the new feature service so the DB-mapping logic lives
+  // in exactly one place (src/features/students/services/students.service.ts).
+  // External signature is unchanged so existing consumer pages keep working.
+  // TODO(phase-2): replace these consumers with `useStudents/useCreateStudent`
+  // hooks directly, then remove the local `students` mirror entirely.
   const addStudent = useCallback(async (student: Omit<StudentInfo, "id">) => {
-    const matchBatch = batches.find(b => b.name === student.batch);
-    const matchCampus = campuses.find(c => c === student.campus);
-
-    let campusId: string | undefined;
-    if (matchCampus) {
-      const { data: campusData } = await supabase.from("campuses").select("id").eq("name", matchCampus).single();
-      campusId = campusData?.id;
-    }
-
-    const { data, error } = await supabase.from("students").insert({
-      name: student.name,
-      batch_id: matchBatch?.id || null,
-      campus_id: campusId || null,
-      spi: student.spi || 0,
-      risk_level: (student.risk === "critical" ? "high_risk" : student.risk || "safe") as any,
-      parent_name: student.parentName || null,
-      parent_contact: student.parentContact || null,
-      parent_contact_1: student.parentContact1 || null,
-      parent_contact_2: student.parentContact2 || null,
-      parent_email: student.parentEmail || null,
-      date_of_birth: student.dateOfBirth || null,
-      admission_date: student.dateOfJoining || new Date().toISOString().split("T")[0],
-    } as any).select().single();
-
-    if (error) {
-      console.error("Failed to add student:", error);
-      throw new Error(error.message || "Failed to add student");
-    }
-    if (data) {
-      setStudents(prev => [...prev, { ...student, id: data.id, active: true }]);
-    }
-  }, [batches, campuses]);
+    const created = await studentsService.create(student as any);
+    setStudents(prev => [...prev, { ...student, id: created.id, active: true }]);
+  }, []);
 
   const updateStudent = useCallback(async (id: string, updates: Partial<StudentInfo>) => {
-    const dbUpdates: any = {};
-    if (updates.name !== undefined) dbUpdates.name = updates.name;
-    if (updates.spi !== undefined) dbUpdates.spi = updates.spi;
-    if (updates.risk !== undefined) dbUpdates.risk_level = updates.risk === "critical" ? "high_risk" : updates.risk;
-    if (updates.parentName !== undefined) dbUpdates.parent_name = updates.parentName;
-    if (updates.parentContact !== undefined) dbUpdates.parent_contact = updates.parentContact;
-    if (updates.parentContact1 !== undefined) dbUpdates.parent_contact_1 = updates.parentContact1;
-    if (updates.parentContact2 !== undefined) dbUpdates.parent_contact_2 = updates.parentContact2;
-    if (updates.parentEmail !== undefined) dbUpdates.parent_email = updates.parentEmail;
-    if (updates.dateOfBirth !== undefined) dbUpdates.date_of_birth = updates.dateOfBirth;
-    if (updates.dateOfJoining !== undefined) dbUpdates.admission_date = updates.dateOfJoining;
-    if (Object.keys(dbUpdates).length > 0) {
-      await supabase.from("students").update(dbUpdates).eq("id", id);
-    }
+    await studentsService.update(id, updates as any);
     setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
   }, []);
 
   const deactivateStudent = useCallback(async (id: string) => {
-    await supabase.from("students").update({ is_active: false }).eq("id", id);
+    await studentsService.deactivate(id);
     setStudents(prev => prev.map(s => s.id === id ? { ...s, active: false } : s));
   }, []);
 
@@ -2065,26 +1749,28 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const assignEnquiry = useCallback(async (id: string, staffId: string) => {
-    // Persist assignment so it survives reload.
-    await supabase.from("admission_calls").update({ assigned_to: staffId }).eq("id", id);
+    await enquiriesService.assign(id, staffId);
     setAdmissionCalls(prev => prev.map(c => c.id === id ? { ...c, assignedTo: staffId } : c));
   }, []);
 
   const addEnquiryNote = useCallback(async (id: string, note: string, newStatus?: AdmissionCall["status"], followUpDate?: string) => {
     const call = admissionCalls.find(c => c.id === id);
     if (!call) return;
-    const status = newStatus || call.status;
-
-    const dbPayload: any = { notes: note };
-    if (newStatus) dbPayload.status = newStatus.replace("-", "_");
-
-    const { error } = await supabase.from("admission_calls").update(dbPayload).eq("id", id);
-    if (error) { console.error("Failed to update enquiry note:", error); return; }
-
+    const result = await followupsService.addNote({
+      enquiryId: id,
+      note,
+      newStatus,
+      followUpDate,
+      updatedByName: user?.name,
+    });
     setAdmissionCalls(prev => prev.map(c => {
       if (c.id !== id) return c;
-      const historyItem = { date: new Date().toISOString(), status, notes: note, updatedBy: user?.name || "System" };
-      const updated = { ...c, status, notes: note, history: [...(c.history || []), historyItem] };
+      const updated = {
+        ...c,
+        status: result.entry.status,
+        notes: note,
+        history: [...(c.history || []), result.entry],
+      };
       if (followUpDate) updated.followUpDate = followUpDate;
       return updated;
     }));
@@ -2093,34 +1779,29 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const approveAdmission = useCallback(async (id: string) => {
     const call = admissionCalls.find(c => c.id === id);
     if (!call) return;
-
-    try {
-      // Derive campus from the enquiry call; fall back to first campus if unknown.
-      const studentCampus = call.campus || campuses[0] || "Senior Campus";
-      await addStudent({
-        name: call.name,
+    // admissionsService composes studentsService.create + (optional) feesService.create
+    // and only flips the enquiry to `converted` after student creation succeeds.
+    await admissionsService.approve(
+      {
+        enquiryId: id,
+        studentName: call.name,
         batch: "Pending Allocation",
-        spi: 0,
-        risk: "safe",
-        campus: studentCampus,
-        parentContact: call.phone,
-      });
-    } catch (err) {
-      console.error("[approveAdmission] student creation failed:", err);
-      throw new Error(
-        err instanceof Error ? err.message : "Failed to create student record"
-      );
-      // Do NOT mark admission as converted if student wasn't created.
-    }
-
-    const { error } = await supabase.from("admission_calls").update({ status: "converted" }).eq("id", id);
-    if (error) { console.error("Failed to convert admission:", error); return; }
-
-    const historyItem = { date: new Date().toISOString(), status: "converted" as const, notes: "Converted to student!", updatedBy: user?.name || "System" };
+        campus: call.campus || campuses[0],
+      },
+      { name: user?.name, profileId: user?.profileId }
+    );
+    const historyItem = {
+      date: new Date().toISOString(),
+      status: "converted" as const,
+      notes: "Converted to student!",
+      updatedBy: user?.name || "System",
+    };
     setAdmissionCalls(prev => prev.map(c =>
       c.id === id ? { ...c, status: "converted" as const, history: [...(c.history || []), historyItem] } : c
     ));
-  }, [admissionCalls, addStudent, campuses, user]);
+    // Refresh students list so the new student appears.
+    await refreshData();
+  }, [admissionCalls, campuses, user, refreshData]);
 
   const setStrictMode = useCallback(async (v: boolean) => {
     await supabase.from("system_settings").update({ value: v }).eq("key", "strict_mode");

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
-import AdminSidebar from "@/components/admin/AdminSidebar";
+import { RoleSidebar } from "@/shared/layouts";
 import { Menu, X, AlertTriangle } from "lucide-react";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,7 +61,7 @@ const AdminLayout: React.FC = () => {
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop sidebar */}
       <div className="hidden md:flex shrink-0">
-        <AdminSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        <RoleSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       </div>
 
       {/* Right: mobile header + scrollable content */}
@@ -101,7 +101,7 @@ const AdminLayout: React.FC = () => {
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
           <div className="relative w-64 h-full overflow-hidden">
-            <AdminSidebar collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} />
+            <RoleSidebar collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} />
             <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-[-40px] p-2 text-foreground">
               <X className="w-5 h-5" />
             </button>

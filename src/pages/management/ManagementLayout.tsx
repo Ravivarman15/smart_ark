@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
-import ManagementSidebar from "@/components/management/ManagementSidebar";
+import { RoleSidebar } from "@/shared/layouts";
 import { Menu, X } from "lucide-react";
 
 const ManagementLayout: React.FC = () => {
@@ -11,7 +11,7 @@ const ManagementLayout: React.FC = () => {
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop sidebar */}
       <div className="hidden md:flex shrink-0">
-        <ManagementSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        <RoleSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       </div>
 
       {/* Right: mobile header + scrollable content */}
@@ -35,7 +35,7 @@ const ManagementLayout: React.FC = () => {
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
           <div className="relative w-64 h-full overflow-hidden">
-            <ManagementSidebar collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} />
+            <RoleSidebar collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} />
             <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-[-40px] p-2 text-foreground"><X className="w-5 h-5" /></button>
           </div>
         </div>

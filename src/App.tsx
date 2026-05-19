@@ -1,12 +1,6 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { AppDataProvider } from "@/contexts/AppDataContext";
-import { StaffRightsProvider } from "@/contexts/StaffRightsContext";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AppProviders, ProtectedRoute, AuthRedirect, type Role } from "@/core";
 
 import { lazy, Suspense } from "react";
 
@@ -23,6 +17,7 @@ const Reports = lazy(() => import("./pages/admin/Reports"));
 const DailyReport = lazy(() => import("./pages/admin/DailyReport"));
 const TeacherCheckins = lazy(() => import("./pages/admin/TeacherCheckins"));
 const ManagementLayout = lazy(() => import("./pages/management/ManagementLayout"));
+const ManagementDashboard = lazy(() => import("./pages/management/ManagementDashboard"));
 const ExecutiveDashboard = lazy(() => import("./pages/management/ExecutiveDashboard"));
 const TeacherRanking = lazy(() => import("./pages/management/TeacherRanking"));
 const StudentIntelligence = lazy(() => import("./pages/management/StudentIntelligence"));
@@ -41,6 +36,8 @@ const EnquiryManagement = lazy(() => import("./pages/shared/EnquiryManagement"))
 const FeeManagement = lazy(() => import("./pages/shared/FeeManagement"));
 const NotificationCenter = lazy(() => import("./pages/shared/NotificationCenter"));
 const ExpenseManagement = lazy(() => import("./pages/shared/ExpenseManagement"));
+const ManageStaff = lazy(() => import("./pages/shared/ManageStaff"));
+const ComingSoon = lazy(() => import("./pages/shared/ComingSoon"));
 const AnalysisReports = lazy(() => import("./pages/shared/AnalysisReports"));
 const TimetableView = lazy(() => import("./pages/shared/TimetableView"));
 const LeaveManagement = lazy(() => import("./pages/shared/LeaveManagement"));
@@ -58,26 +55,17 @@ const FeeStructurePage = lazy(() => import("./pages/setup/FeeStructure"));
 
 // Management-owned staff pages
 const StaffRightsManager = lazy(() => import("./pages/management/StaffRightsManager"));
+const ManageModulePermissions = lazy(
+  () => import("./features/rbac/pages/ManageModulePermissions")
+);
+const ManageActionRights = lazy(
+  () => import("./features/rbac/pages/ManageActionRights")
+);
 
-const queryClient = new QueryClient();
-
-const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles: string[] }> = ({ children, allowedRoles }) => {
-  const { user, isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Loading...</p></div>;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!allowedRoles.includes(user!.role)) return <Navigate to="/login" replace />;
-  return <>{children}</>;
-};
-
-const AuthRedirect: React.FC = () => {
-  const { user, isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Loading...</p></div>;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user!.role === "management") return <Navigate to="/management" replace />;
-  if (user!.role === "admin") return <Navigate to="/admin" replace />;
-  if (user!.role === "coordinator") return <Navigate to="/coordinator" replace />;
-  return <Navigate to="/teacher" replace />;
-};
+// ProtectedRoute / AuthRedirect now live in @/core/routing.
+// Role[] cast is purely a type-narrowing aid — the array contents are
+// validated at runtime by the ProtectedRoute itself.
+const roles = (...r: Role[]) => r;
 
 const AppRoutes: React.FC = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-4 border-accent border-t-transparent animate-spin"></div></div>}>
@@ -85,14 +73,16 @@ const AppRoutes: React.FC = () => (
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<AuthRedirect />} />
 
-      <Route path="/teacher" element={<ProtectedRoute allowedRoles={["teacher"]}><TeacherDashboard /></ProtectedRoute>} />
-      <Route path="/teacher/leave" element={<ProtectedRoute allowedRoles={["teacher"]}><LeaveManagement /></ProtectedRoute>} />
+      <Route path="/teacher" element={<ProtectedRoute allowedRoles={roles("teacher")}><TeacherDashboard /></ProtectedRoute>} />
+      <Route path="/teacher/leave" element={<ProtectedRoute allowedRoles={roles("teacher")}><LeaveManagement /></ProtectedRoute>} />
+      <Route path="/teacher/coming-soon/:slug" element={<ProtectedRoute allowedRoles={roles("teacher")}><ComingSoon /></ProtectedRoute>} />
 
-      <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminLayout /></ProtectedRoute>}>
+      <Route path="/admin" element={<ProtectedRoute allowedRoles={roles("admin")}><AdminLayout /></ProtectedRoute>}>
         <Route index element={<DailyControlBoard />} />
         <Route path="daily-report" element={<DailyReport />} />
         <Route path="checklist" element={<DailyChecklist />} />
         <Route path="staff" element={<StaffControl />} />
+        <Route path="staff-manage" element={<ManageStaff />} />
         <Route path="students" element={<StudentControl />} />
         <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
@@ -113,13 +103,18 @@ const AppRoutes: React.FC = () => (
         <Route path="setup/taxes" element={<TaxManagement />} />
         <Route path="setup/expense-categories" element={<ExpenseCategories />} />
         <Route path="setup/fee-structures" element={<FeeStructurePage />} />
+        <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
-      <Route path="/management" element={<ProtectedRoute allowedRoles={["management"]}><ManagementLayout /></ProtectedRoute>}>
-        <Route index element={<ExecutiveDashboard />} />
+      <Route path="/management" element={<ProtectedRoute allowedRoles={roles("management")}><ManagementLayout /></ProtectedRoute>}>
+        <Route index element={<ManagementDashboard />} />
+        <Route path="executive" element={<ExecutiveDashboard />} />
         {/* Staff management — owned by Management role */}
         <Route path="staff" element={<StaffControl />} />
+        <Route path="staff-manage" element={<ManageStaff />} />
         <Route path="staff-rights" element={<StaffRightsManager />} />
+        <Route path="permissions" element={<ManageModulePermissions />} />
+        <Route path="action-rights" element={<ManageActionRights />} />
         <Route path="staff-attendance" element={<TeacherCheckins />} />
         <Route path="teachers" element={<TeacherRanking />} />
         <Route path="students" element={<StudentIntelligence />} />
@@ -147,14 +142,16 @@ const AppRoutes: React.FC = () => (
         <Route path="setup/taxes" element={<TaxManagement />} />
         <Route path="setup/expense-categories" element={<ExpenseCategories />} />
         <Route path="setup/fee-structures" element={<FeeStructurePage />} />
+        <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
-      <Route path="/coordinator" element={<ProtectedRoute allowedRoles={["coordinator"]}><CoordinatorLayout /></ProtectedRoute>}>
+      <Route path="/coordinator" element={<ProtectedRoute allowedRoles={roles("coordinator")}><CoordinatorLayout /></ProtectedRoute>}>
         <Route index element={<TaskManagement />} />
         <Route path="teachers" element={<TeacherOverview />} />
         <Route path="academic" element={<AcademicControl />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
         <Route path="timetable" element={<TimetableView />} />
+        <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
@@ -164,21 +161,11 @@ const AppRoutes: React.FC = () => (
 
 const App = () => (
   <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AuthProvider>
-          <StaffRightsProvider>
-            <AppDataProvider>
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-            </AppDataProvider>
-          </StaffRightsProvider>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AppProviders>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AppProviders>
   </ErrorBoundary>
 );
 

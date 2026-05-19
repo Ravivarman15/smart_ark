@@ -1,16 +1,16 @@
 import React from "react";
 import { useAppData } from "@/contexts/AppDataContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/core/permissions";
 import { DollarSign, TrendingUp, Lock } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const FinancialView: React.FC = () => {
   const { feeRecords, feeTrend, admissionCalls, expenses, campuses } = useAppData();
-  const { user } = useAuth();
-
-  const role = user?.role || "admin";
-  const isManagement = role === "management";
-  const isCoordinator = role === "coordinator";
+  // Centralised role gate via usePermissions (no raw `user.role ===` reads).
+  const { hasRole } = usePermissions();
+  const isManagement = hasRole(["management"]);
+  const isCoordinator = hasRole(["coordinator"]);
+  const isAdmin = hasRole(["admin"]);
 
   const paid = feeRecords.filter(f => f.paid).length;
   const total = feeRecords.length;
@@ -38,7 +38,7 @@ const FinancialView: React.FC = () => {
   const collectionProgress = feePercent;
 
   // Admin should NOT see this page - show 403
-  if (role === "admin") {
+  if (isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
         <Lock className="w-12 h-12 text-ark-danger/50" />

@@ -5,7 +5,10 @@
       "Bash(npm install *)",
       "Bash(npm run *)",
       "Bash(gh --version)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(awk -F'[ .\"]+' '{print $4}')",
+      "Bash(sed -n '341,370p' src/contexts/AppDataContext.tsx)",
+      "Bash(sed -n '1782,1850p' src/contexts/AppDataContext.tsx)"
     ]
   }
 }

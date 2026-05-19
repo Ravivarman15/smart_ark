@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/core/permissions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,8 @@ import { Calendar, CheckCircle2, XCircle, Plus, Clock, FileText } from "lucide-r
 const LeaveManagement: React.FC = () => {
   const { leaveRequests, addLeaveRequest, updateLeaveStatus, teachers } = useAppData();
   const { user } = useAuth();
-  const isTeacher = user?.role === "teacher";
+  const { hasRole } = usePermissions();
+  const isTeacher = hasRole(["teacher"]);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [formData, setFormData] = useState({ startDate: "", endDate: "", type: "casual", reason: "" });
 
