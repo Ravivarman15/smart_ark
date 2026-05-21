@@ -18,10 +18,12 @@ import { SUPER_ROLES, type Role } from "@/core/constants/roles";
 //   4. Super-role bypass — management sees everything.
 export const usePermissions = () => {
   const { user } = useAuth();
-  const { canViewModule: legacyCanViewModule, canDoAction: legacyCanDoAction } = useStaffRights();
-  const { canViewModule: rbacCanViewModule, canViewSubmodule: rbacCanViewSubmodule } =
+  const { canViewModule: legacyCanViewModule, canDoAction: legacyCanDoAction, loading: legacyLoading } = useStaffRights();
+  const { canViewModule: rbacCanViewModule, canViewSubmodule: rbacCanViewSubmodule, isLoading: rbacSidebarLoading } =
     useSidebarAccess();
-  const { canDo: rbacCanDoAction } = useCanDo();
+  const { canDo: rbacCanDoAction, isLoading: rbacActionLoading } = useCanDo();
+
+  const isLoading = legacyLoading || rbacSidebarLoading || rbacActionLoading;
 
   return useMemo(() => {
     const role = user?.role as Role | undefined;
@@ -30,6 +32,7 @@ export const usePermissions = () => {
     return {
       role,
       isSuper,
+      isLoading,
       hasRole: (allowed: Role[]) => !!role && allowed.includes(role),
       /**
        * Module visibility. Accepts both legacy module keys (from
@@ -64,5 +67,6 @@ export const usePermissions = () => {
     rbacCanViewModule,
     rbacCanViewSubmodule,
     rbacCanDoAction,
+    isLoading,
   ]);
 };

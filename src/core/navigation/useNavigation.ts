@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/core/permissions";
 import { useSidebarAccess } from "@/features/rbac";
 import { NAV_CONFIG, type NavGroupConfig, type NavItemConfig } from "./menu.config";
-import type { Role } from "@/core/constants/roles";
+import { ROLE_HOME_ROUTE, type Role } from "@/core/constants/roles";
 
 interface VisibleNavItem extends NavItemConfig {
   /** Resolved roles after group inheritance (helpful for debugging). */
@@ -65,7 +65,15 @@ export const useNavigation = (): VisibleNavGroup[] => {
  * shared components that don't know which layout they're in.
  */
 export const useHomeRoute = (): string => {
+  const { user } = useAuth();
   const groups = useNavigation();
   const dashboard = groups.find((g) => g.key === "dashboard");
-  return dashboard?.items.find((i) => i.isHome)?.path ?? "/";
+  const homePath = dashboard?.items.find((i) => i.isHome)?.path;
+  if (homePath) return homePath;
+
+  const role = user?.role as Role | undefined;
+  if (role) {
+    return ROLE_HOME_ROUTE[role] ?? "/";
+  }
+  return "/";
 };
