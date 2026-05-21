@@ -58,9 +58,9 @@ describe("AuthRedirect Component", () => {
     expect(screen.getByText("Loading...")).toBeDefined();
   });
 
-  it("should redirect to /login when not authenticated", () => {
+  it("should redirect to /login when not authenticated even if permissions are loading", () => {
     mockUseAuth.mockReturnValue({ isAuthenticated: false, loading: false });
-    mockUsePermissions.mockReturnValue({ isLoading: false });
+    mockUsePermissions.mockReturnValue({ isLoading: true });
     mockUseHomeRoute.mockReturnValue("/admin");
 
     render(

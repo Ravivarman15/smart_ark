@@ -131,3 +131,5 @@ coverage/
 # Supabase local dev
 supabase/.branches/
 supabase/.temp/
+
+.vercel
