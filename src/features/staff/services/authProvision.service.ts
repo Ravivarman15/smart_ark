@@ -1,4 +1,5 @@
 import { BaseService, AppError } from "@/shared/services";
+import { loginUrl } from "../utils/appUrl";
 import type { InviteStaffInput, InviteStaffResult } from "../types/staff.types";
 
 // Auth provisioning service.
@@ -59,7 +60,7 @@ class AuthProvisionService extends BaseService {
         subject: input.subject ?? null,
         status: input.status ?? "invited",
       },
-      login_url: `${window.location.origin}/login`,
+      login_url: loginUrl(),
     };
 
     const { data, error } = await this.db.functions.invoke("invite-staff", {

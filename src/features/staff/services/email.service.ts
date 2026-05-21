@@ -1,4 +1,5 @@
 import { BaseService, AppError } from "@/shared/services";
+import { loginUrl } from "../utils/appUrl";
 import type { EmailOpResult } from "../types/staff.types";
 
 // ── Frontend transactional email gateway ────────────────────────────────────
@@ -19,9 +20,6 @@ import type { EmailOpResult } from "../types/staff.types";
 //   3. Call `emailService.sendTemplateEmail({ templateId, to, params })`.
 // No new edge function or secret handling required.
 // ─────────────────────────────────────────────────────────────────────────────
-
-const loginUrl = (): string =>
-  typeof window !== "undefined" ? `${window.location.origin}/login` : "/login";
 
 /** Pull the real message out of a Supabase FunctionsHttpError response body. */
 const readEdgeError = async (
