@@ -69,6 +69,7 @@ export const queryKeys = {
     all: ["staff"] as const,
     list: (params?: Record<string, unknown>) => [...queryKeys.staff.all, "list", params ?? {}] as const,
     detail: (id: string) => [...queryKeys.staff.all, "detail", id] as const,
+    onboarding: (id: string) => [...queryKeys.staff.all, "onboarding", id] as const,
   },
   enquiries: {
     all: ["enquiries"] as const,

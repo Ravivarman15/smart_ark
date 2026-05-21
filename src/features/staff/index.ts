@@ -10,7 +10,13 @@ export type {
   Gender,
   CreateStaffInput,
   InviteStaffInput,
+  InviteStaffResult,
+  EmailOpResult,
   UpdateStaffInput,
+  OnboardingStatus,
+  EmailDeliveryStatus,
+  OnboardingEvent,
+  OnboardingEventType,
   CheckInStatus,
   CheckOutStatus,
   AttendanceRecord,
@@ -58,7 +64,11 @@ export {
   staffStorageService,
   authProvisionService,
   inviteService,
+  emailService,
+  onboardingService,
   type RoleDescriptor,
+  type ActorRef,
+  type LogEventArgs,
 } from "./services";
 
 // ── Hooks ───────────────────────────────────────────────────────────────────
@@ -76,6 +86,7 @@ export {
   useSuspendStaff,
   useUploadProfilePicture,
   useRoles,
+  useOnboardingEvents,
   useUserPermissions,
   useSaveUserPermissions,
   useSetModuleRight,
@@ -102,4 +113,7 @@ export {
   EditStaffSheet,
   StaffProfileDrawer,
   ManageStaffTable,
+  OnboardingStatusBadge,
+  StaffOnboardingTimeline,
+  StaffAccessSheet,
 } from "./components";

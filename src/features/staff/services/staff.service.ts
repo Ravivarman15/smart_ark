@@ -1,7 +1,9 @@
 import { BaseService, AppError } from "@/shared/services";
 import type {
   CreateStaffInput,
+  EmailDeliveryStatus,
   Gender,
+  OnboardingStatus,
   Staff,
   StaffStatus,
   UpdateStaffInput,
@@ -9,10 +11,10 @@ import type {
 } from "../types/staff.types";
 
 // ── DB row shape (private) ───────────────────────────────────────────────────
-// Columns added by the `staff_profile_extensions` migration are optional
-// from the *runtime* perspective so this file keeps working against an
-// older deployment that hasn't applied the migration yet. The trigger on
-// the DB side keeps `name` in sync with first/middle/last automatically.
+// Columns added by `staff_profile_extensions` + `staff_onboarding` migrations
+// are optional from the *runtime* perspective so this file keeps working
+// against an older deployment that hasn't applied them yet. The trigger on the
+// DB side keeps `name` in sync with first/middle/last automatically.
 type ProfileRow = {
   id: string;
   user_id: string | null;
@@ -34,12 +36,32 @@ type ProfileRow = {
   designation?: string | null;
   status?: string | null;
   joining_date?: string | null;
+  onboarding_status?: string | null;
+  invite_sent_at?: string | null;
+  invite_email_status?: string | null;
+  invite_email_error?: string | null;
+  last_login_at?: string | null;
+  onboarding_completed_at?: string | null;
 };
 
-const SELECT_COLUMNS =
+// Columns guaranteed to exist (after staff_profile_extensions).
+const BASE_COLUMNS =
   "id, user_id, name, role, subject, is_active, campus_id, campuses(name), " +
   "first_name, middle_name, last_name, gender, mobile, email, address, " +
   "profile_picture_url, department, designation, status, joining_date";
+
+// Columns added by the staff_onboarding migration — stripped on a retry if
+// the migration has not been applied yet.
+const ONBOARDING_COLUMNS =
+  "onboarding_status, invite_sent_at, invite_email_status, " +
+  "invite_email_error, last_login_at, onboarding_completed_at";
+
+const FULL_COLUMNS = `${BASE_COLUMNS}, ${ONBOARDING_COLUMNS}`;
+
+const isColumnError = (err: unknown): boolean => {
+  const m = (err as { message?: string } | null)?.message;
+  return !!m && /column|schema cache|does not exist/i.test(m);
+};
 
 const pickJoin = <T extends { name: string }>(v: T | T[] | null): string =>
   Array.isArray(v) ? v[0]?.name ?? "" : v?.name ?? "";
@@ -70,6 +92,13 @@ const toDomain = (r: ProfileRow): Staff => ({
   subject: r.subject ?? undefined,
   campusId: r.campus_id ?? undefined,
   campus: pickJoin(r.campuses) || undefined,
+  onboardingStatus: (r.onboarding_status as OnboardingStatus | undefined) ?? undefined,
+  inviteSentAt: r.invite_sent_at ?? undefined,
+  inviteEmailStatus:
+    (r.invite_email_status as EmailDeliveryStatus | undefined) ?? undefined,
+  inviteEmailError: r.invite_email_error ?? undefined,
+  lastLoginAt: r.last_login_at ?? undefined,
+  onboardingCompletedAt: r.onboarding_completed_at ?? undefined,
 });
 
 /**
@@ -119,37 +148,44 @@ interface ListParams {
 class StaffService extends BaseService {
   /**
    * List staff (profiles). Filters role + active + campus on the DB side
-   * so paginating later is straightforward.
+   * so paginating later is straightforward. Falls back to the base column
+   * set when the onboarding migration has not been applied.
    */
   async list(params: ListParams = {}): Promise<Staff[]> {
-    let q = this.db.from("profiles").select(SELECT_COLUMNS);
+    const build = (cols: string) => {
+      let q = this.db.from("profiles").select(cols);
+      if (!params.includeInactive) q = q.eq("is_active", true);
+      if (params.role) {
+        q = Array.isArray(params.role)
+          ? q.in("role", params.role as string[])
+          : q.eq("role", params.role);
+      }
+      if (params.campusId) q = q.eq("campus_id", params.campusId);
+      if (params.status) {
+        q = Array.isArray(params.status)
+          ? q.in("status", params.status as string[])
+          : q.eq("status", params.status);
+      }
+      if (params.department) q = q.ilike("department", `%${params.department}%`);
+      if (params.search) {
+        const s = `%${params.search}%`;
+        q = q.or(`name.ilike.${s},email.ilike.${s},mobile.ilike.${s}`);
+      }
+      return q.order("name", { ascending: true });
+    };
 
-    if (!params.includeInactive) q = q.eq("is_active", true);
-    if (params.role) {
-      q = Array.isArray(params.role)
-        ? q.in("role", params.role as string[])
-        : q.eq("role", params.role);
-    }
-    if (params.campusId) q = q.eq("campus_id", params.campusId);
-    if (params.status) {
-      q = Array.isArray(params.status)
-        ? q.in("status", params.status as string[])
-        : q.eq("status", params.status);
-    }
-    if (params.department) q = q.ilike("department", `%${params.department}%`);
-    if (params.search) {
-      const s = `%${params.search}%`;
-      // OR across the three searchable text columns
-      q = q.or(`name.ilike.${s},email.ilike.${s},mobile.ilike.${s}`);
-    }
+    let res = await build(FULL_COLUMNS);
+    if (res.error && isColumnError(res.error)) res = await build(BASE_COLUMNS);
 
-    const res = await q.order("name", { ascending: true });
     const rows = this.guardList(res, "profiles");
     return (rows as unknown as ProfileRow[]).map(toDomain);
   }
 
   async getById(id: string): Promise<Staff> {
-    const res = await this.db.from("profiles").select(SELECT_COLUMNS).eq("id", id).single();
+    let res = await this.db.from("profiles").select(FULL_COLUMNS).eq("id", id).single();
+    if (res.error && isColumnError(res.error)) {
+      res = await this.db.from("profiles").select(BASE_COLUMNS).eq("id", id).single();
+    }
     const row = this.guard(res, "staff");
     return toDomain(row as unknown as ProfileRow);
   }
@@ -196,11 +232,18 @@ class StaffService extends BaseService {
       ...toDb({ ...input, active: true }),
       campus_id: campusId,
     };
-    const res = await this.db
+    let res = await this.db
       .from("profiles")
       .insert(payload as never)
-      .select(SELECT_COLUMNS)
+      .select(FULL_COLUMNS)
       .single();
+    if (res.error && isColumnError(res.error)) {
+      res = await this.db
+        .from("profiles")
+        .insert(payload as never)
+        .select(BASE_COLUMNS)
+        .single();
+    }
     const row = this.guard(res, "staff");
     return toDomain(row as unknown as ProfileRow);
   }

@@ -12,34 +12,57 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Staff } from "../types/staff.types";
 import { StaffAvatar } from "./StaffAvatar";
 import { StaffStatusChip } from "./StaffStatusChip";
+import { OnboardingStatusBadge } from "./OnboardingStatusBadge";
 
 interface Props {
   rows: Staff[];
   loading?: boolean;
   onView?: (staff: Staff) => void;
   onEdit?: (staff: Staff) => void;
+  onManageAccess?: (staff: Staff) => void;
   onDeactivate?: (staff: Staff) => void;
   onActivate?: (staff: Staff) => void;
   onResendInvite?: (staff: Staff) => void;
   onResetPassword?: (staff: Staff) => void;
 }
 
+type ActionProps = Pick<
+  Props,
+  | "onView"
+  | "onEdit"
+  | "onManageAccess"
+  | "onDeactivate"
+  | "onActivate"
+  | "onResendInvite"
+  | "onResetPassword"
+>;
+
 /**
  * Modern staff table. Responsive: mobile renders compact cards, desktop
- * renders a full table. Actions are surfaced through a dropdown so the row
- * stays clean; the caller controls which actions are wired (e.g., admin
- * gets fewer actions than management).
+ * renders a full table with profile, role, department, onboarding + status.
+ * Actions are surfaced through a dropdown so the row stays clean.
  */
 export const ManageStaffTable = ({
   rows,
   loading,
   onView,
   onEdit,
+  onManageAccess,
   onDeactivate,
   onActivate,
   onResendInvite,
   onResetPassword,
 }: Props) => {
+  const actions: ActionProps = {
+    onView,
+    onEdit,
+    onManageAccess,
+    onDeactivate,
+    onActivate,
+    onResendInvite,
+    onResetPassword,
+  };
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -53,7 +76,9 @@ export const ManageStaffTable = ({
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border/60 py-12 text-center">
-        <p className="text-sm text-muted-foreground">No staff match the current filters.</p>
+        <p className="text-sm text-muted-foreground">
+          No staff match the current filters.
+        </p>
       </div>
     );
   }
@@ -70,7 +95,9 @@ export const ManageStaffTable = ({
             <StaffAvatar name={s.name} src={s.profilePictureUrl} size="md" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-medium text-foreground text-sm truncate">{s.name}</p>
+                <p className="font-medium text-foreground text-sm truncate">
+                  {s.name}
+                </p>
                 <StaffStatusChip status={s.status} />
               </div>
               <p className="text-[11px] text-muted-foreground capitalize">
@@ -78,6 +105,12 @@ export const ManageStaffTable = ({
                 {s.designation ? ` · ${s.designation}` : ""}
                 {s.campus ? ` · ${s.campus}` : ""}
               </p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <OnboardingStatusBadge
+                  status={s.onboardingStatus}
+                  emailStatus={s.inviteEmailStatus}
+                />
+              </div>
               <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
                 {s.email && (
                   <span className="inline-flex items-center gap-1">
@@ -91,15 +124,7 @@ export const ManageStaffTable = ({
                 )}
               </div>
             </div>
-            <RowActions
-              s={s}
-              onView={onView}
-              onEdit={onEdit}
-              onDeactivate={onDeactivate}
-              onActivate={onActivate}
-              onResendInvite={onResendInvite}
-              onResetPassword={onResetPassword}
-            />
+            <RowActions s={s} {...actions} />
           </div>
         ))}
       </div>
@@ -112,7 +137,7 @@ export const ManageStaffTable = ({
               <th className="py-2.5 px-3 font-medium">Staff</th>
               <th className="py-2.5 px-3 font-medium">Role</th>
               <th className="py-2.5 px-3 font-medium">Department</th>
-              <th className="py-2.5 px-3 font-medium">Contact</th>
+              <th className="py-2.5 px-3 font-medium">Onboarding</th>
               <th className="py-2.5 px-3 font-medium">Status</th>
               <th className="py-2.5 px-3 font-medium text-right">Actions</th>
             </tr>
@@ -128,25 +153,32 @@ export const ManageStaffTable = ({
               >
                 <td className="py-2.5 px-3">
                   <div className="flex items-center gap-2.5">
-                    <StaffAvatar name={s.name} src={s.profilePictureUrl} size="sm" />
+                    <StaffAvatar
+                      name={s.name}
+                      src={s.profilePictureUrl}
+                      size="sm"
+                    />
                     <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">{s.name}</p>
-                      {s.designation && (
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {s.designation}
-                        </p>
-                      )}
+                      <p className="font-medium text-foreground truncate">
+                        {s.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {s.email ?? s.designation ?? "—"}
+                      </p>
                     </div>
                   </div>
                 </td>
-                <td className="py-2.5 px-3 capitalize text-muted-foreground">{s.role}</td>
-                <td className="py-2.5 px-3 text-muted-foreground">{s.department ?? "—"}</td>
+                <td className="py-2.5 px-3 capitalize text-muted-foreground">
+                  {s.role}
+                </td>
+                <td className="py-2.5 px-3 text-muted-foreground">
+                  {s.department ?? "—"}
+                </td>
                 <td className="py-2.5 px-3">
-                  <div className="text-[11px] text-muted-foreground flex flex-col">
-                    {s.email && <span className="truncate">{s.email}</span>}
-                    {s.mobile && <span>{s.mobile}</span>}
-                    {!s.email && !s.mobile && <span>—</span>}
-                  </div>
+                  <OnboardingStatusBadge
+                    status={s.onboardingStatus}
+                    emailStatus={s.inviteEmailStatus}
+                  />
                 </td>
                 <td className="py-2.5 px-3">
                   <StaffStatusChip status={s.status} />
@@ -155,15 +187,7 @@ export const ManageStaffTable = ({
                   className="py-2.5 px-3 text-right"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <RowActions
-                    s={s}
-                    onView={onView}
-                    onEdit={onEdit}
-                    onDeactivate={onDeactivate}
-                    onActivate={onActivate}
-                    onResendInvite={onResendInvite}
-                    onResetPassword={onResetPassword}
-                  />
+                  <RowActions s={s} {...actions} />
                 </td>
               </tr>
             ))}
@@ -178,44 +202,63 @@ const RowActions = ({
   s,
   onView,
   onEdit,
+  onManageAccess,
   onDeactivate,
   onActivate,
   onResendInvite,
   onResetPassword,
-}: Pick<
-  Props,
-  "onView" | "onEdit" | "onDeactivate" | "onActivate" | "onResendInvite" | "onResetPassword"
-> & {
-  s: Staff;
-}) => (
+}: ActionProps & { s: Staff }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <Button variant="ghost" size="icon" className="h-7 w-7">
         <MoreVertical className="w-4 h-4" />
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" className="w-44">
+    <DropdownMenuContent align="end" className="w-48">
       <DropdownMenuLabel className="text-[11px] uppercase tracking-wider">
         Manage
       </DropdownMenuLabel>
-      {onView && <DropdownMenuItem onClick={() => onView(s)}>View profile</DropdownMenuItem>}
-      {onEdit && <DropdownMenuItem onClick={() => onEdit(s)}>Edit details</DropdownMenuItem>}
+      {onView && (
+        <DropdownMenuItem onClick={() => onView(s)}>
+          Preview profile
+        </DropdownMenuItem>
+      )}
+      {onEdit && (
+        <DropdownMenuItem onClick={() => onEdit(s)}>
+          Edit details
+        </DropdownMenuItem>
+      )}
+      {onManageAccess && (
+        <DropdownMenuItem onClick={() => onManageAccess(s)}>
+          Manage access &amp; role
+        </DropdownMenuItem>
+      )}
       <DropdownMenuSeparator />
       {onResendInvite && s.email && (
-        <DropdownMenuItem onClick={() => onResendInvite(s)}>Resend invite</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onResendInvite(s)}>
+          Resend welcome email
+        </DropdownMenuItem>
       )}
       {onResetPassword && s.email && (
-        <DropdownMenuItem onClick={() => onResetPassword(s)}>Reset password</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onResetPassword(s)}>
+          Reset password
+        </DropdownMenuItem>
       )}
       <DropdownMenuSeparator />
       {s.status === "inactive" && onActivate && (
-        <DropdownMenuItem onClick={() => onActivate(s)} className="text-emerald-600">
-          Activate
+        <DropdownMenuItem
+          onClick={() => onActivate(s)}
+          className="text-emerald-600"
+        >
+          Activate account
         </DropdownMenuItem>
       )}
       {s.status !== "inactive" && onDeactivate && (
-        <DropdownMenuItem onClick={() => onDeactivate(s)} className="text-rose-600">
-          Deactivate
+        <DropdownMenuItem
+          onClick={() => onDeactivate(s)}
+          className="text-rose-600"
+        >
+          Deactivate account
         </DropdownMenuItem>
       )}
     </DropdownMenuContent>

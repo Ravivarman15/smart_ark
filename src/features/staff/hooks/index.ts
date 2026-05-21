@@ -12,6 +12,7 @@ export {
   useUploadProfilePicture,
 } from "./useStaffMutations";
 export { useRoles } from "./useRoles";
+export { useOnboardingEvents } from "./useOnboarding";
 export {
   useUserPermissions,
   useSaveUserPermissions,

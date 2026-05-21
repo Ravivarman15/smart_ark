@@ -26,3 +26,14 @@ verify_jwt = false
 # ─── seed-users: one-time setup, gated by management role inside the function ─
 [functions.seed-users]
 verify_jwt = true
+
+# ─── invite-staff: staff provisioning + welcome email, gated by admin/mgmt ───
+# Creates the auth user, sends the Brevo welcome email, tracks onboarding.
+# Requires secrets: BREVO_API_KEY, SENDER_EMAIL (optional: SENDER_NAME).
+[functions.invite-staff]
+verify_jwt = true
+
+# ─── send-email: generic transactional email, gated by admin/mgmt role ──────
+# Reusable Brevo sender for all non-staff transactional emails.
+[functions.send-email]
+verify_jwt = true

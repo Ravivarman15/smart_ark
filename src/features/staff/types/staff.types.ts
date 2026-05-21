@@ -16,6 +16,45 @@ export type StaffStatus = "active" | "invited" | "suspended" | "inactive";
 
 export type Gender = "male" | "female" | "other";
 
+// ── Onboarding lifecycle ─────────────────────────────────────────────────────
+// Tracks where a staff member is in the join → first-login journey. Distinct
+// from `StaffStatus` (account state) — a staff member can be `active` and still
+// have onboarding `invite_sent` if they have not logged in yet.
+//   pending      — account created, welcome email not yet delivered
+//   invite_sent  — welcome email sent, awaiting first login
+//   completed    — staff has logged in at least once
+export type OnboardingStatus = "pending" | "invite_sent" | "completed";
+
+/** Delivery state of a transactional email (welcome / reset). */
+export type EmailDeliveryStatus = "pending" | "sent" | "failed" | "skipped";
+
+export type OnboardingEventType =
+  | "account_created"
+  | "invite_email_sent"
+  | "invite_email_failed"
+  | "invite_resent"
+  | "password_reset"
+  | "first_login"
+  | "role_changed"
+  | "modules_updated"
+  | "permissions_updated"
+  | "activated"
+  | "deactivated"
+  | "suspended"
+  | "onboarding_completed";
+
+/** One row of the staff onboarding audit log. */
+export interface OnboardingEvent {
+  id: string;
+  profileId: string;
+  eventType: OnboardingEventType | string;
+  detail?: string;
+  metadata?: Record<string, unknown>;
+  actorProfileId?: string;
+  actorName?: string;
+  createdAt: string;
+}
+
 // ── Staff / profile ─────────────────────────────────────────────────────────
 export interface Staff {
   id: string;               // profiles.id (uuid)
@@ -38,6 +77,13 @@ export interface Staff {
   campusId?: string;
   subject?: string;
   active: boolean;          // legacy is_active flag
+  // ── Onboarding lifecycle (optional — present once the migration is applied)
+  onboardingStatus?: OnboardingStatus;
+  inviteSentAt?: string;
+  inviteEmailStatus?: EmailDeliveryStatus;
+  inviteEmailError?: string;
+  lastLoginAt?: string;
+  onboardingCompletedAt?: string;
 }
 
 /**
@@ -72,6 +118,31 @@ export interface InviteStaffInput extends CreateStaffInput {
   firstName: string;
   lastName: string;
   email: string;
+}
+
+/**
+ * Result of provisioning a staff account via the `invite-staff` edge function.
+ * `tempPassword` is returned so the caller can deliver credentials manually
+ * when the welcome email could not be sent.
+ */
+export interface InviteStaffResult {
+  ok: true;
+  userId: string;
+  profileId: string;
+  emailStatus: EmailDeliveryStatus;
+  emailError?: string;
+  tempPassword?: string;
+  brevoConfigured?: boolean;
+}
+
+/** Result of an email-only operation (resend welcome / reset password). */
+export interface EmailOpResult {
+  ok: true;
+  emailStatus: EmailDeliveryStatus;
+  emailError?: string;
+  /** Recovery link (reset_password) or new temp password (resend). */
+  link?: string;
+  tempPassword?: string;
 }
 
 export type UpdateStaffInput = Partial<

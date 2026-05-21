@@ -10,3 +10,6 @@ export { CreateStaffSheet } from "./CreateStaffSheet";
 export { EditStaffSheet } from "./EditStaffSheet";
 export { StaffProfileDrawer } from "./StaffProfileDrawer";
 export { ManageStaffTable } from "./ManageStaffTable";
+export { OnboardingStatusBadge } from "./OnboardingStatusBadge";
+export { StaffOnboardingTimeline } from "./StaffOnboardingTimeline";
+export { StaffAccessSheet } from "./StaffAccessSheet";

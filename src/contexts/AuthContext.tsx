@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+// Imported from the service file directly (not the feature barrel) to avoid a
+// circular import — staff components depend on this AuthContext.
+import { onboardingService } from "@/features/staff/services/onboarding.service";
 
 export type UserRole = "teacher" | "admin" | "management" | "coordinator";
 
@@ -83,6 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) return false;
     await fetchProfile(data.user.id, email);
+    // Best-effort onboarding: stamp last_login_at and, on the very first
+    // password sign-in, flip onboarding to "completed". Never blocks login.
+    void onboardingService.recordLogin(data.user.id);
     return true;
   }, [fetchProfile]);
 

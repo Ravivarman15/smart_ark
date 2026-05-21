@@ -16,13 +16,15 @@ import { ModuleAccessTable } from "./ModuleAccessTable";
 interface Props {
   staffId: string;
   staffName?: string;
+  /** Called after a successful save — used for onboarding audit logging. */
+  onSaved?: () => void;
 }
 
 // Full permission editor: module toggles + per-action toggles grouped by
 // module. Defaults to "everything allowed" when no rows exist in the DB
 // — matches the runtime behaviour of `StaffRightsContext` so what you
 // see here is what the user actually experiences.
-export const PermissionMatrix = ({ staffId, staffName }: Props) => {
+export const PermissionMatrix = ({ staffId, staffName, onSaved }: Props) => {
   const { data, isLoading } = useUserPermissions(staffId);
   const save = useSaveUserPermissions();
 
@@ -68,6 +70,7 @@ export const PermissionMatrix = ({ staffId, staffName }: Props) => {
     try {
       await save.mutateAsync({ staffId, modules, actions });
       toast.success("Permissions saved");
+      onSaved?.();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
     }

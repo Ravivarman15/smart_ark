@@ -12,7 +12,10 @@
       "Bash(npx tsc *)",
       "Bash(npx vite *)",
       "Bash(sed -n '1,12p' src/contexts/AppDataContext.tsx)",
-      "Bash(sed -n '1,30p' src/features/fees/components/FeeSummaryCard.tsx)"
+      "Bash(sed -n '1,30p' src/features/fees/components/FeeSummaryCard.tsx)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(deno --version)",
+      "Bash(deno check *)"
     ]
   }
 }

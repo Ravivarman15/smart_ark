@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { staffService } from "../services/staff.service";
 import { authProvisionService } from "../services/authProvision.service";
-import { inviteService } from "../services/invite.service";
+import { emailService } from "../services/email.service";
 import { staffStorageService } from "../services/storage.service";
 import type {
   CreateStaffInput,
@@ -38,11 +38,21 @@ export const useInviteStaff = () => {
   });
 };
 
-export const useResendInvite = () =>
-  useMutation({ mutationFn: (email: string) => inviteService.resendInvite(email) });
+/**
+ * Resend the welcome email with a freshly generated temporary password.
+ * Invalidates the staff list so the onboarding badge reflects the new
+ * `invite_sent_at` / email status.
+ */
+export const useResendInvite = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (email: string) => emailService.resendWelcomeEmail(email),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.staff.all }),
+  });
+};
 
 export const useResetStaffPassword = () =>
-  useMutation({ mutationFn: (email: string) => inviteService.sendPasswordReset(email) });
+  useMutation({ mutationFn: (email: string) => emailService.sendPasswordReset(email) });
 
 export const useUpdateStaff = () => {
   const qc = useQueryClient();
