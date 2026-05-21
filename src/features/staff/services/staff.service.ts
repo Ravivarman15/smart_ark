@@ -44,19 +44,27 @@ type ProfileRow = {
   onboarding_completed_at?: string | null;
 };
 
-// Columns guaranteed to exist (after staff_profile_extensions).
-const BASE_COLUMNS =
-  "id, user_id, name, role, subject, is_active, campus_id, campuses(name), " +
+// Column tiers — selects are retried down this ladder so the staff list keeps
+// working no matter which schema migrations a deployment has applied.
+//   Tier 1 (core)      — original `profiles` columns, present everywhere.
+//   Tier 2 (extension) — profile detail columns (staff_profile_extensions).
+//   Tier 3 (onboarding)— onboarding lifecycle columns (staff_onboarding).
+const CORE_COLUMNS =
+  "id, user_id, name, role, subject, is_active, campus_id, campuses(name)";
+
+const EXTENSION_COLUMNS =
   "first_name, middle_name, last_name, gender, mobile, email, address, " +
   "profile_picture_url, department, designation, status, joining_date";
 
-// Columns added by the staff_onboarding migration — stripped on a retry if
-// the migration has not been applied yet.
 const ONBOARDING_COLUMNS =
   "onboarding_status, invite_sent_at, invite_email_status, " +
   "invite_email_error, last_login_at, onboarding_completed_at";
 
-const FULL_COLUMNS = `${BASE_COLUMNS}, ${ONBOARDING_COLUMNS}`;
+const EXTENDED_COLUMNS = `${CORE_COLUMNS}, ${EXTENSION_COLUMNS}`;
+const FULL_COLUMNS = `${EXTENDED_COLUMNS}, ${ONBOARDING_COLUMNS}`;
+
+// Tried in order — the first column set the live schema supports wins.
+const COLUMN_TIERS = [FULL_COLUMNS, EXTENDED_COLUMNS, CORE_COLUMNS];
 
 const isColumnError = (err: unknown): boolean => {
   const m = (err as { message?: string } | null)?.message;
@@ -148,8 +156,8 @@ interface ListParams {
 class StaffService extends BaseService {
   /**
    * List staff (profiles). Filters role + active + campus on the DB side
-   * so paginating later is straightforward. Falls back to the base column
-   * set when the onboarding migration has not been applied.
+   * so paginating later is straightforward. Retries down the column tiers
+   * so it works whether or not the staff schema migrations are applied.
    */
   async list(params: ListParams = {}): Promise<Staff[]> {
     const build = (cols: string) => {
@@ -174,17 +182,30 @@ class StaffService extends BaseService {
       return q.order("name", { ascending: true });
     };
 
-    let res = await build(FULL_COLUMNS);
-    if (res.error && isColumnError(res.error)) res = await build(BASE_COLUMNS);
+    let res = await build(COLUMN_TIERS[0]);
+    for (
+      let i = 1;
+      i < COLUMN_TIERS.length && res.error && isColumnError(res.error);
+      i++
+    ) {
+      res = await build(COLUMN_TIERS[i]);
+    }
 
     const rows = this.guardList(res, "profiles");
     return (rows as unknown as ProfileRow[]).map(toDomain);
   }
 
   async getById(id: string): Promise<Staff> {
-    let res = await this.db.from("profiles").select(FULL_COLUMNS).eq("id", id).single();
-    if (res.error && isColumnError(res.error)) {
-      res = await this.db.from("profiles").select(BASE_COLUMNS).eq("id", id).single();
+    const sel = (cols: string) =>
+      this.db.from("profiles").select(cols).eq("id", id).single();
+
+    let res = await sel(COLUMN_TIERS[0]);
+    for (
+      let i = 1;
+      i < COLUMN_TIERS.length && res.error && isColumnError(res.error);
+      i++
+    ) {
+      res = await sel(COLUMN_TIERS[i]);
     }
     const row = this.guard(res, "staff");
     return toDomain(row as unknown as ProfileRow);
@@ -232,17 +253,16 @@ class StaffService extends BaseService {
       ...toDb({ ...input, active: true }),
       campus_id: campusId,
     };
-    let res = await this.db
-      .from("profiles")
-      .insert(payload as never)
-      .select(FULL_COLUMNS)
-      .single();
-    if (res.error && isColumnError(res.error)) {
-      res = await this.db
-        .from("profiles")
-        .insert(payload as never)
-        .select(BASE_COLUMNS)
-        .single();
+    const ins = (cols: string) =>
+      this.db.from("profiles").insert(payload as never).select(cols).single();
+
+    let res = await ins(COLUMN_TIERS[0]);
+    for (
+      let i = 1;
+      i < COLUMN_TIERS.length && res.error && isColumnError(res.error);
+      i++
+    ) {
+      res = await ins(COLUMN_TIERS[i]);
     }
     const row = this.guard(res, "staff");
     return toDomain(row as unknown as ProfileRow);

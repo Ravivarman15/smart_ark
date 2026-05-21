@@ -20,9 +20,15 @@
 //   • "resend_invite"   — regenerate temp password + resend welcome email
 //   • "reset_password"  — branded password-reset email
 //
+// IDEMPOTENCY:
+//   • A duplicate-email pre-check runs before account creation.
+//   • Supabase Auth's unique-email constraint is the hard lock — a racing
+//     second invite fails at `createUser` and returns 409 BEFORE the email
+//     step, so a double-submit never creates two users or two emails.
+//
 // GRACEFUL DEGRADATION:
-//   • If the onboarding columns are absent (migration not yet applied) the
-//     profile upsert retries without them.
+//   • If profile detail / onboarding columns are absent (schema migrations
+//     not yet applied) the profile upsert retries with only the core columns.
 //   • If Brevo is not configured the staff account is still created and the
 //     temporary password is returned in the response so the admin can deliver
 //     it manually. `email_status` reflects what happened.
@@ -88,14 +94,34 @@ const generateTempPassword = (): string => {
   return chars.join("");
 };
 
-// Columns added by the staff_onboarding migration. Stripped on a retry if the
-// migration has not been applied yet.
-const ONBOARDING_KEYS = [
+// Profile columns that may be absent if the staff schema migrations have not
+// been applied. Stripped on a retry so a partial schema degrades to a minimal
+// (but still valid) profile row instead of failing the whole onboarding.
+// The kept core — user_id, name, role, subject, campus_id, is_active — exists
+// on every deployment.
+const OPTIONAL_PROFILE_KEYS = [
+  "first_name",
+  "middle_name",
+  "last_name",
+  "gender",
+  "mobile",
+  "email",
+  "address",
+  "profile_picture_url",
+  "department",
+  "designation",
+  "joining_date",
+  "status",
   "onboarding_status",
   "invite_sent_at",
   "invite_email_status",
   "invite_email_error",
 ];
+
+// Matches the various ways an auth/DB layer reports a duplicate email.
+const isDuplicateError = (msg?: string): boolean =>
+  !!msg &&
+  /already.*regist|already.*exist|email.*exist|duplicate|23505/i.test(msg);
 
 const isColumnError = (msg?: string): boolean =>
   !!msg && /column|schema cache|does not exist/i.test(msg);
@@ -114,7 +140,7 @@ const upsertProfile = async (
   let res = await attempt(row);
   if (res.error && isColumnError(res.error.message)) {
     const stripped = { ...row };
-    for (const k of ONBOARDING_KEYS) delete stripped[k];
+    for (const k of OPTIONAL_PROFILE_KEYS) delete stripped[k];
     res = await attempt(stripped);
   }
   if (res.error) return { error: res.error.message };
@@ -135,7 +161,7 @@ const patchProfile = async (
   let res = await apply(patch);
   if (res.error && isColumnError(res.error.message)) {
     const stripped = { ...patch };
-    for (const k of ONBOARDING_KEYS) delete stripped[k];
+    for (const k of OPTIONAL_PROFILE_KEYS) delete stripped[k];
     if (Object.keys(stripped).length > 0) await apply(stripped);
   }
 };
@@ -374,7 +400,18 @@ Deno.serve(async (req) => {
         email_confirm: true,
         user_metadata: { name: fullName, role: profile.role },
       });
-    if (createErr) return jsonResponse(400, { error: createErr.message });
+    if (createErr) {
+      // A concurrent invite for the same email already created the auth user —
+      // Supabase Auth's unique-email constraint is the idempotency lock. We
+      // return here, BEFORE the email step, so no duplicate welcome email is
+      // ever sent for a racing double-submit.
+      const dup = isDuplicateError(createErr.message);
+      return jsonResponse(dup ? 409 : 400, {
+        error: dup
+          ? "A staff member with this email already exists"
+          : createErr.message,
+      });
+    }
     const newUser = created.user;
     if (!newUser) {
       return jsonResponse(500, { error: "Auth user creation returned no user" });

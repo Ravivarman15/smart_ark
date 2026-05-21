@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -109,12 +109,19 @@ export const CreateStaffSheet = ({
   const [emailChecking, setEmailChecking] = useState(false);
   const [result, setResult] = useState<InviteStaffResult | null>(null);
 
+  // Synchronous re-entrancy guard. `disabled` on the button covers the steady
+  // state, but there is a render tick between the first click and the button
+  // actually becoming disabled — a held Enter key or a fast double-click can
+  // fire `submit()` again inside that window. This ref closes it immediately.
+  const submitLockRef = useRef(false);
+
   // Reset on open so a previous run doesn't leak in.
   useEffect(() => {
     if (open) {
       setValues(EMPTY);
       setErrors({});
       setResult(null);
+      submitLockRef.current = false;
     }
   }, [open]);
 
@@ -148,23 +155,27 @@ export const CreateStaffSheet = ({
   };
 
   const submit = async () => {
+    // Re-entrancy guard — the single source of truth for "a submit is already
+    // running". Blocks double-click + Enter-spam before React re-renders.
+    if (submitLockRef.current) return;
+
     const errs = validate(values);
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    // Pre-submit duplicate-email check for a snappy error chip.
+    submitLockRef.current = true;
     setEmailChecking(true);
     try {
+      // Pre-submit duplicate-email check for a snappy error chip. The edge
+      // function + the DB unique index are the authoritative guards; this is
+      // only a fast-path so the user sees the error without a round-trip.
       const dupe = await staffService.emailExists(values.email);
       if (dupe) {
         setErrors({ email: "A staff member with this email already exists" });
         return;
       }
-    } finally {
-      setEmailChecking(false);
-    }
+      setEmailChecking(false); // hand the spinner over to invite.isPending
 
-    try {
       const res = await invite.mutateAsync(values as InviteStaffInput);
       onCreated?.();
       setResult(res); // swap to the credential-delivery panel
@@ -177,9 +188,15 @@ export const CreateStaffSheet = ({
       const msg = err instanceof Error ? err.message : "Failed to invite staff";
       if (/already exists/i.test(msg)) {
         setErrors({ email: msg });
+        toast.error("A staff member with this email already exists");
       } else {
         toast.error(msg);
       }
+    } finally {
+      // Release the lock so a corrected retry is allowed (a successful run
+      // shows the success panel instead, so there is nothing to re-submit).
+      submitLockRef.current = false;
+      setEmailChecking(false);
     }
   };
 
@@ -402,11 +419,11 @@ export const CreateStaffSheet = ({
               >
                 Cancel
               </Button>
-              <Button onClick={submit} disabled={submitting}>
+              <Button onClick={submit} disabled={submitting} aria-busy={submitting}>
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Creating
-                    account…
+                    Staff…
                   </>
                 ) : (
                   "Create & send welcome email"

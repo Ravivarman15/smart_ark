@@ -15,7 +15,8 @@
       "Bash(sed -n '1,30p' src/features/fees/components/FeeSummaryCard.tsx)",
       "Bash(echo \"EXIT: $?\")",
       "Bash(deno --version)",
-      "Bash(deno check *)"
+      "Bash(deno check *)",
+      "Bash(echo \"TSC EXIT: $?\")"
     ]
   }
 }
