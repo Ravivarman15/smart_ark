@@ -1,0 +1,10 @@
+export { studentsService } from "./students.service";
+export { lookupsService, type BatchLookup } from "./lookups.service";
+export { attendanceService } from "./attendance.service";
+export { documentsService } from "./documents.service";
+export { leaveService } from "./leave.service";
+export { transferService } from "./transfer.service";
+export { feedbackService } from "./feedback.service";
+export { communicationService } from "./communication.service";
+export { appAccessService } from "./appAccess.service";
+export { importService } from "./import.service";

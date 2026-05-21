@@ -8,7 +8,11 @@
       "Bash(git config *)",
       "Bash(awk -F'[ .\"]+' '{print $4}')",
       "Bash(sed -n '341,370p' src/contexts/AppDataContext.tsx)",
-      "Bash(sed -n '1782,1850p' src/contexts/AppDataContext.tsx)"
+      "Bash(sed -n '1782,1850p' src/contexts/AppDataContext.tsx)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Bash(sed -n '1,12p' src/contexts/AppDataContext.tsx)",
+      "Bash(sed -n '1,30p' src/features/fees/components/FeeSummaryCard.tsx)"
     ]
   }
 }

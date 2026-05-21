@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, Plus, UserPlus, Users, AlertCircle, FileText, CheckCircle2, Link2, Filter, Bell } from "lucide-react";
+import { Phone, Plus, UserPlus, Users, AlertCircle, FileText, CheckCircle2, Link2, ExternalLink, Filter, Bell } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -211,14 +211,21 @@ const EnquiryManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <h1 className="text-xl md:text-2xl font-display font-bold text-foreground">Enquiry Management</h1>
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => {
-          navigator.clipboard.writeText(window.location.origin + "/admissions/apply");
-          toast.success("Form link copied!");
-        }}>
-          <Link2 className="w-4 h-4" /> Copy Form Link
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => {
+            navigator.clipboard.writeText(window.location.origin + "/admissions/apply");
+            toast.success("Form link copied!");
+          }}>
+            <Link2 className="w-4 h-4" /> Copy Form Link
+          </Button>
+          <Button size="sm" className="gap-2" onClick={() => {
+            window.open(`${window.location.origin}/admissions/apply`, "_blank", "noopener,noreferrer");
+          }}>
+            <ExternalLink className="w-4 h-4" /> Open Apply Form
+          </Button>
+        </div>
       </div>
 
       {/* Metrics */}

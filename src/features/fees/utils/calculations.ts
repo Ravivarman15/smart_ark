@@ -8,7 +8,12 @@
 // (i.e. when producing a number to render or persist). Intermediate
 // products stay full-precision to avoid drift on multi-step computations.
 
-import type { FeeStructure, Installment, Tax } from "../types/fee.types";
+import type {
+  FeeStructure,
+  Installment,
+  PlannedInstallment,
+  Tax,
+} from "../types/fee.types";
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 const clampZero = (n: number): number => (n < 0 ? 0 : n);
@@ -82,4 +87,96 @@ export const generateReceiptNumber = (date: Date = new Date()): string => {
   const dd = String(date.getDate()).padStart(2, "0");
   const rand = String(Math.floor(Math.random() * 10_000)).padStart(4, "0");
   return `REC-${yy}${mm}${dd}-${rand}`;
+};
+
+// ── Composite gross (tuition + transport + material) ─────────────────────────
+/**
+ * The billable gross BEFORE tax and discount — the tuition total plus the
+ * optional transport and material components. Centralised so no UI re-adds
+ * these by hand.
+ */
+export const grossWithComponents = (s: {
+  totalAmount: number;
+  transportFee?: number;
+  materialFee?: number;
+}): number =>
+  round2((s.totalAmount || 0) + (s.transportFee || 0) + (s.materialFee || 0));
+
+/**
+ * Net payable for a structure: gross (incl. components) + tax − discount.
+ * This is the single number a student is expected to pay in full.
+ */
+export const netPayable = (s: FeeStructure, tax?: Tax | null): number => {
+  const gross = grossWithComponents(s);
+  return finalAmount(withTax(gross, tax), s.discountAmount || 0);
+};
+
+// ── Installment plan (labelled, with due dates) ──────────────────────────────
+const addMonths = (base: Date, months: number, day?: number): Date => {
+  const d = new Date(base.getFullYear(), base.getMonth() + months, day ?? base.getDate());
+  return d;
+};
+const iso = (d: Date): string => d.toISOString().split("T")[0];
+
+/**
+ * Build a labelled payment plan: seat confirmation, first payment, then the
+ * remaining balance split across `installmentCount` dated installments.
+ * `dueDay` (1–31) places each installment on that day of successive months.
+ */
+export const installmentPlan = (
+  s: FeeStructure,
+  tax?: Tax | null,
+  from: Date = new Date()
+): PlannedInstallment[] => {
+  const net = netPayable(s, tax);
+  const plan: PlannedInstallment[] = [];
+
+  const seat = Math.min(s.seatConfirmationAmount || 0, net);
+  if (seat > 0) plan.push({ label: "Seat Confirmation", amount: round2(seat) });
+
+  const first = Math.min(s.firstPaymentAmount || 0, clampZero(net - seat));
+  if (first > 0)
+    plan.push({
+      label: "First Payment",
+      amount: round2(first),
+      dueDate: iso(addMonths(from, 1, s.dueDay)),
+    });
+
+  const remaining = clampZero(net - seat - first);
+  const count = Math.max(0, s.installmentCount || 0);
+  if (count > 0 && remaining > 0) {
+    const per = round2(remaining / count);
+    let allocated = 0;
+    for (let i = 0; i < count; i += 1) {
+      // Last installment absorbs any rounding remainder.
+      const amount = i === count - 1 ? round2(remaining - allocated) : per;
+      allocated = round2(allocated + per);
+      plan.push({
+        label: `Installment ${i + 1}`,
+        amount,
+        dueDate: iso(addMonths(from, i + 2, s.dueDay)),
+      });
+    }
+  }
+  return plan;
+};
+
+// ── Refund ───────────────────────────────────────────────────────────────────
+/** The most that can still be refunded = received − already refunded. */
+export const refundableAmount = (received: number, alreadyRefunded = 0): number =>
+  clampZero(round2(received - alreadyRefunded));
+
+// ── Due-date status ──────────────────────────────────────────────────────────
+export type DueState = "upcoming" | "due_today" | "overdue" | "none";
+
+/** Classify a due date relative to today — for reminder targeting. */
+export const dueState = (dueDate?: string | null): DueState => {
+  if (!dueDate) return "none";
+  const due = new Date(`${dueDate}T00:00:00`);
+  if (Number.isNaN(due.getTime())) return "none";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (due.getTime() < today.getTime()) return "overdue";
+  if (due.getTime() === today.getTime()) return "due_today";
+  return "upcoming";
 };

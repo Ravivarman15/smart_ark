@@ -13,11 +13,57 @@ export const queryKeys = {
     list: (params?: Record<string, unknown>) =>
       [...queryKeys.students.all, "list", params ?? {}] as const,
     detail: (id: string) => [...queryKeys.students.all, "detail", id] as const,
+    attendanceDay: (batchId: string, date: string) =>
+      [...queryKeys.students.all, "attendance-day", batchId, date] as const,
+    attendanceHistory: (studentId: string) =>
+      [...queryKeys.students.all, "attendance-history", studentId] as const,
+    attendanceAnalytics: (batchId: string, from: string, to: string) =>
+      [...queryKeys.students.all, "attendance-analytics", batchId, from, to] as const,
+    attendanceAbsent: (date: string) =>
+      [...queryKeys.students.all, "attendance-absent", date] as const,
+    documents: (filters?: Record<string, unknown>) =>
+      [...queryKeys.students.all, "documents", filters ?? {}] as const,
+    leave: (filters?: Record<string, unknown>) =>
+      [...queryKeys.students.all, "leave", filters ?? {}] as const,
+    transfers: (status?: string) =>
+      [...queryKeys.students.all, "transfers", status ?? "all"] as const,
+    feedback: (filters?: Record<string, unknown>) =>
+      [...queryKeys.students.all, "feedback", filters ?? {}] as const,
+    messages: (studentId: string) =>
+      [...queryKeys.students.all, "messages", studentId] as const,
+    appAccess: (studentId: string) =>
+      [...queryKeys.students.all, "app-access", studentId] as const,
+    importHistory: () => [...queryKeys.students.all, "import-history"] as const,
+    lookups: (kind: string) => [...queryKeys.students.all, "lookups", kind] as const,
   },
   fees: {
     all: ["fees"] as const,
     list: (params?: Record<string, unknown>) => [...queryKeys.fees.all, "list", params ?? {}] as const,
     detail: (id: string) => [...queryKeys.fees.all, "detail", id] as const,
+    structures: (params?: Record<string, unknown>) =>
+      [...queryKeys.fees.all, "structures", params ?? {}] as const,
+    structureRevisions: (structureId: string) =>
+      [...queryKeys.fees.all, "structure-revisions", structureId] as const,
+    collection: (params?: Record<string, unknown>) =>
+      [...queryKeys.fees.all, "collection", params ?? {}] as const,
+    studentFee: (studentId: string) =>
+      [...queryKeys.fees.all, "student-fee", studentId] as const,
+    installments: (studentFeeId: string) =>
+      [...queryKeys.fees.all, "installments", studentFeeId] as const,
+    refunds: (params?: Record<string, unknown>) =>
+      [...queryKeys.fees.all, "refunds", params ?? {}] as const,
+    analytics: (scope: string) => [...queryKeys.fees.all, "analytics", scope] as const,
+    lookups: (kind: string) => [...queryKeys.fees.all, "lookups", kind] as const,
+  },
+  liveClasses: {
+    all: ["live-classes"] as const,
+    list: (filters?: Record<string, unknown>) =>
+      [...queryKeys.liveClasses.all, "list", filters ?? {}] as const,
+    detail: (id: string) => [...queryKeys.liveClasses.all, "detail", id] as const,
+    attendance: (id: string) =>
+      [...queryKeys.liveClasses.all, "attendance", id] as const,
+    messages: (id: string) => [...queryKeys.liveClasses.all, "messages", id] as const,
+    lookups: (kind: string) => [...queryKeys.liveClasses.all, "lookups", kind] as const,
   },
   staff: {
     all: ["staff"] as const,
@@ -67,6 +113,25 @@ export const queryKeys = {
     effectiveActions: (role: string | undefined, userProfileId: string | undefined) =>
       [...queryKeys.rbac.all, "effective-actions", role ?? "anon", userProfileId ?? "self"] as const,
     actionAudit: (role: string) => [...queryKeys.rbac.all, "action-audit", role] as const,
+  },
+  setup: {
+    all: ["setup"] as const,
+    years: () => [...queryKeys.setup.all, "years"] as const,
+    standards: () => [...queryKeys.setup.all, "standards"] as const,
+    standardCourseTypes: (standardId: string) =>
+      [...queryKeys.setup.all, "standard-course-types", standardId] as const,
+    subjects: (filters?: Record<string, unknown>) =>
+      [...queryKeys.setup.all, "subjects", filters ?? {}] as const,
+    courseTypes: () => [...queryKeys.setup.all, "course-types"] as const,
+    taxes: () => [...queryKeys.setup.all, "taxes"] as const,
+    batches: (filters?: Record<string, unknown>) =>
+      [...queryKeys.setup.all, "batches", filters ?? {}] as const,
+    batchSubjects: (batchId: string) =>
+      [...queryKeys.setup.all, "batch-subjects", batchId] as const,
+    timetable: (batchId: string) =>
+      [...queryKeys.setup.all, "timetable", batchId] as const,
+    campuses: () => [...queryKeys.setup.all, "campuses"] as const,
+    teachers: () => [...queryKeys.setup.all, "teachers"] as const,
   },
   settings: {
     all: ["settings"] as const,

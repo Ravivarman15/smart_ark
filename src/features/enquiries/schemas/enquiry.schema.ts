@@ -23,6 +23,34 @@ export const createEnquirySchema = z.object({
 });
 export type CreateEnquiryFormValues = z.infer<typeof createEnquirySchema>;
 
+// ── Public admission form (/admissions/apply) ─────────────────────────────────
+// Submitted by prospects themselves — kept lenient: only name + phone are
+// required so a lead is never lost to over-strict validation.
+const optionalText = (max: number) =>
+  z.string().trim().max(max).optional().or(z.literal(""));
+
+export const publicEnquirySchema = z.object({
+  studentName: z.string().trim().min(2, "Please enter the student's name").max(120),
+  parentName: optionalText(120),
+  phone: z
+    .string()
+    .trim()
+    .min(7, "Enter a valid phone number")
+    .max(20)
+    .regex(/^[0-9+\-\s()]+$/, "Phone may contain digits, +, -, () and spaces"),
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email address")
+    .max(160)
+    .optional()
+    .or(z.literal("")),
+  interestedStandard: optionalText(80),
+  interestedCourse: optionalText(120),
+  message: optionalText(1000),
+});
+export type PublicEnquiryFormValues = z.infer<typeof publicEnquirySchema>;
+
 // ── Followup / note ───────────────────────────────────────────────────────────
 export const followupSchema = z.object({
   note: z.string().min(2, "Add at least 2 characters").max(2000),

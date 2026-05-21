@@ -1,25 +1,45 @@
 import { z } from "zod";
 
+export const FEE_TYPES = ["one_time", "recurring", "transport", "material"] as const;
+export const RECURRING_INTERVALS = [
+  "monthly",
+  "quarterly",
+  "half_yearly",
+  "yearly",
+] as const;
+
+const uuidOrEmpty = z.string().uuid().optional().or(z.literal(""));
+
 // ── Fee structure form ────────────────────────────────────────────────────────
 export const feeStructureSchema = z
   .object({
-    name: z.string().min(2, "Name required").max(120),
+    name: z.string().trim().min(2, "Name required").max(120),
+    description: z.string().trim().max(500).optional().or(z.literal("")),
     courseTypeId: z.string().uuid("Select a course type"),
     standardId: z.string().uuid("Select a standard"),
-    academicYearId: z.string().uuid("Select an academic year"),
-    taxId: z.string().uuid().optional().or(z.literal("")),
+    batchId: uuidOrEmpty,
+    academicYearId: uuidOrEmpty,
+    taxId: uuidOrEmpty,
+    feeType: z.enum(FEE_TYPES).default("one_time"),
     totalAmount: z.coerce.number().nonnegative("Must be ≥ 0"),
+    transportFee: z.coerce.number().nonnegative().default(0),
+    materialFee: z.coerce.number().nonnegative().default(0),
+    discountAmount: z.coerce.number().nonnegative().default(0),
     seatConfirmationAmount: z.coerce.number().nonnegative().default(0),
     firstPaymentAmount: z.coerce.number().nonnegative().default(0),
     installmentCount: z.coerce.number().int().min(0).max(36).default(2),
+    recurringInterval: z.enum(RECURRING_INTERVALS).optional(),
+    dueDay: z.coerce.number().int().min(1).max(31).optional(),
+    isActive: z.boolean().default(true),
   })
   .refine(
     (v) => v.seatConfirmationAmount + v.firstPaymentAmount <= v.totalAmount,
-    {
-      message: "Seat + first payment cannot exceed total",
-      path: ["firstPaymentAmount"],
-    }
-  );
+    { message: "Seat + first payment cannot exceed total", path: ["firstPaymentAmount"] }
+  )
+  .refine((v) => v.feeType !== "recurring" || !!v.recurringInterval, {
+    message: "Choose a billing interval for a recurring fee",
+    path: ["recurringInterval"],
+  });
 export type FeeStructureFormValues = z.infer<typeof feeStructureSchema>;
 
 // ── Manual fee record (rare; most rows come from admissions flow) ─────────────

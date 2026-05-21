@@ -1,0 +1,10 @@
+export { StudentPageShell } from "./StudentPageShell";
+export { DataTable, type Column } from "./DataTable";
+export { FormSheet } from "./FormSheet";
+export { FormField } from "./FormField";
+export { EmptyState } from "./EmptyState";
+export { ConfirmDialog } from "./ConfirmDialog";
+export { RiskBadge, StatusBadge } from "./RiskBadge";
+export { StudentAvatar } from "./StudentAvatar";
+export { StatTile } from "./StatTile";
+export { RowActions } from "./RowActions";

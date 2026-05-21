@@ -44,6 +44,21 @@ export type AdmissionCall = Enquiry;
 export type CreateEnquiryInput = Omit<Enquiry, "id" | "history">;
 export type UpdateEnquiryInput = Partial<Omit<Enquiry, "id" | "history">>;
 
+/**
+ * Payload from the public, unauthenticated admission form at
+ * /admissions/apply. Prospects/parents fill this in themselves — it lands
+ * as a fresh, un-triaged 'interested' enquiry for staff to follow up.
+ */
+export interface PublicEnquiryInput {
+  studentName: string;
+  parentName?: string;
+  phone: string;
+  email?: string;
+  interestedStandard?: string;
+  interestedCourse?: string;
+  message?: string;
+}
+
 // ── Admission approval payload ───────────────────────────────────────────────
 /**
  * Inputs the admission flow needs to materialise a student + (optional) fee.

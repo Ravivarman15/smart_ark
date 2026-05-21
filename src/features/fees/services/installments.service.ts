@@ -1,5 +1,6 @@
 import { BaseService, AppError } from "@/shared/services";
 import { deriveFeeStatus, generateReceiptNumber, pendingBalance } from "../utils/calculations";
+import { feeMessagingService } from "./feeMessaging.service";
 import type { Installment } from "../types/fee.types";
 
 type InstallmentRow = {
@@ -74,7 +75,7 @@ class InstallmentsService extends BaseService {
     // student id, so we look up by that.
     const { data: sfRow, error: sfErr } = await this.db
       .from("student_fees")
-      .select("id, total_amount, discount_amount, amount_received, amount_pending")
+      .select("id, student_name, total_amount, discount_amount, amount_received, amount_pending")
       .eq("student_id", args.feeRefId)
       .maybeSingle();
 
@@ -118,6 +119,26 @@ class InstallmentsService extends BaseService {
           "Payment recorded but balance update failed — please refresh and verify.",
           upd.error
         );
+      }
+
+      // Auto-queue a WhatsApp payment receipt — best-effort, never blocks.
+      try {
+        const stu = await this.db
+          .from("students")
+          .select("name, parent_contact")
+          .eq("id", args.feeRefId)
+          .maybeSingle();
+        const s = stu.data as { name?: string; parent_contact?: string } | null;
+        await feeMessagingService.enqueueReceipt({
+          studentId: args.feeRefId,
+          studentName: s?.name ?? (sfRow as { student_name?: string }).student_name ?? "Student",
+          phone: s?.parent_contact ?? null,
+          amount: args.amount,
+          receiptNo,
+          pending,
+        });
+      } catch {
+        /* receipt is best-effort */
       }
 
       return {

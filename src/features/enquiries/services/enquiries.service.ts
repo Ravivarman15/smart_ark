@@ -4,8 +4,30 @@ import type {
   CreateEnquiryInput,
   Enquiry,
   EnquiryStatus,
+  PublicEnquiryInput,
   UpdateEnquiryInput,
 } from "../types/enquiry.types";
+
+// A missing-column / stale-schema error — used to fall back to the base
+// `admission_calls` columns when the 2026-05-21 migration hasn't run yet.
+const isColumnError = (err: { message?: string } | null | undefined) => {
+  const m = (err?.message ?? "").toLowerCase();
+  return m.includes("column") || m.includes("schema cache");
+};
+
+// Fold the public form's extra fields into the single `notes` column so a
+// lead is never lost when the email / parent_name columns don't exist yet.
+const composePublicNote = (i: PublicEnquiryInput): string =>
+  [
+    i.parentName?.trim() && `Parent/Guardian: ${i.parentName.trim()}`,
+    i.email?.trim() && `Email: ${i.email.trim()}`,
+    i.interestedStandard?.trim() && `Class/Grade: ${i.interestedStandard.trim()}`,
+    i.interestedCourse?.trim() && `Course of interest: ${i.interestedCourse.trim()}`,
+    i.message?.trim() && `Message: ${i.message.trim()}`,
+    "— Submitted via public admission form",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
 // ── DB row shape (private) ───────────────────────────────────────────────────
 type AdmissionCallRow = {
@@ -105,6 +127,55 @@ class EnquiriesService extends BaseService {
       .update({ assigned_to: staffProfileId } as never)
       .eq("id", id);
     if (error) throw AppError.fromSupabase(error, "enquiry.assign");
+  }
+
+  /**
+   * Submit a lead from the public, unauthenticated form at /admissions/apply.
+   *
+   * - Inserts WITHOUT a returning `.select()` — the public RLS policy grants
+   *   INSERT only, so reading the row back would fail.
+   * - Always lands as an un-triaged 'interested', non-walk-in enquiry with no
+   *   admin/assignee, matching the public INSERT policy's WITH CHECK.
+   * - Degrades gracefully pre-migration: if the email / parent_name columns
+   *   are absent it retries with only the base columns, folding the extra
+   *   fields into `notes`.
+   */
+  async submitPublic(input: PublicEnquiryInput): Promise<void> {
+    const today = new Date().toISOString().split("T")[0];
+
+    // Columns guaranteed present since the very first migration.
+    const base = {
+      prospect_name: input.studentName.trim(),
+      phone: input.phone.trim(),
+      status: "interested",
+      is_walkin: false,
+      date: today,
+      admin_id: null,
+      assigned_to: null,
+    };
+
+    // Rich payload — uses columns added by later migrations.
+    const rich = {
+      ...base,
+      email: input.email?.trim() || null,
+      parent_name: input.parentName?.trim() || null,
+      interested_standard: input.interestedStandard?.trim() || null,
+      interested_course: input.interestedCourse?.trim() || null,
+      priority: "medium",
+      notes: input.message?.trim() || null,
+    };
+
+    let res = await this.db.from("admission_calls").insert(rich as never);
+
+    // Pre-migration fallback: collapse extras into the base `notes` column.
+    if (res.error && isColumnError(res.error)) {
+      res = await this.db.from("admission_calls").insert({
+        ...base,
+        notes: composePublicNote(input),
+      } as never);
+    }
+
+    if (res.error) throw AppError.fromSupabase(res.error, "enquiry.submitPublic");
   }
 
   /** Generic patch (notes, priority, dates, etc). */

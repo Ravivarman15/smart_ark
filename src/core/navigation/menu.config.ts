@@ -95,6 +95,13 @@ function sub(
   }));
 }
 
+// ── studentPaths() — same Student route under each role layout ───────────────
+const studentPaths = (suffix = ""): Partial<Record<Role, string>> => ({
+  admin: `/admin/students${suffix}`,
+  coordinator: `/coordinator/students${suffix}`,
+  management: `/management/students${suffix}`,
+});
+
 // ── The 15-module navigation tree ───────────────────────────────────────────
 export const NAV_CONFIG: NavGroupConfig[] = [
   // 1. Dashboard — direct link to each role's home (NOT collapsible)
@@ -111,7 +118,9 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     ],
   },
 
-  // 2. Settings
+  // 2. Settings — every role lands on the shared /settings/* shell. One
+  //    item per submodule (NOT per-role) since the URL is identical and
+  //    the SettingsLayout is role-agnostic.
   {
     key: "settings",
     label: "Settings",
@@ -120,17 +129,14 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: all,
     items: [
-      ...sub("settings.change_password",     "Change Password",            {}, all),
-      ...sub("settings.profile",             "Profile Setting",            {}, all),
-      ...sub("settings.auto_sms",            "Auto SMS Settings",          {}, all),
-      ...sub("settings.auto_notifications",  "Auto Notifications Settings",{
-        admin: "/admin/notifications",
-        management: "/management/notifications",
-      }, all),
-      ...sub("settings.auto_whatsapp",       "Auto WhatsApp Settings",     {}, all),
-      ...sub("settings.my_plan",             "My Plan",                    {}, all),
-      ...sub("settings.sms_plan",            "SMS Plan",                   {}, all),
-      ...sub("settings.my_referral",         "My Referral",                {}, all),
+      { path: "/settings/change-password",    label: "Change Password",             roles: all, submodule: "settings.change_password" },
+      { path: "/settings/profile",            label: "Profile Setting",             roles: all, submodule: "settings.profile" },
+      { path: "/settings/auto-sms",           label: "Auto SMS Settings",           roles: adminMgmt, submodule: "settings.auto_sms" },
+      { path: "/settings/auto-notifications", label: "Auto Notifications Settings", roles: all, submodule: "settings.auto_notifications" },
+      { path: "/settings/auto-whatsapp",      label: "Auto WhatsApp Settings",      roles: adminMgmt, submodule: "settings.auto_whatsapp" },
+      { path: "/settings/my-plan",            label: "My Plan",                     roles: ["management"], submodule: "settings.my_plan" },
+      { path: "/settings/sms-plan",           label: "SMS Plan",                    roles: adminMgmt, submodule: "settings.sms_plan" },
+      { path: "/settings/my-referral",        label: "My Referral",                 roles: all, submodule: "settings.my_referral" },
     ],
   },
 
@@ -143,17 +149,19 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: adminMgmt,
     items: [
-      ...sub("setup.add_year",          "Add Year",              {}, adminMgmt),
-      ...sub("setup.manage_year",       "Manage Year",           { admin: "/admin/setup/years",        management: "/management/setup/years" },        adminMgmt),
-      ...sub("setup.assign_standard",   "Assign Standard",       { admin: "/admin/setup/standards",    management: "/management/setup/standards" },    adminMgmt),
-      ...sub("setup.assign_subject",    "Assign Subject",        { admin: "/admin/setup/subjects",     management: "/management/setup/subjects" },     adminMgmt),
-      ...sub("setup.add_course_type",   "Add Course Type",       {}, adminMgmt),
-      ...sub("setup.manage_course_type","Manage Course Type",    { admin: "/admin/setup/course-types", management: "/management/setup/course-types" }, adminMgmt),
-      ...sub("setup.add_batch",         "Add Class / Batch",     {}, adminMgmt),
-      ...sub("setup.manage_batch",      "Manage Class / Batch",  { admin: "/admin/setup/batches",      management: "/management/setup/batches" },      adminMgmt),
-      ...sub("setup.timetable",         "Manage Time Table",     { admin: "/admin/timetable",          management: "/management/timetable" },          adminMgmt),
-      ...sub("setup.add_tax",           "Add Tax",               {}, adminMgmt),
-      ...sub("setup.manage_tax",        "Manage Tax",            { admin: "/admin/setup/taxes",        management: "/management/setup/taxes" },        adminMgmt),
+      // "Add X" links deep-link to the matching Manage page with ?new=1,
+      // which auto-opens the create slide-over (see useNewParam).
+      ...sub("setup.add_year",          "Add Year",              { admin: "/admin/setup/years?new=1",        management: "/management/setup/years?new=1" },        adminMgmt),
+      ...sub("setup.manage_year",       "Manage Year",           { admin: "/admin/setup/years",              management: "/management/setup/years" },              adminMgmt),
+      ...sub("setup.assign_standard",   "Assign Standard",       { admin: "/admin/setup/standards",          management: "/management/setup/standards" },          adminMgmt),
+      ...sub("setup.assign_subject",    "Assign Subject",        { admin: "/admin/setup/subjects",           management: "/management/setup/subjects" },           adminMgmt),
+      ...sub("setup.add_course_type",   "Add Course Type",       { admin: "/admin/setup/course-types?new=1", management: "/management/setup/course-types?new=1" }, adminMgmt),
+      ...sub("setup.manage_course_type","Manage Course Type",    { admin: "/admin/setup/course-types",       management: "/management/setup/course-types" },       adminMgmt),
+      ...sub("setup.add_batch",         "Add Class / Batch",     { admin: "/admin/setup/batches?new=1",      management: "/management/setup/batches?new=1" },      adminMgmt),
+      ...sub("setup.manage_batch",      "Manage Class / Batch",  { admin: "/admin/setup/batches",            management: "/management/setup/batches" },            adminMgmt),
+      ...sub("setup.timetable",         "Manage Time Table",     { admin: "/admin/setup/timetable",          management: "/management/setup/timetable" },          adminMgmt),
+      ...sub("setup.add_tax",           "Add Tax",               { admin: "/admin/setup/taxes?new=1",        management: "/management/setup/taxes?new=1" },        adminMgmt),
+      ...sub("setup.manage_tax",        "Manage Tax",            { admin: "/admin/setup/taxes",              management: "/management/setup/taxes" },              adminMgmt),
     ],
   },
 
@@ -198,20 +206,20 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: everyoneExceptTeacher,
     items: [
-      ...sub("student.import",            "Students Import",            {}, adminMgmt),
-      ...sub("student.add",               "Add Student Registration",   { admin: "/admin/students",          management: "/management/students" },          adminMgmt),
-      ...sub("student.manage",            "Manage Student",             { admin: "/admin/students",          management: "/management/students" },          everyoneExceptTeacher),
-      ...sub("student.assign_batch",      "Assign Class / Batch",       {}, adminMgmt),
-      ...sub("student.attendance",        "Student Attendance",         {}, everyoneExceptTeacher),
-      ...sub("student.share_docs",        "Share Documents",            {}, everyoneExceptTeacher),
-      ...sub("student.manage_shared_docs","Manage Shared Documents",    {}, adminMgmt),
-      ...sub("student.leave_request",     "Manage Leave Request",       { admin: "/admin/leave-management",  management: "/management/leave-management" },  adminMgmt),
-      ...sub("student.year_transfer",     "Student Year Transfer",      {}, adminMgmt),
-      ...sub("student.untransfer",        "Student Untransfer",         {}, adminMgmt),
-      ...sub("student.chat",              "Chat With Students",         {}, everyoneExceptTeacher),
-      ...sub("student.feedback",          "Student Feedback",           {}, everyoneExceptTeacher),
-      ...sub("student.rights",            "Student Rights",             {}, adminMgmt),
-      ...sub("student.app_access",        "App. Access Rights",         {}, adminMgmt),
+      ...sub("student.import",            "Students Import",            studentPaths("/import"),           adminMgmt),
+      ...sub("student.add",               "Add Student Registration",   studentPaths("/registration"),     adminCoordMgmt),
+      ...sub("student.manage",            "Manage Student",             studentPaths(""),                  everyoneExceptTeacher),
+      ...sub("student.assign_batch",      "Assign Class / Batch",       studentPaths("/assign-batch"),     adminMgmt),
+      ...sub("student.attendance",        "Student Attendance",         studentPaths("/attendance"),       everyoneExceptTeacher),
+      ...sub("student.share_docs",        "Share Documents",            studentPaths("/documents"),        everyoneExceptTeacher),
+      ...sub("student.manage_shared_docs","Manage Shared Documents",    studentPaths("/shared-documents"), adminMgmt),
+      ...sub("student.leave_request",     "Manage Leave Request",       studentPaths("/leave"),            adminCoordMgmt),
+      ...sub("student.year_transfer",     "Student Year Transfer",      studentPaths("/year-transfer"),    adminMgmt),
+      ...sub("student.untransfer",        "Student Untransfer",         studentPaths("/untransfer"),       adminMgmt),
+      ...sub("student.chat",              "Chat With Students",         studentPaths("/chat"),             everyoneExceptTeacher),
+      ...sub("student.feedback",          "Student Feedback",           studentPaths("/feedback"),         everyoneExceptTeacher),
+      ...sub("student.rights",            "Student Rights",             studentPaths("/rights"),           adminMgmt),
+      ...sub("student.app_access",        "App. Access Rights",         studentPaths("/app-access"),       adminMgmt),
     ],
   },
 
