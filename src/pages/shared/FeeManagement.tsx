@@ -1,394 +1,440 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import React, { useMemo, useState } from "react";
 import {
-  DollarSign, Search, Receipt, Percent, CreditCard,
-  ChevronDown, ChevronRight, CheckCircle2, AlertCircle, CalendarClock, Pencil,
+  AlertCircle,
+  CalendarClock,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  CreditCard,
+  DollarSign,
+  Pencil,
+  Percent,
+  Receipt,
+  Search,
+  Undo2,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useCanDo } from "@/features/rbac";
+import {
+  FeeReceiptDialog,
+  RefundDialog,
+  INSTALLMENT_MODES,
+  buildSchedule,
+  formatINR,
+  isOverdue,
+  useApproveDiscount,
+  useApplyDiscount,
+  useCollectPayment,
+  useFeeInstallments,
+  useRejectDiscount,
+  useScheduleInstallments,
+  useSetDueDate,
+  useStudentFees,
+  useUpdateStudentFee,
+  type ReceiptData,
+  type StudentFee,
+} from "@/features/fee";
 
-// ── Installment helpers ────────────────────────────────────────────────────────
-const MONTHS = ["January","February","March","April","May","June",
-                 "July","August","September","October","November","December"];
+// ─────────────────────────────────────────────────────────────────────────────
+// Fees Management — the per-student fee ledger.
+//
+// Migrated onto the Fee feature module: collection, discount, installment and
+// edit logic all run through services + the centralised calculation layer. The
+// page owns dialog/UI state only. Adds the discount-approval workflow, refunds
+// and RBAC gating on every money action.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const INST_MODES = [
-  { label: "Monthly",     months: 1  },
-  { label: "Quarterly",   months: 3  },
-  { label: "Half-Yearly", months: 6  },
-  { label: "Weekly",      days:   7  },
-  { label: "Fortnightly", days:  14  },
-] as const;
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const PER_PAGE = 15;
 
-type InstMode = typeof INST_MODES[number];
+const statusChip = (fee: StudentFee): { label: string; cls: string } => {
+  if (fee.amountPending <= 0)
+    return {
+      label: "Paid",
+      cls: "text-green-600 bg-green-50 border-green-200",
+    };
+  if (isOverdue(fee.dueDate, fee.amountPending))
+    return { label: "Overdue", cls: "text-red-600 bg-red-50 border-red-200" };
+  return {
+    label: fee.status === "partial" ? "Partial" : "Pending",
+    cls: "text-yellow-600 bg-yellow-50 border-yellow-200",
+  };
+};
 
-function advanceDate(d: Date, mode: InstMode): Date {
-  const r = new Date(d);
-  if ("months" in mode && mode.months) r.setMonth(r.getMonth() + mode.months);
-  else if ("days" in mode && mode.days) r.setDate(r.getDate() + mode.days);
-  return r;
-}
+// ── Expanded row: schedule breakdown + payment history ───────────────────────
+const ExpandedRow = ({
+  fee,
+  onReceipt,
+}: {
+  fee: StudentFee;
+  onReceipt: (r: ReceiptData) => void;
+}) => {
+  const { data: installments = [], isLoading } = useFeeInstallments(fee.id);
+  const payments = installments.filter((i) => !i.scheduled);
+  const scheduled = installments.filter((i) => i.scheduled);
 
-function buildSchedule(pending: number, count: number, start: Date, mode: InstMode) {
-  if (count <= 0) return [];
-  const base    = Math.floor((pending / count) * 100) / 100;
-  const lastAmt = Math.round((pending - base * (count - 1)) * 100) / 100;
-  const rows: { date: Date; amount: number }[] = [];
-  let cur = new Date(start);
-  for (let i = 0; i < count; i++) {
-    rows.push({ date: new Date(cur), amount: i === count - 1 ? lastAmt : base });
-    if (i < count - 1) cur = advanceDate(cur, mode);
-  }
-  return rows;
-}
+  return (
+    <td colSpan={10} className="px-6 py-4 bg-muted/10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Payment Schedule
+          </p>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Seat Confirmation</span>
+              <span>{formatINR(fee.seatConfirmationAmount)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">First Payment</span>
+              <span>{formatINR(fee.firstPaymentAmount)}</span>
+            </div>
+            {fee.discountAmount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>
+                  Discount{" "}
+                  {fee.discountStatus !== "approved"
+                    ? `(${fee.discountStatus})`
+                    : ""}
+                </span>
+                <span>− {formatINR(fee.discountAmount)}</span>
+              </div>
+            )}
+            {scheduled.length > 0 && (
+              <div className="pt-1">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Scheduled installments
+                </p>
+                {scheduled.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex justify-between text-xs text-muted-foreground"
+                  >
+                    <span>{s.paymentDate}</span>
+                    <span>{formatINR(s.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-interface StudentFee {
-  id: string;
-  student_id: string;
-  fee_structure_id: string | null;
-  student_name: string | null;
-  batch_name: string | null;
-  total_amount: number;
-  seat_confirmation_amount: number;
-  first_payment_amount: number;
-  installment_count: number;
-  discount_amount: number;
-  amount_received: number;
-  amount_pending: number;
-  due_date: string | null;
-  status: string | null;
-  notes: string | null;
-  created_at: string;
-}
-
-interface FeeInstallment {
-  id: string;
-  student_fee_id: string;
-  amount: number;
-  payment_date: string;
-  payment_method: string;
-  receipt_no: string | null;
-  notes: string | null;
-  created_at: string;
-}
-
-const statusColor = (status: string | null, pending: number) => {
-  if (pending <= 0) return "text-green-600 bg-green-50 border-green-200";
-  if (status === "overdue") return "text-red-600 bg-red-50 border-red-200";
-  return "text-yellow-600 bg-yellow-50 border-yellow-200";
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Payment History
+          </p>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : payments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No payments recorded yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {payments.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between text-sm p-2 bg-background rounded-lg border border-border/50"
+                >
+                  <div>
+                    <span className="font-medium text-foreground">
+                      {formatINR(p.amount)}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {p.paymentMethod}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">
+                      {p.paymentDate}
+                    </p>
+                    {p.receiptNo && (
+                      <button
+                        onClick={() =>
+                          onReceipt({
+                            receiptNo: p.receiptNo as string,
+                            studentName: fee.studentName,
+                            batchName: fee.batchName,
+                            amount: p.amount,
+                            paymentMethod: p.paymentMethod,
+                            date: p.paymentDate,
+                            amountReceivedToDate: fee.amountReceived,
+                            amountPending: fee.amountPending,
+                            notes: p.notes,
+                          })
+                        }
+                        className="text-[10px] text-accent hover:underline flex items-center gap-0.5"
+                      >
+                        <Receipt className="w-3 h-3" /> {p.receiptNo}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {fee.notes && (
+        <p className="mt-3 text-xs text-muted-foreground italic">{fee.notes}</p>
+      )}
+    </td>
+  );
 };
 
 const FeeManagement: React.FC = () => {
-  const { user } = useAuth();
-  const [fees, setFees] = useState<StudentFee[]>([]);
-  const [installments, setInstallments] = useState<Record<string, FeeInstallment[]>>({});
-  const [loading, setLoading] = useState(true);
-  const [migrationNeeded, setMigrationNeeded] = useState(false);
+  const { canDo } = useCanDo();
+  const { data: fees = [], isLoading, error } = useStudentFees();
+
+  const collectMut = useCollectPayment();
+  const discountMut = useApplyDiscount();
+  const approveDiscMut = useApproveDiscount();
+  const rejectDiscMut = useRejectDiscount();
+  const editMut = useUpdateStudentFee();
+  const dueDateMut = useSetDueDate();
+  const scheduleMut = useScheduleInstallments();
+
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const perPage = 15;
-
-  // Expanded rows
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Discount dialog
+  const [paymentTarget, setPaymentTarget] = useState<StudentFee | null>(null);
+  const [payForm, setPayForm] = useState({
+    amount: "",
+    method: "Cash",
+    notes: "",
+  });
   const [discountTarget, setDiscountTarget] = useState<StudentFee | null>(null);
   const [discountAmt, setDiscountAmt] = useState("");
-
-  // Payment dialog
-  const [paymentTarget, setPaymentTarget] = useState<StudentFee | null>(null);
-  const [payForm, setPayForm] = useState({ amount: "", method: "Cash", notes: "" });
-  const [paying, setPaying] = useState(false);
-
-  // Due date dialog
   const [dueDateTarget, setDueDateTarget] = useState<StudentFee | null>(null);
   const [dueDate, setDueDate] = useState("");
+  const [refundTarget, setRefundTarget] = useState<StudentFee | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
-  // Installment dialog
-  const [instTarget,   setInstTarget]   = useState<StudentFee | null>(null);
-  const [instModeIdx,  setInstModeIdx]  = useState(0);
-  const [instCount,    setInstCount]    = useState(10);
-  const [instMonth,    setInstMonth]    = useState(new Date().getMonth());
-  const [instDay,      setInstDay]      = useState(new Date().getDate());
-  const [instYear,     setInstYear]     = useState(new Date().getFullYear());
-  const [scheduling,   setScheduling]   = useState(false);
+  const [instTarget, setInstTarget] = useState<StudentFee | null>(null);
+  const [instModeIdx, setInstModeIdx] = useState(0);
+  const [instCount, setInstCount] = useState(10);
+  const [instMonth, setInstMonth] = useState(new Date().getMonth());
+  const [instDay, setInstDay] = useState(new Date().getDate());
+  const [instYear, setInstYear] = useState(new Date().getFullYear());
 
-  // Edit dialog
   const [editTarget, setEditTarget] = useState<StudentFee | null>(null);
   const [editForm, setEditForm] = useState({
-    total_amount: "", seat_confirmation_amount: "", first_payment_amount: "",
-    installment_count: "", notes: "",
+    total: "",
+    seat: "",
+    first: "",
+    count: "",
+    notes: "",
   });
-  const [saving, setSaving] = useState(false);
 
-  // Receipt preview
-  const [receiptData, setReceiptData] = useState<any | null>(null);
+  const migrationNeeded =
+    !!error &&
+    /student_fees|schema cache|does not exist/i.test(
+      error instanceof Error ? error.message : String(error),
+    );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("student_fees")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
-      if (error.message?.includes("student_fees") || error.message?.includes("schema cache") || error.message?.includes("does not exist")) {
-        setMigrationNeeded(true);
-      } else {
-        toast.error("Failed to load fees: " + error.message);
-      }
-    } else {
-      setMigrationNeeded(false);
-    }
-    setFees((data || []) as StudentFee[]);
-    setLoading(false);
-  }, []);
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const filtered = useMemo(
+    () =>
+      fees.filter(
+        (f) =>
+          !search ||
+          (f.studentName || "").toLowerCase().includes(search.toLowerCase()) ||
+          (f.batchName || "").toLowerCase().includes(search.toLowerCase()),
+      ),
+    [fees, search],
+  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
 
-  useEffect(() => { load(); }, [load]);
-
-  const loadInstallments = async (feeId: string) => {
-    if (installments[feeId]) return; // already loaded
-    const { data } = await supabase
-      .from("fee_installments")
-      .select("*")
-      .eq("student_fee_id", feeId)
-      .order("payment_date", { ascending: false });
-    setInstallments(prev => ({ ...prev, [feeId]: (data || []) as FeeInstallment[] }));
-  };
+  const totals = useMemo(
+    () => ({
+      collected: fees.reduce((s, f) => s + f.amountReceived, 0),
+      pending: fees.reduce((s, f) => s + f.amountPending, 0),
+      total: fees.reduce((s, f) => s + f.totalAmount, 0),
+    }),
+    [fees],
+  );
 
   const toggleExpand = (id: string) => {
-    const next = new Set(expanded);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-      loadInstallments(id);
-    }
-    setExpanded(next);
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
-  // Filtered / paginated
-  const filtered = fees.filter(f =>
-    !search ||
-    (f.student_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (f.batch_name || "").toLowerCase().includes(search.toLowerCase())
-  );
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-  const totalPages = Math.ceil(filtered.length / perPage);
-
-  // Summaries
-  const totalCollected = fees.reduce((s, f) => s + f.amount_received, 0);
-  const totalPending = fees.reduce((s, f) => s + f.amount_pending, 0);
-  const totalFees = fees.reduce((s, f) => s + f.total_amount, 0);
-
-  // ── Apply Discount ───────────────────────────────────────────
-  const applyDiscount = async () => {
-    if (!discountTarget || !discountAmt) return;
-    const discount = parseFloat(discountAmt);
-    if (isNaN(discount) || discount < 0) return toast.error("Invalid discount amount");
-    const adjustedTotal = discountTarget.total_amount - discount;
-    const newPending = adjustedTotal - discountTarget.amount_received;
-    const { error } = await supabase
-      .from("student_fees")
-      .update({ discount_amount: discount, amount_pending: Math.max(0, newPending) })
-      .eq("id", discountTarget.id);
-    if (error) return toast.error("Failed to apply discount: " + error.message);
-    toast.success("Discount applied — fee recalculated");
-    setDiscountTarget(null);
-    setDiscountAmt("");
-    await load();
-  };
-
-  // ── Collect Payment ──────────────────────────────────────────
-  const collectPayment = async () => {
-    if (!paymentTarget || !payForm.amount) return;
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const collect = async () => {
+    if (!paymentTarget) return;
     const amount = parseFloat(payForm.amount);
-    if (isNaN(amount) || amount <= 0) return toast.error("Invalid payment amount");
-    if (amount > paymentTarget.amount_pending) return toast.error("Payment exceeds pending amount");
-
-    setPaying(true);
+    if (isNaN(amount) || amount <= 0)
+      return toast.error("Enter a valid payment amount");
     try {
-      const receiptNo = `REC-${Date.now().toString(36).toUpperCase()}`;
-      const today = new Date().toISOString().split("T")[0];
-
-      // Insert installment record
-      const { error: instErr } = await supabase.from("fee_installments").insert({
-        student_fee_id: paymentTarget.id,
+      const res = await collectMut.mutateAsync({
+        studentFeeId: paymentTarget.id,
         amount,
-        payment_date: today,
-        payment_method: payForm.method,
-        receipt_no: receiptNo,
-        notes: payForm.notes || null,
-        created_by: user?.profileId || null,
+        method: payForm.method,
+        notes: payForm.notes || undefined,
       });
-      if (instErr) return toast.error("Failed to record payment: " + instErr.message);
-
-      // Update student_fees totals
-      const newReceived = paymentTarget.amount_received + amount;
-      const newPending = paymentTarget.amount_pending - amount;
-      const { error: feeErr } = await supabase
-        .from("student_fees")
-        .update({
-          amount_received: newReceived,
-          amount_pending: Math.max(0, newPending),
-          status: newPending <= 0 ? "paid" : "partial",
-        })
-        .eq("id", paymentTarget.id);
-      if (feeErr) return toast.error("Failed to update fee record: " + feeErr.message);
-
-      toast.success(`₹${amount.toLocaleString()} collected — Receipt ${receiptNo}`);
-
-      // Show receipt
-      setReceiptData({
-        studentName: paymentTarget.student_name,
-        batchName: paymentTarget.batch_name,
-        amount,
-        receiptNo,
+      toast.success(
+        `${formatINR(res.amount)} collected — Receipt ${res.receiptNo}`,
+      );
+      setReceipt({
+        receiptNo: res.receiptNo,
+        studentName: paymentTarget.studentName,
+        batchName: paymentTarget.batchName,
+        amount: res.amount,
         paymentMethod: payForm.method,
-        date: today,
+        date: new Date().toISOString().slice(0, 10),
+        amountReceivedToDate: res.amountReceived,
+        amountPending: res.amountPending,
+        notes: payForm.notes || undefined,
       });
-
       setPaymentTarget(null);
       setPayForm({ amount: "", method: "Cash", notes: "" });
-      // Reload installments for this fee
-      setInstallments(prev => ({ ...prev, [paymentTarget.id]: [] }));
-      await load();
-    } finally {
-      setPaying(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Payment failed");
     }
   };
 
-  // ── Set Due Date ──────────────────────────────────────────────
-  const saveDueDate = async () => {
-    if (!dueDateTarget || !dueDate) return;
-    const { error } = await supabase.from("student_fees").update({ due_date: dueDate }).eq("id", dueDateTarget.id);
-    if (error) return toast.error("Failed: " + error.message);
-    toast.success("Due date set");
-    setDueDateTarget(null);
-    setDueDate("");
-    await load();
+  const applyDiscount = async () => {
+    if (!discountTarget) return;
+    const amount = parseFloat(discountAmt);
+    if (isNaN(amount) || amount < 0)
+      return toast.error("Enter a valid discount amount");
+    try {
+      await discountMut.mutateAsync({
+        studentFeeId: discountTarget.id,
+        discountAmount: amount,
+      });
+      toast.success(
+        canDo("fee.discount.approve")
+          ? "Discount applied"
+          : "Discount submitted for approval",
+      );
+      setDiscountTarget(null);
+      setDiscountAmt("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to apply discount");
+    }
   };
 
-  // ── Installment schedule ─────────────────────────────────────────────────
-  const instMode     = INST_MODES[instModeIdx];
-  const instStartDate = useMemo(
+  const decideDiscount = async (fee: StudentFee, approve: boolean) => {
+    try {
+      if (approve) await approveDiscMut.mutateAsync(fee.id);
+      else await rejectDiscMut.mutateAsync(fee.id);
+      toast.success(approve ? "Discount approved" : "Discount rejected");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Action failed");
+    }
+  };
+
+  const saveDueDate = async () => {
+    if (!dueDateTarget || !dueDate) return;
+    try {
+      await dueDateMut.mutateAsync({ id: dueDateTarget.id, dueDate });
+      toast.success("Due date set");
+      setDueDateTarget(null);
+      setDueDate("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const instMode = INSTALLMENT_MODES[instModeIdx];
+  const instStart = useMemo(
     () => new Date(instYear, instMonth, Math.min(instDay, 28)),
-    [instYear, instMonth, instDay]
+    [instYear, instMonth, instDay],
   );
   const instSchedule = useMemo(
-    () => instTarget && instCount > 0
-      ? buildSchedule(instTarget.amount_pending, instCount, instStartDate, instMode)
-      : [],
-    [instTarget, instCount, instStartDate, instMode]
+    () =>
+      instTarget
+        ? buildSchedule(instTarget.amountPending, instCount, instStart, instMode)
+        : [],
+    [instTarget, instCount, instStart, instMode],
   );
-  const instAmountEach = instTarget && instCount > 0
-    ? Math.floor((instTarget.amount_pending / instCount) * 100) / 100
-    : 0;
 
-  const openInstallmentDialog = (f: StudentFee) => {
+  const openInstallment = (f: StudentFee) => {
     setInstTarget(f);
     setInstModeIdx(0);
-    setInstCount(f.installment_count > 0 ? f.installment_count : 10);
+    setInstCount(f.installmentCount > 0 ? f.installmentCount : 10);
     const now = new Date();
     setInstMonth(now.getMonth());
     setInstDay(now.getDate());
     setInstYear(now.getFullYear());
   };
 
-  const handleScheduleInstallments = async () => {
+  const scheduleInstallments = async () => {
     if (!instTarget || instSchedule.length === 0) return;
-    setScheduling(true);
     try {
-      // Remove existing scheduled (unpaid) entries
-      await supabase.from("fee_installments")
-        .delete()
-        .eq("student_fee_id", instTarget.id)
-        .eq("payment_method", "Scheduled");
-
-      // Insert new schedule
-      const rows = instSchedule.map((row, i) => ({
-        student_fee_id: instTarget.id,
-        amount:         row.amount,
-        payment_date:   row.date.toISOString().split("T")[0],
-        payment_method: "Scheduled",
-        notes:          `Installment ${i + 1} of ${instSchedule.length}`,
-        created_by:     user?.profileId || null,
-      }));
-      const { error: insErr } = await supabase.from("fee_installments").insert(rows);
-      if (insErr) throw new Error(insErr.message);
-
-      // Update student_fees
-      const { error: updErr } = await supabase.from("student_fees").update({
-        installment_count: instSchedule.length,
-        due_date:          instSchedule[0].date.toISOString().split("T")[0],
-      }).eq("id", instTarget.id);
-      if (updErr) throw new Error(updErr.message);
-
-      toast.success(`${instSchedule.length} installments scheduled for ${instTarget.student_name}!`);
+      const count = await scheduleMut.mutateAsync({
+        studentFeeId: instTarget.id,
+        count: instCount,
+        startDate: instStart.toISOString().slice(0, 10),
+        modeId: instMode.id,
+      });
+      toast.success(`${count} installments scheduled for ${instTarget.studentName}`);
       setInstTarget(null);
-      // Refresh installments for that row if expanded
-      setInstallments(prev => ({ ...prev, [instTarget.id]: [] }));
-      await load();
-    } catch (err: any) {
-      toast.error("Scheduling failed: " + err.message);
-    } finally {
-      setScheduling(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Scheduling failed");
     }
   };
 
-  // ── Edit Fee Record ──────────────────────────────────────────────────────
-  const openEditDialog = (f: StudentFee) => {
+  const openEdit = (f: StudentFee) => {
     setEditTarget(f);
     setEditForm({
-      total_amount:              f.total_amount?.toString() || "0",
-      seat_confirmation_amount:  f.seat_confirmation_amount?.toString() || "0",
-      first_payment_amount:      f.first_payment_amount?.toString() || "0",
-      installment_count:         f.installment_count?.toString() || "0",
-      notes:                     f.notes || "",
+      total: String(f.totalAmount || 0),
+      seat: String(f.seatConfirmationAmount || 0),
+      first: String(f.firstPaymentAmount || 0),
+      count: String(f.installmentCount || 0),
+      notes: f.notes || "",
     });
   };
 
-  const handleSaveEdit = async () => {
+  const saveEdit = async () => {
     if (!editTarget) return;
-    const totalAmount   = parseFloat(editForm.total_amount) || 0;
-    const seatAmt       = parseFloat(editForm.seat_confirmation_amount) || 0;
-    const firstAmt      = parseFloat(editForm.first_payment_amount) || 0;
-    const instCount     = parseInt(editForm.installment_count) || 0;
-
-    if (totalAmount <= 0) return toast.error("Total fee must be greater than 0");
-
-    // Recalculate pending from fresh total minus existing discount & received
-    const newPending  = Math.max(0, totalAmount - editTarget.discount_amount - editTarget.amount_received);
-    const newStatus   = newPending <= 0 ? "paid" : editTarget.amount_received > 0 ? "partial" : "pending";
-
-    setSaving(true);
+    const total = parseFloat(editForm.total) || 0;
+    if (total <= 0) return toast.error("Total fee must be greater than 0");
     try {
-      const { error } = await supabase.from("student_fees").update({
-        total_amount:             totalAmount,
-        seat_confirmation_amount: seatAmt,
-        first_payment_amount:     firstAmt,
-        installment_count:        instCount,
-        amount_pending:           newPending,
-        status:                   newStatus,
-        notes:                    editForm.notes || null,
-      }).eq("id", editTarget.id);
-
-      if (error) return toast.error("Failed to save: " + error.message);
-
-      toast.success(`Fee record updated for ${editTarget.student_name}`);
+      await editMut.mutateAsync({
+        id: editTarget.id,
+        input: {
+          totalAmount: total,
+          seatConfirmationAmount: parseFloat(editForm.seat) || 0,
+          firstPaymentAmount: parseFloat(editForm.first) || 0,
+          installmentCount: parseInt(editForm.count) || 0,
+          notes: editForm.notes || undefined,
+        },
+      });
+      toast.success(`Fee record updated for ${editTarget.studentName}`);
       setEditTarget(null);
-      await load(); // refreshes totals automatically
-    } finally {
-      setSaving(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h1 className="text-xl md:text-2xl font-display font-bold text-foreground">Fees Management</h1>
-        <p className="text-sm text-muted-foreground">Students are added here automatically when created in Student Control.</p>
+        <h1 className="text-xl md:text-2xl font-display font-bold text-foreground">
+          Fees Management
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Students appear here automatically when created in Student Control.
+        </p>
       </div>
 
       {migrationNeeded && (
@@ -396,20 +442,27 @@ const FeeManagement: React.FC = () => {
           <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0 text-yellow-600" />
           <div>
             <p className="font-semibold text-sm">Database migration required</p>
-            <p className="text-sm mt-0.5">The fee tracking tables haven't been created yet. Run the SQL migration script in your <strong>Supabase SQL Editor</strong> (<code>supabase/migrations/20260415000000_smart_ark_full_extension.sql</code>), then refresh this page.</p>
+            <p className="text-sm mt-0.5">
+              Run the fee tracking migration in your Supabase SQL Editor, then
+              refresh this page.
+            </p>
           </div>
         </div>
       )}
 
-      {/* Summary Cards */}
+      {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="glass-card p-4 flex items-center gap-4 border border-green-200/40 bg-green-50/20">
           <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground font-medium">Total Collected</p>
-            <p className="text-2xl font-bold text-foreground">₹{totalCollected.toLocaleString()}</p>
+            <p className="text-sm text-muted-foreground font-medium">
+              Total Collected
+            </p>
+            <p className="text-2xl font-bold text-foreground">
+              {formatINR(totals.collected)}
+            </p>
           </div>
         </div>
         <div className="glass-card p-4 flex items-center gap-4 border border-red-200/40 bg-red-50/20">
@@ -417,8 +470,12 @@ const FeeManagement: React.FC = () => {
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground font-medium">Total Pending</p>
-            <p className="text-2xl font-bold text-foreground">₹{totalPending.toLocaleString()}</p>
+            <p className="text-sm text-muted-foreground font-medium">
+              Total Pending
+            </p>
+            <p className="text-2xl font-bold text-foreground">
+              {formatINR(totals.pending)}
+            </p>
           </div>
         </div>
         <div className="glass-card p-4 flex items-center gap-4">
@@ -426,8 +483,12 @@ const FeeManagement: React.FC = () => {
             <DollarSign className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground font-medium">Total Fee Value</p>
-            <p className="text-2xl font-bold text-foreground">₹{totalFees.toLocaleString()}</p>
+            <p className="text-sm text-muted-foreground font-medium">
+              Total Fee Value
+            </p>
+            <p className="text-2xl font-bold text-foreground">
+              {formatINR(totals.total)}
+            </p>
           </div>
         </div>
       </div>
@@ -435,7 +496,15 @@ const FeeManagement: React.FC = () => {
       {/* Search */}
       <div className="relative w-72">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search by student or batch..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="pl-9 h-9 bg-background/50" />
+        <Input
+          placeholder="Search by student or batch…"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          className="pl-9 h-9 bg-background/50"
+        />
       </div>
 
       {/* Table */}
@@ -457,403 +526,612 @@ const FeeManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
-              {loading && <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>}
-              {!loading && filtered.length === 0 && (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
-                  No fee records found. Add students with fee structures in Student Control.
-                </td></tr>
+              {isLoading && (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
+                    Loading…
+                  </td>
+                </tr>
               )}
-              {paginated.map(f => (
-                <React.Fragment key={f.id}>
-                  <tr className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3">
-                      <button onClick={() => toggleExpand(f.id)} className="text-muted-foreground hover:text-foreground transition-colors">
-                        {expanded.has(f.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-foreground">{f.student_name || "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{f.batch_name || "—"}</td>
-                    <td className="px-4 py-3 font-medium">₹{f.total_amount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {f.discount_amount > 0 ? <span className="text-green-600">−₹{f.discount_amount.toLocaleString()}</span> : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-green-600 font-medium">₹{f.amount_received.toLocaleString()}</td>
-                    <td className="px-4 py-3 font-bold text-foreground">₹{f.amount_pending.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{f.due_date || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full border capitalize ${statusColor(f.status, f.amount_pending)}`}>
-                        {f.amount_pending <= 0 ? "Paid" : f.status || "Pending"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex gap-1 justify-end flex-wrap">
-                        {f.amount_pending > 0 && (
-                          <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => { setPaymentTarget(f); setPayForm({ amount: "", method: "Cash", notes: "" }); }}>
-                            <CreditCard className="w-3 h-3" /> Collect
-                          </Button>
-                        )}
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-accent/40 text-accent hover:bg-accent/10" onClick={() => openInstallmentDialog(f)}>
-                          <CalendarClock className="w-3 h-3" />
-                          {f.installment_count > 0 ? `${f.installment_count} EMI` : "Set EMI"}
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setDiscountTarget(f); setDiscountAmt(f.discount_amount?.toString() || ""); }}>
-                          <Percent className="w-3 h-3" /> Discount
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setDueDateTarget(f); setDueDate(f.due_date || ""); }}>
-                          Set Due
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-blue-600 border-blue-300 hover:bg-blue-50" onClick={() => openEditDialog(f)}>
-                          <Pencil className="w-3 h-3" /> Edit
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Expanded: installment history + fee breakdown */}
-                  {expanded.has(f.id) && (
-                    <tr className="bg-muted/10">
-                      <td colSpan={10} className="px-6 py-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Fee Structure Breakdown */}
-                          <div>
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Payment Schedule</p>
-                            <div className="space-y-1 text-sm">
-                              <div className="flex justify-between"><span className="text-muted-foreground">Seat Confirmation</span><span>₹{f.seat_confirmation_amount.toLocaleString()}</span></div>
-                              <div className="flex justify-between"><span className="text-muted-foreground">First Payment</span><span>₹{f.first_payment_amount.toLocaleString()}</span></div>
-                              {(() => {
-                                const adj = f.total_amount - f.discount_amount;
-                                const remaining = adj - f.seat_confirmation_amount - f.first_payment_amount;
-                                const perInst = f.installment_count > 0 ? Math.round(remaining / f.installment_count) : 0;
-                                return (
-                                  <div className="flex justify-between font-medium"><span className="text-muted-foreground">Balance ({f.installment_count} installments of ≈ ₹{perInst.toLocaleString()})</span><span>₹{remaining.toLocaleString()}</span></div>
-                                );
-                              })()}
-                              {f.discount_amount > 0 && <div className="flex justify-between text-green-600"><span>Discount Applied</span><span>−₹{f.discount_amount.toLocaleString()}</span></div>}
+              {!isLoading && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
+                    No fee records found.
+                  </td>
+                </tr>
+              )}
+              {paged.map((f) => {
+                const chip = statusChip(f);
+                return (
+                  <React.Fragment key={f.id}>
+                    <tr className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => toggleExpand(f.id)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          {expanded.has(f.id) ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        {f.studentName || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                        {f.batchName || "—"}
+                      </td>
+                      <td className="px-4 py-3 font-medium">
+                        {formatINR(f.totalAmount)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {f.discountAmount > 0 ? (
+                          f.discountStatus === "pending" ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-amber-600 text-xs">
+                                {formatINR(f.discountAmount)} pending
+                              </span>
+                              {canDo("fee.discount.approve") && (
+                                <>
+                                  <button
+                                    onClick={() => decideDiscount(f, true)}
+                                    className="text-[10px] text-green-600 hover:underline"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => decideDiscount(f, false)}
+                                    className="text-[10px] text-red-600 hover:underline"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
                             </div>
-                          </div>
-
-                          {/* Payment History */}
-                          <div>
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Payment History</p>
-                            {(installments[f.id] || []).length === 0 ? (
-                              <p className="text-sm text-muted-foreground">No payments recorded yet.</p>
-                            ) : (
-                              <div className="space-y-2">
-                                {(installments[f.id] || []).map(inst => (
-                                  <div key={inst.id} className="flex items-center justify-between text-sm p-2 bg-background rounded-lg border border-border/50">
-                                    <div>
-                                      <span className="font-medium text-foreground">₹{inst.amount.toLocaleString()}</span>
-                                      <span className="text-xs text-muted-foreground ml-2">{inst.payment_method}</span>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-xs text-muted-foreground">{inst.payment_date}</p>
-                                      {inst.receipt_no && (
-                                        <button
-                                          onClick={() => setReceiptData({
-                                            studentName: f.student_name,
-                                            batchName: f.batch_name,
-                                            amount: inst.amount,
-                                            receiptNo: inst.receipt_no,
-                                            paymentMethod: inst.payment_method,
-                                            date: inst.payment_date,
-                                          })}
-                                          className="text-[10px] text-accent hover:underline flex items-center gap-0.5"
-                                        >
-                                          <Receipt className="w-3 h-3" /> {inst.receipt_no}
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          ) : f.discountStatus === "rejected" ? (
+                            <span className="text-muted-foreground text-xs">
+                              rejected
+                            </span>
+                          ) : (
+                            <span className="text-green-600">
+                              − {formatINR(f.discountAmount)}
+                            </span>
+                          )
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-green-600 font-medium">
+                        {formatINR(f.amountReceived)}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-foreground">
+                        {formatINR(f.amountPending)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                        {f.dueDate || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-xs font-medium px-2.5 py-1 rounded-full border ${chip.cls}`}
+                        >
+                          {chip.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-1 justify-end flex-wrap">
+                          {f.amountPending > 0 && (
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              disabled={!canDo("fee.collect")}
+                              onClick={() => {
+                                setPaymentTarget(f);
+                                setPayForm({
+                                  amount: "",
+                                  method: "Cash",
+                                  notes: "",
+                                });
+                              }}
+                            >
+                              <CreditCard className="w-3 h-3" /> Collect
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 border-accent/40 text-accent hover:bg-accent/10"
+                            onClick={() => openInstallment(f)}
+                          >
+                            <CalendarClock className="w-3 h-3" />
+                            {f.installmentCount > 0
+                              ? `${f.installmentCount} EMI`
+                              : "Set EMI"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            disabled={!canDo("fee.discount")}
+                            onClick={() => {
+                              setDiscountTarget(f);
+                              setDiscountAmt(
+                                f.discountAmount ? String(f.discountAmount) : "",
+                              );
+                            }}
+                          >
+                            <Percent className="w-3 h-3" /> Discount
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => {
+                              setDueDateTarget(f);
+                              setDueDate(f.dueDate || "");
+                            }}
+                          >
+                            Set Due
+                          </Button>
+                          {f.amountReceived > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1 text-orange-600 border-orange-300 hover:bg-orange-50"
+                              disabled={!canDo("fee.refund")}
+                              onClick={() => setRefundTarget(f)}
+                            >
+                              <Undo2 className="w-3 h-3" /> Refund
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 text-blue-600 border-blue-300 hover:bg-blue-50"
+                            disabled={!canDo("fee.edit")}
+                            onClick={() => openEdit(f)}
+                          >
+                            <Pencil className="w-3 h-3" /> Edit
+                          </Button>
                         </div>
-                        {f.notes && <p className="mt-3 text-xs text-muted-foreground italic">{f.notes}</p>}
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
+                    {expanded.has(f.id) && (
+                      <tr>
+                        <ExpandedRow fee={f} onReceipt={setReceipt} />
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
-        {filtered.length > perPage && (
+        {filtered.length > PER_PAGE && (
           <div className="flex justify-between items-center px-4 py-3 border-t border-border/50 text-sm text-muted-foreground">
-            <span>Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of {filtered.length}</span>
+            <span>
+              Showing {(safePage - 1) * PER_PAGE + 1}–
+              {Math.min(safePage * PER_PAGE, filtered.length)} of{" "}
+              {filtered.length}
+            </span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</Button>
-              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={safePage === 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={safePage === totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Discount Dialog */}
-      <Dialog open={!!discountTarget} onOpenChange={open => { if (!open) { setDiscountTarget(null); setDiscountAmt(""); } }}>
+      {/* Discount dialog */}
+      <Dialog
+        open={!!discountTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDiscountTarget(null);
+            setDiscountAmt("");
+          }
+        }}
+      >
         <DialogContent>
-          <DialogHeader><DialogTitle>Apply Discount — {discountTarget?.student_name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              Apply Discount — {discountTarget?.studentName}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="text-sm text-muted-foreground space-y-1">
-              <div className="flex justify-between"><span>Total Fee</span><span className="font-medium text-foreground">₹{discountTarget?.total_amount.toLocaleString()}</span></div>
-              <div className="flex justify-between"><span>Current Discount</span><span>₹{discountTarget?.discount_amount.toLocaleString()}</span></div>
+              <div className="flex justify-between">
+                <span>Total Fee</span>
+                <span className="font-medium text-foreground">
+                  {formatINR(discountTarget?.totalAmount ?? 0)}
+                </span>
+              </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">New Discount Amount (₹)</label>
-              <Input type="number" value={discountAmt} onChange={e => setDiscountAmt(e.target.value)} placeholder="e.g. 5000" />
-              {discountAmt && !isNaN(parseFloat(discountAmt)) && discountTarget && (
-                <p className="text-xs text-muted-foreground">
-                  Adjusted total: ₹{(discountTarget.total_amount - parseFloat(discountAmt)).toLocaleString()} |
-                  New pending: ₹{Math.max(0, discountTarget.total_amount - parseFloat(discountAmt) - discountTarget.amount_received).toLocaleString()}
+              <label className="text-sm font-medium">
+                Discount Amount (₹)
+              </label>
+              <Input
+                type="number"
+                value={discountAmt}
+                onChange={(e) => setDiscountAmt(e.target.value)}
+                placeholder="e.g. 5000"
+              />
+              {!canDo("fee.discount.approve") && (
+                <p className="text-[11px] text-amber-600">
+                  This discount will be submitted for admin approval before it
+                  reduces the balance.
                 </p>
               )}
             </div>
-            <Button className="w-full" onClick={applyDiscount}>Apply Discount</Button>
+            <Button
+              className="w-full"
+              onClick={applyDiscount}
+              disabled={discountMut.isPending}
+            >
+              {discountMut.isPending ? "Applying…" : "Apply Discount"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Payment Dialog */}
-      <Dialog open={!!paymentTarget} onOpenChange={open => { if (!open) { setPaymentTarget(null); setPayForm({ amount: "", method: "Cash", notes: "" }); } }}>
+      {/* Payment dialog */}
+      <Dialog
+        open={!!paymentTarget}
+        onOpenChange={(o) => {
+          if (collectMut.isPending) return;
+          if (!o) {
+            setPaymentTarget(null);
+            setPayForm({ amount: "", method: "Cash", notes: "" });
+          }
+        }}
+      >
         <DialogContent>
-          <DialogHeader><DialogTitle>Collect Payment — {paymentTarget?.student_name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              Collect Payment — {paymentTarget?.studentName}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="text-sm text-muted-foreground space-y-1">
-              <div className="flex justify-between"><span>Total Fee</span><span className="font-medium text-foreground">₹{paymentTarget?.total_amount.toLocaleString()}</span></div>
-              {(paymentTarget?.discount_amount || 0) > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>−₹{paymentTarget?.discount_amount.toLocaleString()}</span></div>}
-              <div className="flex justify-between"><span>Already Received</span><span className="text-green-600">₹{paymentTarget?.amount_received.toLocaleString()}</span></div>
-              <div className="flex justify-between font-semibold text-foreground border-t border-border/40 pt-1"><span>Pending</span><span>₹{paymentTarget?.amount_pending.toLocaleString()}</span></div>
+              <div className="flex justify-between">
+                <span>Already Received</span>
+                <span className="text-green-600">
+                  {formatINR(paymentTarget?.amountReceived ?? 0)}
+                </span>
+              </div>
+              <div className="flex justify-between font-semibold text-foreground border-t border-border/40 pt-1">
+                <span>Pending</span>
+                <span>{formatINR(paymentTarget?.amountPending ?? 0)}</span>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Payment Amount (₹) *</label>
-                <Input type="number" value={payForm.amount} onChange={e => setPayForm({ ...payForm, amount: e.target.value })} placeholder="Enter amount" />
+                <label className="text-sm font-medium">
+                  Payment Amount (₹) *
+                </label>
+                <Input
+                  type="number"
+                  value={payForm.amount}
+                  onChange={(e) =>
+                    setPayForm({ ...payForm, amount: e.target.value })
+                  }
+                  placeholder="Enter amount"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Payment Method</label>
-                <select value={payForm.method} onChange={e => setPayForm({ ...payForm, method: e.target.value })} className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm">
-                  <option>Cash</option><option>Cheque</option><option>Bank Transfer</option><option>UPI</option>
+                <select
+                  value={payForm.method}
+                  onChange={(e) =>
+                    setPayForm({ ...payForm, method: e.target.value })
+                  }
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
+                >
+                  <option>Cash</option>
+                  <option>Cheque</option>
+                  <option>Bank Transfer</option>
+                  <option>UPI</option>
+                  <option>Card</option>
                 </select>
               </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Notes (Optional)</label>
-              <Input value={payForm.notes} onChange={e => setPayForm({ ...payForm, notes: e.target.value })} placeholder="Any additional notes" />
+              <Input
+                value={payForm.notes}
+                onChange={(e) =>
+                  setPayForm({ ...payForm, notes: e.target.value })
+                }
+                placeholder="Any additional notes"
+              />
             </div>
-            <Button className="w-full" onClick={collectPayment} disabled={paying}>
-              {paying ? "Processing..." : "Confirm Payment & Generate Receipt"}
+            <Button
+              className="w-full"
+              onClick={collect}
+              disabled={collectMut.isPending}
+            >
+              {collectMut.isPending
+                ? "Processing…"
+                : "Confirm Payment & Generate Receipt"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Due Date Dialog */}
-      <Dialog open={!!dueDateTarget} onOpenChange={open => { if (!open) { setDueDateTarget(null); setDueDate(""); } }}>
+      {/* Due date dialog */}
+      <Dialog
+        open={!!dueDateTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDueDateTarget(null);
+            setDueDate("");
+          }
+        }}
+      >
         <DialogContent>
-          <DialogHeader><DialogTitle>Set Due Date — {dueDateTarget?.student_name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Set Due Date — {dueDateTarget?.studentName}</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Due Date</label>
-              <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
             </div>
-            <Button className="w-full" onClick={saveDueDate}>Save Due Date</Button>
+            <Button className="w-full" onClick={saveDueDate}>
+              Save Due Date
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ── Installment Setting Dialog ─────────────────────────────────────── */}
-      <Dialog open={!!instTarget} onOpenChange={open => { if (!open) setInstTarget(null); }}>
+      {/* Installment dialog */}
+      <Dialog
+        open={!!instTarget}
+        onOpenChange={(o) => !o && setInstTarget(null)}
+      >
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Installment Setting</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Installment Setting</DialogTitle>
+          </DialogHeader>
           <div className="space-y-5 py-2">
-            {/* Info row */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-muted-foreground text-xs mb-0.5">Student Name</p>
-                <p className="font-semibold text-foreground">{instTarget?.student_name}</p>
+                <p className="text-muted-foreground text-xs mb-0.5">Student</p>
+                <p className="font-semibold text-foreground">
+                  {instTarget?.studentName}
+                </p>
               </div>
               <div className="text-right">
-                <p className="text-muted-foreground text-xs mb-0.5">Pending Amount</p>
-                <p className="font-semibold text-foreground">₹{instTarget?.amount_pending.toLocaleString()}</p>
+                <p className="text-muted-foreground text-xs mb-0.5">
+                  Pending Amount
+                </p>
+                <p className="font-semibold text-foreground">
+                  {formatINR(instTarget?.amountPending ?? 0)}
+                </p>
               </div>
             </div>
             <div className="h-px bg-border/50" />
-
-            {/* Mode + Date */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Installment Mode <span className="text-red-500">*</span></label>
-                <select value={instModeIdx} onChange={e => setInstModeIdx(Number(e.target.value))}
-                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent">
-                  {INST_MODES.map((m, i) => <option key={m.label} value={i}>{m.label}</option>)}
+                <label className="text-sm font-medium">Installment Mode</label>
+                <select
+                  value={instModeIdx}
+                  onChange={(e) => setInstModeIdx(Number(e.target.value))}
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
+                >
+                  {INSTALLMENT_MODES.map((m, i) => (
+                    <option key={m.id} value={i}>
+                      {m.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Start Installment Date <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium">Start Date</label>
                 <div className="flex gap-1">
-                  <select value={instMonth} onChange={e => setInstMonth(Number(e.target.value))}
-                    className="flex-1 bg-background border border-border rounded-md px-2 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent">
-                    {MONTHS.map((m, i) => <option key={m} value={i}>{m.slice(0,3)}</option>)}
+                  <select
+                    value={instMonth}
+                    onChange={(e) => setInstMonth(Number(e.target.value))}
+                    className="flex-1 bg-background border border-border rounded-md px-2 py-2 text-xs"
+                  >
+                    {MONTHS.map((m, i) => (
+                      <option key={m} value={i}>
+                        {m.slice(0, 3)}
+                      </option>
+                    ))}
                   </select>
-                  <input type="number" min={1} max={31} value={instDay}
-                    onChange={e => setInstDay(Math.min(31, Math.max(1, Number(e.target.value))))}
-                    className="w-12 bg-background border border-border rounded-md px-2 py-2 text-xs text-center focus:outline-none focus:ring-1 focus:ring-accent" />
-                  <input type="number" min={2024} max={2035} value={instYear}
-                    onChange={e => setInstYear(Number(e.target.value))}
-                    className="w-16 bg-background border border-border rounded-md px-2 py-2 text-xs text-center focus:outline-none focus:ring-1 focus:ring-accent" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={instDay}
+                    onChange={(e) =>
+                      setInstDay(
+                        Math.min(31, Math.max(1, Number(e.target.value))),
+                      )
+                    }
+                    className="w-12 bg-background border border-border rounded-md px-2 py-2 text-xs text-center"
+                  />
+                  <input
+                    type="number"
+                    min={2024}
+                    max={2035}
+                    value={instYear}
+                    onChange={(e) => setInstYear(Number(e.target.value))}
+                    className="w-16 bg-background border border-border rounded-md px-2 py-2 text-xs text-center"
+                  />
                 </div>
               </div>
             </div>
-
-            {/* Count + Amount */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">No of Installments <span className="text-red-500">*</span></label>
-                <Input type="number" min={1} max={60} value={instCount}
-                  onChange={e => setInstCount(Math.max(1, Math.min(60, Number(e.target.value))))}
-                  className="bg-background" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Installment Amount</label>
-                <div className="h-10 flex items-center px-3 rounded-md bg-muted/40 border border-border/60 text-sm font-semibold text-foreground">
-                  ₹{instAmountEach > 0 ? instAmountEach.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
-                </div>
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">No. of Installments</label>
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                value={instCount}
+                onChange={(e) =>
+                  setInstCount(
+                    Math.max(1, Math.min(60, Number(e.target.value))),
+                  )
+                }
+              />
             </div>
-
-            {/* Schedule preview */}
             {instSchedule.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Schedule Preview ({instSchedule.length} installments)
+                  Schedule Preview ({instSchedule.length})
                 </p>
                 <div className="max-h-36 overflow-y-auto rounded-lg border border-border/50 divide-y divide-border/40 text-xs">
                   {instSchedule.map((row, i) => (
-                    <div key={i} className="flex justify-between items-center px-3 py-1.5 hover:bg-muted/20">
+                    <div
+                      key={i}
+                      className="flex justify-between items-center px-3 py-1.5"
+                    >
                       <span className="text-muted-foreground">
-                        #{i + 1} · {row.date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        #{i + 1} ·{" "}
+                        {row.date.toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
                       </span>
-                      <span className="font-medium text-foreground">₹{row.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                      <span className="font-medium text-foreground">
+                        {formatINR(row.amount)}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-
-            <Button className="w-full" size="lg" onClick={handleScheduleInstallments}
-              disabled={scheduling || instSchedule.length === 0}>
-              {scheduling ? "Scheduling…" : "Schedule Installment"}
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={scheduleInstallments}
+              disabled={scheduleMut.isPending || instSchedule.length === 0}
+            >
+              {scheduleMut.isPending ? "Scheduling…" : "Schedule Installment"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Fee Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={!!editTarget} onOpenChange={open => { if (!open) setEditTarget(null); }}>
+      {/* Edit dialog */}
+      <Dialog
+        open={!!editTarget}
+        onOpenChange={(o) => !o && setEditTarget(null)}
+      >
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Edit Fee Record — {editTarget?.student_name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              Edit Fee Record — {editTarget?.studentName}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Read-only info */}
             <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
-              <div><span className="font-medium text-foreground">Already Received:</span> ₹{editTarget?.amount_received.toLocaleString()}</div>
-              <div><span className="font-medium text-foreground">Discount Applied:</span> ₹{editTarget?.discount_amount.toLocaleString()}</div>
+              <div>
+                <span className="font-medium text-foreground">Received:</span>{" "}
+                {formatINR(editTarget?.amountReceived ?? 0)}
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Discount:</span>{" "}
+                {formatINR(editTarget?.discountAmount ?? 0)}
+              </div>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Total Fee (₹) <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium">Total Fee (₹) *</label>
                 <Input
-                  type="number" min={0}
-                  value={editForm.total_amount}
-                  onChange={e => setEditForm({ ...editForm, total_amount: e.target.value })}
-                  placeholder="e.g. 80000"
+                  type="number"
+                  value={editForm.total}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, total: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Seat Confirmation (₹)</label>
+                <label className="text-sm font-medium">
+                  Seat Confirmation (₹)
+                </label>
                 <Input
-                  type="number" min={0}
-                  value={editForm.seat_confirmation_amount}
-                  onChange={e => setEditForm({ ...editForm, seat_confirmation_amount: e.target.value })}
-                  placeholder="e.g. 10000"
+                  type="number"
+                  value={editForm.seat}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, seat: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">First Payment (₹)</label>
                 <Input
-                  type="number" min={0}
-                  value={editForm.first_payment_amount}
-                  onChange={e => setEditForm({ ...editForm, first_payment_amount: e.target.value })}
-                  placeholder="e.g. 20000"
+                  type="number"
+                  value={editForm.first}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, first: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">No. of Installments</label>
+                <label className="text-sm font-medium">Installments</label>
                 <Input
-                  type="number" min={0}
-                  value={editForm.installment_count}
-                  onChange={e => setEditForm({ ...editForm, installment_count: e.target.value })}
-                  placeholder="e.g. 6"
+                  type="number"
+                  value={editForm.count}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, count: e.target.value })
+                  }
                 />
               </div>
             </div>
-
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
               <Input
                 value={editForm.notes}
-                onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
-                placeholder="Optional notes..."
+                onChange={(e) =>
+                  setEditForm({ ...editForm, notes: e.target.value })
+                }
+                placeholder="Optional notes…"
               />
             </div>
-
-            {/* Live recalculation preview */}
-            {editForm.total_amount && editTarget && (
-              <div className="text-xs bg-blue-50/60 border border-blue-200/50 rounded-lg p-3 space-y-1">
-                <p className="font-semibold text-blue-700 mb-1">After Save:</p>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>New Total</span>
-                  <span className="font-medium text-foreground">₹{(parseFloat(editForm.total_amount) || 0).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>New Pending</span>
-                  <span className="font-medium text-red-600">
-                    ₹{Math.max(0, (parseFloat(editForm.total_amount) || 0) - editTarget.discount_amount - editTarget.amount_received).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <Button className="w-full" onClick={handleSaveEdit} disabled={saving}>
-              {saving ? "Saving…" : "Save Changes"}
+            <Button
+              className="w-full"
+              onClick={saveEdit}
+              disabled={editMut.isPending}
+            >
+              {editMut.isPending ? "Saving…" : "Save Changes"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Receipt Preview */}
-      {receiptData && (
-        <Dialog open={!!receiptData} onOpenChange={open => { if (!open) setReceiptData(null); }}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader><DialogTitle>Receipt</DialogTitle></DialogHeader>
-            <div className="space-y-3 py-2 text-sm">
-              <div className="border border-border rounded-lg p-4 space-y-2">
-                <div className="flex justify-between font-bold"><span>ARK School</span><span>{receiptData.receiptNo}</span></div>
-                <hr className="border-border" />
-                <div className="flex justify-between"><span className="text-muted-foreground">Student</span><span>{receiptData.studentName}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Batch</span><span>{receiptData.batchName}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span>{receiptData.date}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Method</span><span>{receiptData.paymentMethod}</span></div>
-                <hr className="border-border" />
-                <div className="flex justify-between font-bold text-lg"><span>Amount Paid</span><span>₹{receiptData.amount?.toLocaleString()}</span></div>
-              </div>
-              <Button className="w-full" variant="outline" onClick={() => window.print()}>
-                <Receipt className="w-4 h-4 mr-2" /> Print Receipt
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Refund + receipt */}
+      <RefundDialog
+        fee={refundTarget}
+        onOpenChange={(o) => !o && setRefundTarget(null)}
+      />
+      <FeeReceiptDialog
+        receipt={receipt}
+        onOpenChange={(o) => !o && setReceipt(null)}
+      />
     </div>
   );
 };

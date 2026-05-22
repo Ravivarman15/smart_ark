@@ -84,6 +84,7 @@ export {
   useDeactivateStaff,
   useActivateStaff,
   useSuspendStaff,
+  useDeleteStaff,
   useUploadProfilePicture,
   useRoles,
   useOnboardingEvents,

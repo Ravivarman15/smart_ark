@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProtectedMenuItem } from "@/features/rbac";
 import type { Staff } from "../types/staff.types";
 import { StaffAvatar } from "./StaffAvatar";
 import { StaffStatusChip } from "./StaffStatusChip";
@@ -24,6 +25,7 @@ interface Props {
   onActivate?: (staff: Staff) => void;
   onResendInvite?: (staff: Staff) => void;
   onResetPassword?: (staff: Staff) => void;
+  onDelete?: (staff: Staff) => void;
 }
 
 type ActionProps = Pick<
@@ -35,6 +37,7 @@ type ActionProps = Pick<
   | "onActivate"
   | "onResendInvite"
   | "onResetPassword"
+  | "onDelete"
 >;
 
 /**
@@ -52,6 +55,7 @@ export const ManageStaffTable = ({
   onActivate,
   onResendInvite,
   onResetPassword,
+  onDelete,
 }: Props) => {
   const actions: ActionProps = {
     onView,
@@ -61,6 +65,7 @@ export const ManageStaffTable = ({
     onActivate,
     onResendInvite,
     onResetPassword,
+    onDelete,
   };
 
   if (loading) {
@@ -198,6 +203,12 @@ export const ManageStaffTable = ({
   );
 };
 
+/**
+ * Row-action menu. Lifecycle + credential actions are wrapped in
+ * `ProtectedMenuItem`, so they render greyed-out unless the signed-in user
+ * holds the matching RBAC action right. "Preview profile" stays ungated —
+ * it is read-only and available to anyone who can open this page.
+ */
 const RowActions = ({
   s,
   onView,
@@ -207,6 +218,7 @@ const RowActions = ({
   onActivate,
   onResendInvite,
   onResetPassword,
+  onDelete,
 }: ActionProps & { s: Staff }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
@@ -224,42 +236,65 @@ const RowActions = ({
         </DropdownMenuItem>
       )}
       {onEdit && (
-        <DropdownMenuItem onClick={() => onEdit(s)}>
+        <ProtectedMenuItem action="staff.edit" onClick={() => onEdit(s)}>
           Edit details
-        </DropdownMenuItem>
+        </ProtectedMenuItem>
       )}
       {onManageAccess && (
-        <DropdownMenuItem onClick={() => onManageAccess(s)}>
+        <ProtectedMenuItem
+          action="staff.edit"
+          onClick={() => onManageAccess(s)}
+        >
           Manage access &amp; role
-        </DropdownMenuItem>
+        </ProtectedMenuItem>
       )}
       <DropdownMenuSeparator />
       {onResendInvite && s.email && (
-        <DropdownMenuItem onClick={() => onResendInvite(s)}>
+        <ProtectedMenuItem
+          action="staff.invite.resend"
+          onClick={() => onResendInvite(s)}
+        >
           Resend welcome email
-        </DropdownMenuItem>
+        </ProtectedMenuItem>
       )}
       {onResetPassword && s.email && (
-        <DropdownMenuItem onClick={() => onResetPassword(s)}>
+        <ProtectedMenuItem
+          action="staff.password.reset"
+          onClick={() => onResetPassword(s)}
+        >
           Reset password
-        </DropdownMenuItem>
+        </ProtectedMenuItem>
       )}
       <DropdownMenuSeparator />
       {s.status === "inactive" && onActivate && (
-        <DropdownMenuItem
+        <ProtectedMenuItem
+          action="staff.deactivate"
           onClick={() => onActivate(s)}
           className="text-emerald-600"
         >
           Activate account
-        </DropdownMenuItem>
+        </ProtectedMenuItem>
       )}
       {s.status !== "inactive" && onDeactivate && (
-        <DropdownMenuItem
+        <ProtectedMenuItem
+          action="staff.deactivate"
           onClick={() => onDeactivate(s)}
           className="text-rose-600"
         >
           Deactivate account
-        </DropdownMenuItem>
+        </ProtectedMenuItem>
+      )}
+      {onDelete && (
+        <>
+          <DropdownMenuSeparator />
+          <ProtectedMenuItem
+            action="staff.delete"
+            onClick={() => onDelete(s)}
+            className="text-rose-600"
+          >
+            Delete staff
+          </ProtectedMenuItem>
+        </>
       )}
     </DropdownMenuContent>
   </DropdownMenu>

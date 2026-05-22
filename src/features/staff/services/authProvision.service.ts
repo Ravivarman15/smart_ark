@@ -91,6 +91,42 @@ class AuthProvisionService extends BaseService {
       brevoConfigured: res.brevo_configured as boolean | undefined,
     };
   }
+
+  /**
+   * Permanently delete a staff member — both the `profiles` row and the
+   * Supabase Auth login. Routed through the edge function because deleting
+   * the Auth user needs the service-role key, and the function re-checks the
+   * caller is admin/management (defence in depth).
+   *
+   * Throws `AppError.conflict` if the staff member has linked history
+   * (attendance, class logs, results) that blocks a hard delete — the caller
+   * should suggest deactivation instead. Returns an optional `warning` when
+   * the profile was removed but the Auth login could not be.
+   */
+  async remove(profileId: string): Promise<{ warning?: string }> {
+    const { data, error } = await this.db.functions.invoke("invite-staff", {
+      body: { action: "delete", profile_id: profileId },
+    });
+
+    if (error) {
+      const message = await readEdgeError(error, "Delete failed");
+      if (/linked records|cannot be permanently deleted/i.test(message)) {
+        throw AppError.conflict(message);
+      }
+      throw AppError.fromSupabase({ message } as never, "invite-staff");
+    }
+
+    const res = (data ?? {}) as Record<string, unknown>;
+    if (typeof res.error === "string" && !res.ok) {
+      const msg = res.error;
+      if (/linked records|cannot be permanently deleted/i.test(msg)) {
+        throw AppError.conflict(msg);
+      }
+      throw AppError.validation(msg);
+    }
+
+    return { warning: res.warning as string | undefined };
+  }
 }
 
 export const authProvisionService = new AuthProvisionService();

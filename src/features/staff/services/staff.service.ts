@@ -271,8 +271,24 @@ class StaffService extends BaseService {
   async update(id: string, updates: UpdateStaffInput): Promise<void> {
     const patch = toDb(updates);
     if (Object.keys(patch).length === 0) return;
-    const { error } = await this.db.from("profiles").update(patch as never).eq("id", id);
+    // `.select()` makes the UPDATE return the rows it actually changed.
+    // Row-level security can filter the target row out — e.g. a user without
+    // the admin/management UPDATE policy editing someone else — and Postgres
+    // then reports success with ZERO rows changed. Without this check that
+    // silent no-op looks like a win (the "deactivation not working" bug:
+    // toast says done, database unchanged). An empty result = not permitted.
+    const { data, error } = await this.db
+      .from("profiles")
+      .update(patch as never)
+      .eq("id", id)
+      .select("id");
     if (error) throw AppError.fromSupabase(error, "staff.update");
+    if (!data || data.length === 0) {
+      throw AppError.permission(
+        "You do not have permission to change this staff member, " +
+          "or the record no longer exists.",
+      );
+    }
   }
 
   /**

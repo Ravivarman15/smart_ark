@@ -9,6 +9,7 @@ export {
   useDeactivateStaff,
   useActivateStaff,
   useSuspendStaff,
+  useDeleteStaff,
   useUploadProfilePicture,
 } from "./useStaffMutations";
 export { useRoles } from "./useRoles";

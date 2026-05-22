@@ -19,6 +19,7 @@
 //   • "invite"          — create auth user + profile + welcome email
 //   • "resend_invite"   — regenerate temp password + resend welcome email
 //   • "reset_password"  — regenerate temp password + branded reset email
+//   • "delete"          — permanently remove the profile row + Auth login
 //
 // IDEMPOTENCY:
 //   • A duplicate-email pre-check runs before account creation.
@@ -40,8 +41,11 @@ import { brevoConfigured, sendBrevoEmail } from "../_shared/brevo.ts";
 import { renderEmail } from "../_shared/email-templates.ts";
 
 interface InvitePayload {
-  action: "invite" | "resend_invite" | "reset_password";
-  email: string;
+  action: "invite" | "resend_invite" | "reset_password" | "delete";
+  /** Required for invite / resend_invite / reset_password. */
+  email?: string;
+  /** Required for "delete" — a staff row may have no email on file. */
+  profile_id?: string;
   profile?: {
     first_name: string;
     middle_name?: string | null;
@@ -244,6 +248,73 @@ Deno.serve(async (req) => {
     };
 
     const body = (await req.json()) as InvitePayload;
+
+    // ── Action: delete ────────────────────────────────────────────────────
+    // Permanently removes the staff member. Keyed by profile_id because a
+    // staff row may have no email on file. The service-role delete bypasses
+    // RLS; the role gate above already restricts this to admin/management.
+    if (body.action === "delete") {
+      const profileId = (body.profile_id ?? "").trim();
+      if (!profileId) {
+        return jsonResponse(400, { error: "profile_id required for delete" });
+      }
+
+      const { data: target } = await supabase
+        .from("profiles")
+        .select("id, user_id, name")
+        .eq("id", profileId)
+        .maybeSingle();
+      if (!target) {
+        return jsonResponse(404, { error: "Staff record not found" });
+      }
+
+      // Guard against self-deletion — an admin removing their own account
+      // would be locked out mid-session.
+      if (target.user_id && target.user_id === callerUserId) {
+        return jsonResponse(400, {
+          error: "You cannot delete your own account.",
+        });
+      }
+
+      // Remove the profile row first. If the staff member has linked history
+      // (attendance, class logs, results) the foreign keys block the delete
+      // — that is intentional: surface a clear message instead of a raw
+      // 23503 foreign-key error.
+      const { error: delProfErr } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", profileId);
+      if (delProfErr) {
+        const fkBlocked =
+          (delProfErr as { code?: string }).code === "23503" ||
+          /foreign key|still referenced|violates/i.test(delProfErr.message);
+        return jsonResponse(fkBlocked ? 409 : 400, {
+          error: fkBlocked
+            ? "This staff member has linked records (attendance, classes, " +
+              "results) and cannot be permanently deleted. Deactivate the " +
+              "account instead."
+            : delProfErr.message,
+        });
+      }
+
+      // Remove the Auth login too, so the email can be reused later. The
+      // profile is already gone — treat an auth-delete failure as a warning,
+      // not a hard error.
+      let warning: string | undefined;
+      if (target.user_id) {
+        const { error: delUserErr } = await supabase.auth.admin.deleteUser(
+          target.user_id as string,
+        );
+        if (delUserErr) {
+          warning =
+            "Staff profile removed, but the login account could not be " +
+            `deleted: ${delUserErr.message}`;
+        }
+      }
+
+      return jsonResponse(200, { ok: true, action: "delete", warning });
+    }
+
     if (!body?.email) return jsonResponse(400, { error: "email required" });
 
     const email = body.email.trim().toLowerCase();

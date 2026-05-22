@@ -20,6 +20,7 @@ import {
   onboardingService,
   useDeactivateStaff,
   useActivateStaff,
+  useDeleteStaff,
   useResendInvite,
   useResetStaffPassword,
   useStaff,
@@ -81,6 +82,7 @@ const ManageStaff = () => {
 
   const deactivate = useDeactivateStaff();
   const activate = useActivateStaff();
+  const deleteStaff = useDeleteStaff();
   const resendInvite = useResendInvite();
   const resetPassword = useResetStaffPassword();
 
@@ -153,6 +155,26 @@ const ManageStaff = () => {
       toast.success(`${s.name} activated`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to activate");
+    }
+  };
+
+  const handleDelete = async (s: Staff) => {
+    if (
+      !confirm(
+        `Permanently delete ${s.name}? This removes their profile and login ` +
+          `for good and cannot be undone. To keep their records, deactivate ` +
+          `the account instead.`
+      )
+    )
+      return;
+    try {
+      const res = await deleteStaff.mutateAsync(s.id);
+      if (res.warning) toast.warning(res.warning);
+      else toast.success(`${s.name} permanently deleted`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete staff"
+      );
     }
   };
 
@@ -344,6 +366,7 @@ const ManageStaff = () => {
         onActivate={handleActivate}
         onResendInvite={handleResend}
         onResetPassword={handleReset}
+        onDelete={handleDelete}
       />
 
       {/* Pagination */}

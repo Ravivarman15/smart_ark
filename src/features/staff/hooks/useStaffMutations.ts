@@ -90,6 +90,19 @@ export const useSuspendStaff = () => {
 };
 
 /**
+ * Permanently delete a staff member (profile row + Auth login) via the
+ * `invite-staff` edge function. Resolves with an optional `warning` string
+ * when the profile was removed but the Auth login could not be.
+ */
+export const useDeleteStaff = () => {
+  const qc = useQueryClient();
+  return useMutation<{ warning?: string }, Error, string>({
+    mutationFn: (profileId) => authProvisionService.remove(profileId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.staff.all }),
+  });
+};
+
+/**
  * Upload a new profile picture to Supabase Storage and return the public URL.
  * The caller still needs to persist the URL to the staff row — typically via
  * `useUpdateStaff`. Kept separate so the form can preview before saving.

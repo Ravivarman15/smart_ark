@@ -68,6 +68,7 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("staff.create",          "Create staff",              "create",  "staff.create",         "staff.control"),
   A("staff.edit",            "Edit staff",                "edit",    "staff.manage",         "staff.control"),
   A("staff.deactivate",      "Deactivate staff",          "delete",  "staff.manage",         "staff.control"),
+  A("staff.delete",          "Delete staff",              "delete",  "staff.manage",         "staff.control"),
   A("staff.invite.resend",   "Resend invite",             "edit",    "staff.manage"),
   A("staff.password.reset",  "Reset password",            "edit",    "staff.manage"),
   A("staff.attendance.override",
@@ -92,6 +93,7 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("fee.refund",            "Issue refund",              "refund",  "fee.manage",           "fee.manage"),
   A("fee.refund.approve",    "Approve refund",            "approve", "fee.manage",           "fee.manage"),
   A("fee.discount",          "Apply discount",            "edit",    "fee.manage",           "fee.manage"),
+  A("fee.discount.approve",  "Approve discount",          "approve", "fee.manage",           "fee.manage"),
   A("fee.export",            "Export fee report",         "export",  "fee.manage"),
 
   // ── Exam ───────────────────────────────────────────────────────────────

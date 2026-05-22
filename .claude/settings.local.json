@@ -16,7 +16,8 @@
       "Bash(echo \"EXIT: $?\")",
       "Bash(deno --version)",
       "Bash(deno check *)",
-      "Bash(echo \"TSC EXIT: $?\")"
+      "Bash(echo \"TSC EXIT: $?\")",
+      "Bash(echo \"BUILD EXIT: $?\")"
     ]
   }
 }
