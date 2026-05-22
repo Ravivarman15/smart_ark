@@ -108,6 +108,12 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("exam.export",           "Export exam results",       "export",  "exam.manage_manual"),
   A("exam.mcq.create",       "Create MCQ exam",           "create",  "exam.create_mcq_exam"),
   A("exam.mcq.edit",         "Edit MCQ exam",             "edit",    "exam.manage_mcq_exam"),
+  A("exam.mcq.paper_create", "Create MCQ paper",          "create",  "exam.create_mcq_paper"),
+  A("exam.mcq.paper_edit",   "Edit MCQ paper",            "edit",    "exam.manage_mcq_paper"),
+  A("exam.mcq.paper_delete", "Delete MCQ paper",          "delete",  "exam.manage_mcq_paper"),
+  A("exam.mcq.question_manage","Manage question bank",    "edit",    "exam.create_mcq_paper"),
+  A("exam.mcq.import",       "Import MCQ questions",      "create",  "exam.create_mcq_paper"),
+  A("exam.mcq.paper_share",  "Share MCQ paper / bank",    "assign",  "exam.manage_mcq_paper"),
 
   // ── Expense / Income ───────────────────────────────────────────────────
   A("expense.create",        "Add expense",               "create",  "expense.add",          "expense.manage"),

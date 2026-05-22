@@ -97,6 +97,23 @@ export const queryKeys = {
     results: (params?: Record<string, unknown>) =>
       [...queryKeys.exams.all, "results", params ?? {}] as const,
     retests: () => [...queryKeys.exams.all, "retests"] as const,
+    // ── MCQ Paper phase ──────────────────────────────────────────────────────
+    mcqQuestions: (filters?: Record<string, unknown>) =>
+      [...queryKeys.exams.all, "mcq-questions", filters ?? {}] as const,
+    mcqQuestion: (id: string) =>
+      [...queryKeys.exams.all, "mcq-question", id] as const,
+    mcqChapters: (subjectId?: string) =>
+      [...queryKeys.exams.all, "mcq-chapters", subjectId ?? "all"] as const,
+    mcqPapers: (params?: Record<string, unknown>) =>
+      [...queryKeys.exams.all, "mcq-papers", params ?? {}] as const,
+    mcqPaper: (id: string) => [...queryKeys.exams.all, "mcq-paper", id] as const,
+    mcqPaperQuestions: (id: string) =>
+      [...queryKeys.exams.all, "mcq-paper-questions", id] as const,
+    mcqPaperVersions: (id: string) =>
+      [...queryKeys.exams.all, "mcq-paper-versions", id] as const,
+    mcqAnalytics: (id: string) =>
+      [...queryKeys.exams.all, "mcq-analytics", id] as const,
+    mcqOverview: () => [...queryKeys.exams.all, "mcq-overview"] as const,
   },
   reports: {
     all: ["reports"] as const,
