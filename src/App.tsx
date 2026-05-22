@@ -72,6 +72,10 @@ const StudentChatPage = lazy(() => import("./features/students/pages/StudentChat
 const StudentFeedbackPage = lazy(() => import("./features/students/pages/StudentFeedbackPage"));
 const AppAccessRightsPage = lazy(() => import("./features/students/pages/AppAccessRightsPage"));
 
+// Exam module pages (feature-based — src/features/exams)
+const ManageManualExamPage = lazy(() => import("./features/exams/pages/ManageManualExamPage"));
+const CreateManualExamPage = lazy(() => import("./features/exams/pages/CreateManualExamPage"));
+
 // Management-owned staff pages
 const StaffRightsManager = lazy(() => import("./pages/management/StaffRightsManager"));
 const ManageModulePermissions = lazy(
@@ -159,6 +163,10 @@ const AppRoutes: React.FC = () => (
         <Route path="setup/taxes" element={<ManageTaxesPage />} />
         <Route path="setup/expense-categories" element={<ExpenseCategories />} />
         <Route path="setup/fee-structures" element={<FeeStructurePage />} />
+        {/* Exam module routes — feature-based */}
+        <Route path="exams/manual" element={<ManageManualExamPage />} />
+        <Route path="exams/manual/create" element={<CreateManualExamPage />} />
+        <Route path="exams/manual/:id/edit" element={<CreateManualExamPage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -200,6 +208,10 @@ const AppRoutes: React.FC = () => (
         <Route path="setup/taxes" element={<ManageTaxesPage />} />
         <Route path="setup/expense-categories" element={<ExpenseCategories />} />
         <Route path="setup/fee-structures" element={<FeeStructurePage />} />
+        {/* Exam module routes — feature-based, management-owned */}
+        <Route path="exams/manual" element={<ManageManualExamPage />} />
+        <Route path="exams/manual/create" element={<CreateManualExamPage />} />
+        <Route path="exams/manual/:id/edit" element={<CreateManualExamPage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 

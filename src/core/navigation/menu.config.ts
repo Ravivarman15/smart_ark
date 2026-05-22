@@ -264,8 +264,8 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: all,
     items: [
-      ...sub("exam.create_manual",    "Create Manual Exam",  {}, adminMgmtTeacher),
-      ...sub("exam.manage_manual",    "Manage Manual Exam",  {}, all),
+      ...sub("exam.create_manual",    "Create Manual Exam",  { admin: "/admin/exams/manual/create", management: "/management/exams/manual/create" }, adminMgmtTeacher, { action: "exam.create" }),
+      ...sub("exam.manage_manual",    "Manage Manual Exam",  { admin: "/admin/exams/manual",        management: "/management/exams/manual" },        all),
       ...sub("exam.create_mcq_paper", "Create MCQ Paper",    {}, adminMgmtTeacher),
       ...sub("exam.manage_mcq_paper", "Manage MCQ Paper",    {}, all),
       ...sub("exam.create_mcq_exam",  "Create MCQ Exam",     {}, adminMgmtTeacher),
