@@ -85,6 +85,15 @@ export const queryKeys = {
   },
   exams: {
     all: ["exams"] as const,
+    list: (params?: Record<string, unknown>) =>
+      [...queryKeys.exams.all, "list", params ?? {}] as const,
+    detail: (id: string) => [...queryKeys.exams.all, "detail", id] as const,
+    examResults: (examId: string) =>
+      [...queryKeys.exams.all, "exam-results", examId] as const,
+    analytics: (scope: string) =>
+      [...queryKeys.exams.all, "analytics", scope] as const,
+    audit: (examId: string) => [...queryKeys.exams.all, "audit", examId] as const,
+    lookups: (kind: string) => [...queryKeys.exams.all, "lookups", kind] as const,
     results: (params?: Record<string, unknown>) =>
       [...queryKeys.exams.all, "results", params ?? {}] as const,
     retests: () => [...queryKeys.exams.all, "retests"] as const,

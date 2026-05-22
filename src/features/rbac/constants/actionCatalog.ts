@@ -104,6 +104,8 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("exam.marks_entry",      "Enter exam marks",          "marks",   "exam.manage_manual"),
   A("exam.marks_edit",       "Edit recorded marks",       "marks",   "exam.manage_manual"),
   A("exam.marks_publish",    "Publish marks to students", "approve", "exam.manage_manual"),
+  A("exam.results_lock",     "Lock exam results",         "approve", "exam.manage_manual"),
+  A("exam.export",           "Export exam results",       "export",  "exam.manage_manual"),
   A("exam.mcq.create",       "Create MCQ exam",           "create",  "exam.create_mcq_exam"),
   A("exam.mcq.edit",         "Edit MCQ exam",             "edit",    "exam.manage_mcq_exam"),
 
