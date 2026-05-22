@@ -247,9 +247,11 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: adminMgmt,
     items: [
-      ...sub("fee.create_structure", "Create Fee Structure", {}, adminMgmt),
+      // No standalone "Create Fee Structure" entry — structures are created
+      // from the "+ Create Fee Structure" button inside Manage Fee Structure.
       ...sub("fee.manage_structure", "Manage Fee Structure", { admin: "/admin/setup/fee-structures", management: "/management/setup/fee-structures" }, adminMgmt),
-      ...sub("fee.collection",       "Fee Collection",       { admin: "/admin/fees" }, adminMgmt),
+      ...sub("fee.collection",       "Fee Collection",       { admin: "/admin/fees",            management: "/management/fees" },            adminMgmt),
+      ...sub("fee.manage",           "Manage Fees",          { admin: "/admin/fees-management", management: "/management/fees-management" }, adminMgmt),
     ],
   },
 

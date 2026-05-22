@@ -180,6 +180,7 @@ const AppRoutes: React.FC = () => (
         <Route path="weekly-summary" element={<WeeklyAcademicSummary />} />
         <Route path="retest" element={<RetestAnalytics />} />
         <Route path="finance" element={<FinancialView />} />
+        <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
         <Route path="compliance" element={<ComplianceViolations />} />
