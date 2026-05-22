@@ -18,7 +18,7 @@
 // ACTIONS (the `action` field in the body):
 //   • "invite"          — create auth user + profile + welcome email
 //   • "resend_invite"   — regenerate temp password + resend welcome email
-//   • "reset_password"  — branded password-reset email
+//   • "reset_password"  — regenerate temp password + branded reset email
 //
 // IDEMPOTENCY:
 //   • A duplicate-email pre-check runs before account creation.
@@ -74,19 +74,25 @@ const ROLE_LABELS: Record<string, string> = {
 const roleLabel = (r: string): string =>
   ROLE_LABELS[r] ?? r.charAt(0).toUpperCase() + r.slice(1);
 
-// Generate a readable 12-char temporary password with at least one of each
-// class. Ambiguous characters (0/O, 1/l/I) are excluded on purpose.
+// Generate a readable 14-char password. Deliberately ALPHANUMERIC ONLY — no
+// special characters. Special chars are a recurring cause of failed first
+// logins: "&" is HTML-escaped inside the email (the recipient copies "&amp;"),
+// "@" and "#" get auto-linked by some mail clients, and all of them are
+// awkward to copy accurately on a phone — so the password the staff member
+// pastes no longer matches the one stored in Auth. A 14-char mixed-case
+// alphanumeric password is ~80 bits of entropy, far beyond what a login form
+// needs. Ambiguous glyphs (0/O, 1/l/I) are excluded so it is unambiguous when
+// read or typed by hand. At least one upper/lower/digit is guaranteed.
 const generateTempPassword = (): string => {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lower = "abcdefghijkmnpqrstuvwxyz";
   const digits = "23456789";
-  const special = "@#$%&*";
-  const all = upper + lower + digits + special;
+  const all = upper + lower + digits;
   const pick = (set: string) =>
     set[crypto.getRandomValues(new Uint32Array(1))[0] % set.length];
-  const chars = [pick(upper), pick(lower), pick(digits), pick(special)];
-  for (let i = chars.length; i < 12; i++) chars.push(pick(all));
-  // Fisher-Yates shuffle so the guaranteed chars are not always positions 0-3.
+  const chars = [pick(upper), pick(lower), pick(digits)];
+  for (let i = chars.length; i < 14; i++) chars.push(pick(all));
+  // Fisher-Yates shuffle so the guaranteed chars are not always positions 0-2.
   for (let i = chars.length - 1; i > 0; i--) {
     const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
     [chars[i], chars[j]] = [chars[j], chars[i]];
@@ -313,55 +319,63 @@ Deno.serve(async (req) => {
     }
 
     // ── Action: reset password ────────────────────────────────────────────
+    // Regenerates a temporary password and emails it through Brevo. We do NOT
+    // use `auth.admin.generateLink` — that makes Supabase Auth send its own
+    // separate, unbranded recovery email (the empty-looking message), and its
+    // link bounces through the Auth "Site URL". A temp password is fully
+    // self-contained: exactly one branded email, no link to misconfigure.
     if (body.action === "reset_password") {
-      const { data, error } = await supabase.auth.admin.generateLink({
-        type: "recovery",
-        email,
-        options: { redirectTo: loginUrl },
-      });
-      if (error) return jsonResponse(400, { error: error.message });
-      const resetLink = data?.properties?.action_link ?? loginUrl;
-
       const { data: prof } = await supabase
         .from("profiles")
-        .select("id, name")
+        .select("id, user_id, name")
         .ilike("email", email)
         .maybeSingle();
+      if (!prof?.user_id) {
+        return jsonResponse(404, {
+          error: "No staff account found for this email",
+        });
+      }
+
+      const tempPassword = generateTempPassword();
+      const { error: pwErr } = await supabase.auth.admin.updateUserById(
+        prof.user_id as string,
+        { password: tempPassword },
+      );
+      if (pwErr) return jsonResponse(400, { error: pwErr.message });
 
       const mail = renderEmail(
         "staff-password-reset",
         {
-          staffName: (prof?.name as string) ?? "there",
+          staffName: (prof.name as string) ?? "there",
           loginEmail: email,
-          resetLink,
+          loginUrl,
+          tempPassword,
         },
         branch,
       );
       const sent = await sendBrevoEmail({
-        to: [{ email, name: (prof?.name as string) ?? undefined }],
+        to: [{ email, name: (prof.name as string) ?? undefined }],
         subject: mail.subject,
         htmlContent: mail.html,
         textContent: mail.text,
         tags: ["staff-password-reset"],
       });
 
-      if (prof?.id) {
-        await logEvent(supabase, {
-          profile_id: prof.id as string,
-          event_type: "password_reset",
-          detail: sent.ok
-            ? "Password reset email sent"
-            : `Password reset email not sent: ${sent.error}`,
-          ...actor,
-        });
-      }
+      await logEvent(supabase, {
+        profile_id: prof.id as string,
+        event_type: "password_reset",
+        detail: sent.ok
+          ? "Password reset — new temporary password emailed"
+          : `Password reset — email not sent: ${sent.error}`,
+        ...actor,
+      });
 
       return jsonResponse(200, {
         ok: true,
         action: "reset_password",
         email_status: sent.status,
         email_error: sent.error,
-        link: resetLink,
+        temp_password: tempPassword,
       });
     }
 

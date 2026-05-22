@@ -144,8 +144,10 @@ export interface StaffWelcomeParams {
 
 export interface PasswordResetParams {
   staffName: string;
-  resetLink: string;
   loginEmail: string;
+  loginUrl: string;
+  /** New temporary password set by the reset. */
+  tempPassword: string;
 }
 
 export interface GenericNoticeParams {
@@ -173,7 +175,7 @@ const renderStaffWelcome = (
     ? `<p style="margin:16px 0 8px;">Use the credentials below to sign in for the first time:</p>
        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 16px;margin:8px 0;">
          ${credentialRow("Login email", p.loginEmail)}
-         ${credentialRow("Temp password", p.tempPassword)}
+         ${credentialRow("Password", p.tempPassword)}
        </table>
        ${ctaButton("Log in to " + b.productName, p.loginUrl, b.accentColor)}`
     : `<p style="margin:16px 0 8px;">Click the secure link below to set your password and activate your account:</p>
@@ -192,7 +194,7 @@ const renderStaffWelcome = (
     <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 16px;margin:20px 0;color:#713f12;font-size:13px;">
       <strong>Security first:</strong> ${
         p.tempPassword
-          ? "This is a temporary password. Please change it immediately after your first login."
+          ? "This password works straight away. After you log in you can set your own from Settings &rarr; Change Password."
           : "This setup link is single-use and expires soon. Do not share it with anyone."
       } ${esc(b.orgName)} staff will never ask you for your password.
     </div>
@@ -208,11 +210,11 @@ const renderStaffWelcome = (
     `Role: ${p.roleLabel}`,
     ``,
     p.tempPassword
-      ? `Login email: ${p.loginEmail}\nTemporary password: ${p.tempPassword}\nLog in: ${p.loginUrl}`
+      ? `Login email: ${p.loginEmail}\nPassword: ${p.tempPassword}\nLog in: ${p.loginUrl}`
       : `Login email: ${p.loginEmail}\nSet up your account: ${p.setupLink ?? p.loginUrl}`,
     ``,
     p.tempPassword
-      ? `Security: change this temporary password right after your first login.`
+      ? `Security: this password works straight away. After logging in you can set your own from Settings > Change Password.`
       : `Security: this setup link is single-use and expires soon.`,
     ``,
     `Need help? ${b.supportEmail}`,
@@ -231,26 +233,40 @@ const renderStaffWelcome = (
 };
 
 // ── Template: staff-password-reset ──────────────────────────────────────────
+// Self-contained: the reset issues a NEW temporary password and emails it
+// directly. No recovery link — so there is no Supabase Auth Site-URL redirect
+// to misconfigure, and exactly one branded email is sent.
 const renderPasswordReset = (
   p: PasswordResetParams,
   b: Branding,
 ): RenderedEmail => {
-  const subject = `Reset your ${b.productName} password`;
+  const subject = `Your ${b.productName} password has been reset`;
   const bodyHtml = `
-    <h1 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Password reset requested</h1>
-    <p style="margin:0 0 4px;">Hi ${esc(p.staffName)}, a password reset was requested for your account (<strong>${esc(p.loginEmail)}</strong>).</p>
-    <p style="margin:8px 0;">Click the button below to choose a new password:</p>
-    ${ctaButton("Reset my password", p.resetLink, b.accentColor)}
+    <h1 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Your password was reset</h1>
+    <p style="margin:0 0 4px;">Hi ${esc(p.staffName)}, an administrator has reset the password for your <strong>${esc(b.productName)}</strong> account.</p>
+    <p style="margin:16px 0 8px;">Sign in with the password below:</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 16px;margin:8px 0;">
+      ${credentialRow("Login email", p.loginEmail)}
+      ${credentialRow("Password", p.tempPassword)}
+    </table>
+    ${ctaButton("Log in to " + b.productName, p.loginUrl, b.accentColor)}
     <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 16px;margin:20px 0;color:#713f12;font-size:13px;">
-      <strong>Didn't request this?</strong> You can safely ignore this email — your password will not change unless you use the link above.
-    </div>`;
+      <strong>Security first:</strong> this password works straight away. After you log in you can set your own from Settings &rarr; Change Password. ${esc(b.orgName)} staff will never ask you for your password.
+    </div>
+    <p style="margin:16px 0 0;color:#64748b;font-size:13px;">
+      If you did not expect this, contact us at
+      <a href="mailto:${esc(b.supportEmail)}" style="color:${b.accentColor};">${esc(b.supportEmail)}</a>.
+    </p>`;
   const text = [
-    `Password reset requested`,
+    `Your ${b.productName} password was reset`,
     ``,
-    `Hi ${p.staffName}, reset your password using this link:`,
-    p.resetLink,
+    `Hi ${p.staffName}, an administrator reset your password.`,
     ``,
-    `Didn't request this? Ignore this email.`,
+    `Login email: ${p.loginEmail}`,
+    `Password: ${p.tempPassword}`,
+    `Log in: ${p.loginUrl}`,
+    ``,
+    `Security: this password works straight away. After logging in you can set your own from Settings > Change Password.`,
     `Need help? ${b.supportEmail}`,
   ].join("\n");
   return {
@@ -258,7 +274,7 @@ const renderPasswordReset = (
     text,
     html: baseLayout({
       branding: b,
-      preheader: "Reset your password — link inside.",
+      preheader: `Your ${b.productName} password has been reset.`,
       bodyHtml,
     }),
   };

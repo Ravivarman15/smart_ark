@@ -179,11 +179,15 @@ const ManageStaff = () => {
     try {
       const res = await resetPassword.mutateAsync(s.email);
       if (res.emailStatus === "sent") {
-        toast.success(`Password reset email sent to ${s.email}`);
+        toast.success(`New password emailed to ${s.email}`);
       } else {
         toast.warning(
-          `Reset link generated but not emailed${
-            res.emailError ? ` — ${res.emailError}` : ""
+          `Password reset${
+            res.emailError ? ` — email not sent: ${res.emailError}` : ""
+          }${
+            res.tempPassword
+              ? `. New temp password: ${res.tempPassword}`
+              : ""
           }`
         );
       }
