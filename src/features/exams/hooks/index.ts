@@ -52,3 +52,36 @@ export {
   useSavePaperQuestions,
 } from "./useMcqPaperMutations";
 export { useMcqPaperAnalytics, useMcqPaperAudit } from "./useMcqAnalytics";
+
+// ── MCQ Exam Engine ──────────────────────────────────────────────────────────
+export {
+  useMcqExams,
+  useMcqExam,
+  useMcqExamOverview,
+  useStudentMcqExams,
+} from "./useMcqExams";
+export {
+  useCreateMcqExam,
+  useUpdateMcqExam,
+  useSetExamPublished,
+  useSetExamLiveStatus,
+  useReleaseExamResults,
+  useDeleteMcqExam,
+} from "./useMcqExamMutations";
+export {
+  useStartAttempt,
+  useAutosaveAttempt,
+  useSubmitAttempt,
+} from "./useMcqAttempt";
+export {
+  useMcqExamMonitor,
+  useAttemptEvents,
+  useForceSubmitAttempt,
+  useReopenAttempt,
+} from "./useMcqExamMonitor";
+export {
+  useMcqExamAnalytics,
+  useMcqLeaderboard,
+  useStudentExamResult,
+} from "./useMcqExamAnalytics";
+export { useAntiCheat } from "./useAntiCheat";

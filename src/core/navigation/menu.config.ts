@@ -268,8 +268,8 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("exam.manage_manual",    "Manage Manual Exam",  { admin: "/admin/exams/manual",        management: "/management/exams/manual" },        all),
       ...sub("exam.create_mcq_paper", "Create MCQ Paper",    { admin: "/admin/exams/mcq-papers/create", management: "/management/exams/mcq-papers/create" }, adminMgmtTeacher, { action: "exam.mcq.paper_create" }),
       ...sub("exam.manage_mcq_paper", "Manage MCQ Paper",    { admin: "/admin/exams/mcq-papers",        management: "/management/exams/mcq-papers" },        all),
-      ...sub("exam.create_mcq_exam",  "Create MCQ Exam",     {}, adminMgmtTeacher),
-      ...sub("exam.manage_mcq_exam",  "Manage MCQ Exam",     {}, all),
+      ...sub("exam.create_mcq_exam",  "Create MCQ Exam",     { admin: "/admin/exams/mcq-exams/create", management: "/management/exams/mcq-exams/create" }, adminMgmtTeacher, { action: "exam.mcq.create" }),
+      ...sub("exam.manage_mcq_exam",  "Manage MCQ Exam",     { admin: "/admin/exams/mcq-exams",        management: "/management/exams/mcq-exams" },        all),
     ],
   },
 

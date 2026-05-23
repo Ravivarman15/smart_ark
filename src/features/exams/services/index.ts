@@ -18,3 +18,11 @@ export { mcqPaperService } from "./mcqPaper.service";
 export { mcqImportService } from "./mcqImport.service";
 export { mcqAnalyticsService } from "./mcqAnalytics.service";
 export { mcqAuditService } from "./mcqAudit.service";
+
+// ── MCQ Exam Engine ──────────────────────────────────────────────────────────
+export { mcqExamService, type RosterStudent } from "./mcqExam.service";
+export { mcqAttemptService, type AttemptStudent } from "./mcqAttempt.service";
+export {
+  mcqExamAnalyticsService,
+  isResultReleased,
+} from "./mcqExamAnalytics.service";

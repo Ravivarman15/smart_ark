@@ -40,3 +40,12 @@ export {
   canShareGlobally,
   type AccessUser,
 } from "./mcqAccess";
+
+export {
+  newShuffleSeed,
+  seededShuffle,
+  accuracyPct,
+  rankAndPercentile,
+  sectionBreakdown,
+  weakChapters,
+} from "./mcqExamScoring";

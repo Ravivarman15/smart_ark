@@ -77,6 +77,10 @@ const ManageManualExamPage = lazy(() => import("./features/exams/pages/ManageMan
 const CreateManualExamPage = lazy(() => import("./features/exams/pages/CreateManualExamPage"));
 const ManageMcqPaperPage = lazy(() => import("./features/exams/pages/ManageMcqPaperPage"));
 const CreateMcqPaperPage = lazy(() => import("./features/exams/pages/CreateMcqPaperPage"));
+const ManageMcqExamPage = lazy(() => import("./features/exams/pages/ManageMcqExamPage"));
+const CreateMcqExamPage = lazy(() => import("./features/exams/pages/CreateMcqExamPage"));
+const McqExamMonitorPage = lazy(() => import("./features/exams/pages/McqExamMonitorPage"));
+const StudentExamPage = lazy(() => import("./features/exams/pages/StudentExamPage"));
 
 // Management-owned staff pages
 const StaffRightsManager = lazy(() => import("./pages/management/StaffRightsManager"));
@@ -132,6 +136,9 @@ const AppRoutes: React.FC = () => (
       {/* Public, unauthenticated admission enquiry form — the URL produced by
           the "Copy Form Link" button in Enquiry Management. */}
       <Route path="/admissions/apply" element={<PublicAdmissionFormPage />} />
+      {/* Public, unauthenticated student exam kiosk — proctored entry point
+          used by lab devices. Roster + identity selection happen in-page. */}
+      <Route path="/exam" element={<StudentExamPage />} />
       <Route path="/" element={<AuthRedirect />} />
 
       <Route path="/teacher" element={<ProtectedRoute allowedRoles={roles("teacher")}><TeacherDashboard /></ProtectedRoute>} />
@@ -172,6 +179,10 @@ const AppRoutes: React.FC = () => (
         <Route path="exams/mcq-papers" element={<ManageMcqPaperPage />} />
         <Route path="exams/mcq-papers/create" element={<CreateMcqPaperPage />} />
         <Route path="exams/mcq-papers/:id/edit" element={<CreateMcqPaperPage />} />
+        <Route path="exams/mcq-exams" element={<ManageMcqExamPage />} />
+        <Route path="exams/mcq-exams/create" element={<CreateMcqExamPage />} />
+        <Route path="exams/mcq-exams/:id/edit" element={<CreateMcqExamPage />} />
+        <Route path="exams/mcq-exams/:id/monitor" element={<McqExamMonitorPage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -220,6 +231,10 @@ const AppRoutes: React.FC = () => (
         <Route path="exams/mcq-papers" element={<ManageMcqPaperPage />} />
         <Route path="exams/mcq-papers/create" element={<CreateMcqPaperPage />} />
         <Route path="exams/mcq-papers/:id/edit" element={<CreateMcqPaperPage />} />
+        <Route path="exams/mcq-exams" element={<ManageMcqExamPage />} />
+        <Route path="exams/mcq-exams/create" element={<CreateMcqExamPage />} />
+        <Route path="exams/mcq-exams/:id/edit" element={<CreateMcqExamPage />} />
+        <Route path="exams/mcq-exams/:id/monitor" element={<McqExamMonitorPage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 

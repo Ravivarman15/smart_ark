@@ -21,3 +21,14 @@ export { BulkImportDialog } from "./BulkImportDialog";
 export { PaperAnalyticsDialog } from "./PaperAnalyticsDialog";
 export { PaperPreviewDialog } from "./PaperPreviewDialog";
 export { PaperVersionHistoryDialog } from "./PaperVersionHistoryDialog";
+
+// ── MCQ Exam Engine ──────────────────────────────────────────────────────────
+export { LiveStatusChip, AttemptStatusChip } from "./McqExamBadges";
+export { ExamTimer } from "./ExamTimer";
+export { ExamQuestionView } from "./ExamQuestionView";
+export { ExamPalette } from "./ExamPalette";
+export { ExamRunner } from "./ExamRunner";
+export { StudentResultView } from "./StudentResultView";
+export { LiveMonitorPanel } from "./LiveMonitorPanel";
+export { ExamLeaderboard } from "./ExamLeaderboard";
+export { McqExamAnalyticsView } from "./McqExamAnalyticsView";

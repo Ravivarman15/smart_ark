@@ -114,6 +114,25 @@ export const queryKeys = {
     mcqAnalytics: (id: string) =>
       [...queryKeys.exams.all, "mcq-analytics", id] as const,
     mcqOverview: () => [...queryKeys.exams.all, "mcq-overview"] as const,
+    // ── MCQ Exam Engine ──────────────────────────────────────────────────────
+    mcqExams: () => [...queryKeys.exams.all, "mcq-exams"] as const,
+    mcqExam: (id: string) => [...queryKeys.exams.all, "mcq-exam", id] as const,
+    mcqExamOverview: () =>
+      [...queryKeys.exams.all, "mcq-exam-overview"] as const,
+    mcqAttempt: (id: string) =>
+      [...queryKeys.exams.all, "mcq-attempt", id] as const,
+    mcqAttemptEvents: (id: string) =>
+      [...queryKeys.exams.all, "mcq-attempt-events", id] as const,
+    mcqExamMonitor: (id: string) =>
+      [...queryKeys.exams.all, "mcq-exam-monitor", id] as const,
+    mcqExamAnalytics: (id: string) =>
+      [...queryKeys.exams.all, "mcq-exam-analytics", id] as const,
+    mcqLeaderboard: (id: string) =>
+      [...queryKeys.exams.all, "mcq-leaderboard", id] as const,
+    mcqStudentResult: (attemptId: string) =>
+      [...queryKeys.exams.all, "mcq-student-result", attemptId] as const,
+    mcqStudentExams: (batchId: string) =>
+      [...queryKeys.exams.all, "mcq-student-exams", batchId] as const,
   },
   reports: {
     all: ["reports"] as const,

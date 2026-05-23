@@ -208,4 +208,97 @@ export {
   ManageManualExamPage,
   CreateMcqPaperPage,
   ManageMcqPaperPage,
+  CreateMcqExamPage,
+  ManageMcqExamPage,
+  McqExamMonitorPage,
+  StudentExamPage,
 } from "./pages";
+
+// ── MCQ Exam Engine — types, services, hooks, components ─────────────────────
+export type {
+  LiveStatus,
+  ResultRelease,
+  AttemptStatus,
+  AssignmentScope,
+  ExamAssignment,
+  AssignmentDraft,
+  McqExam,
+  McqExamInput,
+  McqExamOverview,
+  McqAttempt,
+  McqAnswer,
+  AnswerDraft,
+  AttemptEventType,
+  AttemptEvent,
+  AttemptSession,
+  MonitorRow,
+  MonitorSnapshot,
+  TopperCard,
+  LeaderboardRow,
+  SectionPerformance,
+  QuestionDifficultyRow,
+  McqExamAnalytics,
+  ResultAnswerRow,
+  StudentExamResult,
+} from "./types/mcqExam.types";
+export { RESULT_RELEASE_OPTIONS } from "./types/mcqExam.types";
+
+export {
+  mcqExamService,
+  mcqAttemptService,
+  mcqExamAnalyticsService,
+  isResultReleased,
+  type RosterStudent,
+  type AttemptStudent,
+} from "./services";
+
+export {
+  useMcqExams,
+  useMcqExam,
+  useMcqExamOverview,
+  useStudentMcqExams,
+  useCreateMcqExam,
+  useUpdateMcqExam,
+  useSetExamPublished,
+  useSetExamLiveStatus,
+  useReleaseExamResults,
+  useDeleteMcqExam,
+  useStartAttempt,
+  useAutosaveAttempt,
+  useSubmitAttempt,
+  useMcqExamMonitor,
+  useAttemptEvents,
+  useForceSubmitAttempt,
+  useReopenAttempt,
+  useMcqExamAnalytics,
+  useMcqLeaderboard,
+  useStudentExamResult,
+  useAntiCheat,
+} from "./hooks";
+
+export {
+  mcqExamFormSchema,
+  type McqExamFormValues,
+} from "./schemas/mcqExam.schema";
+
+export {
+  newShuffleSeed,
+  seededShuffle,
+  accuracyPct,
+  rankAndPercentile,
+  sectionBreakdown,
+  weakChapters,
+} from "./utils/mcqExamScoring";
+
+export {
+  LiveStatusChip,
+  AttemptStatusChip,
+  ExamTimer,
+  ExamQuestionView,
+  ExamPalette,
+  ExamRunner,
+  StudentResultView,
+  LiveMonitorPanel,
+  ExamLeaderboard,
+  McqExamAnalyticsView,
+} from "./components";
