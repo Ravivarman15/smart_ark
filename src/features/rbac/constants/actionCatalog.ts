@@ -128,6 +128,15 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("income.create",         "Add income",                "create",  "income.add"),
   A("income.edit",           "Edit income",               "edit",    "income.manage"),
   A("income.delete",         "Delete income",             "delete",  "income.manage"),
+  A("income.approve",        "Approve income",            "approve", "income.manage"),
+  A("income.export",         "Export incomes",            "export",  "income.manage"),
+  A("finance.category.create","Add finance category",     "create",  "expense.add_type"),
+  A("finance.category.edit",  "Edit finance category",    "edit",    "expense.manage_type"),
+  A("finance.category.delete","Delete finance category",  "delete",  "expense.manage_type"),
+  A("finance.vendor.manage",  "Manage vendors",           "edit",    "expense.manage"),
+  A("finance.budget.manage",  "Manage budgets",           "edit",    "expense.manage"),
+  A("finance.recurring.manage","Manage recurring txns",   "edit",    "expense.manage"),
+  A("finance.attachment.manage","Upload / delete attachments","edit","expense.manage"),
 
   // ── Setup ──────────────────────────────────────────────────────────────
   A("setup.batch.create",    "Create class/batch",        "create",  "setup.add_batch",      "setup.batches"),

@@ -72,6 +72,16 @@ const StudentChatPage = lazy(() => import("./features/students/pages/StudentChat
 const StudentFeedbackPage = lazy(() => import("./features/students/pages/StudentFeedbackPage"));
 const AppAccessRightsPage = lazy(() => import("./features/students/pages/AppAccessRightsPage"));
 
+// Finance module pages (feature-based — src/features/finance)
+const FinAddExpenseTypePage = lazy(() => import("./features/finance/pages/AddExpenseTypePage"));
+const FinManageExpenseTypePage = lazy(() => import("./features/finance/pages/ManageExpenseTypePage"));
+const FinAddIncomeTypePage = lazy(() => import("./features/finance/pages/AddIncomeTypePage"));
+const FinManageIncomeTypePage = lazy(() => import("./features/finance/pages/ManageIncomeTypePage"));
+const FinAddExpensePage = lazy(() => import("./features/finance/pages/AddExpensePage"));
+const FinManageExpensePage = lazy(() => import("./features/finance/pages/ManageExpensePage"));
+const FinAddIncomePage = lazy(() => import("./features/finance/pages/AddIncomePage"));
+const FinManageIncomePage = lazy(() => import("./features/finance/pages/ManageIncomePage"));
+
 // Exam module pages (feature-based — src/features/exams)
 const ManageManualExamPage = lazy(() => import("./features/exams/pages/ManageManualExamPage"));
 const CreateManualExamPage = lazy(() => import("./features/exams/pages/CreateManualExamPage"));
@@ -183,6 +193,15 @@ const AppRoutes: React.FC = () => (
         <Route path="exams/mcq-exams/create" element={<CreateMcqExamPage />} />
         <Route path="exams/mcq-exams/:id/edit" element={<CreateMcqExamPage />} />
         <Route path="exams/mcq-exams/:id/monitor" element={<McqExamMonitorPage />} />
+        {/* Finance module routes — feature-based */}
+        <Route path="finance/add-expense-type" element={<FinAddExpenseTypePage />} />
+        <Route path="finance/manage-expense-type" element={<FinManageExpenseTypePage />} />
+        <Route path="finance/add-income-type" element={<FinAddIncomeTypePage />} />
+        <Route path="finance/manage-income-type" element={<FinManageIncomeTypePage />} />
+        <Route path="finance/add-expense" element={<FinAddExpensePage />} />
+        <Route path="finance/manage-expense" element={<FinManageExpensePage />} />
+        <Route path="finance/add-income" element={<FinAddIncomePage />} />
+        <Route path="finance/manage-income" element={<FinManageIncomePage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -235,6 +254,15 @@ const AppRoutes: React.FC = () => (
         <Route path="exams/mcq-exams/create" element={<CreateMcqExamPage />} />
         <Route path="exams/mcq-exams/:id/edit" element={<CreateMcqExamPage />} />
         <Route path="exams/mcq-exams/:id/monitor" element={<McqExamMonitorPage />} />
+        {/* Finance module routes — feature-based, management-owned */}
+        <Route path="finance/add-expense-type" element={<FinAddExpenseTypePage />} />
+        <Route path="finance/manage-expense-type" element={<FinManageExpenseTypePage />} />
+        <Route path="finance/add-income-type" element={<FinAddIncomeTypePage />} />
+        <Route path="finance/manage-income-type" element={<FinManageIncomeTypePage />} />
+        <Route path="finance/add-expense" element={<FinAddExpensePage />} />
+        <Route path="finance/manage-expense" element={<FinManageExpensePage />} />
+        <Route path="finance/add-income" element={<FinAddIncomePage />} />
+        <Route path="finance/manage-income" element={<FinManageIncomePage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 

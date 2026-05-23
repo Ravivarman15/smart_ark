@@ -193,6 +193,42 @@ export const queryKeys = {
     referralEvents: (profileId: string) =>
       [...queryKeys.settings.all, "referral-events", profileId] as const,
   },
+  finance: {
+    all: ["finance"] as const,
+    categories: (params?: Record<string, unknown>) =>
+      [...queryKeys.finance.all, "categories", params ?? {}] as const,
+    category: (id: string) =>
+      [...queryKeys.finance.all, "category", id] as const,
+    expenses: (params?: Record<string, unknown>) =>
+      [...queryKeys.finance.all, "expenses", params ?? {}] as const,
+    expense: (id: string) =>
+      [...queryKeys.finance.all, "expense", id] as const,
+    incomes: (params?: Record<string, unknown>) =>
+      [...queryKeys.finance.all, "incomes", params ?? {}] as const,
+    income: (id: string) =>
+      [...queryKeys.finance.all, "income", id] as const,
+    vendors: (params?: Record<string, unknown>) =>
+      [...queryKeys.finance.all, "vendors", params ?? {}] as const,
+    vendor: (id: string) =>
+      [...queryKeys.finance.all, "vendor", id] as const,
+    budgets: (params?: Record<string, unknown>) =>
+      [...queryKeys.finance.all, "budgets", params ?? {}] as const,
+    budget: (id: string) =>
+      [...queryKeys.finance.all, "budget", id] as const,
+    recurring: (params?: Record<string, unknown>) =>
+      [...queryKeys.finance.all, "recurring", params ?? {}] as const,
+    recurringOne: (id: string) =>
+      [...queryKeys.finance.all, "recurring-one", id] as const,
+    attachments: (txnId: string) =>
+      [...queryKeys.finance.all, "attachments", txnId] as const,
+    audit: (entity: string, id: string) =>
+      [...queryKeys.finance.all, "audit", entity, id] as const,
+    analytics: (scope: string) =>
+      [...queryKeys.finance.all, "analytics", scope] as const,
+    overview: () => [...queryKeys.finance.all, "overview"] as const,
+    lookups: (kind: string) =>
+      [...queryKeys.finance.all, "lookups", kind] as const,
+  },
   dashboard: {
     all: ["dashboard"] as const,
     analytics: (scope: string) => [...queryKeys.dashboard.all, "analytics", scope] as const,
