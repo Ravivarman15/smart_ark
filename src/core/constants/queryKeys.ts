@@ -137,6 +137,14 @@ export const queryKeys = {
   reports: {
     all: ["reports"] as const,
     kpi: (scope: string) => [...queryKeys.reports.all, "kpi", scope] as const,
+    presets: (reportKey?: string) =>
+      [...queryKeys.reports.all, "presets", reportKey ?? "all"] as const,
+    preset: (id: string) =>
+      [...queryKeys.reports.all, "preset", id] as const,
+    aggregator: (kind: string, params?: Record<string, unknown>) =>
+      [...queryKeys.reports.all, "aggregator", kind, params ?? {}] as const,
+    data: (reportKey: string, params?: Record<string, unknown>) =>
+      [...queryKeys.reports.all, "data", reportKey, params ?? {}] as const,
   },
   permissions: {
     all: ["permissions"] as const,

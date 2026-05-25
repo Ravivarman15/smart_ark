@@ -155,6 +155,13 @@ export const ACTION_CATALOG: ActionDef[] = [
   // ── Reports ────────────────────────────────────────────────────────────
   A("reports.export",        "Export reports",            "export",  "reports.fee_collection"),
   A("reports.share",         "Share report by SMS",       "assign",  "reports.sms_status"),
+  A("reports.export_pdf",    "Export report as PDF",      "export",  "reports.fee_collection"),
+  A("reports.export_excel",  "Export report as Excel",    "export",  "reports.fee_collection"),
+  A("reports.print",         "Print report",              "export",  "reports.fee_collection"),
+  A("reports.preset.save",   "Save report preset",        "create",  "reports.fee_collection"),
+  A("reports.preset.delete", "Delete report preset",      "delete",  "reports.fee_collection"),
+  A("reports.preset.share",  "Share report preset",       "assign",  "reports.fee_collection"),
+  A("reports.schedule",      "Schedule report export",    "approve", "reports.fee_collection"),
 
   // ── WhatsApp / SMS ─────────────────────────────────────────────────────
   A("whatsapp.send_inquiry",     "Send SMS to inquiry",   "approve", "whatsapp.send_inquiry"),

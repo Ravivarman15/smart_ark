@@ -72,6 +72,33 @@ const StudentChatPage = lazy(() => import("./features/students/pages/StudentChat
 const StudentFeedbackPage = lazy(() => import("./features/students/pages/StudentFeedbackPage"));
 const AppAccessRightsPage = lazy(() => import("./features/students/pages/AppAccessRightsPage"));
 
+// Reports & Analytics module pages (feature-based — src/features/reports)
+const RptTimetable = lazy(() => import("./features/reports/pages/TimetableReportPage"));
+const RptStudentInquiry = lazy(() => import("./features/reports/pages/StudentInquiryReportPage"));
+const RptStudentDetail = lazy(() => import("./features/reports/pages/StudentDetailReportPage"));
+const RptMobileStatus = lazy(() => import("./features/reports/pages/MobileStatusReportPage"));
+const RptIdCard = lazy(() => import("./features/reports/pages/StudentIdCardReportPage"));
+const RptQrCard = lazy(() => import("./features/reports/pages/StudentQrCardReportPage"));
+const RptStudentAttendance = lazy(() => import("./features/reports/pages/StudentAttendanceReportPage"));
+const RptFeeDueReminder = lazy(() => import("./features/reports/pages/FeeDueReminderReportPage"));
+const RptPendingFee = lazy(() => import("./features/reports/pages/PendingFeeReportPage"));
+const RptFeeStatus = lazy(() => import("./features/reports/pages/FeeStatusReportPage"));
+const RptFeeCollection = lazy(() => import("./features/reports/pages/FeeCollectionReportPage"));
+const RptFeeCollectionTax = lazy(() => import("./features/reports/pages/FeeCollectionTaxReportPage"));
+const RptFeeRefund = lazy(() => import("./features/reports/pages/FeeRefundReportPage"));
+const RptExamStatus = lazy(() => import("./features/reports/pages/ExamStatusReportPage"));
+const RptStudentExamSummary = lazy(() => import("./features/reports/pages/StudentExamSummaryPage"));
+const RptStudentPerformance = lazy(() => import("./features/reports/pages/StudentPerformanceReportPage"));
+const RptExpense = lazy(() => import("./features/reports/pages/ExpenseReportPage"));
+const RptIncome = lazy(() => import("./features/reports/pages/IncomeReportPage"));
+const RptProfitLoss = lazy(() => import("./features/reports/pages/ProfitLossReportPage"));
+const RptStaffAttendance = lazy(() => import("./features/reports/pages/StaffAttendanceReportPage"));
+const RptSmsStatus = lazy(() => import("./features/reports/pages/SmsStatusReportPage"));
+const RptInquiryAnalysis = lazy(() => import("./features/reports/pages/InquiryAnalysisPage"));
+const RptAdmissionAnalysis = lazy(() => import("./features/reports/pages/AdmissionAnalysisPage"));
+const RptFeeAnalysis = lazy(() => import("./features/reports/pages/FeeAnalysisReportPage"));
+const RptProfitLossAnalysis = lazy(() => import("./features/reports/pages/ProfitLossAnalysisPage"));
+
 // Finance module pages (feature-based — src/features/finance)
 const FinAddExpenseTypePage = lazy(() => import("./features/finance/pages/AddExpenseTypePage"));
 const FinManageExpenseTypePage = lazy(() => import("./features/finance/pages/ManageExpenseTypePage"));
@@ -202,6 +229,32 @@ const AppRoutes: React.FC = () => (
         <Route path="finance/manage-expense" element={<FinManageExpensePage />} />
         <Route path="finance/add-income" element={<FinAddIncomePage />} />
         <Route path="finance/manage-income" element={<FinManageIncomePage />} />
+        {/* Reports & Analytics routes */}
+        <Route path="reports/timetable" element={<RptTimetable />} />
+        <Route path="reports/student-inquiry" element={<RptStudentInquiry />} />
+        <Route path="reports/student-detail" element={<RptStudentDetail />} />
+        <Route path="reports/mobile-status" element={<RptMobileStatus />} />
+        <Route path="reports/id-card" element={<RptIdCard />} />
+        <Route path="reports/qrcode-card" element={<RptQrCard />} />
+        <Route path="reports/student-attendance" element={<RptStudentAttendance />} />
+        <Route path="reports/fee-due-reminder" element={<RptFeeDueReminder />} />
+        <Route path="reports/pending-fee" element={<RptPendingFee />} />
+        <Route path="reports/fee-status" element={<RptFeeStatus />} />
+        <Route path="reports/fee-collection" element={<RptFeeCollection />} />
+        <Route path="reports/fee-collection-tax" element={<RptFeeCollectionTax />} />
+        <Route path="reports/fee-refund" element={<RptFeeRefund />} />
+        <Route path="reports/exam-status" element={<RptExamStatus />} />
+        <Route path="reports/student-exam-summary" element={<RptStudentExamSummary />} />
+        <Route path="reports/student-performance" element={<RptStudentPerformance />} />
+        <Route path="reports/expense" element={<RptExpense />} />
+        <Route path="reports/income" element={<RptIncome />} />
+        <Route path="reports/profit-loss" element={<RptProfitLoss />} />
+        <Route path="reports/staff-attendance" element={<RptStaffAttendance />} />
+        <Route path="reports/sms-status" element={<RptSmsStatus />} />
+        <Route path="reports/inquiry-analysis" element={<RptInquiryAnalysis />} />
+        <Route path="reports/admission-analysis" element={<RptAdmissionAnalysis />} />
+        <Route path="reports/fee-analysis" element={<RptFeeAnalysis />} />
+        <Route path="reports/profit-loss-analysis" element={<RptProfitLossAnalysis />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -263,6 +316,32 @@ const AppRoutes: React.FC = () => (
         <Route path="finance/manage-expense" element={<FinManageExpensePage />} />
         <Route path="finance/add-income" element={<FinAddIncomePage />} />
         <Route path="finance/manage-income" element={<FinManageIncomePage />} />
+        {/* Reports & Analytics routes — management-owned, full access */}
+        <Route path="reports/timetable" element={<RptTimetable />} />
+        <Route path="reports/student-inquiry" element={<RptStudentInquiry />} />
+        <Route path="reports/student-detail" element={<RptStudentDetail />} />
+        <Route path="reports/mobile-status" element={<RptMobileStatus />} />
+        <Route path="reports/id-card" element={<RptIdCard />} />
+        <Route path="reports/qrcode-card" element={<RptQrCard />} />
+        <Route path="reports/student-attendance" element={<RptStudentAttendance />} />
+        <Route path="reports/fee-due-reminder" element={<RptFeeDueReminder />} />
+        <Route path="reports/pending-fee" element={<RptPendingFee />} />
+        <Route path="reports/fee-status" element={<RptFeeStatus />} />
+        <Route path="reports/fee-collection" element={<RptFeeCollection />} />
+        <Route path="reports/fee-collection-tax" element={<RptFeeCollectionTax />} />
+        <Route path="reports/fee-refund" element={<RptFeeRefund />} />
+        <Route path="reports/exam-status" element={<RptExamStatus />} />
+        <Route path="reports/student-exam-summary" element={<RptStudentExamSummary />} />
+        <Route path="reports/student-performance" element={<RptStudentPerformance />} />
+        <Route path="reports/expense" element={<RptExpense />} />
+        <Route path="reports/income" element={<RptIncome />} />
+        <Route path="reports/profit-loss" element={<RptProfitLoss />} />
+        <Route path="reports/staff-attendance" element={<RptStaffAttendance />} />
+        <Route path="reports/sms-status" element={<RptSmsStatus />} />
+        <Route path="reports/inquiry-analysis" element={<RptInquiryAnalysis />} />
+        <Route path="reports/admission-analysis" element={<RptAdmissionAnalysis />} />
+        <Route path="reports/fee-analysis" element={<RptFeeAnalysis />} />
+        <Route path="reports/profit-loss-analysis" element={<RptProfitLossAnalysis />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 

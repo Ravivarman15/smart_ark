@@ -1,0 +1,27 @@
+// Lazy-friendly default exports for every report page.
+
+export { default as TimetableReportPage } from "./TimetableReportPage";
+export { default as StudentInquiryReportPage } from "./StudentInquiryReportPage";
+export { default as StudentDetailReportPage } from "./StudentDetailReportPage";
+export { default as MobileStatusReportPage } from "./MobileStatusReportPage";
+export { default as StudentIdCardReportPage } from "./StudentIdCardReportPage";
+export { default as StudentQrCardReportPage } from "./StudentQrCardReportPage";
+export { default as StudentAttendanceReportPage } from "./StudentAttendanceReportPage";
+export { default as FeeDueReminderReportPage } from "./FeeDueReminderReportPage";
+export { default as PendingFeeReportPage } from "./PendingFeeReportPage";
+export { default as FeeStatusReportPage } from "./FeeStatusReportPage";
+export { default as FeeCollectionReportPage } from "./FeeCollectionReportPage";
+export { default as FeeCollectionTaxReportPage } from "./FeeCollectionTaxReportPage";
+export { default as FeeRefundReportPage } from "./FeeRefundReportPage";
+export { default as ExamStatusReportPage } from "./ExamStatusReportPage";
+export { default as StudentExamSummaryPage } from "./StudentExamSummaryPage";
+export { default as StudentPerformanceReportPage } from "./StudentPerformanceReportPage";
+export { default as ExpenseReportPage } from "./ExpenseReportPage";
+export { default as IncomeReportPage } from "./IncomeReportPage";
+export { default as ProfitLossReportPage } from "./ProfitLossReportPage";
+export { default as StaffAttendanceReportPage } from "./StaffAttendanceReportPage";
+export { default as SmsStatusReportPage } from "./SmsStatusReportPage";
+export { default as InquiryAnalysisPage } from "./InquiryAnalysisPage";
+export { default as AdmissionAnalysisPage } from "./AdmissionAnalysisPage";
+export { default as FeeAnalysisReportPage } from "./FeeAnalysisReportPage";
+export { default as ProfitLossAnalysisPage } from "./ProfitLossAnalysisPage";
