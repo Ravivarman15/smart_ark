@@ -5,6 +5,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { BaseService, AppError } from "@/shared/services";
+import { safeInsert } from "../utils/safeInsert";
 import type {
   CommsAuditAction,
   CommsAuditEntity,
@@ -36,9 +37,10 @@ class CommsAuditService extends BaseService {
         actor_name: input.actorName ?? null,
         payload: input.payload ?? {},
       };
-      const res = await this.db.from("comms_audit" as never).insert(row as never);
+      // actor_id references profiles.id — strip it on FK miss so audit never
+      // breaks a happy-path mutation.
+      const res = await safeInsert(this.db, "comms_audit", row, ["actor_id"]);
       if (res.error && !isMissingTable(res.error)) {
-        // Audit failures are best-effort.
         // eslint-disable-next-line no-console
         console.warn("[comms_audit] insert failed", res.error.message);
       }

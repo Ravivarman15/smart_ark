@@ -13,6 +13,11 @@ import { aisensyService } from "./aisensy.service";
 import { commsTemplatesService } from "./commsTemplates.service";
 import { commsAuditService } from "./commsAudit.service";
 import { renderMessage } from "../utils/whatsappTemplates";
+import { safeInsert, safeInsertBatch, isForeignKeyError } from "../utils/safeInsert";
+
+// FK columns on `comms_campaigns` and `comms_campaign_recipients`.
+const CAMPAIGN_FK_FIELDS = ["created_by", "approved_by", "template_id"] as const;
+const RECIPIENT_FK_FIELDS = ["recipient_id"] as const;
 import type {
   AudienceFilter,
   CampaignAudience,
@@ -166,16 +171,18 @@ class CommsCampaignsService extends BaseService {
       status: "draft" as CampaignStatus,
       created_by: createdBy ?? null,
     };
-    const res = await this.db
-      .from("comms_campaigns" as never)
-      .insert(payload as never)
-      .select("*")
-      .maybeSingle();
+    const res = await safeInsert<DbCampaign>(
+      this.db,
+      "comms_campaigns",
+      payload,
+      [...CAMPAIGN_FK_FIELDS],
+      "*"
+    );
     if (res.error) {
       if (isMissingTable(res.error)) return null;
       throw AppError.fromSupabase(res.error, "comms_campaigns.create");
     }
-    const c = res.data ? toDomain(res.data as unknown as DbCampaign) : null;
+    const c = res.data ? toDomain(res.data) : null;
     if (c) {
       await commsAuditService.log({
         entityType: "campaign",
@@ -214,7 +221,17 @@ class CommsCampaignsService extends BaseService {
     if (extras.approvedBy !== undefined) payload.approved_by = extras.approvedBy;
     if (status === "running") payload.started_at = new Date().toISOString();
     if (status === "completed") payload.completed_at = new Date().toISOString();
-    const res = await this.db.from("comms_campaigns" as never).update(payload as never).eq("id", id);
+    let res = await this.db
+      .from("comms_campaigns" as never)
+      .update(payload as never)
+      .eq("id", id);
+    // If approved_by fails the FK (caller passed an auth uid instead of a
+    // profile id), retry without it so the status change still goes through.
+    if (res.error && isForeignKeyError(res.error) && payload.approved_by) {
+      const { approved_by: _drop, ...rest } = payload;
+      void _drop;
+      res = await this.db.from("comms_campaigns" as never).update(rest as never).eq("id", id);
+    }
     if (res.error && !isMissingTable(res.error)) {
       throw AppError.fromSupabase(res.error, "comms_campaigns.setStatus");
     }
@@ -251,15 +268,20 @@ class CommsCampaignsService extends BaseService {
       variables: r.variables ?? {},
       status: "pending",
     }));
-    const res = await this.db
-      .from("comms_campaign_recipients" as never)
-      .insert(rows as never)
-      .select("id");
+    // recipient_id is nullable + has no FK (per migration) — but kept in the
+    // fallback list for forward-compat if a future migration adds an FK.
+    const res = await safeInsertBatch<{ id: string }>(
+      this.db,
+      "comms_campaign_recipients",
+      rows,
+      [...RECIPIENT_FK_FIELDS],
+      "id"
+    );
     if (res.error) {
       if (isMissingTable(res.error)) return { inserted: 0, skipped: true };
       throw AppError.fromSupabase(res.error, "comms_campaign_recipients.insert");
     }
-    const inserted = ((res.data as Array<{ id: string }>) ?? []).length;
+    const inserted = (res.data ?? []).length;
     if (inserted > 0) {
       await this.db
         .from("comms_campaigns" as never)

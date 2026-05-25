@@ -122,7 +122,7 @@ export const SendCampaignPanel = ({
           studentId: c.kind === "student" ? c.id : undefined,
         },
         scheduledAt: scheduledAt || undefined,
-        createdBy: user?.id,
+        createdBy: user?.profileId,
       };
     });
   };
@@ -161,7 +161,7 @@ export const SendCampaignPanel = ({
         })),
       });
     }
-    if (c) await launch.mutateAsync({ id: c.id, actorId: user?.id });
+    if (c) await launch.mutateAsync({ id: c.id, actorId: user?.profileId });
     setSelected(new Set());
   };
 

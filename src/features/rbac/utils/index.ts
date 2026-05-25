@@ -8,3 +8,5 @@ export {
   setAllForCategory,
   setAllForSubmodule,
 } from "./actionEvaluator";
+
+export { rbacDebug, enableRbacDebug } from "./rbacDebug";

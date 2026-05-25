@@ -3,6 +3,7 @@ import { queryKeys } from "@/core/constants/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import { rolePermissionsService } from "../services/rolePermissions.service";
 import { permissionAuditService } from "../services/permissionAudit.service";
+import { rbacDebug } from "../utils/rbacDebug";
 import type { RolePermissionUpsert } from "../types/rbac.types";
 
 interface BulkInput {
@@ -41,10 +42,21 @@ export const useAssignRolePermissions = () => {
         )
       );
     },
-    onSuccess: (_v, { role }) => {
+    onSuccess: (_v, { role, rows }) => {
       qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions(role) });
       qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions() }); // "all" key
       qc.invalidateQueries({ queryKey: queryKeys.rbac.audit(role) });
+      // Effective-permission cascades downstream — useEffectivePermissions
+      // depends on useRolePermissions which we just busted, so the recomputation
+      // happens on next render. Bust the explicit effective key too for
+      // belt-and-suspenders when consumers cache it via custom keys.
+      qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective"] });
+      qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective-actions"] });
+      rbacDebug("mutation", {
+        source: "useAssignRolePermissions",
+        role,
+        rowCount: rows.length,
+      });
     },
   });
 };
@@ -56,6 +68,8 @@ export const useResetRolePermissions = () => {
     onSuccess: (_v, role) => {
       qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions(role) });
       qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions() });
+      qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective"] });
+      rbacDebug("mutation", { source: "useResetRolePermissions", role });
     },
   });
 };

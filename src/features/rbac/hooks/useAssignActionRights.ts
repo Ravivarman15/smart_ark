@@ -3,6 +3,7 @@ import { queryKeys } from "@/core/constants/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import { actionRightsService } from "../services/actionRights.service";
 import { actionAuditService } from "../services/actionAudit.service";
+import { rbacDebug } from "../utils/rbacDebug";
 import type { ActionRightUpsert } from "../types/rbac.types";
 
 interface BulkInput {
@@ -38,13 +39,14 @@ export const useAssignActionRights = () => {
         )
       );
     },
-    onSuccess: (_v, { role }) => {
+    onSuccess: (_v, { role, rows }) => {
       qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions(role) });
       qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions() }); // "all" key
       qc.invalidateQueries({ queryKey: queryKeys.rbac.actionAudit(role) });
       // Effective-action caches depend on role grants too — bust them so the
       // app reflects the new gates without a full reload.
       qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective-actions"] });
+      rbacDebug("mutation", { source: "useAssignActionRights", role, rowCount: rows.length });
     },
   });
 };
@@ -57,6 +59,7 @@ export const useResetActionRights = () => {
       qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions(role) });
       qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions() });
       qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective-actions"] });
+      rbacDebug("mutation", { source: "useResetActionRights", role });
     },
   });
 };

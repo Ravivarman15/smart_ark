@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, Save, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,11 @@ import {
   MODULE_LABELS,
   ACTION_DEFS,
   type ModuleKey,
+  useStaffRights,
 } from "@/contexts/StaffRightsContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { queryKeys } from "@/core/constants/queryKeys";
+import { rbacDebug } from "@/features/rbac";
 
 interface StaffMember {
   id: string;
@@ -26,6 +31,9 @@ const StaffRightsManager: React.FC = () => {
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
   const [loadingRights, setLoadingRights] = useState(false);
   const [saving, setSaving] = useState(false);
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const staffRights = useStaffRights();
 
   // Fetch staff from profiles — column is "name", not "full_name"
   useEffect(() => {
@@ -139,7 +147,21 @@ const StaffRightsManager: React.FC = () => {
         console.error("staff_action_rights error:", e2);
         toast.error(`Save failed (${code}): ${msg}`);
       } else {
-        toast.success("Rights saved — changes apply on next login");
+        // Invalidate every cache that derives permissions for the affected
+        // user. The RBAC realtime channel also picks up these row changes
+        // and propagates to other open tabs.
+        qc.invalidateQueries({ queryKey: queryKeys.rbac.all });
+        qc.invalidateQueries({ queryKey: queryKeys.permissions.forUser(selectedId) });
+        // If the affected user IS the current user (a manager editing their
+        // own rights), refresh the legacy StaffRightsContext immediately.
+        if (selectedId === user?.profileId) staffRights.refresh();
+        rbacDebug("mutation", {
+          source: "StaffRightsManager.handleSave",
+          targetProfileId: selectedId,
+          moduleRows: moduleRows.length,
+          actionRows: actionRows.length,
+        });
+        toast.success("Permissions updated — applied instantly");
       }
     } finally {
       setSaving(false);

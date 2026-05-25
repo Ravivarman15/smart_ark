@@ -99,19 +99,24 @@ export const StaffRightsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [moduleRights, setModuleRights] = useState<Record<string, boolean>>({});
   const [actionRights, setActionRights] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [fetched, setFetched] = useState(false);
   const abortRef = React.useRef<AbortController | null>(null);
 
   const fetchRights = useCallback(async () => {
     // Management sees everything — skip fetching
     if (!user || user.role === "management") {
+      setModuleRights({});
+      setActionRights({});
       setLoading(false);
-      setFetched(true);
       return;
     }
 
     const profileId = user.profileId;
-    if (!profileId) { setLoading(false); setFetched(true); return; }
+    if (!profileId) {
+      setModuleRights({});
+      setActionRights({});
+      setLoading(false);
+      return;
+    }
 
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -146,18 +151,22 @@ export const StaffRightsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setModuleRights(modMap);
     setActionRights(actionMap);
     setLoading(false);
-    setFetched(true);
   }, [user]);
 
+  // Re-fetch whenever the affected profile or its role changes. Previously a
+  // `fetched` boolean latched after the first run; this prevented live
+  // permission updates from propagating until the user logged out and back in.
+  // The RbacRealtimeProvider also calls `refresh()` whenever the user's
+  // staff_rights / staff_action_rights / profiles row changes upstream.
   useEffect(() => {
-    if (user && !fetched) fetchRights();
     if (!user) {
       setModuleRights({});
       setActionRights({});
       setLoading(true);
-      setFetched(false);
+      return;
     }
-  }, [user, fetched, fetchRights]);
+    fetchRights();
+  }, [user, user?.profileId, user?.role, fetchRights]);
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
 

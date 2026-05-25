@@ -55,7 +55,12 @@ export {
   deriveEffectiveActions,
   setAllForCategory,
   setAllForSubmodule,
+  rbacDebug,
+  enableRbacDebug,
 } from "./utils";
+
+// ── Providers ───────────────────────────────────────────────────────────────
+export { RbacRealtimeProvider } from "./providers/RbacRealtimeProvider";
 
 // ── Services ────────────────────────────────────────────────────────────────
 export {

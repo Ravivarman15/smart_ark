@@ -32,6 +32,16 @@ import type {
   QueueStatus,
 } from "../types/communication.types";
 import type { RenderedMessage } from "../utils/whatsappTemplates";
+import { safeInsert, safeInsertBatch } from "../utils/safeInsert";
+
+// FK-bearing columns on `message_queue`. Order matters — `created_by` is
+// stripped first because it's the most common offender (auth uid vs profile id).
+const MQ_FK_FIELDS = [
+  "created_by",
+  "template_id",
+  "campaign_id",
+  "recipient_student_id",
+] as const;
 
 const isMissingTable = (err: { message?: string } | null | undefined): boolean => {
   const m = (err?.message ?? "").toLowerCase();
@@ -118,16 +128,18 @@ class AiSensyService extends BaseService {
 
   /** Queue a single message. Returns the new row id or skipped count. */
   async enqueue(input: EnqueueInput): Promise<EnqueueResult> {
-    const res = await this.db
-      .from("message_queue" as never)
-      .insert(this.buildRow(input) as never)
-      .select("id")
-      .maybeSingle();
+    const res = await safeInsert<{ id?: string }>(
+      this.db,
+      "message_queue",
+      this.buildRow(input),
+      [...MQ_FK_FIELDS],
+      "id"
+    );
     if (res.error) {
       if (isMissingTable(res.error)) return { queued: 0, skipped: 1, ids: [] };
       throw AppError.fromSupabase(res.error, "message_queue");
     }
-    const id = (res.data as { id?: string } | null)?.id;
+    const id = res.data?.id;
     return { queued: 1, skipped: 0, ids: id ? [id] : [] };
   }
 
@@ -135,17 +147,20 @@ class AiSensyService extends BaseService {
   async enqueueBulk(inputs: EnqueueInput[]): Promise<EnqueueResult> {
     if (inputs.length === 0) return { queued: 0, skipped: 0, ids: [] };
     const rows = inputs.map((i) => this.buildRow(i));
-    const res = await this.db
-      .from("message_queue" as never)
-      .insert(rows as never)
-      .select("id");
+    const res = await safeInsertBatch<{ id: string }>(
+      this.db,
+      "message_queue",
+      rows,
+      [...MQ_FK_FIELDS],
+      "id"
+    );
     if (res.error) {
       if (isMissingTable(res.error)) {
         return { queued: 0, skipped: inputs.length, ids: [] };
       }
       throw AppError.fromSupabase(res.error, "message_queue.bulk");
     }
-    const ids = ((res.data as Array<{ id: string }>) ?? []).map((r) => r.id);
+    const ids = (res.data ?? []).map((r) => r.id);
     return { queued: ids.length, skipped: inputs.length - ids.length, ids };
   }
 
