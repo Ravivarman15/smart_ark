@@ -391,9 +391,39 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: all,
     items: [
-      ...sub("help.support_request", "Support Request", {}, all),
-      ...sub("help.support_history", "Support History", {}, all),
-      ...sub("help.feedback",        "Feedback",        {}, all),
+      ...sub("help.support_request", "Support Request", {
+        admin: "/admin/help/new",
+        management: "/management/help/new",
+        coordinator: "/coordinator/help/new",
+        teacher: "/teacher/help/new",
+      }, all, { action: "help.ticket.create" }),
+      ...sub("help.support_history", "Support History", {
+        admin: "/admin/help/history",
+        management: "/management/help/history",
+        coordinator: "/coordinator/help/history",
+        teacher: "/teacher/help/history",
+      }, all),
+      ...sub("help.feedback", "Feedback Board", {
+        admin: "/admin/help/feedback",
+        management: "/management/help/feedback",
+        coordinator: "/coordinator/help/feedback",
+        teacher: "/teacher/help/feedback",
+      }, all),
+      ...sub("help.feedback_new", "Share Feedback", {
+        admin: "/admin/help/feedback/new",
+        management: "/management/help/feedback/new",
+        coordinator: "/coordinator/help/feedback/new",
+        teacher: "/teacher/help/feedback/new",
+      }, all, { action: "help.feedback.create" }),
+      ...sub("help.triage", "Triage Inbox", {
+        admin: "/admin/help/triage",
+        management: "/management/help/triage",
+        coordinator: "/coordinator/help/triage",
+      }, everyoneExceptTeacher, { action: "help.ticket.assign" }),
+      ...sub("help.analytics", "Ticket Analytics", {
+        admin: "/admin/help/analytics",
+        management: "/management/help/analytics",
+      }, adminMgmt, { action: "help.analytics.view" }),
     ],
   },
 ];

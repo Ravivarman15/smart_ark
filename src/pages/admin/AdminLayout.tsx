@@ -4,6 +4,7 @@ import { RoleSidebar } from "@/shared/layouts";
 import { Menu, X, AlertTriangle } from "lucide-react";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeToggle } from "@/core/theme";
 import { toast } from "sonner";
 import { useStrictModeEnforcement } from "@/hooks/useStrictModeEnforcement";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,7 +76,7 @@ const AdminLayout: React.FC = () => {
             <span className="font-display font-bold text-foreground text-sm">ARK Admin</span>
             <span className="text-[9px] text-accent uppercase tracking-widest">Control Panel</span>
           </div>
-          <div className="w-9" />
+          <ThemeToggle variant="icon" />
         </div>
 
         {/* Scrollable content */}

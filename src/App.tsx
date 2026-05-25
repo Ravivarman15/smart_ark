@@ -132,6 +132,14 @@ const CreateMcqExamPage = lazy(() => import("./features/exams/pages/CreateMcqExa
 const McqExamMonitorPage = lazy(() => import("./features/exams/pages/McqExamMonitorPage"));
 const StudentExamPage = lazy(() => import("./features/exams/pages/StudentExamPage"));
 
+// Help & Support module pages (feature-based — src/features/help)
+const HelpSupportRequest = lazy(() => import("./features/help/pages/SupportRequestPage"));
+const HelpSupportHistory = lazy(() => import("./features/help/pages/SupportHistoryPage"));
+const HelpFeedback = lazy(() => import("./features/help/pages/FeedbackPage"));
+const HelpManagementTriage = lazy(() => import("./features/help/pages/ManagementTriagePage"));
+const HelpTicketAnalytics = lazy(() => import("./features/help/pages/TicketAnalyticsPage"));
+const HelpPublicFeedbackBoard = lazy(() => import("./features/help/pages/PublicFeedbackBoardPage"));
+
 // Management-owned staff pages
 const StaffRightsManager = lazy(() => import("./pages/management/StaffRightsManager"));
 const ManageModulePermissions = lazy(
@@ -193,6 +201,12 @@ const AppRoutes: React.FC = () => (
 
       <Route path="/teacher" element={<ProtectedRoute allowedRoles={roles("teacher")}><TeacherDashboard /></ProtectedRoute>} />
       <Route path="/teacher/leave" element={<ProtectedRoute allowedRoles={roles("teacher")}><LeaveManagement /></ProtectedRoute>} />
+      <Route path="/teacher/help" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpSupportRequest /></ProtectedRoute>} />
+      <Route path="/teacher/help/new" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpSupportRequest /></ProtectedRoute>} />
+      <Route path="/teacher/help/history" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpSupportHistory /></ProtectedRoute>} />
+      <Route path="/teacher/help/history/:id" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpSupportHistory /></ProtectedRoute>} />
+      <Route path="/teacher/help/feedback" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpPublicFeedbackBoard /></ProtectedRoute>} />
+      <Route path="/teacher/help/feedback/new" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpFeedback /></ProtectedRoute>} />
       <Route path="/teacher/coming-soon/:slug" element={<ProtectedRoute allowedRoles={roles("teacher")}><ComingSoon /></ProtectedRoute>} />
 
       <Route path="/admin" element={<ProtectedRoute allowedRoles={roles("admin")}><AdminLayout /></ProtectedRoute>}>
@@ -280,6 +294,16 @@ const AppRoutes: React.FC = () => (
         <Route path="reports/admission-analysis" element={<RptAdmissionAnalysis />} />
         <Route path="reports/fee-analysis" element={<RptFeeAnalysis />} />
         <Route path="reports/profit-loss-analysis" element={<RptProfitLossAnalysis />} />
+        {/* Help & Support module routes — feature-based */}
+        <Route path="help" element={<HelpSupportRequest />} />
+        <Route path="help/new" element={<HelpSupportRequest />} />
+        <Route path="help/history" element={<HelpSupportHistory />} />
+        <Route path="help/history/:id" element={<HelpSupportHistory />} />
+        <Route path="help/feedback" element={<HelpPublicFeedbackBoard />} />
+        <Route path="help/feedback/new" element={<HelpFeedback />} />
+        <Route path="help/triage" element={<HelpManagementTriage />} />
+        <Route path="help/triage/:id" element={<HelpManagementTriage />} />
+        <Route path="help/analytics" element={<HelpTicketAnalytics />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -379,6 +403,16 @@ const AppRoutes: React.FC = () => (
         <Route path="reports/admission-analysis" element={<RptAdmissionAnalysis />} />
         <Route path="reports/fee-analysis" element={<RptFeeAnalysis />} />
         <Route path="reports/profit-loss-analysis" element={<RptProfitLossAnalysis />} />
+        {/* Help & Support module routes — feature-based, management-owned */}
+        <Route path="help" element={<HelpSupportRequest />} />
+        <Route path="help/new" element={<HelpSupportRequest />} />
+        <Route path="help/history" element={<HelpSupportHistory />} />
+        <Route path="help/history/:id" element={<HelpSupportHistory />} />
+        <Route path="help/feedback" element={<HelpPublicFeedbackBoard />} />
+        <Route path="help/feedback/new" element={<HelpFeedback />} />
+        <Route path="help/triage" element={<HelpManagementTriage />} />
+        <Route path="help/triage/:id" element={<HelpManagementTriage />} />
+        <Route path="help/analytics" element={<HelpTicketAnalytics />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -389,6 +423,15 @@ const AppRoutes: React.FC = () => (
         <Route path="enquiries" element={<EnquiryManagement />} />
         <Route path="timetable" element={<TimetableView />} />
         {studentRoutes()}
+        {/* Help & Support module routes — feature-based */}
+        <Route path="help" element={<HelpSupportRequest />} />
+        <Route path="help/new" element={<HelpSupportRequest />} />
+        <Route path="help/history" element={<HelpSupportHistory />} />
+        <Route path="help/history/:id" element={<HelpSupportHistory />} />
+        <Route path="help/feedback" element={<HelpPublicFeedbackBoard />} />
+        <Route path="help/feedback/new" element={<HelpFeedback />} />
+        <Route path="help/triage" element={<HelpManagementTriage />} />
+        <Route path="help/triage/:id" element={<HelpManagementTriage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 

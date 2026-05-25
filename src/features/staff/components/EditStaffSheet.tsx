@@ -113,9 +113,14 @@ export const EditStaffSheet = ({ staff, onOpenChange, onSaved }: Props) => {
             ? true
             : staff.active;
 
+      // Strip the login email from a normal staff edit — the email field is
+      // read-only in this sheet, and writes go through the dedicated
+      // "Change login email" action so auth.users.email is updated atomically.
+      // See staffService.update() — it rejects email changes outright.
+      const { email: _droppedEmail, ...editable } = parsed.data;
       await update.mutateAsync({
         id: staff.id,
-        updates: { ...parsed.data, active },
+        updates: { ...editable, active },
       });
       toast.success("Staff updated");
       onSaved?.();
@@ -169,11 +174,13 @@ export const EditStaffSheet = ({ staff, onOpenChange, onSaved }: Props) => {
                   onChange={(e) => set("mobile", e.target.value)}
                 />
               </Field>
-              <Field label="Email" error={errors.email}>
+              <Field label="Login email" error={errors.email}>
                 <Input
                   type="email"
                   value={values.email ?? ""}
-                  onChange={(e) => set("email", e.target.value)}
+                  readOnly
+                  className="bg-muted/40 cursor-not-allowed"
+                  title="Login email is the source of truth in Supabase Auth. Use the Change login email action from the staff row to update it safely."
                 />
               </Field>
             </div>

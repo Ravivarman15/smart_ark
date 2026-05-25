@@ -11,6 +11,8 @@ export {
   useSuspendStaff,
   useDeleteStaff,
   useUploadProfilePicture,
+  useUpdateLoginEmail,
+  useVerifyOnboarding,
 } from "./useStaffMutations";
 export { useRoles } from "./useRoles";
 export { useOnboardingEvents } from "./useOnboarding";

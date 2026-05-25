@@ -4,8 +4,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────────────────
+   THEMING
+   ──────────────────────────────────────────────────────────────────────────
+   Every visual surface in the app is bound to one of the HSL variables
+   below (background, foreground, primary, accent, sidebar.*, ark.*,
+   chart.*). Switching themes is therefore a matter of swapping the values
+   on the <html> element — no component CSS needs to change.
+
+   - :root keeps the legacy ARK Dark palette as the default (SSR / no-JS
+     safe). [data-theme="ark-dark"] is an explicit alias of the same.
+   - [data-theme="ark-light"] is the premium white ARK Light palette.
+
+   To add a new theme (student, branch branding, dark accessible, …) add
+   another [data-theme="…"] block and register it in
+   src/core/theme/themes.ts.
+   ────────────────────────────────────────────────────────────────────── */
+
 @layer base {
-  :root {
+  :root,
+  [data-theme="ark-dark"] {
+    color-scheme: dark;
+
     --background: 213 69% 13%;
     --foreground: 0 0% 98%;
 
@@ -24,42 +44,131 @@
     --muted: 213 40% 20%;
     --muted-foreground: 213 20% 60%;
 
-    --accent: 45 100% 51%;
-    --accent-foreground: 213 77% 13%;
+    /* Accent (hover/active/focus/highlights) — bright navy/sky so it pops on
+       the dark navy surface without any red or orange tint. */
+    --accent: 210 90% 62%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 213 30% 25%;
     --input: 213 30% 25%;
-    --ring: 45 100% 51%;
+    --ring: 210 90% 62%;
 
     --radius: 0.75rem;
 
     --ark-navy: 213 77% 19%;
     --ark-navy-deep: 213 69% 13%;
     --ark-navy-light: 213 50% 28%;
-    --ark-yellow: 45 100% 51%;
-    --ark-yellow-soft: 45 80% 60%;
-    --ark-pink: 330 100% 65%;
+    /* Renamed semantically: these aliases used to be gold/red — now navy. */
+    --ark-yellow: 210 90% 62%;
+    --ark-yellow-soft: 210 80% 72%;
+    --ark-pink: 215 75% 50%;
     --ark-success: 142 76% 36%;
     --ark-warning: 38 92% 50%;
     --ark-danger: 0 84% 60%;
 
     --sidebar-background: 213 69% 10%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 45 100% 51%;
+    --sidebar-primary: 210 90% 62%;
     --sidebar-primary-foreground: 213 77% 13%;
     --sidebar-accent: 213 50% 18%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 213 30% 20%;
-    --sidebar-ring: 45 100% 51%;
+    --sidebar-ring: 210 90% 62%;
 
-    --chart-1: 45 100% 51%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 330 100% 65%;
+    /* Chart palette — navy-family with cool variety, no red/orange. */
+    --chart-1: 210 90% 62%;
+    --chart-2: 142 70% 42%;
+    --chart-3: 270 65% 65%;
     --chart-4: 200 80% 50%;
-    --chart-5: 270 60% 55%;
+    --chart-5: 180 65% 45%;
+
+    /* Premium shadow tokens — tuned per theme for correct depth */
+    --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 1px 3px 0 rgb(0 0 0 / 0.25);
+    --shadow-elevated: 0 10px 25px -5px rgb(0 0 0 / 0.45), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+    --shadow-focus: 0 0 0 3px hsl(var(--accent) / 0.35);
+
+    /* Premium gradients */
+    --gradient-brand: linear-gradient(135deg, hsl(var(--ark-yellow)) 0%, hsl(var(--ark-yellow-soft)) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
+  }
+
+  /* ── ARK LIGHT — premium white surface with navy brand ────────────────── */
+  [data-theme="ark-light"] {
+    color-scheme: light;
+
+    /* Surfaces */
+    --background: 220 30% 99%;
+    --foreground: 222 27% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 27% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 27% 14%;
+
+    /* Navy is the primary action colour — buttons, links, active states. */
+    --primary: 215 72% 22%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary = light cool grey */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 27% 14%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 45%;
+
+    /* Accent (hover/focus/highlights) — medium navy, readable on white. */
+    --accent: 213 70% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive stays red — semantic delete/error indicator, not brand. */
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 215 72% 22%;
+
+    --radius: 0.75rem;
+
+    /* ARK palette aliases — navy-family, no red or orange brand tones. */
+    --ark-navy: 222 47% 18%;
+    --ark-navy-deep: 222 47% 11%;
+    --ark-navy-light: 222 25% 32%;
+    --ark-yellow: 213 70% 38%;       /* was gold — now navy accent */
+    --ark-yellow-soft: 213 65% 52%;  /* was orange-soft — lighter navy */
+    --ark-pink: 215 72% 22%;         /* was red brand — now deep navy */
+    --ark-success: 142 65% 36%;
+    --ark-warning: 38 92% 50%;        /* amber kept — semantic warning only */
+    --ark-danger: 0 78% 50%;          /* red kept — semantic danger only */
+
+    /* Sidebar — soft white with dark text, navy active rail. */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 27% 14%;
+    --sidebar-primary: 215 72% 22%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 222 27% 14%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 215 72% 22%;
+
+    /* Chart palette — navy-family + cool variety, no red/orange. */
+    --chart-1: 215 72% 22%;          /* deep navy */
+    --chart-2: 210 85% 50%;          /* sky blue */
+    --chart-3: 142 65% 38%;          /* emerald */
+    --chart-4: 180 65% 38%;          /* teal */
+    --chart-5: 270 55% 50%;          /* violet */
+
+    /* Lighter, softer premium shadows on white */
+    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+    --shadow-elevated: 0 10px 25px -5px rgb(15 23 42 / 0.08), 0 8px 10px -6px rgb(15 23 42 / 0.05);
+    --shadow-focus: 0 0 0 3px hsl(var(--ring) / 0.25);
+
+    --gradient-brand: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
   }
 }
 
@@ -68,11 +177,33 @@
     @apply border-border;
   }
 
+  html {
+    /* Smooth theme switching — short, opt-in, applied only to colour props
+       so layout/transform animations are untouched. */
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  /* When the theme attribute flips, fade every coloured surface gently */
+  html[data-theme] *,
+  html[data-theme] *::before,
+  html[data-theme] *::after {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: 180ms;
+    transition-timing-function: ease;
+  }
+  /* …but never animate this on first paint to avoid jank */
+  html.theme-instant *,
+  html.theme-instant *::before,
+  html.theme-instant *::after {
+    transition: none !important;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -83,6 +214,7 @@
 @layer utilities {
   .glass-card {
     @apply bg-card border border-border rounded-xl;
+    box-shadow: var(--shadow-card);
   }
 
   .glass-card-hover {
@@ -90,16 +222,24 @@
   }
 
   .gradient-accent {
-    background: linear-gradient(135deg, hsl(var(--ark-yellow)), hsl(var(--ark-yellow-soft)));
+    background: var(--gradient-brand);
   }
 
   .gradient-navy {
     background: linear-gradient(135deg, hsl(var(--ark-navy-deep)), hsl(var(--ark-navy)));
   }
 
+  .gradient-surface {
+    background: var(--gradient-surface);
+  }
+
   .text-gradient-accent {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(var(--ark-yellow)), hsl(var(--ark-yellow-soft)));
+    background-image: var(--gradient-brand);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
   }
 
   .status-strong {

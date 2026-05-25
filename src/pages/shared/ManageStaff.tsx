@@ -23,6 +23,8 @@ import {
   useDeleteStaff,
   useResendInvite,
   useResetStaffPassword,
+  useUpdateLoginEmail,
+  useVerifyOnboarding,
   useStaff,
   useRoles,
   type OnboardingStatus,
@@ -85,6 +87,8 @@ const ManageStaff = () => {
   const deleteStaff = useDeleteStaff();
   const resendInvite = useResendInvite();
   const resetPassword = useResetStaffPassword();
+  const verifyOnboarding = useVerifyOnboarding();
+  const updateLoginEmail = useUpdateLoginEmail();
 
   const actor = { profileId: user?.profileId, name: user?.name };
 
@@ -193,6 +197,65 @@ const ManageStaff = () => {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to resend invite");
+    }
+  };
+
+  const handleVerifyAuth = async (s: Staff) => {
+    try {
+      const h = await verifyOnboarding.mutateAsync({ profileId: s.id });
+      if (h.inSync) {
+        toast.success(
+          `Auth sync OK — login email is ${h.authEmail}`,
+        );
+      } else if (!h.authLinked) {
+        toast.error(
+          `${s.name}: ${h.issue ?? "Auth login is missing for this profile."}`,
+        );
+      } else {
+        toast.warning(
+          `${s.name}: ${h.issue ?? "Profile and auth.users are out of sync."} ` +
+            `Login email is ${h.authEmail}; profile shows ${h.profileEmail ?? "(empty)"}. ` +
+            `Use Change login email to fix.`,
+          { duration: 7000 },
+        );
+      }
+      await onboardingService.logEvent({
+        profileId: s.id,
+        eventType: "auth_verified",
+        detail: h.inSync ? "Auth sync OK" : h.issue ?? "Drift detected",
+        actor,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Verification failed");
+    }
+  };
+
+  const handleChangeLoginEmail = async (s: Staff) => {
+    const current = s.email ?? "";
+    const next = window.prompt(
+      `New login email for ${s.name}\n\n` +
+        `Updating this changes both auth.users.email and profiles.email in ` +
+        `one atomic step, so the next welcome / reset email matches what ` +
+        `Supabase Auth actually expects at sign-in.`,
+      current,
+    );
+    if (!next || next.trim() === "" || next.trim().toLowerCase() === current.toLowerCase()) {
+      return;
+    }
+    try {
+      await updateLoginEmail.mutateAsync({
+        profileId: s.id,
+        newEmail: next.trim(),
+      });
+      toast.success(`Login email updated to ${next.trim()}`);
+      await onboardingService.logEvent({
+        profileId: s.id,
+        eventType: "email_changed",
+        detail: `Login email changed to ${next.trim()}`,
+        actor,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to change email");
     }
   };
 
@@ -366,6 +429,8 @@ const ManageStaff = () => {
         onActivate={handleActivate}
         onResendInvite={handleResend}
         onResetPassword={handleReset}
+        onVerifyAuth={handleVerifyAuth}
+        onChangeLoginEmail={handleChangeLoginEmail}
         onDelete={handleDelete}
       />
 

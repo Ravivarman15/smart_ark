@@ -112,3 +112,32 @@ export const useUploadProfilePicture = () =>
     mutationFn: (args: { ownerId: string; file: File | Blob }) =>
       staffStorageService.uploadProfilePicture(args),
   });
+
+/**
+ * Atomic login-email change. Updates auth.users.email AND profiles.email in
+ * one server-side step so the next welcome / reset email always quotes the
+ * email Supabase Auth actually expects at sign-in.
+ */
+export const useUpdateLoginEmail = () => {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { profileId: string; newEmail: string }>({
+    mutationFn: ({ profileId, newEmail }) =>
+      authProvisionService.updateLoginEmail(profileId, newEmail),
+    onSuccess: (_d, { profileId }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.staff.detail(profileId) });
+      qc.invalidateQueries({ queryKey: queryKeys.staff.all });
+    },
+  });
+};
+
+/**
+ * Run a diagnostic check for a single staff row — does the profile point at
+ * an existing auth user? Are profile.email and auth.users.email in sync?
+ * Used to surface "auth sync OK / drift" badges in Manage Staff so admins
+ * can spot trouble before a staff member is locked out.
+ */
+export const useVerifyOnboarding = () =>
+  useMutation({
+    mutationFn: (args: { profileId?: string; email?: string }) =>
+      authProvisionService.verify(args),
+  });

@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsCard } from "../components/SettingsCard";
 import { profileUpdateSchema, type ProfileUpdateValues } from "../schemas/settings.schema";
 import { useProfile, useUpdateProfile, useUploadProfileAvatar } from "../hooks/useProfile";
+import { ThemeToggle } from "@/core/theme";
 
 const ProfileSettingsPage = () => {
   const { data: profile, isLoading } = useProfile();
@@ -156,6 +157,13 @@ const ProfileSettingsPage = () => {
             </Button>
           </div>
         </form>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Appearance"
+        description="Pick a theme for the entire ERP. The choice is saved for this device and syncs across tabs."
+      >
+        <ThemeToggle variant="cards" />
       </SettingsCard>
     </div>
   );

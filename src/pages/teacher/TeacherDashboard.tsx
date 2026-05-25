@@ -4,6 +4,7 @@ import { useAppData, AttendanceStatus, isNearCampus, MarksEntry, CheckinRecord, 
 import { sendMarksToParent, getWhatsAppLink, formatMarksMessage } from "@/lib/aisensyApi";
 import { toast } from "sonner";
 import arkLogo from "@/assets/ark-logo.jpeg";
+import { ThemeToggle } from "@/core/theme";
 import {
   LogOut, CheckCircle2, BookOpen, Clock, FileText, MapPin,
   ClipboardList, Users2, Calendar, CheckSquare, Square,
@@ -341,9 +342,12 @@ const TeacherDashboard: React.FC = () => {
             <p className="text-[11px] text-muted-foreground">{user?.name} · {user?.campus}</p>
           </div>
         </div>
-        <button onClick={logout} className="p-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground" title="Sign out">
-          <LogOut className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle variant="icon" />
+          <button onClick={logout} className="p-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground" title="Sign out">
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </header>
 
       {/* Content */}

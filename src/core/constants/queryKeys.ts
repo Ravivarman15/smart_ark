@@ -237,6 +237,28 @@ export const queryKeys = {
     lookups: (kind: string) =>
       [...queryKeys.finance.all, "lookups", kind] as const,
   },
+  help: {
+    all: ["help"] as const,
+    tickets: (filter?: Record<string, unknown>) =>
+      [...queryKeys.help.all, "tickets", filter ?? {}] as const,
+    ticket: (id: string) => [...queryKeys.help.all, "ticket", id] as const,
+    messages: (ticketId: string) =>
+      [...queryKeys.help.all, "messages", ticketId] as const,
+    attachments: (ticketId: string) =>
+      [...queryKeys.help.all, "attachments", ticketId] as const,
+    feedback: (filter?: Record<string, unknown>) =>
+      [...queryKeys.help.all, "feedback", filter ?? {}] as const,
+    feedbackOne: (id: string) => [...queryKeys.help.all, "feedback-one", id] as const,
+    votes: (feedbackId: string) =>
+      [...queryKeys.help.all, "votes", feedbackId] as const,
+    userVotes: (profileId: string) =>
+      [...queryKeys.help.all, "user-votes", profileId] as const,
+    analytics: (scope: string, params?: Record<string, unknown>) =>
+      [...queryKeys.help.all, "analytics", scope, params ?? {}] as const,
+    audit: (entity: string, id?: string) =>
+      [...queryKeys.help.all, "audit", entity, id ?? "all"] as const,
+    assignees: () => [...queryKeys.help.all, "assignees"] as const,
+  },
   communication: {
     all: ["communication"] as const,
     templates: (filter?: Record<string, unknown>) =>

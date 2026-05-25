@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { RoleSidebar } from "@/shared/layouts";
 import { Menu, X } from "lucide-react";
+import { ThemeToggle } from "@/core/theme";
 
 const CoordinatorLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -24,7 +25,7 @@ const CoordinatorLayout: React.FC = () => {
             <span className="font-display font-bold text-foreground text-sm">ARK Coordinator</span>
             <span className="text-[9px] text-accent uppercase tracking-widest">Coordinator Portal</span>
           </div>
-          <div className="w-9" />
+          <ThemeToggle variant="icon" />
         </div>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <Outlet />

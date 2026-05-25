@@ -25,6 +25,8 @@ interface Props {
   onActivate?: (staff: Staff) => void;
   onResendInvite?: (staff: Staff) => void;
   onResetPassword?: (staff: Staff) => void;
+  onVerifyAuth?: (staff: Staff) => void;
+  onChangeLoginEmail?: (staff: Staff) => void;
   onDelete?: (staff: Staff) => void;
 }
 
@@ -37,6 +39,8 @@ type ActionProps = Pick<
   | "onActivate"
   | "onResendInvite"
   | "onResetPassword"
+  | "onVerifyAuth"
+  | "onChangeLoginEmail"
   | "onDelete"
 >;
 
@@ -55,6 +59,8 @@ export const ManageStaffTable = ({
   onActivate,
   onResendInvite,
   onResetPassword,
+  onVerifyAuth,
+  onChangeLoginEmail,
   onDelete,
 }: Props) => {
   const actions: ActionProps = {
@@ -65,6 +71,8 @@ export const ManageStaffTable = ({
     onActivate,
     onResendInvite,
     onResetPassword,
+    onVerifyAuth,
+    onChangeLoginEmail,
     onDelete,
   };
 
@@ -218,6 +226,8 @@ const RowActions = ({
   onActivate,
   onResendInvite,
   onResetPassword,
+  onVerifyAuth,
+  onChangeLoginEmail,
   onDelete,
 }: ActionProps & { s: Staff }) => (
   <DropdownMenu>
@@ -263,6 +273,22 @@ const RowActions = ({
           onClick={() => onResetPassword(s)}
         >
           Reset password
+        </ProtectedMenuItem>
+      )}
+      {onVerifyAuth && (
+        <ProtectedMenuItem
+          action="staff.invite.resend"
+          onClick={() => onVerifyAuth(s)}
+        >
+          Check auth sync
+        </ProtectedMenuItem>
+      )}
+      {onChangeLoginEmail && (
+        <ProtectedMenuItem
+          action="staff.edit"
+          onClick={() => onChangeLoginEmail(s)}
+        >
+          Change login email
         </ProtectedMenuItem>
       )}
       <DropdownMenuSeparator />

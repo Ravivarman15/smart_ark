@@ -3,12 +3,15 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   ChevronDown,
   LogOut,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Sun,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation, ROLE_BRAND } from "@/core/navigation";
 import type { Role } from "@/core/constants/roles";
+import { useTheme } from "@/core/theme";
 import { resolveIcon } from "@/shared/icons";
 import arkLogo from "@/assets/ark-logo.jpeg";
 
@@ -38,6 +41,7 @@ const ACCORDION_KEY = (role: string, groupKey: string) =>
 // ──────────────────────────────────────────────────────────────────────────────
 export const RoleSidebar = ({ collapsed, onToggle, onNavigate }: Props) => {
   const { user, logout } = useAuth();
+  const { themeDef, toggleTheme } = useTheme();
   const groups = useNavigation();
   const location = useLocation();
   const role = user?.role as Role | undefined;
@@ -275,6 +279,23 @@ export const RoleSidebar = ({ collapsed, onToggle, onNavigate }: Props) => {
           </div>
         )}
         <div className="px-2 pb-3 space-y-0.5">
+          <button
+            onClick={toggleTheme}
+            title={collapsed ? `Theme: ${themeDef.label}` : undefined}
+            aria-label={`Switch theme — current ${themeDef.label}`}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-foreground w-full transition-colors"
+          >
+            {themeDef.mode === "dark" ? (
+              <Sun className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <Moon className="w-4 h-4 flex-shrink-0" />
+            )}
+            {!collapsed && (
+              <span className="flex-1 text-left">
+                {themeDef.mode === "dark" ? "Light theme" : "Dark theme"}
+              </span>
+            )}
+          </button>
           <button
             onClick={logout}
             title={collapsed ? "Logout" : undefined}

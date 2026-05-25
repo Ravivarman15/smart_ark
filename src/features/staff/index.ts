@@ -69,6 +69,7 @@ export {
   type RoleDescriptor,
   type ActorRef,
   type LogEventArgs,
+  type OnboardingHealth,
 } from "./services";
 
 // ── Hooks ───────────────────────────────────────────────────────────────────
@@ -80,6 +81,8 @@ export {
   useInviteStaff,
   useResendInvite,
   useResetStaffPassword,
+  useUpdateLoginEmail,
+  useVerifyOnboarding,
   useUpdateStaff,
   useDeactivateStaff,
   useActivateStaff,

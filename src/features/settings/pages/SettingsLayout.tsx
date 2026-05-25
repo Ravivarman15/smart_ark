@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useHomeRoute } from "@/core/navigation";
+import { ThemeToggle } from "@/core/theme";
 import { SettingsSidebar } from "../components/SettingsSidebar";
 
 /**
@@ -27,10 +28,13 @@ const SettingsLayout = () => {
               <p className="text-[11px] text-muted-foreground">Account, preferences & integrations</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => navigate(home)}>
-            <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-            Back to dashboard
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle variant="switch" />
+            <Button variant="outline" size="sm" onClick={() => navigate(home)}>
+              <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
+              Back to dashboard
+            </Button>
+          </div>
         </div>
       </header>
 

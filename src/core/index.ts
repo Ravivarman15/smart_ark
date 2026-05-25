@@ -15,3 +15,17 @@ export {
   type NavGroupConfig,
   type NavItemConfig,
 } from "./navigation";
+export {
+  ThemeProvider,
+  ThemeToggle,
+  useTheme,
+  useThemeMode,
+  THEMES,
+  THEME_LIST,
+  DEFAULT_THEME,
+  isThemeId,
+  type ThemeId,
+  type ThemeMode,
+  type ThemeDefinition,
+  type ThemeToggleProps,
+} from "./theme";

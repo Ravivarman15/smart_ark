@@ -15,6 +15,24 @@
     <meta property="og:type" content="website" />
 
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Mobile browser chrome colour — updated at runtime by ThemeProvider. -->
+    <meta name="theme-color" content="#0a2543" />
+
+    <!-- No-flash theme boot: runs before React paints, so the saved theme
+         is in place before the first stylesheet evaluation. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('ark-theme');
+          if (t !== 'ark-light' && t !== 'ark-dark') t = 'ark-dark';
+          document.documentElement.dataset.theme = t;
+          document.documentElement.classList.add('theme-instant');
+        } catch (_) {
+          document.documentElement.dataset.theme = 'ark-dark';
+        }
+      })();
+    </script>
   </head>
 
   <body>

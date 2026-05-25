@@ -269,6 +269,17 @@ class StaffService extends BaseService {
   }
 
   async update(id: string, updates: UpdateStaffInput): Promise<void> {
+    // Login-email changes MUST go through the edge function's `update_email`
+    // action so auth.users.email stays in lockstep with profiles.email. A
+    // plain UPDATE here drifted them apart and broke first-login (welcome
+    // email quoted the new profile.email, but Supabase Auth still knew the
+    // old auth.users.email — hence "invalid credentials").
+    if (updates.email !== undefined) {
+      throw AppError.validation(
+        "Login email cannot be changed through a normal staff edit. " +
+          "Use the Change Login Email action so auth.users.email is updated atomically.",
+      );
+    }
     const patch = toDb(updates);
     if (Object.keys(patch).length === 0) return;
     // `.select()` makes the UPDATE return the rows it actually changed.

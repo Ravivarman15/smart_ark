@@ -127,6 +127,69 @@ class AuthProvisionService extends BaseService {
 
     return { warning: res.warning as string | undefined };
   }
+
+  /**
+   * Diagnostic — returns the auth↔profile sync status for a staff member
+   * without mutating anything. Used by Manage Staff to render an "auth sync"
+   * badge so admins can spot orphaned profiles or drifted login emails before
+   * those become a failed-login ticket.
+   */
+  async verify(args: { profileId?: string; email?: string }): Promise<OnboardingHealth> {
+    const { data, error } = await this.db.functions.invoke("invite-staff", {
+      body: { action: "verify", ...args },
+    });
+    if (error) {
+      const message = await readEdgeError(error, "Verification failed");
+      throw AppError.fromSupabase({ message } as never, "invite-staff");
+    }
+    const r = (data ?? {}) as Record<string, unknown>;
+    return {
+      profileId: r.profile_id as string,
+      userId: (r.user_id as string | undefined) ?? undefined,
+      authLinked: !!r.auth_linked,
+      authEmail: (r.auth_email as string | null) ?? null,
+      profileEmail: (r.profile_email as string | null) ?? null,
+      inSync: !!r.in_sync,
+      issue: (r.issue as string | null) ?? null,
+    };
+  }
+
+  /**
+   * Atomic login-email change. Routes through the edge function so
+   * auth.users.email and profiles.email are updated together — the previous
+   * "edit email in the staff form" path only touched profiles.email and was
+   * the root cause of the welcome-email credential mismatch.
+   */
+  async updateLoginEmail(profileId: string, newEmail: string): Promise<void> {
+    const { data, error } = await this.db.functions.invoke("invite-staff", {
+      body: {
+        action: "update_email",
+        profile_id: profileId,
+        new_email: newEmail,
+      },
+    });
+    if (error) {
+      const message = await readEdgeError(error, "Email update failed");
+      if (/already use/i.test(message)) throw AppError.conflict(message);
+      throw AppError.fromSupabase({ message } as never, "invite-staff");
+    }
+    const res = (data ?? {}) as Record<string, unknown>;
+    if (typeof res.error === "string" && !res.ok) {
+      const msg = res.error;
+      if (/already use/i.test(msg)) throw AppError.conflict(msg);
+      throw AppError.validation(msg);
+    }
+  }
+}
+
+export interface OnboardingHealth {
+  profileId: string;
+  userId?: string;
+  authLinked: boolean;
+  authEmail: string | null;
+  profileEmail: string | null;
+  inSync: boolean;
+  issue: string | null;
 }
 
 export const authProvisionService = new AuthProvisionService();

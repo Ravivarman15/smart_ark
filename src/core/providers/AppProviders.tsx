@@ -6,6 +6,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { StaffRightsProvider } from "@/contexts/StaffRightsContext";
 import { AppDataProvider } from "@/contexts/AppDataContext";
 import { RbacRealtimeProvider } from "@/features/rbac/providers/RbacRealtimeProvider";
+import { HelpRealtimeProvider } from "@/features/help/providers/HelpRealtimeProvider";
+import { ThemeProvider } from "@/core/theme";
 import { QueryProvider } from "./QueryProvider";
 
 // Single composition root. Pages should never know which providers exist
@@ -23,17 +25,21 @@ import { QueryProvider } from "./QueryProvider";
 //   TooltipProvider     → UI primitive
 //   Toasters            → outside layout tree so they survive route changes
 export const AppProviders = ({ children }: { children: ReactNode }) => (
-  <QueryProvider>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <StaffRightsProvider>
-          <RbacRealtimeProvider>
-            <AppDataProvider>{children}</AppDataProvider>
-          </RbacRealtimeProvider>
-        </StaffRightsProvider>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryProvider>
+  <ThemeProvider>
+    <QueryProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <StaffRightsProvider>
+            <RbacRealtimeProvider>
+              <HelpRealtimeProvider>
+                <AppDataProvider>{children}</AppDataProvider>
+              </HelpRealtimeProvider>
+            </RbacRealtimeProvider>
+          </StaffRightsProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryProvider>
+  </ThemeProvider>
 );
