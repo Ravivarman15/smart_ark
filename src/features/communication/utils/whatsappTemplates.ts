@@ -1,0 +1,287 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// WhatsApp Template Engine — registration, variables, placeholders, preview,
+// versioning. The single source of truth for every outbound template the
+// communication module enqueues.
+//
+// All calculation / substitution lives here so no UI builds raw provider
+// payloads. The AiSensy service consumes a `RenderedMessage` built from this
+// registry.
+// ──────────────────────────────────────────────────────────────────────────────
+
+import type {
+  CommsTemplate,
+  TemplateButton,
+  TemplateCategory,
+  TemplateMedia,
+} from "../types/communication.types";
+
+// ── Variable substitution ────────────────────────────────────────────────────
+const VAR_RE = /\{\{?\s*([a-zA-Z0-9_.]+)\s*\}?\}/g;
+
+/**
+ * Extract every {{variable}} / {variable} token from a template body, in order
+ * of first appearance, de-duplicated.
+ */
+export function extractVariables(body: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = VAR_RE.exec(body))) {
+    if (!seen.has(m[1])) {
+      seen.add(m[1]);
+      out.push(m[1]);
+    }
+  }
+  return out;
+}
+
+/**
+ * Replace every {{name}} / {name} token in a body with the matching value.
+ * Missing values fall through to the second argument (defaultsTo) or "".
+ */
+export function renderBody(
+  body: string,
+  vars: Record<string, string | number | undefined | null>,
+  defaultsTo = ""
+): string {
+  return body.replace(VAR_RE, (_match, key: string) => {
+    const v = vars[key];
+    return v === undefined || v === null ? defaultsTo : String(v);
+  });
+}
+
+/**
+ * Validate a substitution: which required variables are still missing.
+ */
+export function missingVariables(
+  required: string[],
+  provided: Record<string, unknown>
+): string[] {
+  return required.filter((k) => {
+    const v = provided[k];
+    return v === undefined || v === null || v === "";
+  });
+}
+
+// ── Built-in template registry ───────────────────────────────────────────────
+// Every template the communication module references at build time. The DB
+// table `comms_templates` is authoritative once seeded — this registry is the
+// fallback used pre-migration AND the canonical default body the seed script
+// inserts. Keys MUST stay in sync with FEE_WA_TEMPLATES / live-class keys.
+
+export interface BuiltinTemplate {
+  key: string;
+  category: TemplateCategory;
+  language: string;
+  title: string;
+  body: string;
+  variables: string[];
+  buttons?: TemplateButton[];
+  media?: TemplateMedia;
+  /** AiSensy campaign / template name to map to. */
+  providerName?: string;
+}
+
+const def = (
+  key: string,
+  category: TemplateCategory,
+  title: string,
+  body: string,
+  opts: Partial<Omit<BuiltinTemplate, "key" | "category" | "title" | "body">> = {}
+): BuiltinTemplate => ({
+  key,
+  category,
+  title,
+  body,
+  language: opts.language ?? "en",
+  variables: opts.variables ?? extractVariables(body),
+  buttons: opts.buttons,
+  media: opts.media,
+  providerName: opts.providerName ?? key,
+});
+
+export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
+  def(
+    "inquiry_followup",
+    "inquiry",
+    "Inquiry follow-up",
+    "Hi {{name}}, thanks for your enquiry at {{branch_name}}. Reply YES to schedule a campus visit, or click the link to book a slot.",
+    { buttons: [{ type: "url", label: "Book Visit", value: "{{cta_url}}" }] }
+  ),
+  def(
+    "student_welcome",
+    "student",
+    "Student welcome",
+    "Welcome to {{branch_name}}, {{student_name}}! Your admission is confirmed for {{batch_name}}. We look forward to a successful journey together."
+  ),
+  def(
+    "staff_welcome",
+    "staff",
+    "Staff welcome",
+    "Welcome aboard {{staff_name}}! You have joined {{branch_name}} as {{designation}}. Please complete your onboarding within 48 hours."
+  ),
+  def(
+    "staff_credentials",
+    "credentials",
+    "Staff credentials",
+    "Hi {{staff_name}}, your {{branch_name}} portal credentials are:\nUser: {{username}}\nTemp Password: {{password}}\nLogin: {{login_url}}",
+    {
+      buttons: [{ type: "url", label: "Login", value: "{{login_url}}" }],
+    }
+  ),
+  def(
+    "student_credentials",
+    "credentials",
+    "Student app credentials",
+    "Hi {{parent_name}}, the {{branch_name}} parent app credentials for {{student_name}} are:\nUser: {{username}}\nTemp Password: {{password}}",
+    {
+      buttons: [{ type: "url", label: "Open App", value: "{{login_url}}" }],
+    }
+  ),
+  def(
+    "exam_reminder",
+    "exam",
+    "Upcoming exam reminder",
+    "Reminder: {{student_name}} has {{exam_name}} on {{exam_date}} at {{exam_time}}. Venue: {{venue}}. All the best!"
+  ),
+  def(
+    "exam_result",
+    "exam",
+    "Exam result published",
+    "{{student_name}}'s result for {{exam_name}} is now published. Score: {{marks}}/{{total}} ({{percentage}}%). Grade: {{grade}}.",
+    {
+      buttons: [{ type: "url", label: "View Report", value: "{{report_url}}" }],
+    }
+  ),
+  def(
+    "fee_status",
+    "fee",
+    "Fee status",
+    "Hi {{parent_name}}, fee summary for {{student_name}} ({{batch_name}}):\nPaid: {{amount_paid}}\nPending: {{amount_pending}}\nNext Due: {{due_date}}"
+  ),
+  def(
+    "fee_due_reminder",
+    "fee",
+    "Fee due reminder",
+    "Reminder: fee of {{amount_pending}} for {{student_name}} ({{batch_name}}) is due on {{due_date}}. Please pay to avoid late fee.",
+    {
+      buttons: [{ type: "url", label: "Pay Now", value: "{{pay_url}}" }],
+    }
+  ),
+  def(
+    "attendance_absent",
+    "attendance",
+    "Attendance — absent",
+    "Hi {{parent_name}}, {{student_name}} was marked ABSENT for {{batch_name}} on {{date}}. If this was unintended, please contact the office."
+  ),
+  def(
+    "birthday_wish",
+    "birthday",
+    "Birthday wishes",
+    "Wishing {{student_name}} a very happy birthday! 🎂 May the year ahead bring joy, growth and success. — Team {{branch_name}}"
+  ),
+  def(
+    "payment_received",
+    "fee",
+    "Payment received",
+    "Thank you {{parent_name}}! We have received {{amount}} for {{student_name}} ({{batch_name}}). Receipt: {{receipt_no}}.",
+    {
+      buttons: [{ type: "url", label: "View Receipt", value: "{{receipt_url}}" }],
+    }
+  ),
+  def(
+    "live_class_notification",
+    "announcement",
+    "Live class notification",
+    "Hi {{student_name}}, your {{subject_name}} live class with {{teacher_name}} starts at {{start_time}} on {{start_date}}. Join via the link below.",
+    {
+      buttons: [{ type: "url", label: "Join Class", value: "{{meeting_link}}" }],
+    }
+  ),
+];
+
+export const BUILTIN_TEMPLATES_BY_KEY: Record<string, BuiltinTemplate> =
+  BUILTIN_TEMPLATES.reduce(
+    (acc, t) => {
+      acc[t.key] = t;
+      return acc;
+    },
+    {} as Record<string, BuiltinTemplate>
+  );
+
+/** Convert a DB template row OR a builtin into the runtime `CommsTemplate`. */
+export function asCommsTemplate(b: BuiltinTemplate, version = 1): CommsTemplate {
+  return {
+    id: `builtin:${b.key}:${b.language}:${version}`,
+    templateKey: b.key,
+    version,
+    language: b.language,
+    category: b.category,
+    title: b.title,
+    body: b.body,
+    variables: b.variables,
+    buttons: b.buttons ?? [],
+    media: b.media,
+    providerName: b.providerName,
+    isActive: true,
+  };
+}
+
+// ── Rendering pipeline ──────────────────────────────────────────────────────
+export interface RenderedMessage {
+  templateKey: string;
+  language: string;
+  providerName: string;
+  body: string;
+  buttons: TemplateButton[];
+  media?: TemplateMedia;
+  variables: Record<string, string>;
+  missing: string[];
+}
+
+/**
+ * Render a final outgoing message from a template + variable bag. Performs:
+ *   - placeholder substitution (body + button values + media url)
+ *   - validation (which required vars are still missing)
+ *   - normalised `variables` map fed straight to AiSensy payload.
+ */
+export function renderMessage(
+  template: Pick<
+    CommsTemplate,
+    "templateKey" | "language" | "providerName" | "body" | "buttons" | "media" | "variables"
+  >,
+  vars: Record<string, string | number | undefined | null>
+): RenderedMessage {
+  const flat: Record<string, string> = {};
+  for (const k of Object.keys(vars)) {
+    const v = vars[k];
+    flat[k] = v === undefined || v === null ? "" : String(v);
+  }
+  const buttons = (template.buttons ?? []).map((b) => ({
+    ...b,
+    value: b.value ? renderBody(b.value, vars) : undefined,
+  }));
+  const media = template.media
+    ? { ...template.media, url: template.media.url ? renderBody(template.media.url, vars) : undefined }
+    : undefined;
+
+  return {
+    templateKey: template.templateKey,
+    language: template.language || "en",
+    providerName: template.providerName || template.templateKey,
+    body: renderBody(template.body, vars),
+    buttons,
+    media,
+    variables: flat,
+    missing: missingVariables(template.variables ?? [], vars),
+  };
+}
+
+/**
+ * Branding helper — preface a body with branch + role chrome the way the
+ * customer expects in their inbox.
+ */
+export function withBranding(body: string, opts: { branchName?: string; signature?: string }): string {
+  const sig = opts.signature ?? (opts.branchName ? `— Team ${opts.branchName}` : "");
+  return sig ? `${body}\n\n${sig}` : body;
+}

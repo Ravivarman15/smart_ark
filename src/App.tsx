@@ -99,6 +99,19 @@ const RptAdmissionAnalysis = lazy(() => import("./features/reports/pages/Admissi
 const RptFeeAnalysis = lazy(() => import("./features/reports/pages/FeeAnalysisReportPage"));
 const RptProfitLossAnalysis = lazy(() => import("./features/reports/pages/ProfitLossAnalysisPage"));
 
+// Communication module pages (feature-based — src/features/communication)
+const CommSendInquiry = lazy(() => import("./features/communication/pages/SendInquiryPage"));
+const CommSendStudent = lazy(() => import("./features/communication/pages/SendStudentPage"));
+const CommSendStaff = lazy(() => import("./features/communication/pages/SendStaffPage"));
+const CommSendStaffCreds = lazy(() => import("./features/communication/pages/SendStaffCredentialsPage"));
+const CommSendStudentCreds = lazy(() => import("./features/communication/pages/SendStudentCredentialsPage"));
+const CommSendExamReminder = lazy(() => import("./features/communication/pages/SendExamReminderPage"));
+const CommSendExamMarks = lazy(() => import("./features/communication/pages/SendExamMarksPage"));
+const CommSendFeeStatus = lazy(() => import("./features/communication/pages/SendFeeStatusPage"));
+const CommSendFeeDueReminder = lazy(() => import("./features/communication/pages/SendFeeDueReminderPage"));
+const CommSendAbsent = lazy(() => import("./features/communication/pages/SendAbsentAttendancePage"));
+const CommSendBirthday = lazy(() => import("./features/communication/pages/SendBirthdayPage"));
+
 // Finance module pages (feature-based — src/features/finance)
 const FinAddExpenseTypePage = lazy(() => import("./features/finance/pages/AddExpenseTypePage"));
 const FinManageExpenseTypePage = lazy(() => import("./features/finance/pages/ManageExpenseTypePage"));
@@ -229,6 +242,18 @@ const AppRoutes: React.FC = () => (
         <Route path="finance/manage-expense" element={<FinManageExpensePage />} />
         <Route path="finance/add-income" element={<FinAddIncomePage />} />
         <Route path="finance/manage-income" element={<FinManageIncomePage />} />
+        {/* Communication module routes — feature-based */}
+        <Route path="communication/send-inquiry" element={<CommSendInquiry />} />
+        <Route path="communication/send-student" element={<CommSendStudent />} />
+        <Route path="communication/send-staff" element={<CommSendStaff />} />
+        <Route path="communication/send-staff-credentials" element={<CommSendStaffCreds />} />
+        <Route path="communication/send-student-credentials" element={<CommSendStudentCreds />} />
+        <Route path="communication/send-exam-reminder" element={<CommSendExamReminder />} />
+        <Route path="communication/send-exam-marks" element={<CommSendExamMarks />} />
+        <Route path="communication/send-fee-status" element={<CommSendFeeStatus />} />
+        <Route path="communication/send-fee-due-reminder" element={<CommSendFeeDueReminder />} />
+        <Route path="communication/send-absent-attendance" element={<CommSendAbsent />} />
+        <Route path="communication/send-birthday" element={<CommSendBirthday />} />
         {/* Reports & Analytics routes */}
         <Route path="reports/timetable" element={<RptTimetable />} />
         <Route path="reports/student-inquiry" element={<RptStudentInquiry />} />
@@ -316,6 +341,18 @@ const AppRoutes: React.FC = () => (
         <Route path="finance/manage-expense" element={<FinManageExpensePage />} />
         <Route path="finance/add-income" element={<FinAddIncomePage />} />
         <Route path="finance/manage-income" element={<FinManageIncomePage />} />
+        {/* Communication module routes — feature-based, management-owned */}
+        <Route path="communication/send-inquiry" element={<CommSendInquiry />} />
+        <Route path="communication/send-student" element={<CommSendStudent />} />
+        <Route path="communication/send-staff" element={<CommSendStaff />} />
+        <Route path="communication/send-staff-credentials" element={<CommSendStaffCreds />} />
+        <Route path="communication/send-student-credentials" element={<CommSendStudentCreds />} />
+        <Route path="communication/send-exam-reminder" element={<CommSendExamReminder />} />
+        <Route path="communication/send-exam-marks" element={<CommSendExamMarks />} />
+        <Route path="communication/send-fee-status" element={<CommSendFeeStatus />} />
+        <Route path="communication/send-fee-due-reminder" element={<CommSendFeeDueReminder />} />
+        <Route path="communication/send-absent-attendance" element={<CommSendAbsent />} />
+        <Route path="communication/send-birthday" element={<CommSendBirthday />} />
         {/* Reports & Analytics routes — management-owned, full access */}
         <Route path="reports/timetable" element={<RptTimetable />} />
         <Route path="reports/student-inquiry" element={<RptStudentInquiry />} />

@@ -237,6 +237,29 @@ export const queryKeys = {
     lookups: (kind: string) =>
       [...queryKeys.finance.all, "lookups", kind] as const,
   },
+  communication: {
+    all: ["communication"] as const,
+    templates: (filter?: Record<string, unknown>) =>
+      [...queryKeys.communication.all, "templates", filter ?? {}] as const,
+    template: (id: string) =>
+      [...queryKeys.communication.all, "template", id] as const,
+    templateByKey: (key: string, lang?: string) =>
+      [...queryKeys.communication.all, "template-key", key, lang ?? "en"] as const,
+    campaigns: (filter?: Record<string, unknown>) =>
+      [...queryKeys.communication.all, "campaigns", filter ?? {}] as const,
+    campaign: (id: string) =>
+      [...queryKeys.communication.all, "campaign", id] as const,
+    recipients: (campaignId: string) =>
+      [...queryKeys.communication.all, "recipients", campaignId] as const,
+    queue: (filter?: Record<string, unknown>) =>
+      [...queryKeys.communication.all, "queue", filter ?? {}] as const,
+    analytics: (scope: string, params?: Record<string, unknown>) =>
+      [...queryKeys.communication.all, "analytics", scope, params ?? {}] as const,
+    audit: (entity: string, id?: string) =>
+      [...queryKeys.communication.all, "audit", entity, id ?? "all"] as const,
+    recipientCandidates: (kind: string, filter?: Record<string, unknown>) =>
+      [...queryKeys.communication.all, "candidates", kind, filter ?? {}] as const,
+  },
   dashboard: {
     all: ["dashboard"] as const,
     analytics: (scope: string) => [...queryKeys.dashboard.all, "analytics", scope] as const,

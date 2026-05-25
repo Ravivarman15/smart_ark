@@ -169,6 +169,19 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("whatsapp.send_staff",       "Send SMS to staff",     "approve", "whatsapp.send_staff"),
   A("whatsapp.send_creds",       "Send credentials",      "approve", "whatsapp.send_staff_creds"),
   A("whatsapp.send_fee_due",     "Send fee-due reminder", "approve", "whatsapp.send_fee_due"),
+  // ── Communication module (templates / campaigns / queue) ───────────────
+  A("comms.template.create",    "Create message template",      "create",  "whatsapp.send_inquiry"),
+  A("comms.template.edit",      "Edit message template",        "edit",    "whatsapp.send_inquiry"),
+  A("comms.template.delete",    "Delete message template",      "delete",  "whatsapp.send_inquiry"),
+  A("comms.campaign.create",    "Create campaign",              "create",  "whatsapp.send_inquiry"),
+  A("comms.campaign.edit",      "Edit campaign",                "edit",    "whatsapp.send_inquiry"),
+  A("comms.campaign.delete",    "Delete campaign",              "delete",  "whatsapp.send_inquiry"),
+  A("comms.campaign.approve",   "Approve / reject campaign",    "approve", "whatsapp.send_inquiry"),
+  A("comms.campaign.schedule",  "Schedule campaign",            "approve", "whatsapp.send_inquiry"),
+  A("comms.campaign.launch",    "Launch campaign now",          "approve", "whatsapp.send_inquiry"),
+  A("comms.queue.retry",        "Retry failed messages",        "edit",    "whatsapp.send_inquiry"),
+  A("comms.queue.cancel",       "Cancel queued messages",       "edit",    "whatsapp.send_inquiry"),
+  A("comms.analytics.view",     "View communication analytics", "export",  "whatsapp.send_inquiry"),
 ];
 
 // ── Convenience lookups ─────────────────────────────────────────────────────

@@ -1,0 +1,11 @@
+export { default as SendInquiryPage } from "./SendInquiryPage";
+export { default as SendStudentPage } from "./SendStudentPage";
+export { default as SendStaffPage } from "./SendStaffPage";
+export { default as SendStaffCredentialsPage } from "./SendStaffCredentialsPage";
+export { default as SendStudentCredentialsPage } from "./SendStudentCredentialsPage";
+export { default as SendExamReminderPage } from "./SendExamReminderPage";
+export { default as SendExamMarksPage } from "./SendExamMarksPage";
+export { default as SendFeeStatusPage } from "./SendFeeStatusPage";
+export { default as SendFeeDueReminderPage } from "./SendFeeDueReminderPage";
+export { default as SendAbsentAttendancePage } from "./SendAbsentAttendancePage";
+export { default as SendBirthdayPage } from "./SendBirthdayPage";
