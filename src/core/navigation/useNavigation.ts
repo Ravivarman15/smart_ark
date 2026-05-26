@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/core/permissions";
 import { useEffectiveAccess, useSidebarAccess } from "@/features/rbac";
+import { getRoutePath } from "@/core/routing/sharedRoutes";
 import { NAV_CONFIG, type NavGroupConfig, type NavItemConfig } from "./menu.config";
 import { ROLE_HOME_ROUTE, type Role } from "@/core/constants/roles";
 
@@ -120,7 +121,16 @@ export const useNavigation = (): VisibleNavGroup[] => {
         if (item.module && !canViewModule(item.module)) continue;
         if (item.submodule && !canViewSubmodule(item.submodule)) continue;
 
-        const synthPath = `/${role}/coming-soon/${item.submodule ?? group.key}`;
+        // Real route lookup: if the shared route registry has a path for
+        // (current role, this submodule), use it — the role layout actually
+        // mounts that route and the page will render. Otherwise fall back
+        // to the role-scoped coming-soon stub so the link doesn't 404.
+        const registeredPath = item.submodule
+          ? getRoutePath(role, item.submodule)
+          : null;
+        const synthPath =
+          registeredPath ?? `/${role}/coming-soon/${item.submodule ?? group.key}`;
+
         // If a native item already targets this synth path, don't overwrite
         // (effectively never — the role's own path won't collide with a
         // coming-soon URL — but keep the guard for safety).

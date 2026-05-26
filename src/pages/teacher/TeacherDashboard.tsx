@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useAuth, User } from "@/contexts/AuthContext";
+// `User` is imported as a TYPE here — `lucide-react` below also exports a
+// component named `User`. Without the explicit `type` modifier, esbuild
+// keeps both bindings in the emitted JS and the browser bails with
+// "Identifier 'User' has already been declared".
+import { useAuth, type User } from "@/contexts/AuthContext";
 import { useAppData, AttendanceStatus, isNearCampus, MarksEntry, CheckinRecord, TeacherInfo, Task, StudentInfo, LeaveRequest } from "@/contexts/AppDataContext";
 import { sendMarksToParent, getWhatsAppLink, formatMarksMessage } from "@/lib/aisensyApi";
 import { toast } from "sonner";

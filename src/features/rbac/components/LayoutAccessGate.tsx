@@ -20,6 +20,8 @@ import { useMemo, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { NAV_CONFIG, useHomeRoute, type NavItemConfig } from "@/core/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { SHARED_ROUTES } from "@/core/routing/sharedRoutes";
+import type { Role } from "@/core/constants/roles";
 import { useEffectiveAccess } from "../hooks/useEffectiveAccess";
 import { lookup } from "../resolver/rbacResolver";
 
@@ -27,7 +29,16 @@ interface Props {
   children: ReactNode;
 }
 
-const findNavItemForPath = (pathname: string): NavItemConfig | undefined => {
+interface PathResolution {
+  submodule?: string;
+  action?: string;
+}
+
+/**
+ * Walk NAV_CONFIG for a match on the absolute pathname. Returns the menu
+ * item's submodule + action so the gate can run an RBAC check.
+ */
+const findInNavConfig = (pathname: string): NavItemConfig | undefined => {
   // Strip any querystring; menu items store the canonical path.
   const path = pathname.split("?")[0].split("#")[0];
 
@@ -59,6 +70,60 @@ const findNavItemForPath = (pathname: string): NavItemConfig | undefined => {
   return best;
 };
 
+/**
+ * Look the path up in the shared route registry. This is what protects
+ * registry-mounted routes (e.g. /teacher/setup/years) — menu.config.ts only
+ * generates items for the roles its sub() helper enumerates, so the
+ * synthesized teacher path wouldn't have a NAV_CONFIG entry and the gate
+ * would fall open. Reading from the registry covers that gap.
+ */
+const findInRegistry = (pathname: string): PathResolution | undefined => {
+  const path = pathname.split("?")[0].split("#")[0];
+  // Pathname format: /<role>/<rest...>
+  const match = /^\/([^/]+)\/(.+)$/.exec(path);
+  if (!match) return undefined;
+  const [, layout, rest] = match;
+
+  // Exact suffix match against registry path templates. Templates may
+  // contain :params (e.g. "help/history/:id") — we compile a regex per
+  // template and test against `rest`.
+  for (const def of SHARED_ROUTES) {
+    if (def.layouts && !def.layouts.includes(layout as Role)) continue;
+    const regex = templateToRegex(def.path);
+    if (regex.test(rest)) {
+      return { submodule: def.submodule, action: def.action };
+    }
+  }
+  return undefined;
+};
+
+const templateToRegex = (template: string): RegExp => {
+  const escaped = template
+    .split("/")
+    .map((segment) =>
+      segment.startsWith(":")
+        ? "[^/]+"
+        : segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    )
+    .join("/");
+  return new RegExp(`^${escaped}$`);
+};
+
+const resolveAccessTarget = (pathname: string): PathResolution | undefined => {
+  // Menu config first — it's the most explicit source.
+  const navItem = findInNavConfig(pathname);
+  if (navItem?.submodule || navItem?.action) {
+    return { submodule: navItem.submodule, action: navItem.action };
+  }
+  // Registry next — covers routes that have no menu-config entry for the
+  // current role (e.g. teacher reaching /teacher/setup/years through a
+  // synthesized menu item).
+  const registryHit = findInRegistry(pathname);
+  if (registryHit) return registryHit;
+  // Detail routes like /admin/students/:id have no nav item — fall open.
+  return undefined;
+};
+
 export const LayoutAccessGate = ({ children }: Props) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -70,20 +135,20 @@ export const LayoutAccessGate = ({ children }: Props) => {
     if (data.isSuper) return { allow: true as const };
     if (isLoading) return { allow: true as const, loading: true };
 
-    const item = findNavItemForPath(location.pathname);
-    if (!item) return { allow: true as const };
+    const target = resolveAccessTarget(location.pathname);
+    if (!target) return { allow: true as const };
 
-    const submoduleOk = item.submodule
-      ? (lookup(data, item.submodule)?.allowed ?? true)
+    const submoduleOk = target.submodule
+      ? (lookup(data, target.submodule)?.allowed ?? true)
       : true;
-    const actionOk = item.action
-      ? (lookup(data, item.action)?.allowed ?? true)
+    const actionOk = target.action
+      ? (lookup(data, target.action)?.allowed ?? true)
       : true;
 
     if (submoduleOk && actionOk) return { allow: true as const };
     return {
       allow: false as const,
-      reason: !submoduleOk ? item.submodule : item.action,
+      reason: !submoduleOk ? target.submodule : target.action,
     };
   }, [user, data, isLoading, location.pathname]);
 

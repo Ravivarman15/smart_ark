@@ -40,6 +40,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useStaffRights } from "@/contexts/StaffRightsContext";
 import { useStaff } from "@/features/staff";
 import { ROLES, type Role } from "@/core/constants/roles";
+import { listRoutesForLayout, SHARED_ROUTES } from "@/core/routing/sharedRoutes";
+import { SUBMODULES_BY_ID } from "@/features/rbac";
 import {
   EffectiveAccessPanel,
   resolveAccess,
@@ -263,6 +265,11 @@ export const PermissionDiagnosticsPage = () => {
         refreshing={refresher.isPending}
       />
 
+      <RouteOwnershipPanel
+        access={mode === "self" ? self.data : targetAccess}
+        layout={mode === "self" ? (user?.role ?? "admin") : targetRole}
+      />
+
       <p className="text-[11px] text-muted-foreground">
         Tip: open the management → permission matrix in another tab, change a
         grant, and watch this page recompute in realtime — the same resolver
@@ -356,6 +363,176 @@ const Stat = ({ label, value }: { label: string; value: number }) => (
     <div className="text-[10px] text-muted-foreground">{label}</div>
   </div>
 );
+
+// ──────────────────────────────────────────────────────────────────────────────
+// RouteOwnershipPanel — cross-references RBAC grants with the shared route
+// registry to flag "module granted but no route mounted" gaps. Surfaces the
+// exact bug class that hit the Setup module for teachers before the registry
+// existed: RBAC said yes, but the URL didn't exist under /teacher.
+// ──────────────────────────────────────────────────────────────────────────────
+
+interface RouteOwnershipProps {
+  layout: string;
+  access: import("@/features/rbac").EffectiveAccess;
+}
+
+const RouteOwnershipPanel = ({ layout, access }: RouteOwnershipProps) => {
+  const registered = useMemo(() => {
+    const valid: Role[] = ["admin", "management", "coordinator", "teacher"];
+    return valid.includes(layout as Role)
+      ? listRoutesForLayout(layout as Role)
+      : [];
+  }, [layout]);
+
+  const grantedSubmodules = useMemo(() => {
+    const out: { id: string; label: string; allowed: boolean }[] = [];
+    for (const [id, entry] of Object.entries(access.submodules)) {
+      if (!entry.allowed) continue;
+      const def = SUBMODULES_BY_ID[id];
+      out.push({ id, label: def?.label ?? id, allowed: true });
+    }
+    return out.sort((a, b) => a.id.localeCompare(b.id));
+  }, [access.submodules]);
+
+  const registeredSubmodules = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of registered) {
+      if (r.submodule) set.add(r.submodule);
+    }
+    return set;
+  }, [registered]);
+
+  const grantedWithoutRoute = grantedSubmodules.filter(
+    (g) => !registeredSubmodules.has(g.id),
+  );
+
+  // Routes registered for this layout but referencing submodules the
+  // catalog doesn't know about — caught here so the registry doesn't drift
+  // from the catalog silently.
+  const orphanRegistered = registered.filter(
+    (r) => r.submodule && !SUBMODULES_BY_ID[r.submodule],
+  );
+
+  return (
+    <section className="space-y-2 rounded-lg border border-border/60 bg-card/40 p-3">
+      <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+        <ShieldQuestion className="w-4 h-4 text-indigo-600" />
+        Route ownership ({layout})
+      </h3>
+      <p className="text-[11px] text-muted-foreground">
+        Cross-references RBAC grants for this user with the shared route
+        registry — flags submodules that are granted but have no URL mounted
+        under their role layout.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+            Granted submodules ({grantedSubmodules.length})
+          </p>
+          <ul className="space-y-1 max-h-48 overflow-y-auto">
+            {grantedSubmodules.map((g) => {
+              const hasRoute = registeredSubmodules.has(g.id);
+              return (
+                <li
+                  key={g.id}
+                  className={`flex items-center justify-between text-[11px] rounded px-2 py-1 ${
+                    hasRoute ? "bg-emerald-500/10" : "bg-amber-500/10"
+                  }`}
+                >
+                  <span className="font-mono truncate">{g.id}</span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] ${
+                      hasRoute
+                        ? "border-emerald-500/40 text-emerald-700"
+                        : "border-amber-500/40 text-amber-700"
+                    }`}
+                  >
+                    {hasRoute ? "route OK" : "no route"}
+                  </Badge>
+                </li>
+              );
+            })}
+            {grantedSubmodules.length === 0 && (
+              <li className="text-[11px] text-muted-foreground">
+                No explicit submodule grants resolve to "allowed" for this user.
+              </li>
+            )}
+          </ul>
+        </div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+            Registered routes for {layout} ({registered.length})
+          </p>
+          <ul className="space-y-1 max-h-48 overflow-y-auto">
+            {registered.map((r) => (
+              <li
+                key={`${r.path}`}
+                className="flex items-center justify-between text-[11px] rounded bg-muted/30 px-2 py-1"
+              >
+                <span className="truncate">
+                  <span className="font-mono">/{layout}/{r.path}</span>
+                  <span className="text-muted-foreground"> · {r.label}</span>
+                </span>
+                {r.submodule && (
+                  <Badge variant="outline" className="text-[9px]">
+                    {r.submodule}
+                  </Badge>
+                )}
+              </li>
+            ))}
+            {registered.length === 0 && (
+              <li className="text-[11px] text-muted-foreground">
+                No registry routes mounted under /{layout}.
+              </li>
+            )}
+          </ul>
+        </div>
+      </div>
+
+      {(grantedWithoutRoute.length > 0 || orphanRegistered.length > 0) && (
+        <ul className="space-y-1.5">
+          {grantedWithoutRoute.map((g) => (
+            <li
+              key={`gap:${g.id}`}
+              className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs"
+            >
+              <p className="font-medium text-foreground flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                {g.label} is granted but has no route under /{layout}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                The sidebar will fall back to /{layout}/coming-soon/{g.id}.
+                Add this submodule to sharedRoutes.tsx to mount the page.
+              </p>
+            </li>
+          ))}
+          {orphanRegistered.map((r) => (
+            <li
+              key={`orphan:${r.path}`}
+              className="rounded-md border border-rose-500/40 bg-rose-500/10 p-2 text-xs"
+            >
+              <p className="font-medium text-foreground flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                Registry route /{layout}/{r.path} points at unknown submodule {r.submodule}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Catalog no longer has {r.submodule}. Remove the entry or
+                restore the catalog id.
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="text-[10px] text-muted-foreground">
+        Registry total: {SHARED_ROUTES.length} routes across all layouts.
+      </p>
+    </section>
+  );
+};
 
 const filterAccess = (
   access: ReturnType<typeof resolveAccess>,

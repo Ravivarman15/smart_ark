@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProviders, ProtectedRoute, AuthRedirect, type Role } from "@/core";
+import { renderSharedRoutes } from "@/core/routing/sharedRoutes";
 
 import { lazy, Suspense } from "react";
 
 const Login = lazy(() => import("./pages/Login"));
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
+const TeacherShellLayout = lazy(() => import("./pages/teacher/TeacherShellLayout"));
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const DailyControlBoard = lazy(() => import("./pages/admin/DailyControlBoard"));
 const DailyChecklist = lazy(() => import("./pages/admin/DailyChecklist"));
@@ -206,15 +208,32 @@ const AppRoutes: React.FC = () => (
       <Route path="/exam" element={<StudentExamPage />} />
       <Route path="/" element={<AuthRedirect />} />
 
-      <Route path="/teacher" element={<ProtectedRoute allowedRoles={roles("teacher")}><TeacherDashboard /></ProtectedRoute>} />
-      <Route path="/teacher/leave" element={<ProtectedRoute allowedRoles={roles("teacher")}><LeaveManagement /></ProtectedRoute>} />
-      <Route path="/teacher/help" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpSupportRequest /></ProtectedRoute>} />
-      <Route path="/teacher/help/new" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpSupportRequest /></ProtectedRoute>} />
-      <Route path="/teacher/help/history" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpSupportHistory /></ProtectedRoute>} />
-      <Route path="/teacher/help/history/:id" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpSupportHistory /></ProtectedRoute>} />
-      <Route path="/teacher/help/feedback" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpPublicFeedbackBoard /></ProtectedRoute>} />
-      <Route path="/teacher/help/feedback/new" element={<ProtectedRoute allowedRoles={roles("teacher")}><HelpFeedback /></ProtectedRoute>} />
-      <Route path="/teacher/coming-soon/:slug" element={<ProtectedRoute allowedRoles={roles("teacher")}><ComingSoon /></ProtectedRoute>} />
+      {/* Teacher — nested under TeacherShellLayout. The shell renders the
+          dashboard / leave / help routes standalone (preserving the existing
+          bottom-tab UX) and wraps any newly-mounted shared-module routes
+          (e.g. Setup, once RBAC grants the teacher access) in the sidebar
+          shell. renderSharedRoutes("teacher") pulls every registry entry
+          marked for the teacher layout — adding a new shared module is a
+          one-line registry edit instead of a four-place duplication. */}
+      <Route
+        path="/teacher"
+        element={
+          <ProtectedRoute allowedRoles={roles("teacher")}>
+            <TeacherShellLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<TeacherDashboard />} />
+        <Route path="leave" element={<LeaveManagement />} />
+        <Route path="help" element={<HelpSupportRequest />} />
+        <Route path="help/new" element={<HelpSupportRequest />} />
+        <Route path="help/history" element={<HelpSupportHistory />} />
+        <Route path="help/history/:id" element={<HelpSupportHistory />} />
+        <Route path="help/feedback" element={<HelpPublicFeedbackBoard />} />
+        <Route path="help/feedback/new" element={<HelpFeedback />} />
+        <Route path="coming-soon/:slug" element={<ComingSoon />} />
+        {renderSharedRoutes("teacher")}
+      </Route>
 
       <Route path="/admin" element={<ProtectedRoute allowedRoles={roles("admin")}><AdminLayout /></ProtectedRoute>}>
         <Route index element={<DailyControlBoard />} />
