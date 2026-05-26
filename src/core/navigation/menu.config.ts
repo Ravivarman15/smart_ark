@@ -176,9 +176,11 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     items: [
       ...sub("staff.create",         "Create Staff",         { admin: "/admin/staff-manage",     management: "/management/staff-manage" },     adminMgmt),
       ...sub("staff.manage",         "Manage Staff",         { admin: "/admin/staff-manage",     management: "/management/staff-manage" },     adminMgmt),
-      ...sub("staff.rights",         "Manage Staff Rights",  { management: "/management/permissions" },   ["management"]),
-      ...sub("staff.action_rights",  "Manage Staff Action Rights", { management: "/management/action-rights" }, ["management"]),
-      ...sub("staff.rights",         "Permission Diagnostics", { management: "/management/permissions/diagnostics" }, ["management"]),
+      // Unified Role Center — replaces the old "Manage Staff Rights" + "Manage
+      // Staff Action Rights" pair with role-first creation and management.
+      ...sub("staff.rights",         "Create Staff Role",        { management: "/management/roles/new" },           ["management"]),
+      ...sub("staff.rights",         "Manage Staff Role",        { management: "/management/roles" },               ["management"]),
+      ...sub("staff.rights",         "Permission Diagnostics",   { management: "/management/permissions/diagnostics" }, ["management"]),
       ...sub("staff.attendance",     "Staff Attendance",     { admin: "/admin/teacher-checkins", management: "/management/staff-attendance" }, adminMgmt),
     ],
   },

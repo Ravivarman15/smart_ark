@@ -10,3 +10,12 @@ export type {
   EffectiveActions,
   ActionRightUpsert,
 } from "./rbac.types";
+
+export type {
+  CatalogRole,
+  CatalogRoleUpsert,
+  RoleAuditEntry,
+  RoleAuditEventType,
+  RoleCategory,
+  RoleUsageStats,
+} from "./role.types";

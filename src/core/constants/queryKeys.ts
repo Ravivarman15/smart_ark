@@ -167,6 +167,14 @@ export const queryKeys = {
     effectiveActions: (role: string | undefined, userProfileId: string | undefined) =>
       [...queryKeys.rbac.all, "effective-actions", role ?? "anon", userProfileId ?? "self"] as const,
     actionAudit: (role: string) => [...queryKeys.rbac.all, "action-audit", role] as const,
+    // Phase 5 — role catalog.
+    rolesCatalog: (includeArchived = false) =>
+      [...queryKeys.rbac.all, "roles-catalog", includeArchived] as const,
+    roleCatalogEntry: (slug: string) =>
+      [...queryKeys.rbac.all, "roles-catalog", "entry", slug] as const,
+    roleUsage: () => [...queryKeys.rbac.all, "role-usage"] as const,
+    roleUsers: (slug: string) => [...queryKeys.rbac.all, "role-users", slug] as const,
+    roleAudit: (slug: string) => [...queryKeys.rbac.all, "role-audit", slug] as const,
   },
   setup: {
     all: ["setup"] as const,

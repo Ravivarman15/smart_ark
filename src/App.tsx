@@ -151,6 +151,10 @@ const ManageActionRights = lazy(
 const PermissionDiagnostics = lazy(
   () => import("./features/rbac/pages/PermissionDiagnosticsPage")
 );
+const RoleCenterList = lazy(
+  () => import("./features/rbac/pages/RoleCenterListPage")
+);
+const RoleEditor = lazy(() => import("./features/rbac/pages/RoleEditorPage"));
 
 // Settings module
 const SettingsLayout = lazy(() => import("./features/settings/pages/SettingsLayout"));
@@ -320,6 +324,10 @@ const AppRoutes: React.FC = () => (
         <Route path="permissions" element={<ManageModulePermissions />} />
         <Route path="permissions/diagnostics" element={<PermissionDiagnostics />} />
         <Route path="action-rights" element={<ManageActionRights />} />
+        {/* Role Center — unified replacement for the dual rights pages. */}
+        <Route path="roles" element={<RoleCenterList />} />
+        <Route path="roles/new" element={<RoleEditor />} />
+        <Route path="roles/:slug" element={<RoleEditor />} />
         <Route path="staff-attendance" element={<TeacherCheckins />} />
         <Route path="teachers" element={<TeacherRanking />} />
         {studentRoutes()}

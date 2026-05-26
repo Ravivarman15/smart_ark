@@ -7,3 +7,8 @@ export { permissionAuditService } from "./permissionAudit.service";
 export { actionRightsService } from "./actionRights.service";
 export { userActionOverridesService } from "./userActionOverrides.service";
 export { actionAuditService } from "./actionAudit.service";
+
+// ── Phase 5: role catalog ───────────────────────────────────────────────────
+export { rolesCatalogService } from "./rolesCatalog.service";
+export { roleAuditService } from "./roleAudit.service";
+export { roleUsageService } from "./roleUsage.service";

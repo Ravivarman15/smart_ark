@@ -34,6 +34,12 @@ export type {
   ActionAuditEntry,
   EffectiveActions,
   ActionRightUpsert,
+  CatalogRole,
+  CatalogRoleUpsert,
+  RoleAuditEntry,
+  RoleAuditEventType,
+  RoleCategory,
+  RoleUsageStats,
 } from "./types";
 
 // ── Resolver ────────────────────────────────────────────────────────────────
@@ -54,10 +60,12 @@ export {
   userOverrideSchema,
   actionRightUpsertSchema,
   userActionOverrideSchema,
+  catalogRoleSchema,
   type RolePermissionUpsertValues,
   type UserOverrideValues,
   type ActionRightUpsertValues,
   type UserActionOverrideValues,
+  type CatalogRoleValues,
 } from "./schemas/rbac.schema";
 
 // ── Utils ───────────────────────────────────────────────────────────────────
@@ -87,6 +95,9 @@ export {
   actionRightsService,
   userActionOverridesService,
   actionAuditService,
+  rolesCatalogService,
+  roleAuditService,
+  roleUsageService,
 } from "./services";
 
 // ── Hooks ───────────────────────────────────────────────────────────────────
@@ -111,6 +122,15 @@ export {
   useActionAccess,
   useEffectiveAccess,
   useWhyAccess,
+  useRolesCatalog,
+  useRoleCatalogEntry,
+  useRoleUsage,
+  useRoleUsers,
+  useRoleAudit,
+  useCreateRole,
+  useUpdateRole,
+  useArchiveRole,
+  useCloneRole,
 } from "./hooks";
 
 // ── Components ──────────────────────────────────────────────────────────────
@@ -128,5 +148,15 @@ export {
   EffectiveAccessPanel,
   RouteAccessGuard,
   LayoutAccessGate,
+  PermissionBuilder,
+  RoleCard,
+  CloneRoleDialog,
+  RoleDetailsForm,
+  RolePermissionsTab,
+  RoleUsersTab,
+  RoleDiagnosticsTab,
+  UserOverridesDrawer,
   type DropdownAction,
+  type BuilderDraft,
+  type BuilderInheritance,
 } from "./components";

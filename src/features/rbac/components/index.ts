@@ -15,3 +15,17 @@ export { AccessTracePanel } from "./AccessTracePanel";
 export { EffectiveAccessPanel } from "./EffectiveAccessPanel";
 export { RouteAccessGuard } from "./RouteAccessGuard";
 export { LayoutAccessGate } from "./LayoutAccessGate";
+
+// ── Phase 5: Role Center ────────────────────────────────────────────────────
+export {
+  PermissionBuilder,
+  type BuilderDraft,
+  type BuilderInheritance,
+} from "./PermissionBuilder";
+export { RoleCard } from "./RoleCard";
+export { CloneRoleDialog } from "./CloneRoleDialog";
+export { RoleDetailsForm } from "./RoleDetailsForm";
+export { RolePermissionsTab } from "./RolePermissionsTab";
+export { RoleUsersTab } from "./RoleUsersTab";
+export { RoleDiagnosticsTab } from "./RoleDiagnosticsTab";
+export { UserOverridesDrawer } from "./UserOverridesDrawer";
