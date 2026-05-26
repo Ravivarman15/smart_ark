@@ -14,7 +14,18 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Search, ShieldQuestion, UserCog } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Eye,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  ShieldQuestion,
+  UserCog,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,9 +45,12 @@ import {
   resolveAccess,
   useActionRights,
   useEffectiveAccess,
+  useRefreshAccess,
   useRolePermissions,
   useUserActionOverrides,
   useUserOverrides,
+  validateEffectiveAccess,
+  type ValidationFinding,
 } from "@/features/rbac";
 
 type Mode = "self" | "impersonate";
@@ -44,8 +58,16 @@ type Mode = "self" | "impersonate";
 export const PermissionDiagnosticsPage = () => {
   const { user } = useAuth();
   const self = useEffectiveAccess();
+  const refresher = useRefreshAccess();
   const [mode, setMode] = useState<Mode>("self");
   const [search, setSearch] = useState("");
+
+  // Raw inputs for the signed-in user — feed validateEffectiveAccess so it
+  // can spot stale caches, missing tables, key mismatches, etc.
+  const selfRolePerms = useRolePermissions(user?.role);
+  const selfUserOverrides = useUserOverrides(user?.profileId);
+  const selfRoleActions = useActionRights(user?.role);
+  const selfUserActionOverrides = useUserActionOverrides(user?.profileId);
 
   const staffQuery = useStaff();
   const staffOptions = useMemo(
@@ -97,6 +119,48 @@ export const PermissionDiagnosticsPage = () => {
   const filteredTarget = useMemo(() => {
     return filterAccess(targetAccess, search);
   }, [targetAccess, search]);
+
+  const selfValidation = useMemo(
+    () =>
+      validateEffectiveAccess({
+        role: user?.role,
+        rolePermissions: selfRolePerms.data ?? [],
+        userOverrides: selfUserOverrides.data ?? [],
+        roleActions: selfRoleActions.data ?? [],
+        userActionOverrides: selfUserActionOverrides.data ?? [],
+        effective: self.data,
+      }),
+    [
+      user?.role,
+      selfRolePerms.data,
+      selfUserOverrides.data,
+      selfRoleActions.data,
+      selfUserActionOverrides.data,
+      self.data,
+    ],
+  );
+
+  const targetValidation = useMemo(
+    () =>
+      validateEffectiveAccess({
+        role: targetRole,
+        rolePermissions: targetRolePerms.data ?? [],
+        userOverrides: targetUserOverrides.data ?? [],
+        roleActions: targetRoleActions.data ?? [],
+        userActionOverrides: targetUserActionOverrides.data ?? [],
+        effective: targetAccess,
+      }),
+    [
+      targetRole,
+      targetRolePerms.data,
+      targetUserOverrides.data,
+      targetRoleActions.data,
+      targetUserActionOverrides.data,
+      targetAccess,
+    ],
+  );
+
+  const activeValidation = mode === "self" ? selfValidation : targetValidation;
 
   void legacy;
 
@@ -191,6 +255,14 @@ export const PermissionDiagnosticsPage = () => {
         />
       )}
 
+      <ValidationPanel
+        findings={activeValidation.findings}
+        ok={activeValidation.ok}
+        counts={activeValidation.counts}
+        onRefresh={refresher.refresh}
+        refreshing={refresher.isPending}
+      />
+
       <p className="text-[11px] text-muted-foreground">
         Tip: open the management → permission matrix in another tab, change a
         grant, and watch this page recompute in realtime — the same resolver
@@ -203,6 +275,87 @@ export const PermissionDiagnosticsPage = () => {
     </div>
   );
 };
+
+interface ValidationPanelProps {
+  findings: ValidationFinding[];
+  ok: boolean;
+  counts: { roleGrants: number; userOverrides: number; roleActionGrants: number; userActionOverrides: number; moduleEntries: number; actionEntries: number };
+  onRefresh: () => void;
+  refreshing: boolean;
+}
+
+const ValidationPanel = ({ findings, ok, counts, onRefresh, refreshing }: ValidationPanelProps) => (
+  <section className="space-y-2 rounded-lg border border-border/60 bg-card/40 p-3">
+    <div className="flex items-center justify-between gap-2 flex-wrap">
+      <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+        <ShieldCheck className="w-4 h-4 text-indigo-600" />
+        Propagation health
+        <Badge
+          variant="outline"
+          className={
+            ok
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+              : "border-rose-500/40 bg-rose-500/10 text-rose-700"
+          }
+        >
+          {ok ? "OK" : "Action required"}
+        </Badge>
+      </h3>
+      <Button size="sm" variant="outline" onClick={onRefresh} disabled={refreshing}>
+        {refreshing ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Refreshing…
+          </>
+        ) : (
+          <>
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh access now
+          </>
+        )}
+      </Button>
+    </div>
+    <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-center">
+      <Stat label="Role grants" value={counts.roleGrants} />
+      <Stat label="User overrides" value={counts.userOverrides} />
+      <Stat label="Action grants" value={counts.roleActionGrants} />
+      <Stat label="Action overrides" value={counts.userActionOverrides} />
+      <Stat label="Module entries" value={counts.moduleEntries} />
+      <Stat label="Action entries" value={counts.actionEntries} />
+    </div>
+    <ul className="space-y-1.5">
+      {findings.map((f) => (
+        <li
+          key={f.id}
+          className={`rounded-md border p-2.5 text-xs ${
+            f.severity === "error"
+              ? "border-rose-500/40 bg-rose-500/10"
+              : f.severity === "warn"
+              ? "border-amber-500/40 bg-amber-500/10"
+              : "border-emerald-500/30 bg-emerald-500/10"
+          }`}
+        >
+          <p className="font-medium text-foreground flex items-center gap-1.5">
+            {f.severity === "error" ? (
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+            ) : f.severity === "warn" ? (
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            {f.label}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{f.detail}</p>
+        </li>
+      ))}
+    </ul>
+  </section>
+);
+
+const Stat = ({ label, value }: { label: string; value: number }) => (
+  <div className="rounded-md bg-muted/30 px-2 py-1.5">
+    <div className="text-sm font-semibold text-foreground">{value}</div>
+    <div className="text-[10px] text-muted-foreground">{label}</div>
+  </div>
+);
 
 const filterAccess = (
   access: ReturnType<typeof resolveAccess>,

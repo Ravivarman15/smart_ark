@@ -77,6 +77,11 @@ export {
   setAllForSubmodule,
   rbacDebug,
   enableRbacDebug,
+  validateEffectiveAccess,
+  type ValidationFinding,
+  type ValidationResult,
+  type ValidationInput,
+  type ValidationSeverity,
 } from "./utils";
 export {
   buildDefaultModuleRows,
@@ -122,6 +127,7 @@ export {
   useActionAccess,
   useEffectiveAccess,
   useWhyAccess,
+  useRefreshAccess,
   useRolesCatalog,
   useRoleCatalogEntry,
   useRoleUsage,
@@ -148,6 +154,7 @@ export {
   EffectiveAccessPanel,
   RouteAccessGuard,
   LayoutAccessGate,
+  AccessSyncIndicator,
   PermissionBuilder,
   RoleCard,
   CloneRoleDialog,

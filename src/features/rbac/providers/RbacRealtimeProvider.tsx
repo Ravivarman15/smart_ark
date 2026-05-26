@@ -58,6 +58,9 @@ const TABLES = [
   "rbac_user_permission_overrides",
   "rbac_role_actions",
   "rbac_user_action_overrides",
+  // Role catalog (Phase 5) — listening so the Role Center reflects renames
+  // and archive/restore actions instantly in every session.
+  "rbac_roles",
 ] as const;
 
 export const RbacRealtimeProvider = ({ children }: { children: ReactNode }) => {
@@ -124,44 +127,31 @@ export const RbacRealtimeProvider = ({ children }: { children: ReactNode }) => {
           rbacDebug("invalidate", { keys: ["rbac.all"], table });
           return;
         }
-        case "rbac_role_permissions": {
-          qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions() });
-          if (affectedRole) {
-            qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions(affectedRole) });
-          }
-          rbacDebug("invalidate", { keys: ["rolePermissions", affectedRole ?? "all"] });
+        case "rbac_role_permissions":
+        case "rbac_user_permission_overrides":
+        case "rbac_role_actions":
+        case "rbac_user_action_overrides":
+        case "rbac_roles":
+        case "rbac_permission_audit":
+        case "rbac_role_audit": {
+          // Hard-bust the whole namespace. This used to be surgical (one
+          // queryKey per event), but a single grant change can ripple through
+          // the resolver into the role-usage stats, the audit lists, the
+          // sidebar filter, the role-catalog entry, and the diagnostics view.
+          // The matching mutation hooks already do this wide bust locally;
+          // the realtime path mirrors it so remote sessions stay in lockstep.
+          qc.invalidateQueries({ queryKey: queryKeys.rbac.all });
+          qc.invalidateQueries({ queryKey: queryKeys.permissions.all });
+          rbacDebug("invalidate", {
+            keys: ["rbac.all", "permissions.all"],
+            table,
+            affectedRole,
+            affectedProfileId,
+            isCurrentUser,
+            isCurrentRole,
+          });
           return;
         }
-        case "rbac_user_permission_overrides": {
-          if (affectedProfileId) {
-            qc.invalidateQueries({ queryKey: queryKeys.rbac.userOverrides(affectedProfileId) });
-            rbacDebug("invalidate", { keys: ["userOverrides", affectedProfileId] });
-          }
-          return;
-        }
-        case "rbac_role_actions": {
-          qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions() });
-          if (affectedRole) {
-            qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions(affectedRole) });
-          }
-          rbacDebug("invalidate", { keys: ["roleActions", affectedRole ?? "all"] });
-          return;
-        }
-        case "rbac_user_action_overrides": {
-          if (affectedProfileId) {
-            qc.invalidateQueries({
-              queryKey: queryKeys.rbac.userActionOverrides(affectedProfileId),
-            });
-            rbacDebug("invalidate", { keys: ["userActionOverrides", affectedProfileId] });
-          }
-          return;
-        }
-      }
-      // If a role-level change matches the current user's role, also bust
-      // their effective caches so the next render recomputes from fresh.
-      if (isCurrentRole) {
-        qc.invalidateQueries({ queryKey: queryKeys.rbac.all });
-        rbacDebug("invalidate", { keys: ["rbac.all"], reason: "self role grants change" });
       }
     }
 

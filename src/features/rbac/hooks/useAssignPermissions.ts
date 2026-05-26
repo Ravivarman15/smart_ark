@@ -43,15 +43,15 @@ export const useAssignRolePermissions = () => {
       );
     },
     onSuccess: (_v, { role, rows }) => {
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions(role) });
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions() }); // "all" key
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.audit(role) });
-      // Effective-permission cascades downstream — useEffectivePermissions
-      // depends on useRolePermissions which we just busted, so the recomputation
-      // happens on next render. Bust the explicit effective key too for
-      // belt-and-suspenders when consumers cache it via custom keys.
-      qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective"] });
-      qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective-actions"] });
+      // Hard-bust the whole RBAC namespace. We *could* surgically pick
+      // queryKeys.rbac.rolePermissions(role) + a few siblings, but the
+      // saving session needs the role-usage stats, audit lists, role-catalog
+      // entries and effective-access views all in sync — and the cost of a
+      // namespace-wide invalidation is one extra refetch per active query.
+      // The realtime layer fires the same wide bust on remote sessions, so
+      // local and remote sessions stay symmetric.
+      qc.invalidateQueries({ queryKey: queryKeys.rbac.all });
+      qc.invalidateQueries({ queryKey: queryKeys.permissions.all });
       rbacDebug("mutation", {
         source: "useAssignRolePermissions",
         role,
@@ -66,9 +66,8 @@ export const useResetRolePermissions = () => {
   return useMutation({
     mutationFn: (role: string) => rolePermissionsService.resetRole(role),
     onSuccess: (_v, role) => {
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions(role) });
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.rolePermissions() });
-      qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective"] });
+      qc.invalidateQueries({ queryKey: queryKeys.rbac.all });
+      qc.invalidateQueries({ queryKey: queryKeys.permissions.all });
       rbacDebug("mutation", { source: "useResetRolePermissions", role });
     },
   });

@@ -40,12 +40,8 @@ export const useAssignActionRights = () => {
       );
     },
     onSuccess: (_v, { role, rows }) => {
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions(role) });
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions() }); // "all" key
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.actionAudit(role) });
-      // Effective-action caches depend on role grants too — bust them so the
-      // app reflects the new gates without a full reload.
-      qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective-actions"] });
+      qc.invalidateQueries({ queryKey: queryKeys.rbac.all });
+      qc.invalidateQueries({ queryKey: queryKeys.permissions.all });
       rbacDebug("mutation", { source: "useAssignActionRights", role, rowCount: rows.length });
     },
   });
@@ -56,9 +52,8 @@ export const useResetActionRights = () => {
   return useMutation({
     mutationFn: (role: string) => actionRightsService.resetRole(role),
     onSuccess: (_v, role) => {
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions(role) });
-      qc.invalidateQueries({ queryKey: queryKeys.rbac.roleActions() });
-      qc.invalidateQueries({ queryKey: [...queryKeys.rbac.all, "effective-actions"] });
+      qc.invalidateQueries({ queryKey: queryKeys.rbac.all });
+      qc.invalidateQueries({ queryKey: queryKeys.permissions.all });
       rbacDebug("mutation", { source: "useResetActionRights", role });
     },
   });

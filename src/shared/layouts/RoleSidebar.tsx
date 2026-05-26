@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation, ROLE_BRAND } from "@/core/navigation";
 import type { Role } from "@/core/constants/roles";
 import { useTheme } from "@/core/theme";
+import { AccessSyncIndicator } from "@/features/rbac";
 import { resolveIcon } from "@/shared/icons";
 import arkLogo from "@/assets/ark-logo.jpeg";
 
@@ -276,6 +277,18 @@ export const RoleSidebar = ({ collapsed, onToggle, onNavigate }: Props) => {
                 {user.campus ?? user.role}
               </p>
             </div>
+          </div>
+        )}
+        {/* RBAC propagation indicator — surfaces when permissions are
+            refetching cross-tab, so users see why the sidebar just shifted. */}
+        {!collapsed && (
+          <div className="px-3 pb-2 flex justify-end">
+            <AccessSyncIndicator />
+          </div>
+        )}
+        {collapsed && (
+          <div className="px-2 pb-2 flex justify-center">
+            <AccessSyncIndicator variant="compact" />
           </div>
         )}
         <div className="px-2 pb-3 space-y-0.5">

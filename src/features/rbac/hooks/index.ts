@@ -30,6 +30,7 @@ export { useActionAccess } from "./useActionAccess";
 // ── Phase 4: centralized resolver ───────────────────────────────────────────
 export { useEffectiveAccess } from "./useEffectiveAccess";
 export { useWhyAccess } from "./useWhyAccess";
+export { useRefreshAccess } from "./useRefreshAccess";
 
 // ── Phase 5: role catalog ───────────────────────────────────────────────────
 export {
