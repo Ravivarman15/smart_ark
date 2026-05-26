@@ -1,17 +1,15 @@
-// Pure action-rights resolution. NO React, NO Supabase.
+// ──────────────────────────────────────────────────────────────────────────────
+// Action-rights helpers — backwards-compat shims that delegate to the
+// centralized resolver.
 //
-// Layered resolution (most specific wins):
-//   1. user override (boolean)
-//   2. role grant (boolean)
-//   3. parent submodule visibility — if the user can't see the submodule,
-//      they can't perform actions inside it
-//   4. catalog default (allow)
-//
-// Symmetry with `deriveEffectivePermissions` (module/submodule layer) is
-// intentional — same shape, same semantics, easier to reason about.
+// Same story as utils/effective.ts: the original `deriveEffectiveActions`
+// computed action visibility itself. After the resolver landed in
+// `src/features/rbac/resolver/rbacResolver.ts`, the math lives there and this
+// file just exposes the legacy `{ actions }` shape consumers were written for.
+// ──────────────────────────────────────────────────────────────────────────────
 
-import type { Role } from "@/core/constants/roles";
-import { ACTION_CATALOG, ACTIONS_BY_ID } from "../constants/actionCatalog";
+import { ACTION_CATALOG } from "../constants/actionCatalog";
+import { resolveAccess } from "../resolver/rbacResolver";
 import type {
   ActionRight,
   EffectiveActions,
@@ -20,56 +18,71 @@ import type {
 } from "../types/rbac.types";
 
 interface Args {
-  role: Role | string | undefined;
-  /** Pre-resolved module/submodule visibility (from deriveEffectivePermissions). */
+  role: string | undefined;
+  /**
+   * Optional pre-resolved module/submodule visibility map. The resolver
+   * derives this internally from `rolePermissions`/`userOverrides` if you
+   * don't pass it — but the matrix UI hands us the matrix's *draft* visibility
+   * so the action preview matches what the editor sees on screen.
+   */
   modulePermissions?: EffectivePermissions;
   roleActions: ActionRight[];
   userOverrides?: UserActionOverride[];
 }
 
-const isSuper = (role: Role | string | undefined) => role === "management";
-
 export const deriveEffectiveActions = (args: Args): EffectiveActions => {
+  // Convert the optional pre-resolved module/submodule map back into
+  // synthetic role-permission rows so the resolver gives the same answer
+  // a consumer would have got by passing the raw rows.
+  const synth = synthesizeRolePermissions(args.role, args.modulePermissions);
+
+  const eff = resolveAccess({
+    role: args.role,
+    rolePermissions: synth,
+    userOverrides: [],
+    roleActions: args.roleActions,
+    userActionOverrides: args.userOverrides ?? [],
+  });
+
   const actions: Record<string, boolean> = {};
-
-  // Super-role bypass — full access without DB reads.
-  if (isSuper(args.role)) {
-    for (const a of ACTION_CATALOG) actions[a.id] = true;
-    return { actions };
-  }
-
-  // Index lookups for O(1) per check.
-  const byRole = new Map<string, boolean>();
-  for (const r of args.roleActions) {
-    if (args.role && r.role !== args.role) continue;
-    byRole.set(r.actionId, r.isAllowed);
-  }
-
-  const byUser = new Map<string, boolean>();
-  for (const o of args.userOverrides ?? []) {
-    byUser.set(o.actionId, o.isAllowed);
-  }
-
   for (const a of ACTION_CATALOG) {
-    // Parent submodule visibility — when the submodule is hidden, the
-    // action is also hidden unless an explicit grant brings it back.
-    const submoduleVisible =
-      args.modulePermissions?.submodules[a.submoduleId] ?? true;
-
-    const allowed =
-      byUser.get(a.id) ??
-      byRole.get(a.id) ??
-      // Default: follow the submodule's visibility. If management hasn't
-      // configured anything, an action inside a visible submodule is allowed.
-      submoduleVisible;
-
-    actions[a.id] = allowed;
+    actions[a.id] = eff.actions[a.id]?.allowed ?? true;
   }
-
   return { actions };
 };
 
-/** Pure helper for the matrix UI — flip every action in a category. */
+const synthesizeRolePermissions = (
+  role: string | undefined,
+  modulePerms: EffectivePermissions | undefined
+) => {
+  if (!modulePerms || !role) return [];
+  const rows: ActionRight[] = []; // placeholder typing — same shape works
+  // We don't actually need full role permissions; the resolver only uses the
+  // module/submodule visibility to gate actions. We achieve the same effect
+  // by constructing synthetic `RolePermission` rows from the visibility map.
+  const out: import("../types/rbac.types").RolePermission[] = [];
+  for (const [moduleId, visible] of Object.entries(modulePerms.modules)) {
+    out.push({
+      id: `synthetic:${moduleId}`,
+      role,
+      moduleId,
+      canView: visible,
+    });
+  }
+  for (const [submoduleId, visible] of Object.entries(modulePerms.submodules)) {
+    out.push({
+      id: `synthetic:${submoduleId}`,
+      role,
+      moduleId: submoduleId.split(".")[0] ?? submoduleId,
+      submoduleId,
+      canView: visible,
+    });
+  }
+  void rows;
+  return out;
+};
+
+/** Pure helper used by the matrix UI — flip every action in a category. */
 export const setAllForCategory = (
   current: Record<string, boolean>,
   category: string,
@@ -94,5 +107,3 @@ export const setAllForSubmodule = (
   }
   return next;
 };
-
-void ACTIONS_BY_ID; // referenced indirectly; export kept for downstream consumers

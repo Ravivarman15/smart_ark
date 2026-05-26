@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/core/theme";
 import { toast } from "sonner";
 import { useStrictModeEnforcement } from "@/hooks/useStrictModeEnforcement";
 import { supabase } from "@/integrations/supabase/client";
+import { LayoutAccessGate } from "@/features/rbac";
 
 const AdminLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -79,9 +80,14 @@ const AdminLayout: React.FC = () => {
           <ThemeToggle variant="icon" />
         </div>
 
-        {/* Scrollable content */}
+        {/* Scrollable content. LayoutAccessGate maps the current pathname to
+            a NAV_CONFIG submodule/action and redirects to home when the user
+            doesn't have access — covers direct-URL access that bypasses the
+            sidebar's RBAC filter. */}
         <main className={`flex-1 overflow-y-auto p-4 md:p-6 ${!canSignOff ? "pb-16" : ""}`}>
-          <Outlet />
+          <LayoutAccessGate>
+            <Outlet />
+          </LayoutAccessGate>
         </main>
       </div>
 

@@ -1,16 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Loader2, RotateCcw, Save, Search } from "lucide-react";
+import {
+  Copy,
+  Eye,
+  Loader2,
+  RotateCcw,
+  Save,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ROLES, type Role } from "@/core/constants/roles";
 import { useModuleCatalog } from "../hooks/useModuleCatalog";
 import { useRolePermissions } from "../hooks/useRolePermissions";
-import { useAssignRolePermissions } from "../hooks/useAssignPermissions";
-import { deriveEffectivePermissions, setAllSubmodulesForModule } from "../utils/effective";
+import {
+  useAssignRolePermissions,
+  useResetRolePermissions,
+} from "../hooks/useAssignPermissions";
+import { resolveAccess } from "../resolver/rbacResolver";
+import { setAllSubmodulesForModule } from "../utils/effective";
+import { buildDefaultModuleRows } from "../utils/catalogDefaults";
 import type { RolePermissionUpsert } from "../types/rbac.types";
 import { CopyFromRoleDialog } from "./CopyFromRoleDialog";
 import { ModulePermissionCard } from "./ModulePermissionCard";
+import { EffectiveAccessPanel } from "./EffectiveAccessPanel";
 
 interface Props {
   /** Initial role tab. Defaults to "admin". */
@@ -20,24 +41,28 @@ interface Props {
 /**
  * Top-level permission editor. Owns:
  *   - role tab state
- *   - local draft of module/submodule toggles (so users can review before
- *     committing — single save button)
- *   - search filter
- *   - copy-from-role + reset
+ *   - local draft of module/submodule toggles
+ *   - dirty tracking + diff-on-save
+ *   - effective preview (uses the resolver, so what management sees here is
+ *     exactly what users get on the next render — no more matrix/runtime drift)
  *
- * Loads the live grants for the selected role, merges with catalog defaults
- * to compute the initial draft, then diffs against the original on save and
- * pushes the diff through `useAssignRolePermissions`.
+ * Notes:
+ *   - "Sync defaults" seeds every catalog defaultRoles row as explicit
+ *     `can_view` rows so the matrix is the source of truth from then on.
+ *   - "Reset role" wipes all rows for the role — the resolver then falls back
+ *     to catalog defaults (permissive). Use only when you want a clean slate.
  */
 export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
   const catalog = useModuleCatalog();
   const [role, setRole] = useState<Role | string>(initialRole);
   const [search, setSearch] = useState("");
   const [copyOpen, setCopyOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const rolePerms = useRolePermissions(role);
   const sourceRolePerms = useRolePermissions(undefined); // for "copy-from"
   const assign = useAssignRolePermissions();
+  const resetRole = useResetRolePermissions();
 
   // Draft state — mirror of effective permissions for this role, mutable.
   const [draft, setDraft] = useState<{
@@ -50,15 +75,24 @@ export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
 
   // Reset draft whenever the role or its grants change.
   useEffect(() => {
-    const eff = deriveEffectivePermissions({
+    const eff = resolveAccess({
       role,
       rolePermissions: rolePerms.data ?? [],
-      // The matrix edits ROLE defaults, not per-user overrides — leave empty.
       userOverrides: [],
+      roleActions: [],
+      userActionOverrides: [],
     });
-    setDraft(eff);
-    setOriginal(eff);
-  }, [role, rolePerms.data]);
+    const modules: Record<string, boolean> = {};
+    const submodules: Record<string, boolean> = {};
+    for (const m of catalog) {
+      modules[m.id] = eff.modules[m.id]?.allowed ?? true;
+      for (const s of m.submodules) {
+        submodules[s.id] = eff.submodules[s.id]?.allowed ?? true;
+      }
+    }
+    setDraft({ modules, submodules });
+    setOriginal({ modules, submodules });
+  }, [role, rolePerms.data, catalog]);
 
   const toggleModule = (moduleId: string, next: boolean) => {
     setDraft((d) => setAllSubmodulesForModule(d.modules, d.submodules, moduleId, next));
@@ -77,6 +111,35 @@ export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
     }
     return n;
   }, [draft, original]);
+
+  // Resolver preview using the *draft* — what users will see after save.
+  const previewAccess = useMemo(() => {
+    const synth: import("../types/rbac.types").RolePermission[] = [];
+    for (const m of catalog) {
+      synth.push({
+        id: `draft:${m.id}`,
+        role,
+        moduleId: m.id,
+        canView: !!draft.modules[m.id],
+      });
+      for (const s of m.submodules) {
+        synth.push({
+          id: `draft:${s.id}`,
+          role,
+          moduleId: m.id,
+          submoduleId: s.id,
+          canView: !!draft.submodules[s.id],
+        });
+      }
+    }
+    return resolveAccess({
+      role,
+      rolePermissions: synth,
+      userOverrides: [],
+      roleActions: [],
+      userActionOverrides: [],
+    });
+  }, [role, catalog, draft]);
 
   const handleSave = async () => {
     const rows: RolePermissionUpsert[] = [];
@@ -129,13 +192,56 @@ export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
   const handleCopyFromRole = (sourceRole: string) => {
     setCopyOpen(false);
     const source = (sourceRolePerms.data ?? []).filter((r) => r.role === sourceRole);
-    const eff = deriveEffectivePermissions({
+    const eff = resolveAccess({
       role: sourceRole,
       rolePermissions: source,
       userOverrides: [],
+      roleActions: [],
+      userActionOverrides: [],
     });
-    setDraft(eff);
+    const modules: Record<string, boolean> = {};
+    const submodules: Record<string, boolean> = {};
+    for (const m of catalog) {
+      modules[m.id] = eff.modules[m.id]?.allowed ?? true;
+      for (const s of m.submodules) {
+        submodules[s.id] = eff.submodules[s.id]?.allowed ?? true;
+      }
+    }
+    setDraft({ modules, submodules });
     toast.success(`Copied from ${sourceRole}. Review and save.`);
+  };
+
+  const handleSyncDefaults = async () => {
+    // Seeds the catalog's defaultRoles into explicit DB rows so the resolver
+    // stops falling back to the implicit catalog default (which the matrix UI
+    // can't accurately reflect once any other change exists).
+    const rows = buildDefaultModuleRows(role);
+    try {
+      await assign.mutateAsync({
+        role,
+        rows,
+        reason: "sync defaults from catalog",
+      });
+      toast.success(`Synced ${rows.length} catalog defaults for ${role}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    }
+  };
+
+  const handleResetRole = async () => {
+    if (
+      !confirm(
+        `Delete every saved permission row for "${role}"? They'll fall back to catalog defaults.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await resetRole.mutateAsync(role);
+      toast.success(`Reset all permission rows for ${role}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Reset failed");
+    }
   };
 
   return (
@@ -168,6 +274,12 @@ export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
               className="pl-8 h-9"
             />
           </div>
+          <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
+            <Eye className="w-3.5 h-3.5 mr-1.5" /> Preview effective access
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleSyncDefaults} disabled={assign.isPending}>
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Sync defaults
+          </Button>
           <Button variant="outline" size="sm" onClick={() => handleSelectAll(true)}>
             Enable all
           </Button>
@@ -177,8 +289,17 @@ export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
           <Button variant="outline" size="sm" onClick={() => setCopyOpen(true)}>
             <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy from…
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleResetRole}
+            disabled={resetRole.isPending}
+            className="text-rose-600 hover:text-rose-700"
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Reset role
+          </Button>
           <Button variant="ghost" size="sm" onClick={handleReset} disabled={dirtyCount === 0}>
-            <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Reset
+            Revert
           </Button>
           <Button size="sm" onClick={handleSave} disabled={assign.isPending || dirtyCount === 0}>
             {assign.isPending ? (
@@ -217,6 +338,22 @@ export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
         onOpenChange={setCopyOpen}
         onConfirm={handleCopyFromRole}
       />
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Effective access preview — {role}</DialogTitle>
+            <DialogDescription>
+              Computed from your current draft (including unsaved changes). Click a row to
+              see why it's allowed or denied.
+            </DialogDescription>
+          </DialogHeader>
+          <EffectiveAccessPanel
+            access={previewAccess}
+            caption={`Preview reflects ${dirtyCount} unsaved change${dirtyCount === 1 ? "" : "s"}.`}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

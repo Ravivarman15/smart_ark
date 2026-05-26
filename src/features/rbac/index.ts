@@ -36,6 +36,18 @@ export type {
   ActionRightUpsert,
 } from "./types";
 
+// ── Resolver ────────────────────────────────────────────────────────────────
+export {
+  resolveAccess,
+  lookup,
+  explain,
+  type AccessEntry,
+  type AccessLayer,
+  type AccessSource,
+  type EffectiveAccess,
+  type ResolverInput,
+} from "./resolver";
+
 // ── Schemas ─────────────────────────────────────────────────────────────────
 export {
   rolePermissionUpsertSchema,
@@ -58,6 +70,10 @@ export {
   rbacDebug,
   enableRbacDebug,
 } from "./utils";
+export {
+  buildDefaultModuleRows,
+  buildDefaultActionRows,
+} from "./utils/catalogDefaults";
 
 // ── Providers ───────────────────────────────────────────────────────────────
 export { RbacRealtimeProvider } from "./providers/RbacRealtimeProvider";
@@ -93,6 +109,8 @@ export {
   useEffectiveActions,
   useCanDo,
   useActionAccess,
+  useEffectiveAccess,
+  useWhyAccess,
 } from "./hooks";
 
 // ── Components ──────────────────────────────────────────────────────────────
@@ -106,5 +124,9 @@ export {
   ProtectedActionDropdown,
   ActionRightsMatrix,
   ActionRightsCard,
+  AccessTracePanel,
+  EffectiveAccessPanel,
+  RouteAccessGuard,
+  LayoutAccessGate,
   type DropdownAction,
 } from "./components";

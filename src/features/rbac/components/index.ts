@@ -9,3 +9,9 @@ export { ProtectedMenuItem } from "./ProtectedMenuItem";
 export { ProtectedActionDropdown, type DropdownAction } from "./ProtectedActionDropdown";
 export { ActionRightsMatrix } from "./ActionRightsMatrix";
 export { ActionRightsCard } from "./ActionRightsCard";
+
+// ── Phase 4: centralized resolver + diagnostics ─────────────────────────────
+export { AccessTracePanel } from "./AccessTracePanel";
+export { EffectiveAccessPanel } from "./EffectiveAccessPanel";
+export { RouteAccessGuard } from "./RouteAccessGuard";
+export { LayoutAccessGate } from "./LayoutAccessGate";

@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { RoleSidebar } from "@/shared/layouts";
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/core/theme";
+import { LayoutAccessGate } from "@/features/rbac";
 
 const CoordinatorLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -28,7 +29,9 @@ const CoordinatorLayout: React.FC = () => {
           <ThemeToggle variant="icon" />
         </div>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <Outlet />
+          <LayoutAccessGate>
+            <Outlet />
+          </LayoutAccessGate>
         </main>
       </div>
 

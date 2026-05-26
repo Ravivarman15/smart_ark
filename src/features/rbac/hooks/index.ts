@@ -26,3 +26,7 @@ export {
 export { useEffectiveActions } from "./useEffectiveActions";
 export { useCanDo } from "./useCanDo";
 export { useActionAccess } from "./useActionAccess";
+
+// ── Phase 4: centralized resolver ───────────────────────────────────────────
+export { useEffectiveAccess } from "./useEffectiveAccess";
+export { useWhyAccess } from "./useWhyAccess";

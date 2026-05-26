@@ -148,6 +148,9 @@ const ManageModulePermissions = lazy(
 const ManageActionRights = lazy(
   () => import("./features/rbac/pages/ManageActionRights")
 );
+const PermissionDiagnostics = lazy(
+  () => import("./features/rbac/pages/PermissionDiagnosticsPage")
+);
 
 // Settings module
 const SettingsLayout = lazy(() => import("./features/settings/pages/SettingsLayout"));
@@ -315,6 +318,7 @@ const AppRoutes: React.FC = () => (
         <Route path="staff-manage" element={<ManageStaff />} />
         <Route path="staff-rights" element={<StaffRightsManager />} />
         <Route path="permissions" element={<ManageModulePermissions />} />
+        <Route path="permissions/diagnostics" element={<PermissionDiagnostics />} />
         <Route path="action-rights" element={<ManageActionRights />} />
         <Route path="staff-attendance" element={<TeacherCheckins />} />
         <Route path="teachers" element={<TeacherRanking />} />

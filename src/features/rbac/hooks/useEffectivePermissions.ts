@@ -1,8 +1,5 @@
 import { useMemo } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRolePermissions } from "./useRolePermissions";
-import { useUserOverrides } from "./useUserOverrides";
-import { deriveEffectivePermissions } from "../utils/effective";
+import { useEffectiveAccess } from "./useEffectiveAccess";
 import type { EffectivePermissions } from "../types/rbac.types";
 
 interface Result {
@@ -11,35 +8,21 @@ interface Result {
 }
 
 /**
- * Resolved view of "what can this user see?" — combines the role's grants
- * with any per-user overrides, falling back to the catalog defaults.
- *
- * Returns a deterministic object even while loading (everything = true), so
- * the sidebar doesn't flash empty between auth-ready and rights-loaded.
- *
- * `useSidebarAccess` is a thin wrapper around this hook with boolean
- * convenience selectors.
+ * Resolved view of "what can this user see?" — kept as a thin backward-compat
+ * wrapper around `useEffectiveAccess`. New code should prefer `useEffectiveAccess`
+ * directly when it needs the resolution trace; this hook is here so existing
+ * callers that read `{ modules, submodules }` keep working unchanged.
  */
 export const useEffectivePermissions = (): Result => {
-  const { user } = useAuth();
-  const role = user?.role;
-  const profileId = user?.profileId;
+  const { data, isLoading } = useEffectiveAccess();
 
-  const rolePerms = useRolePermissions(role);
-  const overrides = useUserOverrides(profileId);
+  const flat = useMemo<EffectivePermissions>(() => {
+    const modules: Record<string, boolean> = {};
+    const submodules: Record<string, boolean> = {};
+    for (const [id, entry] of Object.entries(data.modules)) modules[id] = entry.allowed;
+    for (const [id, entry] of Object.entries(data.submodules)) submodules[id] = entry.allowed;
+    return { modules, submodules };
+  }, [data.modules, data.submodules]);
 
-  const data = useMemo(
-    () =>
-      deriveEffectivePermissions({
-        role,
-        rolePermissions: rolePerms.data ?? [],
-        userOverrides: overrides.data ?? [],
-      }),
-    [role, rolePerms.data, overrides.data]
-  );
-
-  return {
-    data,
-    isLoading: rolePerms.isLoading || overrides.isLoading,
-  };
+  return { data: flat, isLoading };
 };
