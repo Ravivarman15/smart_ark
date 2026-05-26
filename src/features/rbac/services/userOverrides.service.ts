@@ -28,6 +28,12 @@ const isTableMissing = (err: { message?: string } | null | undefined) => {
   return msg.includes("does not exist") || msg.includes("schema cache");
 };
 
+const missingTableError = () =>
+  AppError.validation(
+    "RBAC override tables aren't set up yet. Apply migration " +
+      "supabase/migrations/20260519_rbac_module_permissions.sql first.",
+  );
+
 class UserOverridesService extends BaseService {
   async listForUser(userProfileId: string): Promise<UserPermissionOverride[]> {
     const res = await this.db
@@ -61,7 +67,10 @@ class UserOverridesService extends BaseService {
     const { error } = await this.db
       .from("rbac_user_permission_overrides" as never)
       .upsert(payload as never, { onConflict: "user_profile_id,module_id,submodule_id" });
-    if (error) throw AppError.fromSupabase(error, "rbac_user_overrides.upsert");
+    if (error) {
+      if (isTableMissing(error)) throw missingTableError();
+      throw AppError.fromSupabase(error, "rbac_user_overrides.upsert");
+    }
   }
 
   /** Remove an override → user falls back to role defaults. */
@@ -74,7 +83,10 @@ class UserOverridesService extends BaseService {
     if (args.submoduleId) q = q.eq("submodule_id", args.submoduleId);
     else q = q.is("submodule_id", null);
     const { error } = await q;
-    if (error) throw AppError.fromSupabase(error, "rbac_user_overrides.remove");
+    if (error) {
+      if (isTableMissing(error)) throw missingTableError();
+      throw AppError.fromSupabase(error, "rbac_user_overrides.remove");
+    }
   }
 }
 

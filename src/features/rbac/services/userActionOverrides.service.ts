@@ -26,6 +26,12 @@ const isTableMissing = (err: { message?: string } | null | undefined) => {
   return msg.includes("does not exist") || msg.includes("schema cache");
 };
 
+const missingTableError = () =>
+  AppError.validation(
+    "RBAC action-override tables aren't set up yet. Apply migration " +
+      "supabase/migrations/20260519_rbac_action_rights.sql first.",
+  );
+
 class UserActionOverridesService extends BaseService {
   async listForUser(userProfileId: string): Promise<UserActionOverride[]> {
     const res = await this.db
@@ -57,7 +63,10 @@ class UserActionOverridesService extends BaseService {
     const { error } = await this.db
       .from("rbac_user_action_overrides" as never)
       .upsert(payload as never, { onConflict: "user_profile_id,action_id" });
-    if (error) throw AppError.fromSupabase(error, "rbac_user_action_overrides.upsert");
+    if (error) {
+      if (isTableMissing(error)) throw missingTableError();
+      throw AppError.fromSupabase(error, "rbac_user_action_overrides.upsert");
+    }
   }
 
   /** Remove an override → the user falls back to the role grant / catalog default. */
@@ -67,7 +76,10 @@ class UserActionOverridesService extends BaseService {
       .delete()
       .eq("user_profile_id", args.userProfileId)
       .eq("action_id", args.actionId);
-    if (error) throw AppError.fromSupabase(error, "rbac_user_action_overrides.remove");
+    if (error) {
+      if (isTableMissing(error)) throw missingTableError();
+      throw AppError.fromSupabase(error, "rbac_user_action_overrides.remove");
+    }
   }
 }
 

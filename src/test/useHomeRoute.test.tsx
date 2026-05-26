@@ -6,6 +6,10 @@ import { useHomeRoute } from "@/core/navigation/useNavigation";
 const mockUseAuth = vi.fn();
 const mockUsePermissions = vi.fn();
 const mockUseSidebarAccess = vi.fn();
+const mockUseEffectiveAccess = vi.fn(() => ({
+  data: { role: "admin", isSuper: false, modules: {}, submodules: {}, actions: {} },
+  isLoading: false,
+}));
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => mockUseAuth(),
@@ -17,6 +21,7 @@ vi.mock("@/core/permissions", () => ({
 
 vi.mock("@/features/rbac", () => ({
   useSidebarAccess: () => mockUseSidebarAccess(),
+  useEffectiveAccess: () => mockUseEffectiveAccess(),
 }));
 
 describe("useHomeRoute hook", () => {

@@ -27,12 +27,21 @@ const toDomain = (r: DbRow): RolePermission => ({
   updatedBy: r.updated_by ?? undefined,
 });
 
-// "Table-missing" is the only error we silence — older deployments may not
-// have run the migration yet. Every other error bubbles up.
+// "Table-missing" is the only error we silence on reads — older deployments
+// may not have run the migration yet. Writes turn it into a clear validation
+// error pointing at the migration filename.
 const isTableMissing = (err: { message?: string } | null | undefined) => {
   const msg = (err?.message ?? "").toLowerCase();
   return msg.includes("does not exist") || msg.includes("schema cache");
 };
+
+const missingTableError = () =>
+  AppError.validation(
+    "RBAC tables aren't set up in this Supabase database yet. " +
+      "Apply migration supabase/migrations/20260519_rbac_module_permissions.sql " +
+      "(and 20260519_rbac_action_rights.sql) via the Supabase SQL editor, " +
+      "then reload this page.",
+  );
 
 class RolePermissionsService extends BaseService {
   /**
@@ -69,7 +78,10 @@ class RolePermissionsService extends BaseService {
     const { error } = await this.db
       .from("rbac_role_permissions" as never)
       .upsert(payload as never, { onConflict: "role,module_id,submodule_id" });
-    if (error) throw AppError.fromSupabase(error, "rbac_role_permissions.upsert");
+    if (error) {
+      if (isTableMissing(error)) throw missingTableError();
+      throw AppError.fromSupabase(error, "rbac_role_permissions.upsert");
+    }
   }
 
   /**
@@ -91,7 +103,10 @@ class RolePermissionsService extends BaseService {
     const { error } = await this.db
       .from("rbac_role_permissions" as never)
       .upsert(payload as never, { onConflict: "role,module_id,submodule_id" });
-    if (error) throw AppError.fromSupabase(error, "rbac_role_permissions.upsertMany");
+    if (error) {
+      if (isTableMissing(error)) throw missingTableError();
+      throw AppError.fromSupabase(error, "rbac_role_permissions.upsertMany");
+    }
   }
 
   /**
@@ -104,7 +119,10 @@ class RolePermissionsService extends BaseService {
       .from("rbac_role_permissions" as never)
       .delete()
       .eq("role", role);
-    if (error) throw AppError.fromSupabase(error, "rbac_role_permissions.reset");
+    if (error) {
+      if (isTableMissing(error)) throw missingTableError();
+      throw AppError.fromSupabase(error, "rbac_role_permissions.reset");
+    }
   }
 }
 

@@ -1,13 +1,16 @@
 import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/core/permissions";
-import { useSidebarAccess } from "@/features/rbac";
+import { useEffectiveAccess, useSidebarAccess } from "@/features/rbac";
 import { NAV_CONFIG, type NavGroupConfig, type NavItemConfig } from "./menu.config";
 import { ROLE_HOME_ROUTE, type Role } from "@/core/constants/roles";
 
 interface VisibleNavItem extends NavItemConfig {
   /** Resolved roles after group inheritance (helpful for debugging). */
   resolvedRoles: Role[];
+  /** True when the item was rendered because RBAC explicitly granted it,
+   *  not because the menu-config role list naturally includes the role. */
+  synthesized?: boolean;
 }
 
 interface VisibleNavGroup extends Omit<NavGroupConfig, "items"> {
@@ -17,46 +20,127 @@ interface VisibleNavGroup extends Omit<NavGroupConfig, "items"> {
 /**
  * Returns the navigation tree the current user is allowed to see.
  *
- * Filter rules (applied in order):
- *   1. Group dropped if the user's role isn't in `group.roles`.
- *   2. Group dropped if it declares `module` and the RBAC layer hides it.
- *   3. Item dropped if it declares `roles` and the user isn't included.
- *   4. Item dropped if it declares `action` and the permission system says no.
- *   5. Item dropped if it declares `module`/`submodule` and the RBAC layer
- *      hides it.
- *   6. Empty groups dropped entirely.
+ * Resolution rules (in order):
+ *   1. Super-role bypass — management sees everything.
+ *   2. Group visibility:
+ *      - If RBAC has an explicit grant (role_grant or user_override) for
+ *        the group's module, that wins outright.
+ *      - Otherwise fall back to the menu-config role list AND the catalog
+ *        default. This preserves the historical behaviour for any role that
+ *        management hasn't customized.
+ *   3. Item visibility (per group):
+ *      - Items whose menu-config role list includes the current role are
+ *        checked normally (action + submodule + module gates).
+ *      - Items the role does NOT natively own are still rendered IF RBAC
+ *        explicitly grants the parent submodule. We synthesize a path that
+ *        routes to the role's coming-soon stub so the link doesn't 404.
+ *      - We dedupe by submodule so a native item beats a synthesized one.
+ *   4. Empty groups are dropped at the end.
  *
- * Super-roles (management) bypass all checks via `usePermissions` /
- * `useSidebarAccess` (both short-circuit on management).
+ * The key behavioural change vs. the previous implementation: an explicit
+ * RBAC grant always wins over the menu-config role list. This fixes the bug
+ * where management could grant teacher access to a module in the Role
+ * Editor but the teacher's sidebar would silently ignore the change.
  */
 export const useNavigation = (): VisibleNavGroup[] => {
   const { user } = useAuth();
   const { canDoAction, hasRole } = usePermissions();
   const { canViewModule, canViewSubmodule } = useSidebarAccess();
+  const { data: effective } = useEffectiveAccess();
+
+  void hasRole; // kept in scope for downstream consumers via re-export chains
 
   return useMemo(() => {
     const role = user?.role as Role | undefined;
     if (!role) return [];
 
     const out: VisibleNavGroup[] = [];
-    for (const group of NAV_CONFIG) {
-      if (!group.roles.includes(role)) continue;
-      if (group.module && !canViewModule(group.module)) continue;
 
-      const items: VisibleNavItem[] = [];
+    for (const group of NAV_CONFIG) {
+      // ── Group visibility ────────────────────────────────────────────────
+      const moduleEntry = group.module ? effective.modules[group.module] : undefined;
+      const moduleIsExplicit =
+        moduleEntry?.source === "role_grant" ||
+        moduleEntry?.source === "user_override";
+
+      if (moduleIsExplicit) {
+        // Explicit RBAC opinion wins — even over the menu-config role list.
+        if (!moduleEntry?.allowed) continue;
+      } else {
+        // No explicit grant — preserve the historical role-list filter so
+        // pre-existing menus don't suddenly expand for everyone.
+        if (!group.roles.includes(role)) continue;
+        if (group.module && !canViewModule(group.module)) continue;
+      }
+
+      // ── Items ──────────────────────────────────────────────────────────
+      // Dedupe by submodule (or by path for items without a submodule key).
+      // Native items beat synthesized coming-soon stubs.
+      const itemsByKey = new Map<string, VisibleNavItem>();
+
       for (const item of group.items) {
         const resolvedRoles = item.roles ?? group.roles;
-        if (!hasRole(resolvedRoles)) continue;
+        const isNative = resolvedRoles.includes(role);
+
+        const submoduleEntry = item.submodule
+          ? effective.submodules[item.submodule]
+          : undefined;
+        const submoduleIsExplicit =
+          submoduleEntry?.source === "role_grant" ||
+          submoduleEntry?.source === "user_override";
+
+        if (isNative) {
+          // Standard pipeline: action + module + submodule gates.
+          if (item.action && !canDoAction(item.action)) continue;
+          if (item.module && !canViewModule(item.module)) continue;
+          if (item.submodule && !canViewSubmodule(item.submodule)) continue;
+
+          const key = item.submodule ?? item.path;
+          const next: VisibleNavItem = { ...item, resolvedRoles };
+          itemsByKey.set(key, next);
+          continue;
+        }
+
+        // Non-native: only render if RBAC explicitly grants the submodule
+        // (or, when the item has no submodule, the module itself). Catalog
+        // defaults alone aren't enough — that would re-introduce the old
+        // "teacher sees everything by default" problem.
+        const grantedNonNatively = submoduleIsExplicit
+          ? !!submoduleEntry?.allowed
+          : moduleIsExplicit && !!moduleEntry?.allowed && !item.submodule;
+        if (!grantedNonNatively) continue;
+
         if (item.action && !canDoAction(item.action)) continue;
         if (item.module && !canViewModule(item.module)) continue;
         if (item.submodule && !canViewSubmodule(item.submodule)) continue;
-        items.push({ ...item, resolvedRoles });
+
+        const key = item.submodule ?? item.path;
+        // Don't overwrite a native item — they win.
+        const existing = itemsByKey.get(key);
+        if (existing && !existing.synthesized) continue;
+
+        const synthPath = `/${role}/coming-soon/${item.submodule ?? group.key}`;
+        itemsByKey.set(key, {
+          ...item,
+          path: synthPath,
+          resolvedRoles: [role],
+          synthesized: true,
+        });
       }
 
+      const items = Array.from(itemsByKey.values());
       if (items.length > 0) out.push({ ...group, items });
     }
+
     return out;
-  }, [user?.role, canDoAction, hasRole, canViewModule, canViewSubmodule]);
+  }, [
+    user?.role,
+    canDoAction,
+    canViewModule,
+    canViewSubmodule,
+    effective.modules,
+    effective.submodules,
+  ]);
 };
 
 /**
