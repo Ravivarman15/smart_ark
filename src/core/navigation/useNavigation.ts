@@ -74,9 +74,17 @@ export const useNavigation = (): VisibleNavGroup[] => {
       }
 
       // ── Items ──────────────────────────────────────────────────────────
-      // Dedupe by submodule (or by path for items without a submodule key).
-      // Native items beat synthesized coming-soon stubs.
-      const itemsByKey = new Map<string, VisibleNavItem>();
+      // Path is the dedup key: two menu entries with the same `path` are
+      // genuinely the same link, anything else is a distinct item even when
+      // they share a `submodule` key (e.g. "Create Staff Role" and
+      // "Manage Staff Role" both sit under submodule "staff.rights" but
+      // point at different routes — both must render).
+      //
+      // Synthesized coming-soon items always resolve to the same
+      // `/${role}/coming-soon/${submoduleId}` path, so multiple non-native
+      // items under one submodule collapse to a single coming-soon entry,
+      // which is the desired behaviour.
+      const itemsByPath = new Map<string, VisibleNavItem>();
 
       for (const item of group.items) {
         const resolvedRoles = item.roles ?? group.roles;
@@ -95,9 +103,7 @@ export const useNavigation = (): VisibleNavGroup[] => {
           if (item.module && !canViewModule(item.module)) continue;
           if (item.submodule && !canViewSubmodule(item.submodule)) continue;
 
-          const key = item.submodule ?? item.path;
-          const next: VisibleNavItem = { ...item, resolvedRoles };
-          itemsByKey.set(key, next);
+          itemsByPath.set(item.path, { ...item, resolvedRoles });
           continue;
         }
 
@@ -114,13 +120,14 @@ export const useNavigation = (): VisibleNavGroup[] => {
         if (item.module && !canViewModule(item.module)) continue;
         if (item.submodule && !canViewSubmodule(item.submodule)) continue;
 
-        const key = item.submodule ?? item.path;
-        // Don't overwrite a native item — they win.
-        const existing = itemsByKey.get(key);
+        const synthPath = `/${role}/coming-soon/${item.submodule ?? group.key}`;
+        // If a native item already targets this synth path, don't overwrite
+        // (effectively never — the role's own path won't collide with a
+        // coming-soon URL — but keep the guard for safety).
+        const existing = itemsByPath.get(synthPath);
         if (existing && !existing.synthesized) continue;
 
-        const synthPath = `/${role}/coming-soon/${item.submodule ?? group.key}`;
-        itemsByKey.set(key, {
+        itemsByPath.set(synthPath, {
           ...item,
           path: synthPath,
           resolvedRoles: [role],
@@ -128,7 +135,7 @@ export const useNavigation = (): VisibleNavGroup[] => {
         });
       }
 
-      const items = Array.from(itemsByKey.values());
+      const items = Array.from(itemsByPath.values());
       if (items.length > 0) out.push({ ...group, items });
     }
 
