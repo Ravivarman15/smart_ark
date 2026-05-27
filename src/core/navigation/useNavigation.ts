@@ -104,7 +104,25 @@ export const useNavigation = (): VisibleNavGroup[] => {
           if (item.module && !canViewModule(item.module)) continue;
           if (item.submodule && !canViewSubmodule(item.submodule)) continue;
 
-          itemsByPath.set(item.path, { ...item, resolvedRoles });
+          // Some menu rows are *natively* allowed for a role but have no
+          // role-specific path in menu.config — the sub() helper baked a
+          // /${role}/coming-soon/... placeholder in. If the route registry
+          // now has a real mount for (role, submodule), prefer that path
+          // so the link goes to a working page instead of the stub.
+          let nativePath = item.path;
+          if (
+            item.submodule &&
+            nativePath.includes(`/${role}/coming-soon/`)
+          ) {
+            const registered = getRoutePath(role, item.submodule);
+            if (registered) nativePath = registered;
+          }
+
+          itemsByPath.set(nativePath, {
+            ...item,
+            path: nativePath,
+            resolvedRoles,
+          });
           continue;
         }
 

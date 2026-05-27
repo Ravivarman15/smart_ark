@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { NavLink } from "react-router-dom";
 // `User` is imported as a TYPE here — `lucide-react` below also exports a
 // component named `User`. Without the explicit `type` modifier, esbuild
 // keeps both bindings in the emitted JS and the browser bails with
@@ -9,13 +10,16 @@ import { sendMarksToParent, getWhatsAppLink, formatMarksMessage } from "@/lib/ai
 import { toast } from "sonner";
 import arkLogo from "@/assets/ark-logo.jpeg";
 import { ThemeToggle } from "@/core/theme";
+import { RoleSidebar } from "@/shared/layouts";
+import { useNavigation } from "@/core/navigation";
+import { resolveIcon } from "@/shared/icons";
 import {
   LogOut, CheckCircle2, BookOpen, Clock, FileText, MapPin,
   ClipboardList, Users2, Calendar, CheckSquare, Square,
   Home, BarChart3, Send, MessageCircle, ChevronRight,
   TrendingUp, AlertTriangle, User, Settings, Phone,
   Award, Percent, Search, Filter, X, Plus, Star,
-  CalendarDays, GraduationCap,
+  CalendarDays, GraduationCap, Menu, Layers,
 } from "lucide-react";
 
 type TabId = "home" | "attendance" | "marks" | "more";
@@ -35,6 +39,19 @@ const TeacherDashboard: React.FC = () => {
   const todayCheckin = teacherId ? checkins[teacherId]?.[today] : undefined;
 
   const [activeTab, setActiveTab] = useState<TabId>("home");
+
+  // ── Dynamic modules from RBAC ────────────────────────────────────
+  // Drives both the hamburger drawer and the "Modules" section in More tab.
+  // Any module granted via Manage Staff Role shows up here immediately
+  // (the realtime provider invalidates the effective-permissions cache
+  // on every RBAC change). We drop the synthetic "dashboard" group since
+  // we already are the dashboard.
+  const navGroups = useNavigation();
+  const extraModules = useMemo(
+    () => navGroups.filter((g) => g.key !== "dashboard" && g.items.length > 0),
+    [navGroups],
+  );
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // ── Attendance State ──────────────────────────────────────────────
   const existingAttendance = teacherId ? attendance[teacherId]?.[today] : undefined;
@@ -337,6 +354,19 @@ const TeacherDashboard: React.FC = () => {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-sidebar/95 backdrop-blur-xl border-b border-sidebar-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {/* Hamburger — opens the dynamic RoleSidebar drawer. Always shown
+              so any RBAC grant beyond the dashboard surfaces immediately. */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="relative p-2 -ml-1 rounded-lg hover:bg-muted/50 transition-colors text-foreground"
+            title="Open menu"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+            {extraModules.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent" />
+            )}
+          </button>
           <div className="relative">
             <img src={arkLogo} alt="ARK" className="w-9 h-9 rounded-lg" />
             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-ark-success border-2 border-sidebar" />
@@ -353,6 +383,32 @@ const TeacherDashboard: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* Sidebar drawer — mirrors the mobile pattern used by AdminLayout /
+          CoordinatorLayout. Built on RoleSidebar so the module list is
+          fully RBAC-driven (useNavigation → effective permissions). */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="relative w-64 h-full overflow-hidden">
+            <RoleSidebar
+              collapsed={false}
+              onToggle={() => setMobileMenuOpen(false)}
+              onNavigate={() => setMobileMenuOpen(false)}
+            />
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="absolute top-4 right-[-40px] p-2 text-foreground"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto pb-20">
@@ -386,6 +442,7 @@ const TeacherDashboard: React.FC = () => {
           setLeaveForm={setLeaveForm} handleLeaveSubmit={handleLeaveSubmit}
           submittingLeave={submittingLeave}
           myLeaves={myLeaves} logout={logout}
+          extraModules={extraModules}
         />}
       </main>
 
@@ -1148,6 +1205,8 @@ const MarksTab: React.FC<MarksTabProps> = ({
 // ═══════════════════════════════════════════════════════════════════
 // TAB: MORE
 // ═══════════════════════════════════════════════════════════════════
+type NavGroups = ReturnType<typeof useNavigation>;
+
 interface MoreTabProps {
   teacherInfo?: TeacherInfo;
   user: User | null;
@@ -1157,9 +1216,10 @@ interface MoreTabProps {
   submittingLeave: boolean;
   myLeaves: LeaveRequest[];
   logout: () => void;
+  extraModules: NavGroups;
 }
 const MoreTab: React.FC<MoreTabProps> = ({
-  teacherInfo, user, leaveForm, setLeaveForm, handleLeaveSubmit, submittingLeave, myLeaves, logout,
+  teacherInfo, user, leaveForm, setLeaveForm, handleLeaveSubmit, submittingLeave, myLeaves, logout, extraModules,
 }) => (
   <div className="p-4 space-y-5 max-w-2xl mx-auto animate-in fade-in duration-300">
     {/* Profile Card */}
@@ -1186,6 +1246,41 @@ const MoreTab: React.FC<MoreTabProps> = ({
         </div>
       </div>
     </section>
+
+    {/* My Modules — surfaces any module the admin granted to this teacher
+        via Manage Staff Role. Driven by useNavigation() → RBAC, so toggling
+        a module on the role editor reflects here on next render. */}
+    {extraModules.length > 0 && (
+      <section>
+        <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <Layers className="w-4 h-4 text-accent" /> My Modules
+        </h2>
+        <div className="grid grid-cols-2 gap-2">
+          {extraModules.map((group) => {
+            const Icon = resolveIcon(group.icon);
+            // Land on the first granted item in the module.
+            const firstPath = group.items[0]?.path ?? "/teacher";
+            return (
+              <NavLink
+                key={group.key}
+                to={firstPath}
+                className="rounded-xl bg-card/60 border border-border p-3 flex items-center gap-3 hover:bg-muted/30 transition-all active:scale-[0.98]"
+              >
+                <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-4 h-4 text-accent" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{group.label}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {group.items.length} {group.items.length === 1 ? "feature" : "features"}
+                  </p>
+                </div>
+              </NavLink>
+            );
+          })}
+        </div>
+      </section>
+    )}
 
     {/* Leave Request */}
     <section>

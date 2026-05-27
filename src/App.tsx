@@ -464,6 +464,11 @@ const AppRoutes: React.FC = () => (
         <Route path="help/triage" element={<HelpManagementTriage />} />
         <Route path="help/triage/:id" element={<HelpManagementTriage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
+        {/* RBAC-granted shared modules — Setup, Fee, Reports, Communication,
+            Finance, Exam, etc. SHARED_ROUTES entries with layouts:
+            ["coordinator", ...] auto-mount here so granting any module to
+            coordinator produces a working page, not coming-soon. */}
+        {renderSharedRoutes("coordinator")}
       </Route>
 
       {/* Settings — role-agnostic shell at /settings/*. RBAC submodule gates

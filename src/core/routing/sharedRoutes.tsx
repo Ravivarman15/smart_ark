@@ -32,6 +32,31 @@ const ManageTaxesPage = lazy(() => import("@/features/setup/pages/ManageTaxesPag
 const ExpenseCategories = lazy(() => import("@/pages/setup/ExpenseCategories"));
 const FeeStructurePage = lazy(() => import("@/pages/setup/FeeStructure"));
 
+// Exam module
+const ManageManualExamPage = lazy(() => import("@/features/exams/pages/ManageManualExamPage"));
+const CreateManualExamPage = lazy(() => import("@/features/exams/pages/CreateManualExamPage"));
+const ManageMcqPaperPage = lazy(() => import("@/features/exams/pages/ManageMcqPaperPage"));
+const CreateMcqPaperPage = lazy(() => import("@/features/exams/pages/CreateMcqPaperPage"));
+const ManageMcqExamPage = lazy(() => import("@/features/exams/pages/ManageMcqExamPage"));
+const CreateMcqExamPage = lazy(() => import("@/features/exams/pages/CreateMcqExamPage"));
+const McqExamMonitorPage = lazy(() => import("@/features/exams/pages/McqExamMonitorPage"));
+
+// Student module
+const ManageStudentsPage = lazy(() => import("@/features/students/pages/ManageStudentsPage"));
+const StudentRegistrationPage = lazy(() => import("@/features/students/pages/StudentRegistrationPage"));
+const StudentsImportPage = lazy(() => import("@/features/students/pages/StudentsImportPage"));
+const AssignBatchPage = lazy(() => import("@/features/students/pages/AssignBatchPage"));
+const StudentAttendancePage = lazy(() => import("@/features/students/pages/StudentAttendancePage"));
+const ShareDocumentsPage = lazy(() => import("@/features/students/pages/ShareDocumentsPage"));
+const ManageSharedDocumentsPage = lazy(() => import("@/features/students/pages/ManageSharedDocumentsPage"));
+const StudentLeavePage = lazy(() => import("@/features/students/pages/StudentLeavePage"));
+const StudentYearTransferPage = lazy(() => import("@/features/students/pages/StudentYearTransferPage"));
+const StudentUntransferPage = lazy(() => import("@/features/students/pages/StudentUntransferPage"));
+const StudentChatPage = lazy(() => import("@/features/students/pages/StudentChatPage"));
+const StudentFeedbackPage = lazy(() => import("@/features/students/pages/StudentFeedbackPage"));
+const AppAccessRightsPage = lazy(() => import("@/features/students/pages/AppAccessRightsPage"));
+const StudentProfilePage = lazy(() => import("@/features/students/pages/StudentProfilePage"));
+
 // Help module (already shared across all four roles in App.tsx; we mirror
 // the existing wiring here so the registry stays the single source).
 const HelpSupportRequest = lazy(() => import("@/features/help/pages/SupportRequestPage"));
@@ -43,6 +68,63 @@ const HelpPublicFeedbackBoard = lazy(() => import("@/features/help/pages/PublicF
 
 const ComingSoon = lazy(() => import("@/pages/shared/ComingSoon"));
 const LeaveManagement = lazy(() => import("@/pages/shared/LeaveManagement"));
+
+// Enquiry / Leads, Fee, generic shared pages
+const EnquiryManagement = lazy(() => import("@/pages/shared/EnquiryManagement"));
+const FeesAdmission = lazy(() => import("@/pages/admin/FeesAdmission"));
+const FeeManagement = lazy(() => import("@/pages/shared/FeeManagement"));
+const ManageStaff = lazy(() => import("@/pages/shared/ManageStaff"));
+const TimetableView = lazy(() => import("@/pages/shared/TimetableView"));
+
+// Communication module
+const CommSendInquiry = lazy(() => import("@/features/communication/pages/SendInquiryPage"));
+const CommSendStudent = lazy(() => import("@/features/communication/pages/SendStudentPage"));
+const CommSendStaff = lazy(() => import("@/features/communication/pages/SendStaffPage"));
+const CommSendStaffCreds = lazy(() => import("@/features/communication/pages/SendStaffCredentialsPage"));
+const CommSendStudentCreds = lazy(() => import("@/features/communication/pages/SendStudentCredentialsPage"));
+const CommSendExamReminder = lazy(() => import("@/features/communication/pages/SendExamReminderPage"));
+const CommSendExamMarks = lazy(() => import("@/features/communication/pages/SendExamMarksPage"));
+const CommSendFeeStatus = lazy(() => import("@/features/communication/pages/SendFeeStatusPage"));
+const CommSendFeeDueReminder = lazy(() => import("@/features/communication/pages/SendFeeDueReminderPage"));
+const CommSendAbsent = lazy(() => import("@/features/communication/pages/SendAbsentAttendancePage"));
+const CommSendBirthday = lazy(() => import("@/features/communication/pages/SendBirthdayPage"));
+
+// Finance module (Expense & Income)
+const FinAddExpenseTypePage = lazy(() => import("@/features/finance/pages/AddExpenseTypePage"));
+const FinManageExpenseTypePage = lazy(() => import("@/features/finance/pages/ManageExpenseTypePage"));
+const FinAddIncomeTypePage = lazy(() => import("@/features/finance/pages/AddIncomeTypePage"));
+const FinManageIncomeTypePage = lazy(() => import("@/features/finance/pages/ManageIncomeTypePage"));
+const FinAddExpensePage = lazy(() => import("@/features/finance/pages/AddExpensePage"));
+const FinManageExpensePage = lazy(() => import("@/features/finance/pages/ManageExpensePage"));
+const FinAddIncomePage = lazy(() => import("@/features/finance/pages/AddIncomePage"));
+const FinManageIncomePage = lazy(() => import("@/features/finance/pages/ManageIncomePage"));
+
+// Reports module
+const RptTimetable = lazy(() => import("@/features/reports/pages/TimetableReportPage"));
+const RptStudentInquiry = lazy(() => import("@/features/reports/pages/StudentInquiryReportPage"));
+const RptStudentDetail = lazy(() => import("@/features/reports/pages/StudentDetailReportPage"));
+const RptMobileStatus = lazy(() => import("@/features/reports/pages/MobileStatusReportPage"));
+const RptIdCard = lazy(() => import("@/features/reports/pages/StudentIdCardReportPage"));
+const RptQrCard = lazy(() => import("@/features/reports/pages/StudentQrCardReportPage"));
+const RptStudentAttendance = lazy(() => import("@/features/reports/pages/StudentAttendanceReportPage"));
+const RptFeeDueReminder = lazy(() => import("@/features/reports/pages/FeeDueReminderReportPage"));
+const RptPendingFee = lazy(() => import("@/features/reports/pages/PendingFeeReportPage"));
+const RptFeeStatus = lazy(() => import("@/features/reports/pages/FeeStatusReportPage"));
+const RptFeeCollection = lazy(() => import("@/features/reports/pages/FeeCollectionReportPage"));
+const RptFeeCollectionTax = lazy(() => import("@/features/reports/pages/FeeCollectionTaxReportPage"));
+const RptFeeRefund = lazy(() => import("@/features/reports/pages/FeeRefundReportPage"));
+const RptExamStatus = lazy(() => import("@/features/reports/pages/ExamStatusReportPage"));
+const RptStudentExamSummary = lazy(() => import("@/features/reports/pages/StudentExamSummaryPage"));
+const RptStudentPerformance = lazy(() => import("@/features/reports/pages/StudentPerformanceReportPage"));
+const RptExpense = lazy(() => import("@/features/reports/pages/ExpenseReportPage"));
+const RptIncome = lazy(() => import("@/features/reports/pages/IncomeReportPage"));
+const RptProfitLoss = lazy(() => import("@/features/reports/pages/ProfitLossReportPage"));
+const RptStaffAttendance = lazy(() => import("@/features/reports/pages/StaffAttendanceReportPage"));
+const RptSmsStatus = lazy(() => import("@/features/reports/pages/SmsStatusReportPage"));
+const RptInquiryAnalysis = lazy(() => import("@/features/reports/pages/InquiryAnalysisPage"));
+const RptAdmissionAnalysis = lazy(() => import("@/features/reports/pages/AdmissionAnalysisPage"));
+const RptFeeAnalysis = lazy(() => import("@/features/reports/pages/FeeAnalysisReportPage"));
+const RptProfitLossAnalysis = lazy(() => import("@/features/reports/pages/ProfitLossAnalysisPage"));
 
 export interface SharedRouteDef {
   /** Path relative to the role layout root. No leading slash. */
@@ -70,6 +152,15 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     submodule: "setup.manage_year",
     label: "Manage Year",
   },
+  // Add variants share the underlying Manage page (slide-over auto-opens
+  // on the native /?new=1 link; non-native synth links land on the same
+  // page where users can hit "+ New").
+  {
+    path: "setup/years",
+    element: <ManageYearsPage />,
+    submodule: "setup.add_year",
+    label: "Add Year",
+  },
   {
     path: "setup/standards",
     element: <ManageStandardsPage />,
@@ -89,10 +180,22 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     label: "Manage Course Type",
   },
   {
+    path: "setup/course-types",
+    element: <ManageCourseTypesPage />,
+    submodule: "setup.add_course_type",
+    label: "Add Course Type",
+  },
+  {
     path: "setup/batches",
     element: <ManageBatchesPage />,
     submodule: "setup.manage_batch",
     label: "Manage Class / Batch",
+  },
+  {
+    path: "setup/batches",
+    element: <ManageBatchesPage />,
+    submodule: "setup.add_batch",
+    label: "Add Class / Batch",
   },
   {
     path: "setup/timetable",
@@ -107,6 +210,12 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     label: "Manage Tax",
   },
   {
+    path: "setup/taxes",
+    element: <ManageTaxesPage />,
+    submodule: "setup.add_tax",
+    label: "Add Tax",
+  },
+  {
     path: "setup/expense-categories",
     element: <ExpenseCategories />,
     submodule: "expense.manage_type",
@@ -118,6 +227,423 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     submodule: "fee.manage_structure",
     label: "Manage Fee Structure",
   },
+
+  // ── Exam (teacher layout) ─────────────────────────────────────────────
+  // The menu.config sub() helper only assigns admin/management paths to
+  // exam items, so teacher entries are coming-soon stubs. Registering
+  // them here gives useNavigation a real path to swap in and gives
+  // renderSharedRoutes("teacher") an element to mount.
+  {
+    path: "exams/manual",
+    element: <ManageManualExamPage />,
+    submodule: "exam.manage_manual",
+    label: "Manage Manual Exam",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/manual/create",
+    element: <CreateManualExamPage />,
+    submodule: "exam.create_manual",
+    label: "Create Manual Exam",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/manual/:id/edit",
+    element: <CreateManualExamPage />,
+    label: "Edit Manual Exam",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/mcq-papers",
+    element: <ManageMcqPaperPage />,
+    submodule: "exam.manage_mcq_paper",
+    label: "Manage MCQ Paper",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/mcq-papers/create",
+    element: <CreateMcqPaperPage />,
+    submodule: "exam.create_mcq_paper",
+    label: "Create MCQ Paper",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/mcq-papers/:id/edit",
+    element: <CreateMcqPaperPage />,
+    label: "Edit MCQ Paper",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/mcq-exams",
+    element: <ManageMcqExamPage />,
+    submodule: "exam.manage_mcq_exam",
+    label: "Manage MCQ Exam",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/mcq-exams/create",
+    element: <CreateMcqExamPage />,
+    submodule: "exam.create_mcq_exam",
+    label: "Create MCQ Exam",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/mcq-exams/:id/edit",
+    element: <CreateMcqExamPage />,
+    label: "Edit MCQ Exam",
+    layouts: ["teacher"],
+  },
+  {
+    path: "exams/mcq-exams/:id/monitor",
+    element: <McqExamMonitorPage />,
+    label: "Monitor MCQ Exam",
+    layouts: ["teacher"],
+  },
+
+  // ── Student ────────────────────────────────────────────────────────────
+  // Teacher-layout entries only — admin/management/coordinator mount
+  // these directly via studentRoutes() in App.tsx. When admin grants a
+  // teacher access to e.g. "student.attendance", useNavigation synthesizes
+  // /teacher/students/attendance and these entries make that path real
+  // instead of falling through to coming-soon.
+  {
+    path: "students",
+    element: <ManageStudentsPage />,
+    submodule: "student.manage",
+    label: "Manage Student",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/registration",
+    element: <StudentRegistrationPage />,
+    submodule: "student.add",
+    label: "Add Student Registration",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/import",
+    element: <StudentsImportPage />,
+    submodule: "student.import",
+    label: "Students Import",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/assign-batch",
+    element: <AssignBatchPage />,
+    submodule: "student.assign_batch",
+    label: "Assign Class / Batch",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/attendance",
+    element: <StudentAttendancePage />,
+    submodule: "student.attendance",
+    label: "Student Attendance",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/documents",
+    element: <ShareDocumentsPage />,
+    submodule: "student.share_docs",
+    label: "Share Documents",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/shared-documents",
+    element: <ManageSharedDocumentsPage />,
+    submodule: "student.manage_shared_docs",
+    label: "Manage Shared Documents",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/leave",
+    element: <StudentLeavePage />,
+    submodule: "student.leave_request",
+    label: "Manage Leave Request",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/year-transfer",
+    element: <StudentYearTransferPage />,
+    submodule: "student.year_transfer",
+    label: "Student Year Transfer",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/untransfer",
+    element: <StudentUntransferPage />,
+    submodule: "student.untransfer",
+    label: "Student Untransfer",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/chat",
+    element: <StudentChatPage />,
+    submodule: "student.chat",
+    label: "Chat With Students",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/feedback",
+    element: <StudentFeedbackPage />,
+    submodule: "student.feedback",
+    label: "Student Feedback",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/rights",
+    element: <AppAccessRightsPage />,
+    submodule: "student.rights",
+    label: "Student Rights",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/app-access",
+    element: <AppAccessRightsPage />,
+    submodule: "student.app_access",
+    label: "App. Access Rights",
+    layouts: ["teacher"],
+  },
+  // Student detail (no submodule — accessed via "View" buttons from the
+  // manage list). Mounted only under teacher; other roles get this via
+  // studentRoutes() in App.tsx.
+  {
+    path: "students/:id",
+    element: <StudentProfilePage />,
+    label: "Student Profile",
+    layouts: ["teacher"],
+  },
+
+  // ── Enquiry / Leads ───────────────────────────────────────────────────
+  // adminCoordMgmt are native (declared explicitly in App.tsx). The teacher
+  // mount is added here so granting Enquiry to teacher works.
+  {
+    path: "enquiries",
+    element: <EnquiryManagement />,
+    submodule: "enquiry.manage",
+    label: "Manage Enquiry",
+    layouts: ["teacher"],
+  },
+  {
+    path: "enquiries",
+    element: <EnquiryManagement />,
+    submodule: "enquiry.add",
+    label: "Add Student Enquiry",
+    layouts: ["teacher"],
+  },
+  {
+    path: "enquiries",
+    element: <EnquiryManagement />,
+    submodule: "enquiry.assign",
+    label: "Assign Enquiry",
+    layouts: ["teacher"],
+  },
+
+  // ── Fee (coordinator + teacher) ───────────────────────────────────────
+  // adminMgmt are native via App.tsx. Coordinator/teacher get the same
+  // pages when granted via RBAC.
+  {
+    path: "fees",
+    element: <FeesAdmission />,
+    submodule: "fee.collection",
+    label: "Fee Collection",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "fees-management",
+    element: <FeeManagement />,
+    submodule: "fee.manage",
+    label: "Manage Fees",
+    layouts: ["coordinator", "teacher"],
+  },
+
+  // ── Staff / User (coordinator + teacher) ─────────────────────────────
+  {
+    path: "staff-manage",
+    element: <ManageStaff />,
+    submodule: "staff.manage",
+    label: "Manage Staff",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "staff-manage",
+    element: <ManageStaff />,
+    submodule: "staff.create",
+    label: "Create Staff",
+    layouts: ["coordinator", "teacher"],
+  },
+
+  // ── Timetable (shared view; admin/mgmt/coord have explicit mounts) ───
+  {
+    path: "timetable",
+    element: <TimetableView />,
+    label: "Timetable",
+    layouts: ["teacher"],
+  },
+
+  // ── Communication / WhatsApp SMS (coordinator + teacher) ──────────────
+  {
+    path: "communication/send-inquiry",
+    element: <CommSendInquiry />,
+    submodule: "whatsapp.send_inquiry",
+    label: "Send SMS To Inquiry",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-student",
+    element: <CommSendStudent />,
+    submodule: "whatsapp.send_student",
+    label: "Send SMS To Student",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-staff",
+    element: <CommSendStaff />,
+    submodule: "whatsapp.send_staff",
+    label: "Send SMS To Staff",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-staff-credentials",
+    element: <CommSendStaffCreds />,
+    submodule: "whatsapp.send_staff_creds",
+    label: "Send Staff ID / Password",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-student-credentials",
+    element: <CommSendStudentCreds />,
+    submodule: "whatsapp.send_student_creds",
+    label: "Send Student ID / Password",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-exam-reminder",
+    element: <CommSendExamReminder />,
+    submodule: "whatsapp.send_upcoming_exam",
+    label: "Send Upcoming Exam SMS",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-exam-marks",
+    element: <CommSendExamMarks />,
+    submodule: "whatsapp.send_exam_marks",
+    label: "Send Exam Marks SMS",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-fee-status",
+    element: <CommSendFeeStatus />,
+    submodule: "whatsapp.send_fee_status",
+    label: "Send Fee Status SMS",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-fee-due-reminder",
+    element: <CommSendFeeDueReminder />,
+    submodule: "whatsapp.send_fee_due",
+    label: "Send Fee Due Reminder SMS",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-absent-attendance",
+    element: <CommSendAbsent />,
+    submodule: "whatsapp.send_absent",
+    label: "Send Today Absent Attendance SMS",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "communication/send-birthday",
+    element: <CommSendBirthday />,
+    submodule: "whatsapp.send_birthday",
+    label: "Send Student Birthday SMS",
+    layouts: ["coordinator", "teacher"],
+  },
+
+  // ── Expense & Income / Finance (coordinator + teacher) ────────────────
+  {
+    path: "finance/add-expense-type",
+    element: <FinAddExpenseTypePage />,
+    submodule: "expense.add_type",
+    label: "Add Expense Type",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "finance/manage-expense-type",
+    element: <FinManageExpenseTypePage />,
+    submodule: "expense.manage_type",
+    label: "Manage Expense Type",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "finance/add-income-type",
+    element: <FinAddIncomeTypePage />,
+    submodule: "income.add_type",
+    label: "Add Income Type",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "finance/manage-income-type",
+    element: <FinManageIncomeTypePage />,
+    submodule: "income.manage_type",
+    label: "Manage Income Type",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "finance/add-expense",
+    element: <FinAddExpensePage />,
+    submodule: "expense.add",
+    label: "Add Expense",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "finance/manage-expense",
+    element: <FinManageExpensePage />,
+    submodule: "expense.manage",
+    label: "Manage Expense",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "finance/add-income",
+    element: <FinAddIncomePage />,
+    submodule: "income.add",
+    label: "Add Income",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "finance/manage-income",
+    element: <FinManageIncomePage />,
+    submodule: "income.manage",
+    label: "Manage Income",
+    layouts: ["coordinator", "teacher"],
+  },
+
+  // ── Reports (coordinator + teacher) ───────────────────────────────────
+  { path: "reports/timetable",            element: <RptTimetable />,            submodule: "reports.timetable",            label: "Time Table Report",                 layouts: ["coordinator", "teacher"] },
+  { path: "reports/student-inquiry",      element: <RptStudentInquiry />,       submodule: "reports.student_inquiry",      label: "Student Inquiry Report",            layouts: ["coordinator", "teacher"] },
+  { path: "reports/student-detail",       element: <RptStudentDetail />,        submodule: "reports.student_detail",       label: "Student Detail Report",             layouts: ["coordinator", "teacher"] },
+  { path: "reports/mobile-status",        element: <RptMobileStatus />,         submodule: "reports.mobile_status",        label: "Mobile App. Status Report",         layouts: ["coordinator", "teacher"] },
+  { path: "reports/id-card",              element: <RptIdCard />,               submodule: "reports.id_card",              label: "Student ID Card Report",            layouts: ["coordinator", "teacher"] },
+  { path: "reports/qrcode-card",          element: <RptQrCard />,               submodule: "reports.qrcode_card",          label: "Student QRCode Card",               layouts: ["coordinator", "teacher"] },
+  { path: "reports/student-attendance",   element: <RptStudentAttendance />,    submodule: "reports.student_attendance",   label: "Student Attendance Report",         layouts: ["coordinator", "teacher"] },
+  { path: "reports/fee-due-reminder",     element: <RptFeeDueReminder />,       submodule: "reports.fee_due_reminder",     label: "Fee Due Reminder Report",           layouts: ["coordinator", "teacher"] },
+  { path: "reports/pending-fee",          element: <RptPendingFee />,           submodule: "reports.pending_fee",          label: "Pending Fee Report",                layouts: ["coordinator", "teacher"] },
+  { path: "reports/fee-status",           element: <RptFeeStatus />,            submodule: "reports.fee_status",           label: "Fee Status Report",                 layouts: ["coordinator", "teacher"] },
+  { path: "reports/fee-collection",       element: <RptFeeCollection />,        submodule: "reports.fee_collection",       label: "Fee Collection Report",             layouts: ["coordinator", "teacher"] },
+  { path: "reports/fee-collection-tax",   element: <RptFeeCollectionTax />,     submodule: "reports.fee_collection_tax",   label: "Fee Collection With Tax Report",    layouts: ["coordinator", "teacher"] },
+  { path: "reports/fee-refund",           element: <RptFeeRefund />,            submodule: "reports.fee_refund",           label: "Fee Refund Report",                 layouts: ["coordinator", "teacher"] },
+  { path: "reports/exam-status",          element: <RptExamStatus />,           submodule: "reports.exam_status",          label: "Exam Status Report",                layouts: ["coordinator", "teacher"] },
+  { path: "reports/student-exam-summary", element: <RptStudentExamSummary />,   submodule: "reports.student_exam_summary", label: "Student Exam Summary Report",       layouts: ["coordinator", "teacher"] },
+  { path: "reports/student-performance",  element: <RptStudentPerformance />,   submodule: "reports.student_performance",  label: "Student Performance Report",        layouts: ["coordinator", "teacher"] },
+  { path: "reports/expense",              element: <RptExpense />,              submodule: "reports.expense",              label: "Expense Report",                    layouts: ["coordinator", "teacher"] },
+  { path: "reports/income",               element: <RptIncome />,               submodule: "reports.income",               label: "Income Report",                     layouts: ["coordinator", "teacher"] },
+  { path: "reports/profit-loss",          element: <RptProfitLoss />,           submodule: "reports.profit_loss",          label: "Profit / Loss Report",              layouts: ["coordinator", "teacher"] },
+  { path: "reports/staff-attendance",     element: <RptStaffAttendance />,      submodule: "reports.staff_attendance",     label: "Staff Attendance Report",           layouts: ["coordinator", "teacher"] },
+  { path: "reports/sms-status",           element: <RptSmsStatus />,            submodule: "reports.sms_status",           label: "SMS Status Report",                 layouts: ["coordinator", "teacher"] },
+  { path: "reports/inquiry-analysis",     element: <RptInquiryAnalysis />,      submodule: "reports.inquiry_analysis",     label: "Student Inquiry Analysis Report",   layouts: ["coordinator", "teacher"] },
+  { path: "reports/admission-analysis",   element: <RptAdmissionAnalysis />,    submodule: "reports.admission_analysis",   label: "Student Admission Analysis Report", layouts: ["coordinator", "teacher"] },
+  { path: "reports/fee-analysis",         element: <RptFeeAnalysis />,          submodule: "reports.fee_analysis",         label: "Fee Analysis Report",               layouts: ["coordinator", "teacher"] },
+  { path: "reports/profit-loss-analysis", element: <RptProfitLossAnalysis />,   submodule: "reports.profit_loss_analysis", label: "Profit Loss Analysis Report",       layouts: ["coordinator", "teacher"] },
 
   // ── Help (mirrors existing per-role wiring) ──────────────────────────
   {

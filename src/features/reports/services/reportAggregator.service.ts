@@ -506,33 +506,90 @@ class ReportAggregatorService extends BaseService {
   }
 
   // ── Student attendance (rows) ─────────────────────────────────────────────
-  async studentAttendanceRows(filters: ReportFilterValues): Promise<{
+  // Surfaces marker identity (markedBy, markedByName, markedByRole, markedAt,
+  // method) and last-edit metadata so the Student Attendance report can be
+  // filtered/grouped by marker and audited end-to-end. Degrades to the legacy
+  // columns if the enterprise migration hasn't been applied yet — the report
+  // still renders, the marker columns are just empty.
+  async studentAttendanceRows(filters: ReportFilterValues & { markerId?: string }): Promise<{
     rows: {
       id: string;
       studentId?: string;
       date: string;
       status: string;
       batchId?: string;
+      method?: string;
+      markedBy?: string;
+      markedByName?: string;
+      markedByRole?: string;
+      markedAt?: string;
+      lastUpdatedBy?: string;
+      lastUpdatedAt?: string;
     }[];
   }> {
-    let q = this.db
-      .from("student_attendance")
-      .select("id, student_id, attendance_date, status, batch_id");
-    if (filters.from) q = q.gte("attendance_date", filters.from);
-    if (filters.to) q = q.lte("attendance_date", filters.to);
-    if (filters.batchId) q = q.eq("batch_id", filters.batchId);
-    if (filters.studentId) q = q.eq("student_id", filters.studentId);
-    const { data, error } = await q;
-    if (error) {
-      return { rows: [] };
+    const buildEnterprise = () => {
+      let q = this.db
+        .from("student_attendance")
+        .select(
+          "id, student_id, attendance_date, date, status, batch_id, method, " +
+          "marked_by, marked_by_name, marked_by_role, marked_at, " +
+          "last_updated_by, last_updated_at",
+        );
+      const dateCol = "attendance_date";
+      if (filters.from) q = q.gte(dateCol, filters.from);
+      if (filters.to) q = q.lte(dateCol, filters.to);
+      if (filters.batchId) q = q.eq("batch_id", filters.batchId);
+      if (filters.studentId) q = q.eq("student_id", filters.studentId);
+      if (filters.markerId) q = q.eq("marked_by", filters.markerId);
+      return q;
+    };
+    const buildLegacy = () => {
+      let q = this.db
+        .from("student_attendance")
+        .select("id, student_id, date, status, batch_id, marked_by");
+      if (filters.from) q = q.gte("date", filters.from);
+      if (filters.to) q = q.lte("date", filters.to);
+      if (filters.batchId) q = q.eq("batch_id", filters.batchId);
+      if (filters.studentId) q = q.eq("student_id", filters.studentId);
+      if (filters.markerId) q = q.eq("marked_by", filters.markerId);
+      return q;
+    };
+
+    const isSchemaMiss = (err: { code?: string; message?: string } | null) => {
+      if (!err) return false;
+      if (err.code === "PGRST204" || err.code === "PGRST205") return true;
+      const msg = (err.message ?? "").toLowerCase();
+      return msg.includes("schema cache") ||
+        (msg.includes("could not find the") && msg.includes("column"));
+    };
+
+    // Common result envelope. Both buildEnterprise and buildLegacy resolve
+    // to PostgREST responses with different row shapes — we unify them
+    // through a typed envelope so a fallback reassignment doesn't trip TS.
+    type Envelope = {
+      data: Record<string, unknown>[] | null;
+      error: { code?: string; message?: string } | null;
+    };
+    let res = (await buildEnterprise()) as unknown as Envelope;
+    if (res.error && isSchemaMiss(res.error)) {
+      res = (await buildLegacy()) as unknown as Envelope;
     }
+    if (res.error) return { rows: [] };
+
     return {
-      rows: ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      rows: ((res.data ?? []) as Record<string, unknown>[]).map((r) => ({
         id: String(r.id),
         studentId: (r.student_id as string) ?? undefined,
-        date: String(r.attendance_date),
+        date: String(r.attendance_date ?? r.date ?? ""),
         status: String(r.status ?? "absent"),
         batchId: (r.batch_id as string) ?? undefined,
+        method: (r.method as string) ?? undefined,
+        markedBy: (r.marked_by as string) ?? undefined,
+        markedByName: (r.marked_by_name as string) ?? undefined,
+        markedByRole: (r.marked_by_role as string) ?? undefined,
+        markedAt: (r.marked_at as string) ?? undefined,
+        lastUpdatedBy: (r.last_updated_by as string) ?? undefined,
+        lastUpdatedAt: (r.last_updated_at as string) ?? undefined,
       })),
     };
   }

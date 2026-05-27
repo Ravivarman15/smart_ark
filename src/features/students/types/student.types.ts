@@ -101,6 +101,23 @@ export type UpdateStudentInput = Partial<StudentWriteInput> & { active?: boolean
 export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 export type AttendanceMethod = "manual" | "biometric" | "qr" | "mobile";
 
+/**
+ * Identity bundle passed to attendance writes. Captures the *who* + *role*
+ * + *user_id* of the staff member submitting the row, so the audit trigger
+ * and analytics queries can attribute every mark.
+ *
+ * Every field is optional at the type level so legacy call-sites that pass
+ * a bare profileId still compile (the service promotes that to a marker
+ * internally). Authoritative writers (Manage Attendance, AppDataContext)
+ * should always populate name + role for the audit log to be useful.
+ */
+export interface AttendanceMarker {
+  userId: string;       // auth.users.id
+  profileId?: string;   // profiles.id (preferred — matches marked_by FK)
+  name: string;         // display name shown in the audit timeline
+  role: string;         // admin | management | coordinator | teacher | ...
+}
+
 export interface StudentAttendanceRecord {
   id: string;
   studentId: string;
@@ -110,7 +127,31 @@ export interface StudentAttendanceRecord {
   status: AttendanceStatus;
   method?: AttendanceMethod;
   notes?: string;
+  remarks?: string;
   markedBy?: string;
+  markedByName?: string;
+  markedByRole?: string;
+  markedAt?: string;
+  lastUpdatedBy?: string;
+  lastUpdatedAt?: string;
+}
+
+/** One row of the attendance audit timeline. Mirrors student_attendance_audit. */
+export interface AttendanceAuditEntry {
+  id: string;
+  attendanceId: string;
+  studentId?: string;
+  batchId?: string;
+  date: string;
+  oldStatus?: AttendanceStatus;
+  newStatus: AttendanceStatus;
+  method?: AttendanceMethod;
+  remarks?: string;
+  changedBy?: string;
+  changedByName?: string;
+  changedByRole?: string;
+  changeType: "insert" | "update";
+  changedAt: string;
 }
 
 /** One cell in the bulk-attendance editor. */

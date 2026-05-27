@@ -34,6 +34,21 @@ interface Row {
   late: number;
   total: number;
   pct: number;
+  /** Most-recent marker metadata across all marks for this student in range. */
+  latestMarkedByName?: string;
+  latestMarkedByRole?: string;
+  latestMarkedAt?: string;
+  latestMethod?: string;
+  /** All marks for this student in range — drives the detail expansion. */
+  history: {
+    date: string;
+    status: string;
+    markedByName?: string;
+    markedByRole?: string;
+    markedAt?: string;
+    method?: string;
+    lastUpdatedAt?: string;
+  }[];
 }
 
 const StudentAttendanceReportPage = () => {
@@ -61,13 +76,35 @@ const StudentAttendanceReportPage = () => {
           late: 0,
           total: 0,
           pct: 0,
+          history: [],
         };
       e.total += 1;
       if (a.status === "present") e.present += 1;
       else if (a.status === "absent") e.absent += 1;
       else if (a.status === "late") e.late += 1;
       e.pct = percent(e.present + e.late, e.total);
+      e.history.push({
+        date: a.date,
+        status: a.status,
+        markedByName: a.markedByName,
+        markedByRole: a.markedByRole,
+        markedAt: a.markedAt,
+        method: a.method,
+        lastUpdatedAt: a.lastUpdatedAt,
+      });
+      // Track the latest mark by markedAt timestamp (falls back to date).
+      const stamp = a.markedAt ?? a.date;
+      if (!e.latestMarkedAt || stamp > e.latestMarkedAt) {
+        e.latestMarkedAt = stamp;
+        e.latestMarkedByName = a.markedByName;
+        e.latestMarkedByRole = a.markedByRole;
+        e.latestMethod = a.method;
+      }
       map.set(a.studentId, e);
+    }
+    // Sort each student's history newest-first for the detail panel.
+    for (const r of map.values()) {
+      r.history.sort((a, b) => (b.markedAt ?? b.date).localeCompare(a.markedAt ?? a.date));
     }
     return Array.from(map.values()).sort((a, b) => a.pct - b.pct);
   }, [att, sName]);
@@ -79,6 +116,9 @@ const StudentAttendanceReportPage = () => {
     { header: "Absent", value: (r) => r.absent, align: "right" },
     { header: "Total", value: (r) => r.total, align: "right" },
     { header: "Attendance %", value: (r) => r.pct, align: "right" },
+    { header: "Last marked by", value: (r) => r.latestMarkedByName ?? "—" },
+    { header: "Last marked at", value: (r) => r.latestMarkedAt ? formatDate(r.latestMarkedAt) : "—" },
+    { header: "Method", value: (r) => r.latestMethod ?? "—" },
   ];
 
   const totalPresent = rows.reduce((s, r) => s + r.present, 0);
@@ -147,8 +187,40 @@ const StudentAttendanceReportPage = () => {
           rowKey={(r) => r.studentId}
           loading={isLoading}
           renderDetail={(r) => (
-            <div className="p-2 space-y-2">
+            <div className="p-2 space-y-3">
               <PercentageIndicator label="Attendance" value={r.pct} tone={r.pct >= 75 ? "positive" : "negative"} />
+              {/* Marker audit panel — chronological list of every mark for
+                  this student in the selected range with the operator who
+                  recorded it. Empty when the migration hasn't surfaced
+                  marker columns yet. */}
+              {r.history.length > 0 && (
+                <div className="rounded-md border border-border/60 overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Date</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Status</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Marked by</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Role</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Method</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Marked at</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.history.slice(0, 30).map((h, i) => (
+                        <tr key={i} className="border-t border-border/40">
+                          <td className="px-2 py-1.5">{formatDate(h.date)}</td>
+                          <td className="px-2 py-1.5 capitalize">{h.status}</td>
+                          <td className="px-2 py-1.5">{h.markedByName ?? "—"}</td>
+                          <td className="px-2 py-1.5 capitalize">{h.markedByRole ?? "—"}</td>
+                          <td className="px-2 py-1.5 capitalize">{h.method ?? "—"}</td>
+                          <td className="px-2 py-1.5">{h.markedAt ? formatDate(h.markedAt) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         />

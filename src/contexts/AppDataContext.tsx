@@ -996,27 +996,72 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const getTasksForTeacher = useCallback((teacherId: string) => tasks.filter(t => t.assignedTo.includes(teacherId)), [tasks]);
 
   const submitAttendance = useCallback(async (teacherId: string, date: string, record: Record<string, AttendanceStatus>) => {
-    // Write all rows first — if any fail, do NOT update local state (caller will
-    // re-render from the current `attendance` prop and show the old data, which
-    // is the truth now).
-    const failures: string[] = [];
-    for (const [studentName, status] of Object.entries(record)) {
-      const student = students.find(s => s.name === studentName);
-      if (student) {
-        const { error } = await supabase.from("student_attendance").upsert({
-          student_id: student.id,
-          date,
-          status,
-          marked_by: user?.profileId,
-        }, { onConflict: "student_id,date" });
-        if (error) failures.push(`${studentName}: ${error.message}`);
+    // Write the whole batch in one upsert. Marker identity (id, name, role)
+    // is attached so the DB audit trigger can attribute every row. The
+    // payload tries the enterprise columns first; a schema-cache miss
+    // (migration not yet applied) automatically downgrades to the legacy
+    // column set so teachers can keep marking attendance during a rollout.
+    //
+    // NB: `attendance_date` mirrors `date` via a DB trigger added in
+    // 20260528_attendance_enterprise.sql; we still send both so reads from
+    // either column work without an extra round-trip.
+    const nowIso = new Date().toISOString();
+    const rows = Object.entries(record)
+      .map(([studentName, status]) => {
+        const student = students.find(s => s.name === studentName);
+        return student
+          ? {
+              student_id: student.id,
+              batch_id: null as string | null,
+              attendance_date: date,
+              date,
+              status,
+              method: "manual" as const,
+              marked_by: user?.profileId ?? null,
+              marked_by_name: user?.name ?? null,
+              marked_by_role: user?.role ?? null,
+              marked_at: nowIso,
+              last_updated_by: user?.profileId ?? null,
+              last_updated_at: nowIso,
+              updated_at: nowIso,
+            }
+          : null;
+      })
+      .filter(Boolean) as Record<string, unknown>[];
+    if (rows.length === 0) {
+      setAttendance(prev => ({ ...prev, [teacherId]: { ...(prev[teacherId] || {}), [date]: record } }));
+      return;
+    }
+
+    const isSchemaMiss = (err: { code?: string; message?: string } | null) => {
+      if (!err) return false;
+      if (err.code === "PGRST204" || err.code === "PGRST205") return true;
+      const msg = (err.message ?? "").toLowerCase();
+      return msg.includes("schema cache") || (msg.includes("could not find the") && msg.includes("column"));
+    };
+
+    let res = await supabase.from("student_attendance").upsert(rows as never, { onConflict: "student_id,date" });
+    if (res.error && isSchemaMiss(res.error)) {
+      const legacy = rows.map(r => ({
+        student_id: r.student_id,
+        date: r.date,
+        status: r.status,
+        marked_by: r.marked_by ?? null,
+      }));
+      res = await supabase.from("student_attendance").upsert(legacy as never, { onConflict: "student_id,date" });
+      if (!res.error) {
+        // Saved in degraded mode — surface as a soft toast on the caller.
+        console.warn("[submitAttendance] degraded: marker identity not captured — run 20260528_attendance_enterprise.sql");
       }
     }
-    if (failures.length > 0) {
-      console.error("[submitAttendance] failed rows:", failures);
-      throw new Error(`Failed to save attendance for ${failures.length} student(s)`);
+    if (res.error) {
+      console.error("[submitAttendance] failed:", res.error);
+      throw new Error(
+        isSchemaMiss(res.error)
+          ? "Attendance schema update required. Run the latest migration and reload the schema cache."
+          : `Failed to save attendance: ${res.error.message}`,
+      );
     }
-    // Only commit to local state after every row was persisted.
     setAttendance(prev => ({ ...prev, [teacherId]: { ...(prev[teacherId] || {}), [date]: record } }));
   }, [students, user]);
 

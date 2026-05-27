@@ -22,12 +22,12 @@ import { LayoutAccessGate } from "@/features/rbac";
 // regressing the dashboard's full-screen look.
 // ──────────────────────────────────────────────────────────────────────────────
 
+// Only the dashboard itself runs standalone (its bottom-tab UX is mobile-
+// first and bundles its own header). Every other teacher route — help,
+// leave, coming-soon, and the RBAC-granted shared modules — renders inside
+// the sidebar shell so teachers always have navigation in reach.
 const STANDALONE_EXACT = new Set(["/teacher", "/teacher/"]);
-const STANDALONE_PREFIXES = [
-  "/teacher/leave",
-  "/teacher/help",
-  "/teacher/coming-soon",
-];
+const STANDALONE_PREFIXES: string[] = [];
 
 const isStandalonePath = (pathname: string): boolean => {
   if (STANDALONE_EXACT.has(pathname)) return true;
