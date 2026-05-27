@@ -55,6 +55,7 @@ const StudentUntransferPage = lazy(() => import("@/features/students/pages/Stude
 const StudentChatPage = lazy(() => import("@/features/students/pages/StudentChatPage"));
 const StudentFeedbackPage = lazy(() => import("@/features/students/pages/StudentFeedbackPage"));
 const AppAccessRightsPage = lazy(() => import("@/features/students/pages/AppAccessRightsPage"));
+const AttendanceHistoryPage = lazy(() => import("@/features/students/pages/AttendanceHistoryPage"));
 const StudentProfilePage = lazy(() => import("@/features/students/pages/StudentProfilePage"));
 
 // Help module (already shared across all four roles in App.tsx; we mirror
@@ -431,6 +432,13 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     element: <AppAccessRightsPage />,
     submodule: "student.app_access",
     label: "App. Access Rights",
+    layouts: ["teacher"],
+  },
+  {
+    path: "students/attendance-history",
+    element: <AttendanceHistoryPage />,
+    submodule: "student.attendance_history",
+    label: "Attendance History",
     layouts: ["teacher"],
   },
   // Student detail (no submodule — accessed via "View" buttons from the

@@ -606,6 +606,15 @@ class ReportAggregatorService extends BaseService {
       checkOut?: string;
     }[];
   }> {
+    // Try the newer `profile_attendance` table first; some installs still
+    // only have the legacy `teacher_attendance` table (without a join to
+    // profiles). The fallback resolves staff names separately so callers
+    // get a uniform shape.
+    type Env = {
+      data: Record<string, unknown>[] | null;
+      error: { code?: string; message?: string } | null;
+    };
+
     let q = this.db
       .from("profile_attendance")
       .select(
@@ -614,10 +623,69 @@ class ReportAggregatorService extends BaseService {
     if (filters.from) q = q.gte("attendance_date", filters.from);
     if (filters.to) q = q.lte("attendance_date", filters.to);
     if (filters.staffId) q = q.eq("profile_id", filters.staffId);
-    const { data, error } = await q;
-    if (error) return { rows: [] };
+    let res = (await q) as unknown as Env;
+
+    if (res.error) {
+      // Fall back to teacher_attendance (legacy schema).
+      const dbAny = this.db as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => {
+            gte: (k: string, v: string) => {
+              lte: (k: string, v: string) => Promise<Env>;
+            } & Promise<Env>;
+          } & Promise<Env>;
+        };
+      };
+      let q2: Promise<Env> = dbAny
+        .from("teacher_attendance")
+        .select("id, teacher_id, date, status, check_in_time, check_out_time") as unknown as Promise<Env>;
+      if (filters.from && filters.to) {
+        q2 = dbAny
+          .from("teacher_attendance")
+          .select("id, teacher_id, date, status, check_in_time, check_out_time")
+          .gte("date", filters.from)
+          .lte("date", filters.to);
+      }
+      const legacyRes = await q2;
+      if (legacyRes.error) return { rows: [] };
+
+      // Resolve staff names for the legacy rows.
+      const teacherIds = Array.from(
+        new Set(
+          (legacyRes.data ?? [])
+            .map((r) => r.teacher_id as string | undefined)
+            .filter((v): v is string => !!v),
+        ),
+      );
+      const nameMap = new Map<string, string>();
+      if (teacherIds.length > 0) {
+        const profiles = await this.db
+          .from("profiles")
+          .select("id, name")
+          .in("id", teacherIds);
+        for (const p of (profiles.data ?? []) as { id: string; name: string }[]) {
+          nameMap.set(p.id, p.name);
+        }
+      }
+
+      return {
+        rows: (legacyRes.data ?? []).map((r) => {
+          const staffId = (r.teacher_id as string) ?? undefined;
+          return {
+            id: String(r.id),
+            staffId,
+            staffName: staffId ? nameMap.get(staffId) : undefined,
+            date: String(r.date ?? ""),
+            status: String(r.status ?? "absent"),
+            checkIn: (r.check_in_time as string) ?? undefined,
+            checkOut: (r.check_out_time as string) ?? undefined,
+          };
+        }),
+      };
+    }
+
     return {
-      rows: ((data ?? []) as Record<string, unknown>[]).map((r) => {
+      rows: ((res.data ?? []) as Record<string, unknown>[]).map((r) => {
         const prof = r.profiles as
           | { name?: string | null }
           | { name?: string | null }[]

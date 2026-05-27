@@ -143,6 +143,7 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "student.feedback",      label: "Student Feedback" },
       { id: "student.rights",        label: "Student Rights" },
       { id: "student.app_access",    label: "App. Access Rights" },
+      { id: "student.attendance_history", label: "Attendance History" },
     ],
   },
   {

@@ -76,6 +76,7 @@ export const WIDGET_REGISTRY: Record<WidgetId, WidgetEntry> = {
   // ── Larger card widgets ────────────────────────────────────────────────────
   "card.revenue":           E("card.revenue",           "Revenue Trend",      lazyWidget(() => import("./widgets/RevenueAnalyticsCard"),    "RevenueAnalyticsCard"),    { roles: MGMT, size: "lg" }),
   "card.attendance":        E("card.attendance",        "Staff Attendance",   lazyWidget(() => import("./widgets/AttendanceAnalyticsCard"), "AttendanceAnalyticsCard"), { roles: MGMT_ADMIN, action: "staff.attendance", size: "md" }),
+  "card.studentAttendance": E("card.studentAttendance", "Student Attendance", lazyWidget(() => import("./widgets/StudentAttendanceCard"),   "StudentAttendanceCard"),   { roles: MGMT_ADMIN, size: "md" }),
   "card.feeDue":            E("card.feeDue",            "Fee Receivables",    lazyWidget(() => import("./widgets/FeeDueCard"),              "FeeDueCard"),              { roles: MGMT_ADMIN, action: "fee.collection", size: "md" }),
   "card.profitLoss":        E("card.profitLoss",        "Profit / Loss",      lazyWidget(() => import("./widgets/ProfitLossCard"),          "ProfitLossCard"),          { roles: MGMT, size: "md" }),
   "card.inquiryAnalytics":  E("card.inquiryAnalytics",  "Enquiry Funnel",     lazyWidget(() => import("./widgets/InquiryAnalyticsCard"),    "InquiryAnalyticsCard"),    { roles: ["management", "admin", "coordinator"], action: "enquiry.manage", size: "md" }),
@@ -107,6 +108,7 @@ export const DEFAULT_LAYOUTS: Record<Role | "default", { widgetId: WidgetId; ord
     "card.profitLoss",
     "card.feeDue",
     "card.pendingApprovals",
+    "card.studentAttendance",
     "card.attendance",
     "card.inquiryAnalytics",
   ]),
@@ -117,6 +119,7 @@ export const DEFAULT_LAYOUTS: Record<Role | "default", { widgetId: WidgetId; ord
     "kpi.todayFeeDue",
     "kpi.feeOverdue",
     "kpi.upcomingFeeDue",
+    "card.studentAttendance",
     "card.attendance",
     "card.feeDue",
     "card.pendingApprovals",

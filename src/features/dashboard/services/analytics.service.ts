@@ -5,6 +5,7 @@ import type {
   AttendanceAnalytics,
   PendingApprovalsSummary,
   EnquiryAnalytics,
+  StudentAttendanceAnalytics,
 } from "../types/dashboard.types";
 
 // Dashboard analytics service — read-only aggregations across multiple
@@ -102,6 +103,94 @@ class AnalyticsService extends BaseService {
       todayAbsentStaff: absent,
       enquiryConversionPct: conversionPct,
       attendancePct,
+    };
+  }
+
+  /**
+   * Student attendance for today. Pre-migration database may not have the
+   * `attendance_date` column — falls back to legacy `date`. Returns zeroed
+   * stats (never throws) so the dashboard tile survives a fresh install.
+   */
+  async studentAttendance(): Promise<StudentAttendanceAnalytics> {
+    const t = today();
+
+    // Active student count is the denominator. Falling back to total when
+    // is_active errors lets fresh installs render something useful.
+    const activeRes = await this.db
+      .from("students")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true);
+    let totalActive = okCount(activeRes, "active students");
+    if (totalActive === 0) {
+      const allRes = await this.db
+        .from("students")
+        .select("id", { count: "exact", head: true });
+      totalActive = okCount(allRes, "all students");
+    }
+
+    // Untyped builder cast — generated types lag the enterprise migration,
+    // so narrowing here would force a TS error every time a column lands.
+    type Row = { status: string };
+    type Res = { data: Row[] | null; error: { code?: string; message?: string } | null };
+    const dbAny = this.db as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (k: string, v: string) => Promise<Res>;
+        };
+      };
+    };
+
+    // Try the enterprise column first; on a schema-cache miss (PGRST204
+    // / PGRST205 / "could not find the column"), fall back to legacy.
+    const isMiss = (e: { code?: string; message?: string } | null) => {
+      if (!e) return false;
+      if (e.code === "PGRST204" || e.code === "PGRST205") return true;
+      const msg = (e.message ?? "").toLowerCase();
+      return (
+        msg.includes("schema cache") ||
+        (msg.includes("could not find the") && msg.includes("column")) ||
+        msg.includes("does not exist")
+      );
+    };
+
+    let res = await dbAny
+      .from("student_attendance")
+      .select("status")
+      .eq("attendance_date", t);
+    if (res.error && isMiss(res.error)) {
+      res = await dbAny.from("student_attendance").select("status").eq("date", t);
+    }
+
+    const rows = res.error ? [] : (res.data ?? []);
+    let present = 0;
+    let absent = 0;
+    let late = 0;
+    let excused = 0;
+    for (const r of rows) {
+      if (r.status === "present") present++;
+      else if (r.status === "absent") absent++;
+      else if (r.status === "late") late++;
+      else if (r.status === "excused") excused++;
+    }
+    const marked = present + absent + late + excused;
+    // Students who weren't marked at all today are treated as "unmarked"
+    // (different from "absent"). This matters for the UI: present% is
+    // measured against marked rows, but the headline uses total active.
+    const unmarked = Math.max(0, totalActive - marked);
+    const presentPct = marked > 0 ? Math.round((present / marked) * 100) : 0;
+    const coverageOfActivePct =
+      totalActive > 0 ? Math.round((present / totalActive) * 100) : 0;
+
+    return {
+      totalActive,
+      marked,
+      present,
+      absent,
+      late,
+      excused,
+      unmarked,
+      presentPct,
+      coverageOfActivePct,
     };
   }
 

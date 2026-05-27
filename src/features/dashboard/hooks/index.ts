@@ -1,6 +1,7 @@
 export { useDashboardAnalytics } from "./useDashboardAnalytics";
 export { useRevenueAnalytics } from "./useRevenueAnalytics";
 export { useAttendanceAnalytics } from "./useAttendanceAnalytics";
+export { useStudentAttendanceAnalytics } from "./useStudentAttendanceAnalytics";
 export { usePendingApprovals } from "./usePendingApprovals";
 export { useEnquiryAnalytics } from "./useEnquiryAnalytics";
 export { useDashboardLayout, useSaveDashboardLayout } from "./useDashboardLayout";

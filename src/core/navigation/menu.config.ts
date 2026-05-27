@@ -223,6 +223,12 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("student.feedback",          "Student Feedback",           studentPaths("/feedback"),         everyoneExceptTeacher),
       ...sub("student.rights",            "Student Rights",             studentPaths("/rights"),           adminMgmt),
       ...sub("student.app_access",        "App. Access Rights",         studentPaths("/app-access"),       adminMgmt),
+      ...sub("student.attendance_history","Attendance History",         {
+        admin: "/admin/students/attendance-history",
+        coordinator: "/coordinator/students/attendance-history",
+        management: "/management/students/attendance-history",
+        teacher: "/teacher/students/attendance-history",
+      }, all),
     ],
   },
 

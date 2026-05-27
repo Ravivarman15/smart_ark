@@ -73,6 +73,7 @@ const StudentUntransferPage = lazy(() => import("./features/students/pages/Stude
 const StudentChatPage = lazy(() => import("./features/students/pages/StudentChatPage"));
 const StudentFeedbackPage = lazy(() => import("./features/students/pages/StudentFeedbackPage"));
 const AppAccessRightsPage = lazy(() => import("./features/students/pages/AppAccessRightsPage"));
+const AttendanceHistoryPage = lazy(() => import("./features/students/pages/AttendanceHistoryPage"));
 
 // Reports & Analytics module pages (feature-based — src/features/reports)
 const RptTimetable = lazy(() => import("./features/reports/pages/TimetableReportPage"));
@@ -234,6 +235,7 @@ const studentRoutes = () => (
     <Route path="students/feedback" element={<StudentFeedbackPage />} />
     <Route path="students/rights" element={<AppAccessRightsPage />} />
     <Route path="students/app-access" element={<AppAccessRightsPage />} />
+    <Route path="students/attendance-history" element={<AttendanceHistoryPage />} />
     <Route path="students/:id" element={<StudentProfilePage />} />
   </>
 );

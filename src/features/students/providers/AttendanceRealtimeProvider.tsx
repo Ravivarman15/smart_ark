@@ -54,10 +54,15 @@ export const AttendanceRealtimeProvider = ({ children }: { children: ReactNode }
 
       // Always bust the broad namespaces — cheap, and ensures
       // any list/aggregate view that doesn't key on (batch, date) refetches.
+      // Note: we invalidate the entire dashboard namespace so both the staff
+      // (`teacher_attendance`) and student (`student_attendance`) widgets
+      // refetch — the student widget keys on "student-today" but realtime
+      // events fire from the student table, so blanket-invalidating the
+      // dashboard root is cheaper than enumerating every scope.
       qc.invalidateQueries({ queryKey: queryKeys.students.all });
       qc.invalidateQueries({ queryKey: queryKeys.attendance.all });
       qc.invalidateQueries({ queryKey: ["reports"] });
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.attendance("batch") });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
 
       if (batchId && date) {
         qc.invalidateQueries({

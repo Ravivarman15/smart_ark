@@ -57,6 +57,24 @@ export interface AttendanceAnalytics {
   attendancePct: number;
 }
 
+/** Student attendance — today's marks across the institute. */
+export interface StudentAttendanceAnalytics {
+  /** Active student headcount (denominator for coverage). */
+  totalActive: number;
+  /** Sum of present + absent + late + excused — i.e. rows existing today. */
+  marked: number;
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  /** Active students with no row today. */
+  unmarked: number;
+  /** Of marked rows, what % are present (or late which still counts as in). */
+  presentPct: number;
+  /** Present headcount / active headcount — the institute-wide coverage. */
+  coverageOfActivePct: number;
+}
+
 export interface PendingApprovalsSummary {
   pendingAdmissions: number;
   pendingLeaves: number;
@@ -97,6 +115,7 @@ export type WidgetId =
   | "kpi.profitLoss"
   | "card.revenue"
   | "card.attendance"
+  | "card.studentAttendance"
   | "card.feeDue"
   | "card.profitLoss"
   | "card.inquiryAnalytics"

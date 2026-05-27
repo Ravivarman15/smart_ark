@@ -16,6 +16,7 @@ export {
 } from "./KpiWidgets";
 export { RevenueAnalyticsCard } from "./RevenueAnalyticsCard";
 export { AttendanceAnalyticsCard } from "./AttendanceAnalyticsCard";
+export { StudentAttendanceCard } from "./StudentAttendanceCard";
 export { FeeDueCard } from "./FeeDueCard";
 export { ProfitLossCard } from "./ProfitLossCard";
 export { InquiryAnalyticsCard } from "./InquiryAnalyticsCard";
