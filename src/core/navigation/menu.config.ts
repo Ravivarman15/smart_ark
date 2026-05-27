@@ -181,6 +181,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("staff.rights",         "Create Staff Role",        { management: "/management/roles/new" },           ["management"]),
       ...sub("staff.rights",         "Manage Staff Role",        { management: "/management/roles" },               ["management"]),
       ...sub("staff.rights",         "Permission Diagnostics",   { management: "/management/permissions/diagnostics" }, ["management"]),
+      ...sub("staff.rights",         "System Health",            { management: "/management/system-health" }, ["management"]),
       ...sub("staff.attendance",     "Staff Attendance",     { admin: "/admin/teacher-checkins", management: "/management/staff-attendance" }, adminMgmt),
     ],
   },

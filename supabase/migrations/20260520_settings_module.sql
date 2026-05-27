@@ -38,11 +38,16 @@ create index if not exists settings_sms_automations_key_idx
 
 alter table public.settings_sms_automations enable row level security;
 
-create policy if not exists "sms_automations: read for authenticated"
+-- DROP-then-CREATE pattern: Postgres has no `create policy if not exists`,
+-- so re-running this migration would fail with "policy already exists".
+-- Dropping first makes it idempotent and rerunnable.
+drop policy if exists "sms_automations: read for authenticated" on public.settings_sms_automations;
+create policy "sms_automations: read for authenticated"
   on public.settings_sms_automations
   for select using (auth.uid() is not null);
 
-create policy if not exists "sms_automations: write for management/admin"
+drop policy if exists "sms_automations: write for management/admin" on public.settings_sms_automations;
+create policy "sms_automations: write for management/admin"
   on public.settings_sms_automations
   for all
   using (
@@ -74,7 +79,8 @@ create index if not exists settings_notification_prefs_profile_idx
 alter table public.settings_notification_preferences enable row level security;
 
 -- Users see + edit their own prefs. Management can audit any.
-create policy if not exists "notif_prefs: self read/write"
+drop policy if exists "notif_prefs: self read/write" on public.settings_notification_preferences;
+create policy "notif_prefs: self read/write"
   on public.settings_notification_preferences
   for all
   using (
@@ -88,7 +94,8 @@ create policy if not exists "notif_prefs: self read/write"
               and p.user_id = auth.uid())
   );
 
-create policy if not exists "notif_prefs: management read"
+drop policy if exists "notif_prefs: management read" on public.settings_notification_preferences;
+create policy "notif_prefs: management read"
   on public.settings_notification_preferences
   for select
   using (
@@ -117,14 +124,16 @@ create unique index if not exists settings_whatsapp_singleton
 
 alter table public.settings_whatsapp_config enable row level security;
 
-create policy if not exists "wa_config: read for authenticated"
+drop policy if exists "wa_config: read for authenticated" on public.settings_whatsapp_config;
+create policy "wa_config: read for authenticated"
   on public.settings_whatsapp_config
   for select using (auth.uid() is not null);
 
 -- Writes restricted to management/admin AND token fields excluded
 -- (UI-driven writes use Postgres column-level grants below; raw token
 --  writes go through an edge function with the service role).
-create policy if not exists "wa_config: write toggles for management/admin"
+drop policy if exists "wa_config: write toggles for management/admin" on public.settings_whatsapp_config;
+create policy "wa_config: write toggles for management/admin"
   on public.settings_whatsapp_config
   for update
   using (
@@ -136,7 +145,8 @@ create policy if not exists "wa_config: write toggles for management/admin"
             and p.role in ('management', 'admin'))
   );
 
-create policy if not exists "wa_config: insert for management/admin"
+drop policy if exists "wa_config: insert for management/admin" on public.settings_whatsapp_config;
+create policy "wa_config: insert for management/admin"
   on public.settings_whatsapp_config
   for insert
   with check (
@@ -177,7 +187,8 @@ create index if not exists settings_referral_events_referrer_idx
 alter table public.settings_referrals enable row level security;
 alter table public.settings_referral_events enable row level security;
 
-create policy if not exists "referrals: self read"
+drop policy if exists "referrals: self read" on public.settings_referrals;
+create policy "referrals: self read"
   on public.settings_referrals
   for select
   using (
@@ -186,7 +197,8 @@ create policy if not exists "referrals: self read"
               and p.user_id = auth.uid())
   );
 
-create policy if not exists "referrals: self insert"
+drop policy if exists "referrals: self insert" on public.settings_referrals;
+create policy "referrals: self insert"
   on public.settings_referrals
   for insert
   with check (
@@ -195,7 +207,8 @@ create policy if not exists "referrals: self insert"
               and p.user_id = auth.uid())
   );
 
-create policy if not exists "referral_events: own as referrer"
+drop policy if exists "referral_events: own as referrer" on public.settings_referral_events;
+create policy "referral_events: own as referrer"
   on public.settings_referral_events
   for select
   using (
@@ -222,7 +235,8 @@ create index if not exists settings_audit_area_idx
 
 alter table public.settings_audit enable row level security;
 
-create policy if not exists "settings_audit: read for management"
+drop policy if exists "settings_audit: read for management" on public.settings_audit;
+create policy "settings_audit: read for management"
   on public.settings_audit
   for select
   using (
@@ -230,7 +244,13 @@ create policy if not exists "settings_audit: read for management"
             and p.role = 'management')
   );
 
-create policy if not exists "settings_audit: insert for authenticated"
+drop policy if exists "settings_audit: insert for authenticated" on public.settings_audit;
+create policy "settings_audit: insert for authenticated"
   on public.settings_audit
   for insert
   with check (auth.uid() is not null);
+
+-- Reload PostgREST schema cache so new tables / policies are visible to
+-- the API immediately. Without this, the next browser query against an
+-- added column trips PGRST204 until the cache TTL expires.
+notify pgrst, 'reload schema';

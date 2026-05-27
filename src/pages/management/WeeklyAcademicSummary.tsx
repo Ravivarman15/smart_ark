@@ -5,19 +5,23 @@ import { TrendingUp, BookOpen, Users, AlertTriangle } from "lucide-react";
 const WeeklyAcademicSummary: React.FC = () => {
   const { batches, teachers, weeklyPlans, retestQueue, checkins } = useAppData();
 
-  // Week-on-week batch improvement (simulated from batch data)
-  const batchTrends = batches.map(b => {
-    const prevWeekAvg = Math.max(0, b.avgMarks - Math.floor(Math.random() * 5 + 1));
-    const change = b.avgMarks - prevWeekAvg;
-    return {
-      name: b.name,
-      campus: b.campus,
-      currentAvg: b.avgMarks,
-      prevAvg: prevWeekAvg,
-      change,
-      portionComplete: b.portionComplete,
-    };
-  });
+  // Week-on-week batch improvement.
+  //
+  // Honest accounting: AppDataContext exposes only the current week's
+  // average per batch. Until a historical_batch_marks table exists,
+  // the "previous week" column shows "—" and the change column shows
+  // "Insufficient history" instead of fabricating a delta.
+  //
+  // Once history persistence lands, swap this to read the actual prior
+  // snapshot from `batch_metric_snapshots` (or equivalent).
+  const batchTrends = batches.map(b => ({
+    name: b.name,
+    campus: b.campus,
+    currentAvg: b.avgMarks,
+    prevAvg: null as number | null,
+    change: null as number | null,
+    portionComplete: b.portionComplete,
+  }));
 
   // Weak chapters trend
   const weakChapterData = batches
@@ -78,9 +82,12 @@ const WeeklyAcademicSummary: React.FC = () => {
         <div className="metric-card">
           <TrendingUp className="w-4 h-4 text-ark-success" />
           <p className="text-2xl font-display font-bold text-ark-success">
-            {batchTrends.filter(b => b.change > 0).length}/{batchTrends.length}
+            {batchTrends.filter(b => (b.change ?? 0) > 0).length}/{batchTrends.length}
           </p>
           <p className="text-xs text-muted-foreground">Batches Improved</p>
+          {batchTrends.length > 0 && batchTrends.every(b => b.change === null) && (
+            <p className="text-[10px] text-muted-foreground mt-1">Historical snapshot pending</p>
+          )}
         </div>
         <div className="metric-card">
           <Users className="w-4 h-4 text-accent" />
@@ -107,11 +114,19 @@ const WeeklyAcademicSummary: React.FC = () => {
                   <p className="text-xs text-muted-foreground">{b.campus} · Portion: {b.portionComplete}%</p>
                 </div>
                 <div className="flex items-center gap-4 text-sm">
-                  <span className="text-muted-foreground">Prev: <span className="text-foreground">{b.prevAvg}%</span></span>
-                  <span className="text-muted-foreground">Now: <span className="text-foreground font-medium">{b.currentAvg}%</span></span>
-                  <span className={`font-bold ${b.change > 0 ? "text-ark-success" : b.change < 0 ? "text-ark-danger" : "text-muted-foreground"}`}>
-                    {b.change > 0 ? "+" : ""}{b.change}%
+                  <span className="text-muted-foreground">
+                    Prev: <span className="text-foreground">{b.prevAvg !== null ? `${b.prevAvg}%` : "—"}</span>
                   </span>
+                  <span className="text-muted-foreground">
+                    Now: <span className="text-foreground font-medium">{b.currentAvg}%</span>
+                  </span>
+                  {b.change === null ? (
+                    <span className="text-[11px] text-muted-foreground italic">Insufficient history</span>
+                  ) : (
+                    <span className={`font-bold ${b.change > 0 ? "text-ark-success" : b.change < 0 ? "text-ark-danger" : "text-muted-foreground"}`}>
+                      {b.change > 0 ? "+" : ""}{b.change}%
+                    </span>
+                  )}
                 </div>
               </div>
             ))

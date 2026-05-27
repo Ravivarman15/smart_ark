@@ -8,6 +8,9 @@ import { AppDataProvider } from "@/contexts/AppDataContext";
 import { RbacRealtimeProvider } from "@/features/rbac/providers/RbacRealtimeProvider";
 import { HelpRealtimeProvider } from "@/features/help/providers/HelpRealtimeProvider";
 import { AttendanceRealtimeProvider } from "@/features/students/providers/AttendanceRealtimeProvider";
+import { FeesRealtimeProvider } from "@/features/fee/providers/FeesRealtimeProvider";
+import { FinanceRealtimeProvider } from "@/features/finance/providers/FinanceRealtimeProvider";
+import { EnquiriesRealtimeProvider } from "@/features/enquiries/providers/EnquiriesRealtimeProvider";
 import { ThemeProvider } from "@/core/theme";
 import { QueryProvider } from "./QueryProvider";
 
@@ -36,7 +39,13 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
             <RbacRealtimeProvider>
               <HelpRealtimeProvider>
                 <AttendanceRealtimeProvider>
-                  <AppDataProvider>{children}</AppDataProvider>
+                  <FeesRealtimeProvider>
+                    <FinanceRealtimeProvider>
+                      <EnquiriesRealtimeProvider>
+                        <AppDataProvider>{children}</AppDataProvider>
+                      </EnquiriesRealtimeProvider>
+                    </FinanceRealtimeProvider>
+                  </FeesRealtimeProvider>
                 </AttendanceRealtimeProvider>
               </HelpRealtimeProvider>
             </RbacRealtimeProvider>

@@ -57,11 +57,16 @@ create table if not exists public.standard_course_types (
 
 alter table public.standard_course_types enable row level security;
 
-create policy if not exists "scts: read for authenticated"
+-- DROP-then-CREATE pattern: Postgres has no `create policy if not exists`,
+-- so re-running this migration would fail with "policy already exists".
+-- Dropping first makes it idempotent and rerunnable.
+drop policy if exists "scts: read for authenticated" on public.standard_course_types;
+create policy "scts: read for authenticated"
   on public.standard_course_types
   for select using (auth.uid() is not null);
 
-create policy if not exists "scts: management writes"
+drop policy if exists "scts: management writes" on public.standard_course_types;
+create policy "scts: management writes"
   on public.standard_course_types
   for all
   using (
@@ -85,11 +90,13 @@ create table if not exists public.batch_subjects (
 
 alter table public.batch_subjects enable row level security;
 
-create policy if not exists "bs: read for authenticated"
+drop policy if exists "bs: read for authenticated" on public.batch_subjects;
+create policy "bs: read for authenticated"
   on public.batch_subjects
   for select using (auth.uid() is not null);
 
-create policy if not exists "bs: management writes"
+drop policy if exists "bs: management writes" on public.batch_subjects;
+create policy "bs: management writes"
   on public.batch_subjects
   for all
   using (
@@ -126,11 +133,13 @@ create index if not exists timetable_batch_day_idx
 
 alter table public.setup_timetable_periods enable row level security;
 
-create policy if not exists "tt: read for authenticated"
+drop policy if exists "tt: read for authenticated" on public.setup_timetable_periods;
+create policy "tt: read for authenticated"
   on public.setup_timetable_periods
   for select using (auth.uid() is not null);
 
-create policy if not exists "tt: management/admin writes"
+drop policy if exists "tt: management/admin writes" on public.setup_timetable_periods;
+create policy "tt: management/admin writes"
   on public.setup_timetable_periods
   for all
   using (
