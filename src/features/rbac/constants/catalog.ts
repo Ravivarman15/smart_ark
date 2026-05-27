@@ -279,7 +279,10 @@ export const MODULE_CATALOG: ModuleDef[] = [
     submodules: [
       { id: "help.support_request", label: "Support Request" },
       { id: "help.support_history", label: "Support History" },
-      { id: "help.feedback",        label: "Feedback" },
+      { id: "help.feedback",        label: "Feedback Board" },
+      { id: "help.feedback_new",    label: "Share Feedback" },
+      { id: "help.triage",          label: "Triage Inbox" },
+      { id: "help.analytics",       label: "Ticket Analytics" },
     ],
   },
 ];

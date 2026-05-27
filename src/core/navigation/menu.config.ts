@@ -235,9 +235,23 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: all,
     items: [
-      ...sub("live.add",    "Add Class",    {}, ["admin", "management", "teacher"]),
-      ...sub("live.manage", "Manage Class", {}, ["admin", "management", "coordinator", "teacher"]),
-      ...sub("live.my",     "My Class",     {}, all),
+      ...sub("live.add",    "Add Class",    {
+        admin: "/admin/live-classes/add",
+        management: "/management/live-classes/add",
+        teacher: "/teacher/live-classes/add",
+      }, ["admin", "management", "teacher"]),
+      ...sub("live.manage", "Manage Class", {
+        admin: "/admin/live-classes",
+        management: "/management/live-classes",
+        coordinator: "/coordinator/live-classes",
+        teacher: "/teacher/live-classes",
+      }, ["admin", "management", "coordinator", "teacher"]),
+      ...sub("live.my",     "My Class",     {
+        admin: "/admin/live-classes/my",
+        management: "/management/live-classes/my",
+        coordinator: "/coordinator/live-classes/my",
+        teacher: "/teacher/live-classes/my",
+      }, all),
     ],
   },
 
@@ -285,9 +299,21 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: all,
     items: [
-      ...sub("estudy.create", "Create Study Material",         {}, adminMgmtTeacher),
-      ...sub("estudy.manage", "Manage Study Material",         {}, all),
-      ...sub("estudy.shared", "Manage Shared Study Material",  {}, adminMgmt),
+      ...sub("estudy.create", "Create Study Material", {
+        admin: "/admin/estudy/create",
+        management: "/management/estudy/create",
+        teacher: "/teacher/estudy/create",
+      }, adminMgmtTeacher),
+      ...sub("estudy.manage", "Manage Study Material", {
+        admin: "/admin/estudy",
+        management: "/management/estudy",
+        coordinator: "/coordinator/estudy",
+        teacher: "/teacher/estudy",
+      }, all),
+      ...sub("estudy.shared", "Manage Shared Study Material", {
+        admin: "/admin/estudy/shared",
+        management: "/management/estudy/shared",
+      }, adminMgmt),
     ],
   },
 
@@ -300,8 +326,14 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: adminMgmt,
     items: [
-      ...sub("certificate.add",    "Add Certificate",    {}, adminMgmt),
-      ...sub("certificate.manage", "Manage Certificate", {}, adminMgmt),
+      ...sub("certificate.add",    "Add Certificate", {
+        admin: "/admin/certificates/add",
+        management: "/management/certificates/add",
+      }, adminMgmt),
+      ...sub("certificate.manage", "Manage Certificate", {
+        admin: "/admin/certificates",
+        management: "/management/certificates",
+      }, adminMgmt),
     ],
   },
 

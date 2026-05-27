@@ -30,7 +30,8 @@
       "PowerShell($out = & npx vite build 2>&1; $out | Select-Object -Last 8 | Out-String; \"EXIT=$LASTEXITCODE\")",
       "PowerShell($out = & npx vite build 2>&1; $out | Select-Object -Last 3 | Out-String; \"EXIT=$LASTEXITCODE\")",
       "PowerShell($out = & npx vite build 2>&1; $out | Select-Object -Last 5 | Out-String; \"EXIT=$LASTEXITCODE\")",
-      "Bash(xargs grep -l \"import.*\\\\bUser\\\\b.*from \\\\\"@/contexts/AuthContext\\\\\"\")"
+      "Bash(xargs grep -l \"import.*\\\\bUser\\\\b.*from \\\\\"@/contexts/AuthContext\\\\\"\")",
+      "Bash(echo \"EXIT_CODE=$?\")"
     ]
   }
 }

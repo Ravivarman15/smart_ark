@@ -40,7 +40,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useStaffRights } from "@/contexts/StaffRightsContext";
 import { useStaff } from "@/features/staff";
 import { ROLES, type Role } from "@/core/constants/roles";
-import { listRoutesForLayout, SHARED_ROUTES } from "@/core/routing/sharedRoutes";
+import {
+  getNativeSubmoduleClaims,
+  listRoutesForLayout,
+  SHARED_ROUTES,
+} from "@/core/routing/sharedRoutes";
 import { SUBMODULES_BY_ID } from "@/features/rbac";
 import {
   EffectiveAccessPanel,
@@ -402,9 +406,20 @@ const RouteOwnershipPanel = ({ layout, access }: RouteOwnershipProps) => {
     return set;
   }, [registered]);
 
-  const grantedWithoutRoute = grantedSubmodules.filter(
-    (g) => !registeredSubmodules.has(g.id),
-  );
+  // Submodules whose route is mounted natively in App.tsx (not via the
+  // shared registry). Derived from menu.config — anything with a real path
+  // under /${layout}/... counts.
+  const nativeSubmodules = useMemo(() => {
+    const valid: Role[] = ["admin", "management", "coordinator", "teacher"];
+    return valid.includes(layout as Role)
+      ? getNativeSubmoduleClaims(layout as Role)
+      : new Set<string>();
+  }, [layout]);
+
+  const hasAnyRoute = (id: string) =>
+    registeredSubmodules.has(id) || nativeSubmodules.has(id);
+
+  const grantedWithoutRoute = grantedSubmodules.filter((g) => !hasAnyRoute(g.id));
 
   // Routes registered for this layout but referencing submodules the
   // catalog doesn't know about — caught here so the registry doesn't drift
@@ -432,7 +447,14 @@ const RouteOwnershipPanel = ({ layout, access }: RouteOwnershipProps) => {
           </p>
           <ul className="space-y-1 max-h-48 overflow-y-auto">
             {grantedSubmodules.map((g) => {
-              const hasRoute = registeredSubmodules.has(g.id);
+              const inRegistry = registeredSubmodules.has(g.id);
+              const inNative = nativeSubmodules.has(g.id);
+              const hasRoute = inRegistry || inNative;
+              const badge = inRegistry
+                ? "route OK"
+                : inNative
+                ? "native"
+                : "no route";
               return (
                 <li
                   key={g.id}
@@ -449,7 +471,7 @@ const RouteOwnershipPanel = ({ layout, access }: RouteOwnershipProps) => {
                         : "border-amber-500/40 text-amber-700"
                     }`}
                   >
-                    {hasRoute ? "route OK" : "no route"}
+                    {badge}
                   </Badge>
                 </li>
               );
@@ -505,7 +527,8 @@ const RouteOwnershipPanel = ({ layout, access }: RouteOwnershipProps) => {
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 The sidebar will fall back to /{layout}/coming-soon/{g.id}.
-                Add this submodule to sharedRoutes.tsx to mount the page.
+                Either add the route to App.tsx for this layout, or register
+                it in sharedRoutes.tsx so the page mounts.
               </p>
             </li>
           ))}

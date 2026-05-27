@@ -158,6 +158,48 @@ const RoleCenterList = lazy(
 );
 const RoleEditor = lazy(() => import("./features/rbac/pages/RoleEditorPage"));
 
+// Certificate, eStudy, Live Class — starter modules (localStorage-backed)
+const AddCertificatePage = lazy(() =>
+  import("./features/certificates/pages/CertificatePages").then((m) => ({
+    default: m.AddCertificatePage,
+  })),
+);
+const ManageCertificatesPage = lazy(() =>
+  import("./features/certificates/pages/CertificatePages").then((m) => ({
+    default: m.ManageCertificatesPage,
+  })),
+);
+const CreateStudyMaterialPage = lazy(() =>
+  import("./features/estudy/pages/EStudyPages").then((m) => ({
+    default: m.CreateStudyMaterialPage,
+  })),
+);
+const ManageStudyMaterialPage = lazy(() =>
+  import("./features/estudy/pages/EStudyPages").then((m) => ({
+    default: m.ManageStudyMaterialPage,
+  })),
+);
+const SharedStudyMaterialPage = lazy(() =>
+  import("./features/estudy/pages/EStudyPages").then((m) => ({
+    default: m.SharedStudyMaterialPage,
+  })),
+);
+const AddLiveClassPage = lazy(() =>
+  import("./features/liveclass/pages/LiveClassPages").then((m) => ({
+    default: m.AddLiveClassPage,
+  })),
+);
+const ManageLiveClassPage = lazy(() =>
+  import("./features/liveclass/pages/LiveClassPages").then((m) => ({
+    default: m.ManageLiveClassPage,
+  })),
+);
+const MyLiveClassPage = lazy(() =>
+  import("./features/liveclass/pages/LiveClassPages").then((m) => ({
+    default: m.MyLiveClassPage,
+  })),
+);
+
 // Settings module
 const SettingsLayout = lazy(() => import("./features/settings/pages/SettingsLayout"));
 const ChangePasswordPage = lazy(() => import("./features/settings/pages/ChangePasswordPage"));
@@ -330,6 +372,15 @@ const AppRoutes: React.FC = () => (
         <Route path="help/triage" element={<HelpManagementTriage />} />
         <Route path="help/triage/:id" element={<HelpManagementTriage />} />
         <Route path="help/analytics" element={<HelpTicketAnalytics />} />
+        {/* Certificate, eStudy, Live Class — starter modules */}
+        <Route path="certificates/add" element={<AddCertificatePage />} />
+        <Route path="certificates" element={<ManageCertificatesPage />} />
+        <Route path="estudy/create" element={<CreateStudyMaterialPage />} />
+        <Route path="estudy" element={<ManageStudyMaterialPage />} />
+        <Route path="estudy/shared" element={<SharedStudyMaterialPage />} />
+        <Route path="live-classes/add" element={<AddLiveClassPage />} />
+        <Route path="live-classes" element={<ManageLiveClassPage />} />
+        <Route path="live-classes/my" element={<MyLiveClassPage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -444,6 +495,15 @@ const AppRoutes: React.FC = () => (
         <Route path="help/triage" element={<HelpManagementTriage />} />
         <Route path="help/triage/:id" element={<HelpManagementTriage />} />
         <Route path="help/analytics" element={<HelpTicketAnalytics />} />
+        {/* Certificate, eStudy, Live Class — starter modules */}
+        <Route path="certificates/add" element={<AddCertificatePage />} />
+        <Route path="certificates" element={<ManageCertificatesPage />} />
+        <Route path="estudy/create" element={<CreateStudyMaterialPage />} />
+        <Route path="estudy" element={<ManageStudyMaterialPage />} />
+        <Route path="estudy/shared" element={<SharedStudyMaterialPage />} />
+        <Route path="live-classes/add" element={<AddLiveClassPage />} />
+        <Route path="live-classes" element={<ManageLiveClassPage />} />
+        <Route path="live-classes/my" element={<MyLiveClassPage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 

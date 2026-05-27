@@ -69,6 +69,35 @@ const HelpPublicFeedbackBoard = lazy(() => import("@/features/help/pages/PublicF
 const ComingSoon = lazy(() => import("@/pages/shared/ComingSoon"));
 const LeaveManagement = lazy(() => import("@/pages/shared/LeaveManagement"));
 
+// eStudy + Live Class — starter modules mounted under teacher/coordinator
+// layouts via the registry. Admin/management mount the same pages directly
+// in App.tsx since those layouts don't run through renderSharedRoutes.
+const CreateStudyMaterialPage = lazy(() =>
+  import("@/features/estudy/pages/EStudyPages").then((m) => ({
+    default: m.CreateStudyMaterialPage,
+  })),
+);
+const ManageStudyMaterialPage = lazy(() =>
+  import("@/features/estudy/pages/EStudyPages").then((m) => ({
+    default: m.ManageStudyMaterialPage,
+  })),
+);
+const AddLiveClassPage = lazy(() =>
+  import("@/features/liveclass/pages/LiveClassPages").then((m) => ({
+    default: m.AddLiveClassPage,
+  })),
+);
+const ManageLiveClassPage = lazy(() =>
+  import("@/features/liveclass/pages/LiveClassPages").then((m) => ({
+    default: m.ManageLiveClassPage,
+  })),
+);
+const MyLiveClassPage = lazy(() =>
+  import("@/features/liveclass/pages/LiveClassPages").then((m) => ({
+    default: m.MyLiveClassPage,
+  })),
+);
+
 // Enquiry / Leads, Fee, generic shared pages
 const EnquiryManagement = lazy(() => import("@/pages/shared/EnquiryManagement"));
 const FeesAdmission = lazy(() => import("@/pages/admin/FeesAdmission"));
@@ -706,6 +735,49 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     layouts: ["admin", "management"],
   },
 
+  // ── eStudy (coordinator + teacher; admin/management mount natively) ──
+  {
+    path: "estudy/create",
+    element: <CreateStudyMaterialPage />,
+    submodule: "estudy.create",
+    label: "Create Study Material",
+    layouts: ["teacher"],
+  },
+  {
+    path: "estudy",
+    element: <ManageStudyMaterialPage />,
+    submodule: "estudy.manage",
+    label: "Manage Study Material",
+    layouts: ["coordinator", "teacher"],
+  },
+  // estudy.shared is admin/management only per menu.config; no shared-layout
+  // mount needed here.
+
+  // ── Live Class (coordinator + teacher; admin/management mount natively) ─
+  {
+    path: "live-classes/add",
+    element: <AddLiveClassPage />,
+    submodule: "live.add",
+    label: "Add Class",
+    layouts: ["teacher"],
+  },
+  {
+    path: "live-classes",
+    element: <ManageLiveClassPage />,
+    submodule: "live.manage",
+    label: "Manage Class",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "live-classes/my",
+    element: <MyLiveClassPage />,
+    submodule: "live.my",
+    label: "My Class",
+    layouts: ["coordinator", "teacher"],
+  },
+
+  // ── Certificate — admin + management only, mounted natively in App.tsx ─
+
   // ── Catch-alls ───────────────────────────────────────────────────────
   {
     path: "coming-soon/:slug",
@@ -765,3 +837,49 @@ export const renderSharedRoutes = (layout: Role): ReactNode[] =>
  */
 export const listRoutesForLayout = (layout: Role): SharedRouteDef[] =>
   SHARED_ROUTES.filter((r) => matchesLayout(r, layout));
+
+// ── Native route claims ────────────────────────────────────────────────────
+// App.tsx declares many role-specific routes directly (admin/management have
+// 100+ native mounts: setup, exam, finance, reports, communication, help,
+// student, fee, enquiry, etc.). Those routes are real and reachable, but the
+// SHARED_ROUTES registry doesn't know about them — so the diagnostic's
+// "granted but no route" check used to false-positive on every one of them
+// for the management user.
+//
+// Instead of duplicating each App.tsx <Route> into SHARED_ROUTES (which would
+// either double-mount under the role layout or require careful
+// `layouts:` gating on every row), we derive the set of "natively claimed"
+// submodules from the existing menu config. A submodule is considered
+// natively claimed for a given role layout if NAV_CONFIG has an item with
+// that submodule whose path begins with `/${role}/` (or `/settings/` — the
+// settings shell is role-agnostic and mounted at /settings/* for every role).
+//
+// This keeps the menu config as the single source of truth: adding a real
+// path for a submodule in menu.config.ts automatically makes the diagnostic
+// recognize the route. No further bookkeeping required.
+
+import { NAV_CONFIG } from "@/core/navigation/menu.config";
+
+/** Submodules that resolve to a real (non coming-soon) native page for this layout. */
+export const getNativeSubmoduleClaims = (layout: Role): Set<string> => {
+  const claims = new Set<string>();
+  for (const group of NAV_CONFIG) {
+    for (const item of group.items) {
+      if (!item.submodule) continue;
+      // Submodules whose path lands under this role's layout AND isn't a
+      // coming-soon stub count as natively claimed.
+      if (
+        item.path.startsWith(`/${layout}/`) &&
+        !item.path.includes("/coming-soon/")
+      ) {
+        claims.add(item.submodule);
+      }
+      // The Settings shell at /settings/* is reachable for every role —
+      // ProtectedRoute allows admin/management/coordinator/teacher alike.
+      if (item.path.startsWith("/settings/")) {
+        claims.add(item.submodule);
+      }
+    }
+  }
+  return claims;
+};
