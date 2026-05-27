@@ -235,8 +235,15 @@ export const ModuleStarterPage = ({
       />
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        {/*
+          Why this dialog is structured as a flex column with max-height:
+          some modules (Live Class, eStudy) have 7–9 fields and on laptop
+          screens the form bottom + footer fell below the viewport. The
+          fixed header/footer + scrollable body keeps Save reachable on
+          any screen height without resizing the dialog itself.
+        */}
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b border-border/40 shrink-0">
             <DialogTitle>
               {editing ? `Edit ${entityNoun}` : `Add ${entityNoun}`}
             </DialogTitle>
@@ -246,7 +253,7 @@ export const ModuleStarterPage = ({
                 : `Fill in the ${entityNoun.toLowerCase()} details below.`}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-1">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
             {fields.map((f) => (
               <div key={f.name} className="space-y-1.5">
                 <Label htmlFor={f.name} className="text-xs font-medium">
@@ -304,7 +311,7 @@ export const ModuleStarterPage = ({
               </div>
             ))}
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t border-border/40 shrink-0 bg-background">
             <Button variant="outline" onClick={() => setEditorOpen(false)}>
               Cancel
             </Button>
