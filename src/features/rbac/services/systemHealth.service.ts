@@ -123,6 +123,23 @@ const REALTIME_CHANNELS: RealtimeChannel[] = [
     tables: ["admission_calls"],
     purpose: "Live admission funnel — Enquiry Management updates across tabs",
   },
+  {
+    name: "setup-sync",
+    tables: [
+      "standards",
+      "batches",
+      "course_types",
+      "academic_years",
+      "subjects",
+      "taxes",
+      "standard_course_types",
+      "batch_subjects",
+      "campuses",
+    ],
+    publicationMigration: "20260605_setup_realtime_publication",
+    purpose:
+      "Live Setup reference data — standards/batches/course types/years/subjects/taxes fan out to every module's dropdowns, filters and reports",
+  },
 ];
 
 interface ProbeSpec {

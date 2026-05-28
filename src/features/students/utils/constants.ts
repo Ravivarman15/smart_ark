@@ -116,3 +116,58 @@ export const IMPORT_COLUMN_MAP: Record<string, string> = {
   email: "parentEmail",
   address: "address",
 };
+
+// ── CSV academic-mapping column map ───────────────────────────────────────────
+// These columns are NOT student fields — they carry the *names* of Setup-module
+// records (standard / batch / course type / academic year) that get resolved to
+// ids at import time. Kept separate from IMPORT_COLUMN_MAP so the resolver can
+// run name→id matching before building the student write payload. Headers are
+// lower-cased + trimmed before lookup. Every alias is optional: a template
+// without these columns still imports (migration-safe).
+export type AcademicRefField =
+  | "standardName"
+  | "batchName"
+  | "courseTypeName"
+  | "academicYearName";
+
+export const IMPORT_ACADEMIC_COLUMN_MAP: Record<string, AcademicRefField> = {
+  standard: "standardName",
+  "standard name": "standardName",
+  standard_name: "standardName",
+  class: "batchName",
+  "class name": "batchName",
+  batch: "batchName",
+  "batch name": "batchName",
+  batch_name: "batchName",
+  "class / batch": "batchName",
+  "class/batch": "batchName",
+  "class_batch": "batchName",
+  section: "batchName",
+  "course type": "courseTypeName",
+  course_type: "courseTypeName",
+  course_type_name: "courseTypeName",
+  "course type name": "courseTypeName",
+  stream: "courseTypeName",
+  "academic year": "academicYearName",
+  academic_year: "academicYearName",
+  academic_year_name: "academicYearName",
+  "academic year name": "academicYearName",
+  year: "academicYearName",
+};
+
+// Canonical header order for the downloadable sample template. Student details
+// first, academic mapping columns grouped at the end.
+export const IMPORT_TEMPLATE_HEADERS = [
+  "name",
+  "roll_number",
+  "gender",
+  "date_of_birth",
+  "parent_name",
+  "parent_contact",
+  "parent_email",
+  "address",
+  "standard_name",
+  "batch_name",
+  "course_type_name",
+  "academic_year_name",
+] as const;

@@ -2,13 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { standardsService } from "../services/standards.service";
+import { LOOKUP_STALE_TIME, invalidateSetupLookups } from "../lib/setupSync";
 import type { StandardInput } from "../types/setup.types";
 
 export const useStandards = () =>
   useQuery({
     queryKey: queryKeys.setup.standards(),
     queryFn: () => standardsService.list(),
-    staleTime: 5 * 60_000,
+    staleTime: LOOKUP_STALE_TIME,
   });
 
 export const useCreateStandard = () => {
@@ -16,7 +17,7 @@ export const useCreateStandard = () => {
   return useMutation({
     mutationFn: (input: StandardInput) => standardsService.create(input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.setup.standards() });
+      invalidateSetupLookups(qc);
       toast.success("Standard created");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Create failed"),
@@ -29,7 +30,7 @@ export const useUpdateStandard = () => {
     mutationFn: ({ id, input }: { id: string; input: Partial<StandardInput> }) =>
       standardsService.update(id, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.setup.standards() });
+      invalidateSetupLookups(qc);
       toast.success("Standard updated");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Update failed"),
@@ -41,7 +42,7 @@ export const useDeleteStandard = () => {
   return useMutation({
     mutationFn: (id: string) => standardsService.remove(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.setup.standards() });
+      invalidateSetupLookups(qc);
       toast.success("Standard deleted");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Delete failed"),
@@ -66,6 +67,7 @@ export const useSetStandardCourseTypes = () => {
       standardsService.setAssignedCourseTypes(standardId, courseTypeIds),
     onSuccess: (_v, args) => {
       qc.invalidateQueries({ queryKey: queryKeys.setup.standardCourseTypes(args.standardId) });
+      invalidateSetupLookups(qc);
       toast.success("Streams updated");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Save failed"),

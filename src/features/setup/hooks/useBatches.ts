@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { batchesService } from "../services/batches.service";
+import { LOOKUP_STALE_TIME, invalidateSetupLookups } from "../lib/setupSync";
 import type { BatchInput } from "../types/setup.types";
 
 export const useBatches = (filters?: {
@@ -12,7 +13,7 @@ export const useBatches = (filters?: {
   useQuery({
     queryKey: queryKeys.setup.batches(filters),
     queryFn: () => batchesService.list(filters),
-    staleTime: 60_000,
+    staleTime: LOOKUP_STALE_TIME,
   });
 
 export const useCreateBatch = () => {
@@ -20,7 +21,7 @@ export const useCreateBatch = () => {
   return useMutation({
     mutationFn: (input: BatchInput) => batchesService.create(input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.setup.all });
+      invalidateSetupLookups(qc);
       toast.success("Batch created");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Create failed"),
@@ -33,7 +34,7 @@ export const useUpdateBatch = () => {
     mutationFn: ({ id, input }: { id: string; input: Partial<BatchInput> }) =>
       batchesService.update(id, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.setup.all });
+      invalidateSetupLookups(qc);
       toast.success("Batch updated");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Update failed"),
@@ -45,7 +46,7 @@ export const useDeleteBatch = () => {
   return useMutation({
     mutationFn: (id: string) => batchesService.remove(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.setup.all });
+      invalidateSetupLookups(qc);
       toast.success("Batch deleted");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Delete failed"),
@@ -69,6 +70,7 @@ export const useSetBatchSubjects = () => {
       batchesService.setSubjects(batchId, subjectIds),
     onSuccess: (_v, args) => {
       qc.invalidateQueries({ queryKey: queryKeys.setup.batchSubjects(args.batchId) });
+      invalidateSetupLookups(qc);
       toast.success("Subjects updated");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Save failed"),

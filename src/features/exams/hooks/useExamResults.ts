@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/core/constants/queryKeys";
+import { LOOKUP_STALE_TIME } from "@/features/setup/lib/setupSync";
 import { examLookupsService, examResultsService } from "../services";
 
 // Query hooks for exam results, the marks-entry roster and form lookups.
@@ -17,7 +18,7 @@ export const useExamLookups = () =>
   useQuery({
     queryKey: queryKeys.exams.lookups("form"),
     queryFn: () => examLookupsService.all(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: LOOKUP_STALE_TIME,
   });
 
 /** Active students of a batch — the marks-entry roster. */

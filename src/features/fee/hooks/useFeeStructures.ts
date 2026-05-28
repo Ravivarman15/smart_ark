@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
+import { LOOKUP_STALE_TIME } from "@/features/setup/lib/setupSync";
 import { feeLookupsService, feeStructureService } from "../services";
 import type { FeeStructureInput } from "../types/fee.types";
 
@@ -18,7 +19,7 @@ export const useFeeLookups = () =>
   useQuery({
     queryKey: queryKeys.fees.lookups("structure-form"),
     queryFn: () => feeLookupsService.all(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: LOOKUP_STALE_TIME,
   });
 
 /** Revision history for one structure. Disabled until an id is supplied. */
