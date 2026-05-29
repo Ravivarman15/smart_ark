@@ -8,3 +8,11 @@ export {
   type SafeInsertResult,
   type PgLikeError,
 } from "./safeInsert";
+export {
+  safeInsertWithColumnFallback,
+  safeUpdateWithColumnFallback,
+  isMissingColumnError,
+  extractMissingColumn,
+  type ColumnFallbackResult,
+  type ColumnFallbackOptions,
+} from "./columnFallback";

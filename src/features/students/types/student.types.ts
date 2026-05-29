@@ -50,10 +50,28 @@ export interface Student {
   parentContact2?: string;
   parentEmail?: string;
 
+  // mother (institution exports list mother details separately from father/parent)
+  motherName?: string;
+  motherContact?: string;
+  motherEmail?: string;
+
   // guardian
   guardianName?: string;
   guardianRelation?: string;
   guardianContact?: string;
+
+  // institution-export identity / demographic fields (20260608 migration)
+  biometricId?: string;
+  enrolmentNo?: string;
+  grNo?: string;
+  username?: string;
+  category?: string;
+  groupName?: string;
+  state?: string;
+  city?: string;
+  schoolCollege?: string;
+  university?: string;
+  courseExpiryDate?: string;
 
   appAccessEnabled?: boolean;
   notes?: string;
@@ -88,9 +106,23 @@ export interface StudentWriteInput {
   parentContact1?: string;
   parentContact2?: string;
   parentEmail?: string;
+  motherName?: string;
+  motherContact?: string;
+  motherEmail?: string;
   guardianName?: string;
   guardianRelation?: string;
   guardianContact?: string;
+  biometricId?: string;
+  enrolmentNo?: string;
+  grNo?: string;
+  username?: string;
+  category?: string;
+  groupName?: string;
+  state?: string;
+  city?: string;
+  schoolCollege?: string;
+  university?: string;
+  courseExpiryDate?: string;
   notes?: string;
 }
 
@@ -317,6 +349,8 @@ export interface ImportBatch {
   errorRows: number;
   importedBy?: string;
   createdAt?: string;
+  /** Columns the schema was missing during this run (migration not fully applied). */
+  droppedColumns?: string[];
 }
 
 // ── Lookups (for form pickers) ───────────────────────────────────────────────

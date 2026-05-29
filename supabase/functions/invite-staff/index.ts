@@ -372,10 +372,12 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Remove the profile row first. If the staff member has linked history
-      // (attendance, class logs, results) the foreign keys block the delete
-      // — that is intentional: surface a clear message instead of a raw
-      // 23503 foreign-key error.
+      // Remove the profile row. Linked history (attendance, class logs,
+      // results, KPI, audit columns…) is handled at the DB level: migration
+      // 20260607_profiles_delete_cascade retrofits ON DELETE SET NULL / CASCADE
+      // onto every profiles(id) foreign key, so this single delete cascades
+      // cleanly. The 23503 branch below is only a safety net for a deployment
+      // where that migration has not been applied yet.
       const { error: delProfErr } = await supabase
         .from("profiles")
         .delete()
@@ -386,9 +388,9 @@ Deno.serve(async (req) => {
           /foreign key|still referenced|violates/i.test(delProfErr.message);
         return jsonResponse(fkBlocked ? 409 : 400, {
           error: fkBlocked
-            ? "This staff member has linked records (attendance, classes, " +
-              "results) and cannot be permanently deleted. Deactivate the " +
-              "account instead."
+            ? "This staff member has linked records that block deletion. " +
+              "Apply the latest database migrations (profiles delete-cascade) " +
+              "and try again."
             : delProfErr.message,
         });
       }

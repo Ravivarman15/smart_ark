@@ -1,4 +1,8 @@
-import type { AttendanceStatus, StudentRisk } from "../types/student.types";
+import type {
+  AttendanceStatus,
+  StudentRisk,
+  StudentWriteInput,
+} from "../types/student.types";
 
 // ── Risk ─────────────────────────────────────────────────────────────────────
 export const RISK_META: Record<StudentRisk, { label: string; className: string }> = {
@@ -91,6 +95,13 @@ export const FEEDBACK_CATEGORIES = [
   "general",
 ];
 
+// Shown when a write succeeded but some fields were skipped because their
+// columns don't exist yet (student-module migrations not fully applied). The
+// column-level fallback persists everything the schema has — this just tells
+// the operator which fields were dropped so data loss is never silent.
+export const STUDENT_MIGRATION_WARNING =
+  "Student module migrations not fully applied. Some fields could not be saved";
+
 // ── CSV import column map ─────────────────────────────────────────────────────
 // Accepted header → StudentWriteInput field. Headers are lower-cased and
 // trimmed before lookup so "Student Name", "student_name" etc. all match.
@@ -171,3 +182,86 @@ export const IMPORT_TEMPLATE_HEADERS = [
   "course_type_name",
   "academic_year_name",
 ] as const;
+
+// ── Smart alias-based column detection ────────────────────────────────────────
+// The maps above are kept for the legacy `csvToStudentRows` path. The system
+// below powers the smart importer: institution exports use free-form headers
+// ("Class/Batch", "Father Mobile", "Birth Date"), so instead of enumerating
+// every punctuation variant we NORMALISE a header (lowercase + strip every
+// non-alphanumeric) and look it up against per-field alias lists. Adding a new
+// accepted header = adding one string to a list; no parsing code changes.
+
+/** Collapse a header to a comparison key: "Class / Batch" → "classbatch". */
+export const normalizeHeader = (h: string): string =>
+  h.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Student-field name → accepted header aliases (written human-readable; the
+ *  lookup normalises them). Order matters only for documentation. */
+export const STUDENT_FIELD_ALIASES: Partial<Record<keyof StudentWriteInput, string[]>> = {
+  name: ["name", "student name", "full name", "student full name"],
+  rollNumber: ["roll", "roll no", "roll number", "rollno"],
+  gender: ["gender", "sex"],
+  bloodGroup: ["blood group"],
+  dateOfBirth: ["birth date", "date of birth", "dob", "birthdate"],
+  dateOfJoining: ["join date", "joining date", "admission date", "date of joining", "doj"],
+  address: ["address", "residential address", "permanent address"],
+  // Generic "mobile" / "email" default to the STUDENT per requirement spec.
+  studentContact: [
+    "student mobile", "student contact", "student phone", "student mobile no",
+    "mobile", "mobile no", "mobile number",
+  ],
+  studentEmail: ["student email", "email", "email id", "student email id", "e mail"],
+  parentName: ["father name", "fathers name", "parent name"],
+  parentContact: [
+    "father mobile", "fathers mobile", "father contact", "parent mobile",
+    "parent contact", "contact no", "contact", "phone",
+  ],
+  parentContact2: ["alternate mobile", "alternate contact", "secondary contact"],
+  parentEmail: ["father email", "fathers email", "parent email", "father email id"],
+  motherName: ["mother name", "mothers name"],
+  motherContact: ["mother mobile", "mothers mobile", "mother contact", "mother phone"],
+  motherEmail: ["mother email", "mothers email", "mother email id"],
+  guardianName: ["guardian name", "guardian"],
+  guardianContact: ["guardian mobile", "guardian contact", "guardian phone"],
+  biometricId: ["biometric id", "biometric", "bio id", "biometric code"],
+  enrolmentNo: [
+    "enrolment no", "enrollment no", "enrolment number", "enrollment number",
+    "enrolment", "enrollment", "enroll no",
+  ],
+  grNo: ["gr no", "gr number", "grno", "general register no"],
+  username: ["user name", "username", "login id", "login name"],
+  category: ["category", "caste category"],
+  groupName: ["group", "group name", "stream group"],
+  state: ["state"],
+  city: ["city", "town"],
+  schoolCollege: ["school college", "school / college", "school", "college", "previous school"],
+  university: ["university", "board", "university board"],
+  courseExpiryDate: ["course expiry date", "expiry date", "course expiry", "course end date"],
+};
+
+/** Academic-reference field → accepted header aliases (resolved to ids via
+ *  `resolveAcademic` against live Setup data). */
+export const ACADEMIC_FIELD_ALIASES: Record<AcademicRefField, string[]> = {
+  standardName: ["standard", "standard name", "std", "grade"],
+  batchName: ["class batch", "class / batch", "batch", "batch name", "class", "section", "division"],
+  courseTypeName: ["course type", "course", "stream", "course type name"],
+  academicYearName: ["academic year", "academic year name", "year", "session", "ay"],
+};
+
+// Normalised lookup: header-key → student field. Built once at module load.
+export const STUDENT_HEADER_LOOKUP: Record<string, keyof StudentWriteInput> = (() => {
+  const m: Record<string, keyof StudentWriteInput> = {};
+  for (const [field, aliases] of Object.entries(STUDENT_FIELD_ALIASES)) {
+    for (const alias of aliases ?? []) m[normalizeHeader(alias)] = field as keyof StudentWriteInput;
+  }
+  return m;
+})();
+
+// Normalised lookup: header-key → academic ref field.
+export const ACADEMIC_HEADER_LOOKUP: Record<string, AcademicRefField> = (() => {
+  const m: Record<string, AcademicRefField> = {};
+  for (const [field, aliases] of Object.entries(ACADEMIC_FIELD_ALIASES)) {
+    for (const alias of aliases) m[normalizeHeader(alias)] = field as AcademicRefField;
+  }
+  return m;
+})();

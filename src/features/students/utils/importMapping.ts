@@ -9,8 +9,12 @@ import type {
   CourseType,
   Standard,
 } from "@/features/setup/types/setup.types";
-import type { StudentWriteInput } from "../types/student.types";
-import { IMPORT_ACADEMIC_COLUMN_MAP, IMPORT_COLUMN_MAP } from "./constants";
+import type { Student, StudentWriteInput } from "../types/student.types";
+import {
+  ACADEMIC_HEADER_LOOKUP,
+  normalizeHeader,
+  STUDENT_HEADER_LOOKUP,
+} from "./constants";
 
 // ── Raw academic refs (the name strings pulled from the CSV) ──────────────────
 export interface AcademicRefInput {
@@ -48,10 +52,15 @@ export interface ImportRowPreview {
   name: string;
   status: ImportRowStatus;
   messages: string[];
+  /** Soft validation warnings (bad mobile/email) — don't block the import. */
+  warnings: string[];
+  /** True when the row named an academic ref that didn't resolve in Setup. */
+  missingAcademic: boolean;
   /** Student write payload with resolved ids merged in — ready to commit. */
   student: StudentWriteInput;
   resolved: ResolvedAcademic;
   raw: AcademicRefInput;
+  dedup: DedupKeys;
 }
 
 // ── Matching ──────────────────────────────────────────────────────────────────
@@ -152,28 +161,245 @@ export function resolveAcademic(
   return out;
 }
 
-// ── CSV extraction ────────────────────────────────────────────────────────────
+// ── Date normalisation ────────────────────────────────────────────────────────
+// Institution sheets mix ISO and day-first formats. Normalise to YYYY-MM-DD so
+// the `date` columns accept them. Ambiguous d/m vs m/d is resolved day-first
+// (Indian-export convention), auto-swapping when the day field is clearly > 12.
+function normalizeDate(value: string): string {
+  const v = value.trim();
+  if (!v) return v;
+  const iso = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    const [, y, m, d] = iso;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  const parts = v.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
+  if (parts) {
+    let day = Number(parts[1]);
+    let month = Number(parts[2]);
+    let year = Number(parts[3]);
+    if (month > 12 && day <= 12) [day, month] = [month, day]; // m/d fallback
+    if (year < 100) year += year < 50 ? 2000 : 1900;
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+  return v; // leave anything else untouched
+}
+
+const DATE_FIELDS: (keyof StudentWriteInput)[] = [
+  "dateOfBirth",
+  "dateOfJoining",
+  "courseExpiryDate",
+];
+
+// ── Duplicate detection ─────────────────────────────────────────────────────────
+export interface DedupKeys {
+  biometricId?: string;
+  enrolmentNo?: string;
+  grNo?: string;
+  rollNumber?: string;
+  mobile?: string;
+  email?: string;
+}
+
+export type DuplicateIndex = Record<keyof DedupKeys, Set<string>>;
+
+const DEDUP_LABELS: Record<keyof DedupKeys, string> = {
+  biometricId: "Biometric Id",
+  enrolmentNo: "Enrolment No",
+  grNo: "GR No",
+  rollNumber: "Roll No",
+  mobile: "Mobile",
+  email: "Email",
+};
+
+const dk = (v?: string): string => (v ?? "").trim().toLowerCase();
+
+export const emptyDuplicateIndex = (): DuplicateIndex => ({
+  biometricId: new Set(),
+  enrolmentNo: new Set(),
+  grNo: new Set(),
+  rollNumber: new Set(),
+  mobile: new Set(),
+  email: new Set(),
+});
+
+/** Index existing students by every dedup key so a row can be matched O(1). */
+export function buildDuplicateIndex(students: Student[]): DuplicateIndex {
+  const idx = emptyDuplicateIndex();
+  for (const s of students) {
+    if (s.biometricId) idx.biometricId.add(dk(s.biometricId));
+    if (s.enrolmentNo) idx.enrolmentNo.add(dk(s.enrolmentNo));
+    if (s.grNo) idx.grNo.add(dk(s.grNo));
+    if (s.rollNumber) idx.rollNumber.add(dk(s.rollNumber));
+    const mob = s.studentContact || s.parentContact;
+    if (mob) idx.mobile.add(dk(mob));
+    const em = s.studentEmail || s.parentEmail;
+    if (em) idx.email.add(dk(em));
+  }
+  return idx;
+}
+
+/** First dedup key that collides with an existing student or a prior file row. */
+function findDuplicate(
+  keys: DedupKeys,
+  existing: DuplicateIndex,
+  seen: DuplicateIndex
+): string | null {
+  for (const k of Object.keys(DEDUP_LABELS) as (keyof DedupKeys)[]) {
+    const v = dk(keys[k]);
+    if (!v) continue;
+    if (existing[k].has(v)) return `${DEDUP_LABELS[k]} matches an existing student`;
+    if (seen[k].has(v)) return `Duplicate ${DEDUP_LABELS[k]} within this file`;
+  }
+  return null;
+}
+
+function recordSeen(keys: DedupKeys, seen: DuplicateIndex): void {
+  for (const k of Object.keys(DEDUP_LABELS) as (keyof DedupKeys)[]) {
+    const v = dk(keys[k]);
+    if (v) seen[k].add(v);
+  }
+}
+
+// ── Validation (soft) ────────────────────────────────────────────────────────
+const MOBILE_RE = /^[0-9+\-\s()]{7,20}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function rowWarnings(student: StudentWriteInput): string[] {
+  const w: string[] = [];
+  const mob = student.studentContact || student.parentContact;
+  if (mob && !MOBILE_RE.test(mob)) w.push(`Check mobile "${mob}"`);
+  const em = student.studentEmail || student.parentEmail;
+  if (em && !EMAIL_RE.test(em)) w.push(`Check email "${em}"`);
+  return w;
+}
+
+// ── Column detection ─────────────────────────────────────────────────────────
+export interface DetectedMapping {
+  sourceHeader: string;
+  field: string | null;
+  kind: "student" | "academic" | "unmapped";
+}
+
+/** Report how each source header was auto-detected (drives the UI panel). */
+export function detectColumnMappings(headers: string[]): DetectedMapping[] {
+  return headers
+    .filter((h) => (h ?? "").toString().trim() !== "")
+    .map((h) => {
+      const nh = normalizeHeader(h.toString());
+      const sf = STUDENT_HEADER_LOOKUP[nh];
+      if (sf) return { sourceHeader: h, field: sf, kind: "student" as const };
+      const af = ACADEMIC_HEADER_LOOKUP[nh];
+      if (af) return { sourceHeader: h, field: af, kind: "academic" as const };
+      return { sourceHeader: h, field: null, kind: "unmapped" as const };
+    });
+}
+
+// ── Sheet extraction ──────────────────────────────────────────────────────────
+export interface ImportRecord {
+  student: StudentWriteInput;
+  academic: AcademicRefInput;
+  dedup: DedupKeys;
+}
+
 /**
- * Map a parsed CSV (with header row) into student write inputs PLUS the raw
- * academic name refs. Old templates without academic columns yield empty refs,
- * so they still import — only the new columns add mapping behaviour.
+ * Map a parsed sheet (header row + data rows) into student write inputs, raw
+ * academic refs and dedup keys — using alias-based, normalised header matching.
+ * The first non-empty column that maps to a field wins (so "Father Mobile" and
+ * "Contact No" don't clobber each other). Unknown columns are ignored.
  */
-export function csvToImportRows(
-  rows: string[][]
-): { student: StudentWriteInput; academic: AcademicRefInput }[] {
+export function rowsToImportRecords(rows: string[][]): ImportRecord[] {
   if (rows.length < 2) return [];
-  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const normHeaders = rows[0].map((h) => normalizeHeader((h ?? "").toString()));
   return rows.slice(1).map((cells) => {
     const student: Record<string, string> = {};
     const academic: AcademicRefInput = {};
-    header.forEach((h, idx) => {
-      const value = (cells[idx] ?? "").trim();
-      const studentField = IMPORT_COLUMN_MAP[h];
-      if (studentField) student[studentField] = value;
-      const academicField = IMPORT_ACADEMIC_COLUMN_MAP[h];
-      if (academicField && value) academic[academicField] = value;
+    normHeaders.forEach((nh, idx) => {
+      if (!nh) return;
+      const value = (cells[idx] ?? "").toString().trim();
+      if (!value) return;
+      const sf = STUDENT_HEADER_LOOKUP[nh];
+      if (sf && !student[sf]) {
+        student[sf] = DATE_FIELDS.includes(sf) ? normalizeDate(value) : value;
+      }
+      const af = ACADEMIC_HEADER_LOOKUP[nh];
+      if (af && !academic[af]) academic[af] = value;
     });
-    return { student: student as unknown as StudentWriteInput, academic };
+    const dedup: DedupKeys = {
+      biometricId: student.biometricId,
+      enrolmentNo: student.enrolmentNo,
+      grNo: student.grNo,
+      rollNumber: student.rollNumber,
+      mobile: student.studentContact || student.parentContact,
+      email: student.studentEmail || student.parentEmail,
+    };
+    return { student: student as unknown as StudentWriteInput, academic, dedup };
+  });
+}
+
+/** Back-compat shim — preserves the original `csvToImportRows` contract. */
+export function csvToImportRows(
+  rows: string[][]
+): { student: StudentWriteInput; academic: AcademicRefInput }[] {
+  return rowsToImportRecords(rows).map(({ student, academic }) => ({ student, academic }));
+}
+
+/**
+ * Build the full preview: resolve academic refs, validate, and flag duplicates
+ * against existing students (+ within the file). Centralises what the page used
+ * to do inline so the UI just renders the result.
+ */
+export function buildImportPreview(
+  records: ImportRecord[],
+  lookups: ImportLookups,
+  existing: DuplicateIndex
+): ImportRowPreview[] {
+  const seen = emptyDuplicateIndex();
+  return records.map((rec, i) => {
+    const name = (rec.student.name ?? "").trim();
+    const resolved = resolveAcademic(rec.academic, lookups);
+    const warnings = rowWarnings(rec.student);
+    const missingAcademic = resolved.errors.some((e) => /not found/i.test(e));
+    const messages: string[] = [];
+    let status: ImportRowStatus = "valid";
+
+    if (!name) {
+      status = "error";
+      messages.push("Missing student name");
+    } else if (resolved.errors.length > 0) {
+      status = "error";
+      messages.push(...resolved.errors);
+    } else {
+      const dup = findDuplicate(rec.dedup, existing, seen);
+      if (dup) {
+        status = "duplicate";
+        messages.push(dup);
+      }
+    }
+    recordSeen(rec.dedup, seen);
+
+    const student: StudentWriteInput = {
+      ...rec.student,
+      ...(resolved.standardId ? { standardId: resolved.standardId } : {}),
+      ...(resolved.batchId ? { batchId: resolved.batchId } : {}),
+      ...(resolved.courseTypeId ? { courseTypeId: resolved.courseTypeId } : {}),
+      ...(resolved.academicYearId ? { academicYearId: resolved.academicYearId } : {}),
+    };
+
+    return {
+      rowNumber: i + 2,
+      name: name || "(blank)",
+      status,
+      messages: [...messages, ...warnings],
+      warnings,
+      missingAcademic,
+      student,
+      resolved,
+      raw: rec.academic,
+      dedup: rec.dedup,
+    };
   });
 }
 

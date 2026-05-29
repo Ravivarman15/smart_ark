@@ -1,4 +1,11 @@
-import { BaseService, AppError, type ListParams, type Paginated } from "@/shared/services";
+import {
+  BaseService,
+  AppError,
+  safeInsertWithColumnFallback,
+  safeUpdateWithColumnFallback,
+  type ListParams,
+  type Paginated,
+} from "@/shared/services";
 import type {
   CreateStudentInput,
   Student,
@@ -6,6 +13,13 @@ import type {
   StudentWriteInput,
   UpdateStudentInput,
 } from "../types/student.types";
+
+/** Optional per-write hooks. Lets callers (registration, import) react when a
+ *  column had to be dropped because the schema is mid-migration — without
+ *  changing the existing positional API. */
+export interface StudentWriteOptions {
+  onColumnsDropped?: (columns: string[]) => void;
+}
 
 // ── DB row shape ─────────────────────────────────────────────────────────────
 type Join = { name?: string | null } | { name?: string | null }[] | null;
@@ -28,6 +42,9 @@ type StudentRow = {
   parent_contact: string | null;
   parent_contact2: string | null;
   parent_email: string | null;
+  mother_name: string | null;
+  mother_contact: string | null;
+  mother_email: string | null;
   guardian_name: string | null;
   guardian_relation: string | null;
   guardian_contact: string | null;
@@ -39,6 +56,17 @@ type StudentRow = {
   profile_image_url: string | null;
   date_of_birth: string | null;
   admission_date: string | null;
+  biometric_id: string | null;
+  enrolment_no: string | null;
+  gr_no: string | null;
+  username: string | null;
+  category: string | null;
+  group_name: string | null;
+  state: string | null;
+  city: string | null;
+  school_college: string | null;
+  university: string | null;
+  course_expiry_date: string | null;
   app_access_enabled: boolean | null;
   notes: string | null;
   created_at: string | null;
@@ -53,27 +81,11 @@ const pickJoin = (v: Join): string | undefined => {
   return row?.name ?? undefined;
 };
 
-// Columns added by the 20260520_students_module migration. Stripped on a
-// "column does not exist" error so the service still works pre-migration.
-const NEW_COLUMNS = [
-  "gender",
-  "blood_group",
-  "address",
-  "student_email",
-  "student_contact",
-  "guardian_name",
-  "guardian_relation",
-  "guardian_contact",
-  "profile_image_url",
-  "academic_year_id",
-  "app_access_enabled",
-  "notes",
-];
-
-const isColumnError = (err: { message?: string } | null | undefined) => {
-  const m = (err?.message ?? "").toLowerCase();
-  return m.includes("column") || m.includes("schema cache");
-};
+// Schema-drift resilience for writes is handled column-by-column by
+// safeInsertWithColumnFallback / safeUpdateWithColumnFallback (see create/update)
+// — a missing column is dropped individually, never as an all-or-nothing batch.
+// `isRelationError` below still guards the *read* select fallback (RICH→BASE)
+// when an embedded relationship/column isn't available.
 const isRelationError = (err: { message?: string } | null | undefined) => {
   const m = (err?.message ?? "").toLowerCase();
   return m.includes("relationship") || m.includes("column") || m.includes("schema cache");
@@ -111,9 +123,23 @@ const toDomain = (r: StudentRow): Student => ({
   parentContact1: r.parent_contact ?? undefined,
   parentContact2: r.parent_contact2 ?? undefined,
   parentEmail: r.parent_email ?? undefined,
+  motherName: r.mother_name ?? undefined,
+  motherContact: r.mother_contact ?? undefined,
+  motherEmail: r.mother_email ?? undefined,
   guardianName: r.guardian_name ?? undefined,
   guardianRelation: r.guardian_relation ?? undefined,
   guardianContact: r.guardian_contact ?? undefined,
+  biometricId: r.biometric_id ?? undefined,
+  enrolmentNo: r.enrolment_no ?? undefined,
+  grNo: r.gr_no ?? undefined,
+  username: r.username ?? undefined,
+  category: r.category ?? undefined,
+  groupName: r.group_name ?? undefined,
+  state: r.state ?? undefined,
+  city: r.city ?? undefined,
+  schoolCollege: r.school_college ?? undefined,
+  university: r.university ?? undefined,
+  courseExpiryDate: r.course_expiry_date ?? undefined,
   appAccessEnabled: r.app_access_enabled ?? false,
   notes: r.notes ?? undefined,
   createdAt: r.created_at ?? undefined,
@@ -147,17 +173,25 @@ const toDb = (input: Partial<StudentWriteInput>): Record<string, unknown> => {
   set("parent_contact2", input.parentContact2);
   set("parent_name", input.parentName);
   set("parent_email", input.parentEmail);
+  set("mother_name", input.motherName);
+  set("mother_contact", input.motherContact);
+  set("mother_email", input.motherEmail);
   set("guardian_name", input.guardianName);
   set("guardian_relation", input.guardianRelation);
   set("guardian_contact", input.guardianContact);
+  set("biometric_id", input.biometricId);
+  set("enrolment_no", input.enrolmentNo);
+  set("gr_no", input.grNo);
+  set("username", input.username);
+  set("category", input.category);
+  set("group_name", input.groupName);
+  set("state", input.state);
+  set("city", input.city);
+  set("school_college", input.schoolCollege);
+  set("university", input.university);
+  set("course_expiry_date", input.courseExpiryDate);
   set("notes", input.notes);
   return out;
-};
-
-const stripNew = (payload: Record<string, unknown>) => {
-  const copy = { ...payload };
-  for (const c of NEW_COLUMNS) delete copy[c];
-  return copy;
 };
 
 const RICH_SELECT =
@@ -234,7 +268,10 @@ class StudentsService extends BaseService {
   }
 
   // ── Writes ─────────────────────────────────────────────────────────────────
-  async create(input: CreateStudentInput): Promise<Student> {
+  // Both writes use the shared column-fallback helper: every column the schema
+  // HAS is persisted; any column it's missing (mid-migration) is dropped
+  // individually and reported via `opts.onColumnsDropped`.
+  async create(input: CreateStudentInput, opts?: StudentWriteOptions): Promise<Student> {
     const ids = await this.resolveIds(input);
     const payload = {
       ...toDb(input),
@@ -242,23 +279,21 @@ class StudentsService extends BaseService {
       admission_date: input.dateOfJoining || new Date().toISOString().split("T")[0],
       is_active: true,
     };
-    let res = await this.db
-      .from("students")
-      .insert(payload as never)
-      .select(BASE_SELECT)
-      .single();
-    if (res.error && isColumnError(res.error)) {
-      res = await this.db
-        .from("students")
-        .insert(stripNew(payload) as never)
-        .select(BASE_SELECT)
-        .single();
-    }
-    const row = this.guard(res, "student");
-    return toDomain(row as unknown as StudentRow);
+    const res = await safeInsertWithColumnFallback<StudentRow>(this.db, "students", payload, {
+      returning: BASE_SELECT,
+      label: "students.create",
+      onColumnsDropped: opts?.onColumnsDropped,
+    });
+    if (res.error) throw AppError.fromSupabase(res.error, "students.create");
+    if (!res.data) throw AppError.notFound("student");
+    return toDomain(res.data);
   }
 
-  async update(id: string, updates: UpdateStudentInput): Promise<void> {
+  async update(
+    id: string,
+    updates: UpdateStudentInput,
+    opts?: StudentWriteOptions
+  ): Promise<void> {
     const patch: Record<string, unknown> = toDb(updates);
     if (updates.batchId !== undefined || updates.batch !== undefined) {
       const ids = await this.resolveIds(updates as StudentWriteInput);
@@ -271,9 +306,10 @@ class StudentsService extends BaseService {
     if (typeof updates.active === "boolean") patch.is_active = updates.active;
     if (Object.keys(patch).length === 0) return;
 
-    let res = await this.db.from("students").update(patch as never).eq("id", id);
-    if (res.error && isColumnError(res.error))
-      res = await this.db.from("students").update(stripNew(patch) as never).eq("id", id);
+    const res = await safeUpdateWithColumnFallback(this.db, "students", patch, { id }, {
+      label: "students.update",
+      onColumnsDropped: opts?.onColumnsDropped,
+    });
     if (res.error) throw AppError.fromSupabase(res.error, "students.update");
   }
 

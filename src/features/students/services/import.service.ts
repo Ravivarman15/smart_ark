@@ -27,28 +27,53 @@ const tableMissing = (err: { message?: string } | null | undefined) => {
   return m.includes("does not exist") || m.includes("schema cache");
 };
 
+/** Progress callback fired after each processed chunk. */
+export type ImportProgress = (done: number, total: number) => void;
+
+// Rows are committed in bounded-concurrency chunks: large enough to keep a
+// 1000+ row import fast, small enough not to flood Supabase with connections.
+const CHUNK_SIZE = 25;
+
 /**
- * Student CSV import. Validation / duplicate-preview happens in the page
- * (utils.csvToStudentRows + a name check); `commit` persists the approved
- * rows and records an import-history entry.
+ * Student import. Validation / duplicate-preview happens in the page
+ * (importMapping.buildImportPreview); `commit` persists the approved rows and
+ * records an import-history entry.
  */
 class ImportService extends BaseService {
-  /** Insert approved rows one-by-one so a single bad row can't abort the run. */
+  /**
+   * Insert approved rows in concurrent chunks. Each row is isolated in its own
+   * try/catch (via Promise.allSettled) so a single bad row can't abort the run
+   * — "transaction-safe" at the run level. `onProgress` is called after every
+   * chunk so the UI can render a live progress bar for big files.
+   */
   async commit(
     rows: StudentWriteInput[],
     fileName: string,
-    importedBy?: string
+    importedBy?: string,
+    onProgress?: ImportProgress
   ): Promise<ImportBatch> {
     let success = 0;
     let errors = 0;
-    for (const row of rows) {
-      try {
-        await studentsService.create(row);
-        success++;
-      } catch {
-        errors++;
+    let done = 0;
+    const total = rows.length;
+    // Aggregate columns dropped across all rows so the run can warn ONCE that
+    // the schema is mid-migration — instead of one toast per row.
+    const dropped = new Set<string>();
+    const collectDropped = (cols: string[]) => cols.forEach((c) => dropped.add(c));
+
+    for (let i = 0; i < total; i += CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + CHUNK_SIZE);
+      const settled = await Promise.allSettled(
+        chunk.map((row) => studentsService.create(row, { onColumnsDropped: collectDropped }))
+      );
+      for (const r of settled) {
+        if (r.status === "fulfilled") success++;
+        else errors++;
       }
+      done += chunk.length;
+      onProgress?.(done, total);
     }
+    const droppedColumns = dropped.size > 0 ? [...dropped] : undefined;
 
     const batchRow = {
       file_name: fileName,
@@ -72,11 +97,12 @@ class ImportService extends BaseService {
           successRows: success,
           errorRows: errors,
           createdAt: new Date().toISOString(),
+          droppedColumns,
         };
       }
       throw AppError.fromSupabase(res.error, "student_import_batches");
     }
-    return toDomain(res.data as unknown as BatchRow);
+    return { ...toDomain(res.data as unknown as BatchRow), droppedColumns };
   }
 
   async history(): Promise<ImportBatch[]> {

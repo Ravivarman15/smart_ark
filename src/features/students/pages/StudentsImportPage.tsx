@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useAcademicYears,
@@ -20,16 +22,18 @@ import {
 import { EmptyState, StatTile, StudentPageShell } from "../components";
 import { useStudents } from "../hooks/useStudents";
 import { useCommitImport, useImportHistory } from "../hooks/useStudentImport";
-import { formatDateTime, parseCsv } from "../utils/helpers";
+import { formatDateTime, parseSpreadsheet } from "../utils";
 import { IMPORT_TEMPLATE_HEADERS } from "../utils/constants";
 import {
-  csvToImportRows,
+  buildDuplicateIndex,
+  buildImportPreview,
+  detectColumnMappings,
   distributionBy,
-  resolveAcademic,
+  rowsToImportRecords,
   type ImportLookups,
+  type ImportRecord,
   type ImportRowPreview,
 } from "../utils/importMapping";
-import type { StudentWriteInput } from "../types/student.types";
 
 // Sample template: canonical headers + one fully-mapped example row.
 const TEMPLATE =
@@ -55,6 +59,12 @@ const STATUS_STYLE: Record<ImportRowPreview["status"], string> = {
   valid: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   duplicate: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   error: "bg-red-500/15 text-red-700 dark:text-red-400",
+};
+
+const MAPPING_KIND_STYLE: Record<string, string> = {
+  student: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  academic: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+  unmapped: "bg-muted text-muted-foreground",
 };
 
 const escapeCsv = (v: unknown): string => {
@@ -89,13 +99,41 @@ interface RunResult {
   duplicates: number;
   batchDist: { name: string; count: number }[];
   standardDist: { name: string; count: number }[];
+  courseTypeDist: { name: string; count: number }[];
 }
+
+const Distribution = ({
+  title,
+  data,
+}: {
+  title: string;
+  data: { name: string; count: number }[];
+}) => (
+  <div>
+    <p className="text-xs font-medium uppercase text-muted-foreground mb-2">{title}</p>
+    <div className="space-y-1">
+      {data.length === 0 ? (
+        <span className="text-sm text-muted-foreground">—</span>
+      ) : (
+        data.map((d) => (
+          <div key={d.name} className="flex justify-between text-sm">
+            <span className="truncate pr-2">{d.name}</span>
+            <span className="font-medium">{d.count}</span>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+);
 
 const StudentsImportPage = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState("");
-  const [results, setResults] = useState<ImportRowPreview[]>([]);
+  const [parsing, setParsing] = useState(false);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [records, setRecords] = useState<ImportRecord[]>([]);
   const [lastRun, setLastRun] = useState<RunResult | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Live Setup-module data drives all name→id resolution. No hardcoded lists.
   const { data: standards = [] } = useStandards();
@@ -107,66 +145,48 @@ const StudentsImportPage = () => {
     [standards, batches, courseTypes, years]
   );
 
-  // Existing names power duplicate detection.
+  // Existing students power multi-key duplicate detection.
   const { data: existing } = useStudents({ filters: { status: "all" } });
-  const existingNames = useMemo(
-    () => new Set((existing?.rows ?? []).map((s) => s.name.trim().toLowerCase())),
+  const existingIndex = useMemo(
+    () => buildDuplicateIndex(existing?.rows ?? []),
     [existing]
   );
+
+  // Preview is derived — it auto-refreshes once Setup data / existing students
+  // finish loading after the file was picked.
+  const results = useMemo(
+    () => buildImportPreview(records, lookups, existingIndex),
+    [records, lookups, existingIndex]
+  );
+  const detected = useMemo(() => detectColumnMappings(headers), [headers]);
 
   const commitMut = useCommitImport();
   const { data: history = [] } = useImportHistory();
 
-  const process = (parsed: ReturnType<typeof csvToImportRows>): ImportRowPreview[] => {
-    const seen = new Set<string>();
-    return parsed.map(({ student: raw, academic }, i) => {
-      const name = (raw.name ?? "").trim();
-      const key = name.toLowerCase();
-      const resolved = resolveAcademic(academic, lookups);
-
-      const messages: string[] = [];
-      let status: ImportRowPreview["status"] = "valid";
-
-      if (!name) {
-        status = "error";
-        messages.push("Missing student name");
-      } else if (resolved.errors.length > 0) {
-        status = "error";
-        messages.push(...resolved.errors);
-      } else if (existingNames.has(key) || seen.has(key)) {
-        status = "duplicate";
-        messages.push("A student with this name already exists");
-      }
-      seen.add(key);
-
-      // Merge resolved ids into the write payload so commit links the student.
-      const student: StudentWriteInput = {
-        ...raw,
-        ...(resolved.standardId ? { standardId: resolved.standardId } : {}),
-        ...(resolved.batchId ? { batchId: resolved.batchId } : {}),
-        ...(resolved.courseTypeId ? { courseTypeId: resolved.courseTypeId } : {}),
-        ...(resolved.academicYearId
-          ? { academicYearId: resolved.academicYearId }
-          : {}),
-      };
-
-      return {
-        rowNumber: i + 2,
-        name: name || "(blank)",
-        status,
-        messages,
-        student,
-        resolved,
-        raw: academic,
-      };
-    });
-  };
-
   const handleFile = async (file: File) => {
     setFileName(file.name);
     setLastRun(null);
-    const text = await file.text();
-    setResults(process(csvToImportRows(parseCsv(text))));
+    setProgress(null);
+    setParsing(true);
+    try {
+      const matrix = await parseSpreadsheet(file);
+      if (matrix.length < 2) {
+        toast.error("No data rows found in the file.");
+        setHeaders([]);
+        setRecords([]);
+        return;
+      }
+      setHeaders(matrix[0] ?? []);
+      setRecords(rowsToImportRecords(matrix));
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? `Could not read file: ${e.message}` : "Could not read file"
+      );
+      setHeaders([]);
+      setRecords([]);
+    } finally {
+      setParsing(false);
+    }
   };
 
   const summary = useMemo(() => {
@@ -177,21 +197,34 @@ const StudentsImportPage = () => {
       validCount: valid.length,
       duplicate: results.filter((r) => r.status === "duplicate").length,
       error: results.filter((r) => r.status === "error").length,
+      missingAcademic: results.filter((r) => r.missingAcademic).length,
       validRows: valid.map((r) => r.student),
     };
   }, [results]);
 
+  const duplicates = useMemo(
+    () => results.filter((r) => r.status === "duplicate"),
+    [results]
+  );
+
   const reset = () => {
-    setResults([]);
+    setRecords([]);
+    setHeaders([]);
     setFileName("");
+    setProgress(null);
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const commit = () => {
     if (summary.validRows.length === 0) return;
     const validPreviews = summary.valid;
+    setProgress({ done: 0, total: summary.validRows.length });
     commitMut.mutate(
-      { rows: summary.validRows, fileName: fileName || "import.csv" },
+      {
+        rows: summary.validRows,
+        fileName: fileName || "import.csv",
+        onProgress: (done, total) => setProgress({ done, total }),
+      },
       {
         onSuccess: (batch) => {
           setLastRun({
@@ -199,13 +232,15 @@ const StudentsImportPage = () => {
             failed: batch.errorRows,
             duplicates: summary.duplicate,
             batchDist: distributionBy(validPreviews, (r) => r.resolved.batchName),
-            standardDist: distributionBy(
+            standardDist: distributionBy(validPreviews, (r) => r.resolved.standardName),
+            courseTypeDist: distributionBy(
               validPreviews,
-              (r) => r.resolved.standardName
+              (r) => r.resolved.courseTypeName
             ),
           });
           reset();
         },
+        onSettled: () => setProgress(null),
       }
     );
   };
@@ -215,21 +250,31 @@ const StudentsImportPage = () => {
   const downloadErrors = () => {
     const bad = results.filter((r) => r.status !== "valid");
     if (bad.length === 0) return;
-    const headers = [
+    const headerRow = [
       "row",
       "name",
       "status",
+      "biometric_id",
+      "enrolment_no",
+      "roll_number",
+      "mobile",
+      "email",
       "standard_name",
       "batch_name",
       "course_type_name",
       "academic_year_name",
-      "validation_reason",
+      "reason",
     ];
     const lines = bad.map((r) =>
       [
         r.rowNumber,
         r.name,
         r.status,
+        r.dedup.biometricId ?? "",
+        r.dedup.enrolmentNo ?? "",
+        r.dedup.rollNumber ?? "",
+        r.dedup.mobile ?? "",
+        r.dedup.email ?? "",
         r.raw.standardName ?? "",
         r.raw.batchName ?? "",
         r.raw.courseTypeName ?? "",
@@ -239,13 +284,18 @@ const StudentsImportPage = () => {
         .map(escapeCsv)
         .join(",")
     );
-    downloadCsv("student-import-errors.csv", [headers.join(","), ...lines].join("\n"));
+    downloadCsv("student-import-errors.csv", [headerRow.join(","), ...lines].join("\n"));
   };
+
+  const committing = commitMut.isPending;
+  const pct = progress && progress.total > 0
+    ? Math.round((progress.done / progress.total) * 100)
+    : 0;
 
   return (
     <StudentPageShell
       title="Students Import"
-      description="Bulk-import students from a CSV file with academic mapping, validation preview and duplicate detection."
+      description="Smart-import students from Excel or CSV — columns are auto-detected and mapped, academic references resolved, duplicates flagged. No manual mapping needed."
       icon={<FileSpreadsheet className="w-5 h-5" />}
       headerExtra={
         <Button variant="outline" size="sm" onClick={downloadTemplate}>
@@ -266,36 +316,38 @@ const StudentsImportPage = () => {
             <div className="glass-card p-4 space-y-2">
               <p className="flex items-center gap-2 text-sm font-medium">
                 <Info className="w-4 h-4 text-accent" />
-                Import instructions
+                How smart import works
               </p>
               <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                <li>First row must be the column headers.</li>
+                <li>Upload an Excel (.xlsx, .xls) or CSV file — the first sheet with data is used.</li>
                 <li>
-                  <code>name</code> is required. All other columns are optional.
+                  Columns are matched by name automatically (e.g. <code>Class/Batch</code>,{" "}
+                  <code>Father Mobile</code>, <code>Birth Date</code>) — no manual mapping.
                 </li>
                 <li>
-                  Academic columns link each student to Setup records by name —
-                  matching is case-insensitive and ignores spaces/dashes.
+                  Standard / Batch / Course Type / Academic Year are resolved against Setup;
+                  a known batch fills in the rest.
                 </li>
-                <li>Rows with unknown references are flagged and skipped.</li>
-                <li>Old templates without academic columns still import.</li>
+                <li>
+                  Duplicates are detected by Biometric Id, Enrolment No, GR No, Roll No,
+                  Mobile and Email.
+                </li>
+                <li><code>name</code> is required; rows with unknown academic refs are flagged.</li>
               </ul>
             </div>
             <div className="glass-card p-4 space-y-2">
               <p className="flex items-center gap-2 text-sm font-medium">
                 <FileSpreadsheet className="w-4 h-4 text-accent" />
-                Academic mapping columns
+                Live Setup data
               </p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                <span className="font-mono text-foreground">standard_name</span>
+                <span className="font-mono text-foreground">Standards</span>
                 <span className="text-muted-foreground">{standards.length} in Setup</span>
-                <span className="font-mono text-foreground">batch_name</span>
+                <span className="font-mono text-foreground">Batches</span>
                 <span className="text-muted-foreground">{batches.length} in Setup</span>
-                <span className="font-mono text-foreground">course_type_name</span>
-                <span className="text-muted-foreground">
-                  {courseTypes.length} in Setup
-                </span>
-                <span className="font-mono text-foreground">academic_year_name</span>
+                <span className="font-mono text-foreground">Course types</span>
+                <span className="text-muted-foreground">{courseTypes.length} in Setup</span>
+                <span className="font-mono text-foreground">Academic years</span>
                 <span className="text-muted-foreground">{years.length} in Setup</span>
               </div>
             </div>
@@ -304,20 +356,24 @@ const StudentsImportPage = () => {
           {/* Upload */}
           <div className="glass-card p-6 flex flex-col items-center gap-3 text-center">
             <span className="flex w-12 h-12 items-center justify-center rounded-full bg-accent/10 text-accent">
-              <Upload className="w-6 h-6" />
+              {parsing ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <Upload className="w-6 h-6" />
+              )}
             </span>
             <div>
               <p className="text-sm font-medium">
-                {fileName || "Choose a CSV file to import"}
+                {fileName || "Choose an Excel or CSV file to import"}
               </p>
               <p className="text-xs text-muted-foreground max-w-xl">
-                {IMPORT_TEMPLATE_HEADERS.join(", ")}
+                Supports .xlsx, .xls and .csv · institution exports work as-is
               </p>
             </div>
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -325,16 +381,43 @@ const StudentsImportPage = () => {
               }}
             />
             <div className="flex gap-2">
-              <Button size="sm" onClick={() => fileRef.current?.click()}>
-                Select CSV
+              <Button size="sm" onClick={() => fileRef.current?.click()} disabled={parsing}>
+                Select file
               </Button>
-              {results.length > 0 && (
+              {(records.length > 0 || headers.length > 0) && (
                 <Button size="sm" variant="outline" onClick={reset}>
                   Clear
                 </Button>
               )}
             </div>
           </div>
+
+          {/* Detected column mappings */}
+          {detected.length > 0 && (
+            <div className="glass-card p-4 space-y-2">
+              <p className="flex items-center gap-2 text-sm font-medium">
+                <CheckCircle2 className="w-4 h-4 text-accent" />
+                Detected column mappings
+                <span className="text-xs font-normal text-muted-foreground">
+                  ({detected.filter((d) => d.kind !== "unmapped").length}/{detected.length} matched)
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {detected.map((d) => (
+                  <span
+                    key={d.sourceHeader}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs ${
+                      MAPPING_KIND_STYLE[d.kind]
+                    }`}
+                    title={d.kind === "unmapped" ? "Not imported" : `→ ${d.field}`}
+                  >
+                    <span className="font-medium">{d.sourceHeader}</span>
+                    {d.field && <span className="opacity-70">→ {d.field}</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Post-import analytics */}
           {lastRun && (
@@ -352,45 +435,40 @@ const StudentsImportPage = () => {
                   tone="warning"
                 />
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <p className="text-xs font-medium uppercase text-muted-foreground mb-2">
-                    Batch distribution
-                  </p>
-                  <div className="space-y-1">
-                    {lastRun.batchDist.map((d) => (
-                      <div key={d.name} className="flex justify-between text-sm">
-                        <span>{d.name}</span>
-                        <span className="font-medium">{d.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase text-muted-foreground mb-2">
-                    Standard distribution
-                  </p>
-                  <div className="space-y-1">
-                    {lastRun.standardDist.map((d) => (
-                      <div key={d.name} className="flex justify-between text-sm">
-                        <span>{d.name}</span>
-                        <span className="font-medium">{d.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Distribution title="Standard distribution" data={lastRun.standardDist} />
+                <Distribution title="Batch distribution" data={lastRun.batchDist} />
+                <Distribution title="Course type distribution" data={lastRun.courseTypeDist} />
               </div>
             </div>
           )}
 
           {results.length > 0 && (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <StatTile label="Rows" value={summary.total} />
                 <StatTile label="Valid" value={summary.validCount} tone="positive" />
                 <StatTile label="Duplicates" value={summary.duplicate} tone="warning" />
                 <StatTile label="Errors" value={summary.error} tone="danger" />
+                <StatTile
+                  label="Missing mappings"
+                  value={summary.missingAcademic}
+                  tone="warning"
+                />
               </div>
+
+              {/* Commit progress */}
+              {committing && progress && (
+                <div className="glass-card p-4 space-y-2">
+                  <p className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Importing students…</span>
+                    <span>
+                      {progress.done}/{progress.total}
+                    </span>
+                  </p>
+                  <Progress value={pct} />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2">
                 {summary.error + summary.duplicate > 0 && (
@@ -399,17 +477,37 @@ const StudentsImportPage = () => {
                     Download failed rows
                   </Button>
                 )}
-                <Button
-                  onClick={commit}
-                  disabled={summary.validCount === 0 || commitMut.isPending}
-                >
-                  {commitMut.isPending && (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  )}
+                <Button onClick={commit} disabled={summary.validCount === 0 || committing}>
+                  {committing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Import {summary.validCount} valid student
                   {summary.validCount === 1 ? "" : "s"}
                 </Button>
               </div>
+
+              {/* Duplicate report */}
+              {duplicates.length > 0 && (
+                <div className="glass-card p-4 space-y-2 border border-amber-500/30">
+                  <p className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="w-4 h-4" />
+                    Duplicate report ({duplicates.length})
+                  </p>
+                  <div className="space-y-1 max-h-48 overflow-y-auto text-xs">
+                    {duplicates.map((r) => (
+                      <div
+                        key={r.rowNumber}
+                        className="flex justify-between gap-3 border-b border-border/30 py-1"
+                      >
+                        <span className="font-medium">
+                          Row {r.rowNumber}: {r.name}
+                        </span>
+                        <span className="text-muted-foreground text-right">
+                          {r.messages.join("; ")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="glass-card p-0 overflow-x-auto">
                 <table className="w-full text-sm">
@@ -452,9 +550,7 @@ const StudentsImportPage = () => {
                             }`}
                           >
                             {r.status === "valid" && <CheckCircle2 className="w-3 h-3" />}
-                            {r.status === "duplicate" && (
-                              <AlertTriangle className="w-3 h-3" />
-                            )}
+                            {r.status === "duplicate" && <AlertTriangle className="w-3 h-3" />}
                             {r.status === "error" && <XCircle className="w-3 h-3" />}
                             {r.status}
                           </span>
@@ -477,7 +573,7 @@ const StudentsImportPage = () => {
               <EmptyState
                 icon={<FileSpreadsheet className="w-5 h-5" />}
                 title="No imports yet"
-                description="Completed CSV imports will be logged here."
+                description="Completed imports will be logged here."
               />
             </div>
           ) : (

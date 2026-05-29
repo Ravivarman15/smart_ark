@@ -33,7 +33,8 @@
       "Bash(xargs grep -l \"import.*\\\\bUser\\\\b.*from \\\\\"@/contexts/AuthContext\\\\\"\")",
       "Bash(echo \"EXIT_CODE=$?\")",
       "PowerShell(Test-Path *)",
-      "PowerShell(winget install *)"
+      "PowerShell(winget install *)",
+      "Bash(supabase db *)"
     ]
   }
 }

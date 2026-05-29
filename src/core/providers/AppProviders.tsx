@@ -11,6 +11,7 @@ import { AttendanceRealtimeProvider } from "@/features/students/providers/Attend
 import { FeesRealtimeProvider } from "@/features/fee/providers/FeesRealtimeProvider";
 import { FinanceRealtimeProvider } from "@/features/finance/providers/FinanceRealtimeProvider";
 import { EnquiriesRealtimeProvider } from "@/features/enquiries/providers/EnquiriesRealtimeProvider";
+import { ReportsRealtimeProvider } from "@/features/reports/providers/ReportsRealtimeProvider";
 import { SetupRealtimeProvider } from "@/features/setup/providers/SetupRealtimeProvider";
 import { ThemeProvider } from "@/core/theme";
 import { QueryProvider } from "./QueryProvider";
@@ -29,6 +30,10 @@ import { QueryProvider } from "./QueryProvider";
 //   SetupRealtime       → fans Setup-table changes (standards/batches/course
 //                         types/years/subjects/taxes) out to every module's
 //                         lookup namespace so dropdowns/filters stay live.
+//   ReportsRealtime     → busts the reports/dashboard cache for the report
+//                         data sources no other provider watches (exams,
+//                         exam_results, mcq_attempts, message_queue,
+//                         profile/teacher_attendance, students)
 //   AppData             → legacy mega-context (kept during migration; will shrink)
 //   TooltipProvider     → UI primitive
 //   Toasters            → outside layout tree so they survive route changes
@@ -47,7 +52,9 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
                     <FeesRealtimeProvider>
                       <FinanceRealtimeProvider>
                         <EnquiriesRealtimeProvider>
-                          <AppDataProvider>{children}</AppDataProvider>
+                          <ReportsRealtimeProvider>
+                            <AppDataProvider>{children}</AppDataProvider>
+                          </ReportsRealtimeProvider>
                         </EnquiriesRealtimeProvider>
                       </FinanceRealtimeProvider>
                     </FeesRealtimeProvider>
