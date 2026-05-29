@@ -23,15 +23,36 @@ const toDomain = (r: DbRow): Subject => ({
   createdAt: r.created_at ?? undefined,
 });
 
+// A subjects table on a partially-migrated DB may be missing the columns added
+// by later migrations (e.g. `created_at`, `is_optional`, `is_active`,
+// `display_order`). Detect that so the list can fall back to the core columns
+// instead of failing the whole query.
+const isColumnError = (err: { message?: string } | null | undefined) => {
+  const m = (err?.message ?? "").toLowerCase();
+  return m.includes("does not exist") || m.includes("column") || m.includes("schema cache");
+};
+
+const RICH_SELECT =
+  "id, name, code, standard_id, is_optional, is_active, display_order, created_at";
+const CORE_SELECT = "id, name, code, standard_id";
+
 class SubjectsService extends BaseService {
   async list(filters?: { standardId?: string }): Promise<Subject[]> {
-    let q = this.db
-      .from("subjects")
-      .select("id, name, code, standard_id, is_optional, is_active, display_order, created_at")
-      .order("display_order", { ascending: true })
-      .order("name", { ascending: true });
-    if (filters?.standardId) q = q.eq("standard_id", filters.standardId);
-    const res = await q;
+    // `withOrder` orders by display_order (a column that may be absent on a
+    // drifted schema) — dropped in the core fallback.
+    const build = (select: string, withOrder: boolean) => {
+      let q = this.db.from("subjects").select(select);
+      if (withOrder) q = q.order("display_order", { ascending: true });
+      q = q.order("name", { ascending: true });
+      if (filters?.standardId) q = q.eq("standard_id", filters.standardId);
+      return q;
+    };
+
+    let res = await build(RICH_SELECT, true);
+    if (res.error && isColumnError(res.error)) {
+      // Older/partial schema — retry with only the columns guaranteed to exist.
+      res = await build(CORE_SELECT, false);
+    }
     if (res.error) throw AppError.fromSupabase(res.error, "subjects");
     return ((res.data ?? []) as unknown as DbRow[]).map(toDomain);
   }

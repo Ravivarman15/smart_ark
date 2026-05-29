@@ -1,19 +1,25 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- SUBJECTS — row-level security fix (Assign Subjects shows "No subjects found")
+-- SUBJECTS — schema + RLS fix (Assign Subjects: "column subjects.created_at
+-- does not exist" / "No subjects found")
 -- ────────────────────────────────────────────────────────────────────────────
 -- SYMPTOM
 --   Creating a subject succeeds ("Subject created") but the Assign Subjects list
---   stays empty. The INSERT is allowed by the write policy, but the SELECT
---   returns ZERO ROWS — the classic sign that RLS has no readable policy for the
---   current user (a missing SELECT policy filters every row out silently, no
---   error is raised, so the page just renders its empty state).
+--   fails to load with: column subjects.created_at does not exist.
 --
---   On this deployment the `subjects` table exists (so writes work) but the
---   "All read subjects" SELECT policy from 20260411070635 was never applied —
---   unlike standards / course_types, whose read policies ARE present (their
---   dropdowns populate fine).
+--   The live `subjects` table on this deployment was created from a baseline
+--   that LACKS the columns later migrations assume. 20260520 added
+--   is_optional / is_active / display_order, but `created_at` (from the original
+--   20260411070635 table definition) was never applied here. The INSERT works
+--   (it only writes columns that exist), but the list SELECT references
+--   created_at and 42703-errors out.
+--
+--   Separately, the "All read subjects" SELECT policy from 20260411070635 may
+--   never have been applied either, so this also re-asserts RLS to match the
+--   other Setup tables.
 --
 -- FIX (idempotent — safe to run repeatedly)
+--   • backfill any missing schema columns (created_at, code, standard_id,
+--     is_optional, is_active, display_order)
 --   • enable RLS
 --   • (re)create a permissive read policy for all authenticated users
 --   • (re)create a write policy for admin / management / coordinator — matching
@@ -21,6 +27,23 @@
 --     admin on /admin/setup/subjects could not manage them either)
 -- ════════════════════════════════════════════════════════════════════════════
 
+-- ── Schema backfill ─────────────────────────────────────────────────────────
+-- All ADD COLUMN IF NOT EXISTS so this is a no-op where the column already
+-- exists (e.g. is_optional/is_active/display_order from 20260520).
+alter table public.subjects
+  add column if not exists created_at    timestamptz not null default now();
+alter table public.subjects
+  add column if not exists code          text;
+alter table public.subjects
+  add column if not exists standard_id   uuid references public.standards(id) on delete set null;
+alter table public.subjects
+  add column if not exists is_optional   boolean not null default false;
+alter table public.subjects
+  add column if not exists is_active     boolean not null default true;
+alter table public.subjects
+  add column if not exists display_order integer not null default 0;
+
+-- ── RLS ─────────────────────────────────────────────────────────────────────
 alter table public.subjects enable row level security;
 
 -- Drop any prior variants by name so this converges to one known-good set.
