@@ -16,8 +16,9 @@
 // row and lets us mount it under any layout without duplication.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import { lazy, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Route } from "react-router-dom";
+import { lazyWithRetry as lazy } from "@/lib/lazyWithRetry";
 import type { Role } from "@/core/constants/roles";
 
 // ── Lazy imports ────────────────────────────────────────────────────────────

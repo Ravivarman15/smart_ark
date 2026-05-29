@@ -3,7 +3,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProviders, ProtectedRoute, AuthRedirect, type Role } from "@/core";
 import { renderSharedRoutes } from "@/core/routing/sharedRoutes";
 
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+// Resilient lazy() — retries + reloads once on a stale chunk after a deploy.
+import { lazyWithRetry as lazy } from "@/lib/lazyWithRetry";
 
 const Login = lazy(() => import("./pages/Login"));
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));

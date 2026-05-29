@@ -1,4 +1,5 @@
-import { lazy, type ComponentType } from "react";
+import { type ComponentType } from "react";
+import { lazyWithRetry as lazy } from "@/lib/lazyWithRetry";
 import type { Role } from "@/core/constants/roles";
 import type { WidgetId, WidgetMeta, WidgetSize } from "./types/dashboard.types";
 

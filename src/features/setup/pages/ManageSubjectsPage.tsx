@@ -55,9 +55,11 @@ const blank: FormState = {
 const ManageSubjectsPage = () => {
   const { data: standards = [] } = useStandards();
   const [filterStandard, setFilterStandard] = useState<string>("all");
-  const { data: subjects = [], isLoading } = useSubjects(
-    filterStandard === "all" ? undefined : { standardId: filterStandard }
-  );
+  const {
+    data: subjects = [],
+    isLoading,
+    error: subjectsError,
+  } = useSubjects(filterStandard === "all" ? undefined : { standardId: filterStandard });
   const createMut = useCreateSubject();
   const updateMut = useUpdateSubject();
   const deleteMut = useDeleteSubject();
@@ -205,12 +207,24 @@ const ManageSubjectsPage = () => {
         loading={isLoading}
         onRowClick={openEdit}
         empty={
-          <EmptyState
-            icon={<BookText className="w-5 h-5" />}
-            title="No subjects found"
-            description="Add subjects and link them to a standard to assign them to batches."
-            action={{ label: "Add Subject", onClick: openCreate }}
-          />
+          subjectsError ? (
+            <EmptyState
+              icon={<BookText className="w-5 h-5" />}
+              title="Couldn't load subjects"
+              description={
+                subjectsError instanceof Error
+                  ? subjectsError.message
+                  : "The subjects list failed to load. Check that the Subjects table and its policies are set up."
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={<BookText className="w-5 h-5" />}
+              title="No subjects found"
+              description="Add subjects and link them to a standard to assign them to batches."
+              action={{ label: "Add Subject", onClick: openCreate }}
+            />
+          )
         }
       />
 
