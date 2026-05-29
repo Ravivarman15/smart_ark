@@ -1,6 +1,7 @@
-import { BaseService, AppError } from "@/shared/services";
+import { BaseService, AppError, safeInsertWithColumnFallback } from "@/shared/services";
 import type { ImportBatch, StudentWriteInput } from "../types/student.types";
 import { studentsService } from "./students.service";
+import type { CreatedAcademicSummary } from "./academicProvision.service";
 
 type BatchRow = {
   id: string;
@@ -50,7 +51,8 @@ class ImportService extends BaseService {
     rows: StudentWriteInput[],
     fileName: string,
     importedBy?: string,
-    onProgress?: ImportProgress
+    onProgress?: ImportProgress,
+    createdAcademic?: CreatedAcademicSummary
   ): Promise<ImportBatch> {
     let success = 0;
     let errors = 0;
@@ -75,19 +77,28 @@ class ImportService extends BaseService {
     }
     const droppedColumns = dropped.size > 0 ? [...dropped] : undefined;
 
-    const batchRow = {
+    // The `created_academic` audit column (migration 20260609) may not exist yet
+    // — the column-fallback helper drops it and still records the run, so the
+    // import never fails just because the audit column is missing.
+    const batchRow: Record<string, unknown> = {
       file_name: fileName,
       total_rows: rows.length,
       success_rows: success,
       error_rows: errors,
       imported_by: importedBy ?? null,
+      ...(createdAcademic ? { created_academic: createdAcademic } : {}),
     };
-    const res = await this.db
-      .from("student_import_batches" as never)
-      .insert(batchRow as never)
-      .select("id, file_name, total_rows, success_rows, error_rows, imported_by, created_at")
-      .single();
-    if (res.error) {
+    const res = await safeInsertWithColumnFallback<BatchRow>(
+      this.db,
+      "student_import_batches",
+      batchRow,
+      {
+        returning:
+          "id, file_name, total_rows, success_rows, error_rows, imported_by, created_at",
+        label: "student_import_batches",
+      }
+    );
+    if (res.error || !res.data) {
       if (tableMissing(res.error)) {
         // History table absent — still report the run outcome to the caller.
         return {
@@ -102,7 +113,7 @@ class ImportService extends BaseService {
       }
       throw AppError.fromSupabase(res.error, "student_import_batches");
     }
-    return { ...toDomain(res.data as unknown as BatchRow), droppedColumns };
+    return { ...toDomain(res.data), droppedColumns };
   }
 
   async history(): Promise<ImportBatch[]> {

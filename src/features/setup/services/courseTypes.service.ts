@@ -25,11 +25,14 @@ class CourseTypesService extends BaseService {
     return ((res.data ?? []) as unknown as DbRow[]).map(toDomain);
   }
 
-  async create(input: CourseTypeInput): Promise<void> {
-    const { error } = await this.db
+  async create(input: CourseTypeInput): Promise<string> {
+    const res = await this.db
       .from("course_types")
-      .insert({ name: input.name, description: input.description || null } as never);
-    if (error) throw AppError.fromSupabase(error, "course_types.create");
+      .insert({ name: input.name, description: input.description || null } as never)
+      .select("id")
+      .single();
+    if (res.error) throw AppError.fromSupabase(res.error, "course_types.create");
+    return (res.data as { id: string }).id;
   }
 
   async update(id: string, input: Partial<CourseTypeInput>): Promise<void> {

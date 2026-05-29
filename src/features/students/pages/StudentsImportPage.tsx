@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -7,32 +8,48 @@ import {
   FileSpreadsheet,
   Info,
   Loader2,
+  Sparkles,
   Upload,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useAcademicYears,
   useBatches,
   useCourseTypes,
   useStandards,
 } from "@/features/setup/hooks";
+import { invalidateSetupLookups } from "@/features/setup/lib/setupSync";
 import { EmptyState, StatTile, StudentPageShell } from "../components";
 import { useStudents } from "../hooks/useStudents";
 import { useCommitImport, useImportHistory } from "../hooks/useStudentImport";
+import { academicProvisionService } from "../services/academicProvision.service";
 import { formatDateTime, parseSpreadsheet } from "../utils";
 import { IMPORT_TEMPLATE_HEADERS } from "../utils/constants";
 import {
   buildDuplicateIndex,
   buildImportPreview,
   detectColumnMappings,
+  detectMissingAcademic,
   distributionBy,
+  isMissingAcademicEmpty,
   rowsToImportRecords,
   type ImportLookups,
   type ImportRecord,
   type ImportRowPreview,
+  type MissingAcademic,
 } from "../utils/importMapping";
 
 // Sample template: canonical headers + one fully-mapped example row.
@@ -100,6 +117,8 @@ interface RunResult {
   batchDist: { name: string; count: number }[];
   standardDist: { name: string; count: number }[];
   courseTypeDist: { name: string; count: number }[];
+  /** Counts of academic master records auto-created during this run. */
+  created?: { standards: number; courseTypes: number; years: number; batches: number };
 }
 
 const Distribution = ({
@@ -128,12 +147,21 @@ const Distribution = ({
 
 const StudentsImportPage = () => {
   const fileRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  // RBAC: only management / admin may auto-create academic master records.
+  const canAutoCreate = user?.role === "management" || user?.role === "admin";
+
   const [fileName, setFileName] = useState("");
   const [parsing, setParsing] = useState(false);
   const [headers, setHeaders] = useState<string[]>([]);
   const [records, setRecords] = useState<ImportRecord[]>([]);
   const [lastRun, setLastRun] = useState<RunResult | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [autoCreate, setAutoCreate] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+  const [missing, setMissing] = useState<MissingAcademic | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Live Setup-module data drives all name→id resolution. No hardcoded lists.
   const { data: standards = [] } = useStandards();
@@ -212,37 +240,115 @@ const StudentsImportPage = () => {
     setHeaders([]);
     setFileName("");
     setProgress(null);
+    setMissing(null);
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const commit = () => {
-    if (summary.validRows.length === 0) return;
-    const validPreviews = summary.valid;
-    setProgress({ done: 0, total: summary.validRows.length });
+  // Commit valid rows. `lookupsToUse` lets the auto-create path re-resolve
+  // against the records it just created; `created` carries the counts/audit.
+  const runImport = (
+    lookupsToUse: ImportLookups,
+    created?: {
+      counts: RunResult["created"];
+      summary: Parameters<typeof commitMut.mutate>[0]["createdAcademic"];
+    }
+  ) => {
+    const finalPreviews = buildImportPreview(records, lookupsToUse, existingIndex);
+    const validPreviews = finalPreviews.filter((r) => r.status === "valid");
+    const validRows = validPreviews.map((r) => r.student);
+    const duplicateCount = finalPreviews.filter((r) => r.status === "duplicate").length;
+    if (validRows.length === 0) return;
+
+    setProgress({ done: 0, total: validRows.length });
     commitMut.mutate(
       {
-        rows: summary.validRows,
+        rows: validRows,
         fileName: fileName || "import.csv",
         onProgress: (done, total) => setProgress({ done, total }),
+        createdAcademic: created?.summary,
       },
       {
         onSuccess: (batch) => {
           setLastRun({
             imported: batch.successRows,
             failed: batch.errorRows,
-            duplicates: summary.duplicate,
+            duplicates: duplicateCount,
             batchDist: distributionBy(validPreviews, (r) => r.resolved.batchName),
             standardDist: distributionBy(validPreviews, (r) => r.resolved.standardName),
-            courseTypeDist: distributionBy(
-              validPreviews,
-              (r) => r.resolved.courseTypeName
-            ),
+            courseTypeDist: distributionBy(validPreviews, (r) => r.resolved.courseTypeName),
+            created: created?.counts,
           });
           reset();
         },
         onSettled: () => setProgress(null),
       }
     );
+  };
+
+  // Import button. With auto-create ON (and permitted), first surface any
+  // missing academic records for confirmation; otherwise import straight away.
+  const commit = () => {
+    if (summary.validRows.length === 0) return;
+    if (autoCreate && canAutoCreate) {
+      const found = detectMissingAcademic(records, lookups);
+      if (!isMissingAcademicEmpty(found)) {
+        setMissing(found);
+        setConfirmOpen(true);
+        return;
+      }
+    }
+    runImport(lookups);
+  };
+
+  // Confirmed in the dialog: create the missing records, then re-resolve + import.
+  const confirmAutoCreate = async () => {
+    if (!missing) return;
+    setConfirmOpen(false);
+    setProvisioning(true);
+    try {
+      const created = await academicProvisionService.createMissing(missing, {
+        actorProfileId: user?.profileId,
+        actorName: user?.name,
+        sourceFile: fileName,
+        existing: { standards, courseTypes, years, batches },
+      });
+      // Refresh Setup-derived caches app-wide so the new records show everywhere.
+      invalidateSetupLookups(qc);
+
+      const counts = {
+        standards: created.standards.length,
+        courseTypes: created.courseTypes.length,
+        years: created.years.length,
+        batches: created.batches.length,
+      };
+      const total = counts.standards + counts.courseTypes + counts.years + counts.batches;
+      if (total > 0) {
+        toast.success(
+          `Created ${counts.standards} standard(s), ${counts.batches} batch(es), ` +
+            `${counts.courseTypes} course type(s), ${counts.years} year(s)`
+        );
+      }
+
+      const augmented: ImportLookups = {
+        standards: [...standards, ...created.standards],
+        batches: [...batches, ...created.batches],
+        courseTypes: [...courseTypes, ...created.courseTypes],
+        years: [...years, ...created.years],
+      };
+      runImport(augmented, {
+        counts,
+        summary: academicProvisionService.summarize(
+          { actorProfileId: user?.profileId, actorName: user?.name, sourceFile: fileName, existing: { standards, courseTypes, years, batches } },
+          created
+        ),
+      });
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? `Auto-create failed: ${e.message}` : "Auto-create failed"
+      );
+    } finally {
+      setProvisioning(false);
+    }
   };
 
   const downloadTemplate = () => downloadCsv("student-import-template.csv", TEMPLATE);
@@ -287,9 +393,16 @@ const StudentsImportPage = () => {
     downloadCsv("student-import-errors.csv", [headerRow.join(","), ...lines].join("\n"));
   };
 
-  const committing = commitMut.isPending;
+  const committing = commitMut.isPending || provisioning;
   const pct = progress && progress.total > 0
     ? Math.round((progress.done / progress.total) * 100)
+    : 0;
+
+  const missingTotal = missing
+    ? missing.standards.length +
+      missing.courseTypes.length +
+      missing.years.length +
+      missing.batches.length
     : 0;
 
   return (
@@ -435,6 +548,31 @@ const StudentsImportPage = () => {
                   tone="warning"
                 />
               </div>
+              {lastRun.created &&
+                lastRun.created.standards +
+                  lastRun.created.courseTypes +
+                  lastRun.created.years +
+                  lastRun.created.batches >
+                  0 && (
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1 font-medium text-foreground">
+                      <Sparkles className="w-3.5 h-3.5 text-accent" />
+                      Created:
+                    </span>
+                    {lastRun.created.standards > 0 && (
+                      <span>{lastRun.created.standards} Standard(s)</span>
+                    )}
+                    {lastRun.created.batches > 0 && (
+                      <span>{lastRun.created.batches} Batch(es)</span>
+                    )}
+                    {lastRun.created.courseTypes > 0 && (
+                      <span>{lastRun.created.courseTypes} Course Type(s)</span>
+                    )}
+                    {lastRun.created.years > 0 && (
+                      <span>{lastRun.created.years} Academic Year(s)</span>
+                    )}
+                  </p>
+                )}
               <div className="grid gap-4 md:grid-cols-3">
                 <Distribution title="Standard distribution" data={lastRun.standardDist} />
                 <Distribution title="Batch distribution" data={lastRun.batchDist} />
@@ -470,18 +608,42 @@ const StudentsImportPage = () => {
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2">
-                {summary.error + summary.duplicate > 0 && (
-                  <Button variant="outline" size="sm" onClick={downloadErrors}>
-                    <Download className="w-3.5 h-3.5 mr-1.5" />
-                    Download failed rows
-                  </Button>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Auto-create option — management/admin only (RBAC). */}
+                {canAutoCreate ? (
+                  <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+                    <Checkbox
+                      checked={autoCreate}
+                      onCheckedChange={(v) => setAutoCreate(v === true)}
+                      disabled={committing}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium">Create Missing Academic Records</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Auto-create Standards, Batches, Course Types & Academic Years not in Setup.
+                      </span>
+                    </span>
+                  </label>
+                ) : (
+                  <span />
                 )}
-                <Button onClick={commit} disabled={summary.validCount === 0 || committing}>
-                  {committing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Import {summary.validCount} valid student
-                  {summary.validCount === 1 ? "" : "s"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {summary.error + summary.duplicate > 0 && (
+                    <Button variant="outline" size="sm" onClick={downloadErrors}>
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                      Download failed rows
+                    </Button>
+                  )}
+                  <Button onClick={commit} disabled={summary.validCount === 0 || committing}>
+                    {committing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {provisioning
+                      ? "Creating records…"
+                      : `Import ${summary.validCount} valid student${
+                          summary.validCount === 1 ? "" : "s"
+                        }`}
+                  </Button>
+                </div>
               </div>
 
               {/* Duplicate report */}
@@ -608,6 +770,62 @@ const StudentsImportPage = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Auto-create confirmation — review what will be created before importing. */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-accent" />
+              Create {missingTotal} missing academic record{missingTotal === 1 ? "" : "s"}?
+            </DialogTitle>
+            <DialogDescription>
+              These names from your file aren't in Setup yet. They'll be created and linked
+              before the students are imported. Existing records are matched and reused.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 max-h-72 overflow-y-auto">
+            {missing &&
+              (
+                [
+                  ["Standards", missing.standards],
+                  ["Batches", missing.batches],
+                  ["Course Types", missing.courseTypes],
+                  ["Academic Years", missing.years],
+                ] as const
+              ).map(([title, items]) =>
+                items.length === 0 ? null : (
+                  <div key={title}>
+                    <p className="text-xs font-medium uppercase text-muted-foreground mb-1">
+                      Missing {title} ({items.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map((it) => (
+                        <span
+                          key={it.key}
+                          className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs"
+                        >
+                          {it.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmAutoCreate} disabled={provisioning}>
+              {provisioning && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create &amp; Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </StudentPageShell>
   );
 };

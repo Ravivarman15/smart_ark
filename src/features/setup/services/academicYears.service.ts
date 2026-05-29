@@ -34,7 +34,7 @@ class AcademicYearsService extends BaseService {
     return ((res.data ?? []) as unknown as DbRow[]).map(toDomain);
   }
 
-  async create(input: AcademicYearInput): Promise<void> {
+  async create(input: AcademicYearInput): Promise<string> {
     const payload = stripUndefined({
       name: input.name,
       start_date: input.startDate,
@@ -42,8 +42,13 @@ class AcademicYearsService extends BaseService {
       is_active: input.isActive ?? true,
       is_default: input.isDefault ?? false,
     });
-    const { error } = await this.db.from("academic_years").insert(payload as never);
-    if (error) throw AppError.fromSupabase(error, "academic_years.create");
+    const res = await this.db
+      .from("academic_years")
+      .insert(payload as never)
+      .select("id")
+      .single();
+    if (res.error) throw AppError.fromSupabase(res.error, "academic_years.create");
+    return (res.data as { id: string }).id;
   }
 
   async update(id: string, input: Partial<AcademicYearInput>): Promise<void> {

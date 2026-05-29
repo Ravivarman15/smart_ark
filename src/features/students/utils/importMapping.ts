@@ -34,8 +34,12 @@ export interface ResolvedAcademic {
   courseTypeName?: string;
   academicYearId?: string;
   academicYearName?: string;
-  /** Hard errors — block the row. */
-  errors: string[];
+  /**
+   * Soft notes — a named Standard/Batch/Course Type/Year that isn't in Setup.
+   * These DO NOT block the row: the unmatched field is simply left empty and the
+   * student still imports. Only a missing student name blocks an import.
+   */
+  warnings: string[];
 }
 
 export interface ImportLookups {
@@ -65,11 +69,12 @@ export interface ImportRowPreview {
 
 // ── Matching ──────────────────────────────────────────────────────────────────
 // Alias-safe key: lowercase, strip spaces/dashes/underscores so "11 A", "11-A",
-// "11_a" and "11A" all collapse to "11a".
-const aliasKey = (s: string): string =>
+// "11_a" and "11A" all collapse to "11a". Also collapses "Grade 4 ICSE",
+// "grade 4 icse" and "Grade-4 ICSE" to "grade4icse" (duplicate-protection key).
+export const aliasKey = (s: string): string =>
   s.trim().toLowerCase().replace(/[\s\-_]+/g, "");
 
-const findByName = <T extends { id: string; name: string }>(
+export const findByName = <T extends { id: string; name: string }>(
   list: T[],
   value: string
 ): T | undefined => {
@@ -90,10 +95,11 @@ const findByName = <T extends { id: string; name: string }>(
  * Resolve the academic name refs of a single row against live Setup data.
  *
  * Rules:
- *  - standard / batch / course type / academic year must each exist when a
- *    value is supplied (a blank cell is fine — the field is optional).
- *  - a supplied batch must belong to the supplied standard (when both given
- *    and the batch is linked to a standard in Setup).
+ *  - every field is OPTIONAL. A named Standard/Batch/Course Type/Year that
+ *    isn't in Setup is recorded as a soft warning and the field is left empty —
+ *    the student still imports. (Only a missing student name blocks a row.)
+ *  - a supplied batch should belong to the supplied standard; a mismatch is a
+ *    warning, not a block.
  *  - missing values are inherited from the batch where possible (a batch knows
  *    its standard / course type / academic year), so a sheet that only names a
  *    batch still links the student to the full academic chain.
@@ -102,13 +108,13 @@ export function resolveAcademic(
   ref: AcademicRefInput,
   lookups: ImportLookups
 ): ResolvedAcademic {
-  const errors: string[] = [];
-  const out: ResolvedAcademic = { errors };
+  const warnings: string[] = [];
+  const out: ResolvedAcademic = { warnings };
 
   let standard: Standard | undefined;
   if (ref.standardName) {
     standard = findByName(lookups.standards, ref.standardName);
-    if (!standard) errors.push(`Standard "${ref.standardName}" not found in Setup`);
+    if (!standard) warnings.push(`Standard "${ref.standardName}" not in Setup — left empty`);
     else {
       out.standardId = standard.id;
       out.standardName = standard.name;
@@ -118,12 +124,12 @@ export function resolveAcademic(
   let batch: Batch | undefined;
   if (ref.batchName) {
     batch = findByName(lookups.batches, ref.batchName);
-    if (!batch) errors.push(`Batch "${ref.batchName}" not found in Setup`);
+    if (!batch) warnings.push(`Batch "${ref.batchName}" not in Setup — left empty`);
     else {
       out.batchId = batch.id;
       out.batchName = batch.name;
       if (standard && batch.standardId && batch.standardId !== standard.id) {
-        errors.push(
+        warnings.push(
           `Batch "${batch.name}" does not belong to standard "${standard.name}"`
         );
       }
@@ -137,7 +143,7 @@ export function resolveAcademic(
 
   if (ref.courseTypeName) {
     const ct = findByName(lookups.courseTypes, ref.courseTypeName);
-    if (!ct) errors.push(`Course type "${ref.courseTypeName}" not found in Setup`);
+    if (!ct) warnings.push(`Course type "${ref.courseTypeName}" not in Setup — left empty`);
     else {
       out.courseTypeId = ct.id;
       out.courseTypeName = ct.name;
@@ -149,7 +155,7 @@ export function resolveAcademic(
 
   if (ref.academicYearName) {
     const yr = findByName(lookups.years, ref.academicYearName);
-    if (!yr) errors.push(`Academic year "${ref.academicYearName}" not found in Setup`);
+    if (!yr) warnings.push(`Academic year "${ref.academicYearName}" not in Setup — left empty`);
     else {
       out.academicYearId = yr.id;
       out.academicYearName = yr.name;
@@ -297,6 +303,86 @@ export function detectColumnMappings(headers: string[]): DetectedMapping[] {
     });
 }
 
+// ── Missing-academic detection (for optional auto-creation) ──────────────────
+export interface MissingAcademicEntry {
+  /** Normalised dedup key — "Grade 4 ICSE"/"grade-4 icse" collapse to one. */
+  key: string;
+  /** First-seen display name, used verbatim when creating the record. */
+  name: string;
+}
+export interface MissingBatchEntry extends MissingAcademicEntry {
+  /** The standard/course-type/year named on the same row, for relationship wiring. */
+  standardName?: string;
+  courseTypeName?: string;
+  academicYearName?: string;
+}
+export interface MissingAcademic {
+  standards: MissingAcademicEntry[];
+  courseTypes: MissingAcademicEntry[];
+  years: MissingAcademicEntry[];
+  batches: MissingBatchEntry[];
+}
+
+export const isMissingAcademicEmpty = (m: MissingAcademic): boolean =>
+  m.standards.length === 0 &&
+  m.courseTypes.length === 0 &&
+  m.years.length === 0 &&
+  m.batches.length === 0;
+
+/**
+ * Scan parsed records for Standard / Course Type / Academic Year / Batch names
+ * that don't resolve against live Setup data — the candidates for optional
+ * auto-creation. Deduped by normalised alias key, so "Grade 4 ICSE" appears
+ * once however many rows (or spellings) reference it. Each missing batch also
+ * carries the standard/course-type/year named alongside it so the creator can
+ * wire the relationship.
+ */
+export function detectMissingAcademic(
+  records: ImportRecord[],
+  lookups: ImportLookups
+): MissingAcademic {
+  const standards = new Map<string, MissingAcademicEntry>();
+  const courseTypes = new Map<string, MissingAcademicEntry>();
+  const years = new Map<string, MissingAcademicEntry>();
+  const batches = new Map<string, MissingBatchEntry>();
+
+  const note = (
+    map: Map<string, MissingAcademicEntry>,
+    list: { id: string; name: string }[],
+    value?: string
+  ) => {
+    if (!value) return;
+    if (findByName(list, value)) return; // already exists in Setup
+    const key = aliasKey(value);
+    if (key && !map.has(key)) map.set(key, { key, name: value.trim() });
+  };
+
+  for (const { academic: a } of records) {
+    note(standards, lookups.standards, a.standardName);
+    note(courseTypes, lookups.courseTypes, a.courseTypeName);
+    note(years, lookups.years, a.academicYearName);
+    if (a.batchName && !findByName(lookups.batches, a.batchName)) {
+      const key = aliasKey(a.batchName);
+      if (key && !batches.has(key)) {
+        batches.set(key, {
+          key,
+          name: a.batchName.trim(),
+          standardName: a.standardName,
+          courseTypeName: a.courseTypeName,
+          academicYearName: a.academicYearName,
+        });
+      }
+    }
+  }
+
+  return {
+    standards: [...standards.values()],
+    courseTypes: [...courseTypes.values()],
+    years: [...years.values()],
+    batches: [...batches.values()],
+  };
+}
+
 // ── Sheet extraction ──────────────────────────────────────────────────────────
 export interface ImportRecord {
   student: StudentWriteInput;
@@ -360,17 +446,17 @@ export function buildImportPreview(
   return records.map((rec, i) => {
     const name = (rec.student.name ?? "").trim();
     const resolved = resolveAcademic(rec.academic, lookups);
-    const warnings = rowWarnings(rec.student);
-    const missingAcademic = resolved.errors.some((e) => /not found/i.test(e));
+    // Unresolved academic refs + bad mobile/email are all soft warnings: they
+    // never block a row, the unmatched fields are just left empty.
+    const warnings = [...resolved.warnings, ...rowWarnings(rec.student)];
+    const missingAcademic = resolved.warnings.length > 0;
     const messages: string[] = [];
     let status: ImportRowStatus = "valid";
 
+    // Only a missing student name is a hard error.
     if (!name) {
       status = "error";
       messages.push("Missing student name");
-    } else if (resolved.errors.length > 0) {
-      status = "error";
-      messages.push(...resolved.errors);
     } else {
       const dup = findDuplicate(rec.dedup, existing, seen);
       if (dup) {

@@ -26,10 +26,11 @@ class StandardsService extends BaseService {
     return ((res.data ?? []) as unknown as DbRow[]).map(toDomain);
   }
 
-  async create(input: StandardInput): Promise<void> {
+  async create(input: StandardInput): Promise<string> {
     const payload = { name: input.name, display_order: input.displayOrder ?? 0 };
-    const { error } = await this.db.from("standards").insert(payload as never);
-    if (error) throw AppError.fromSupabase(error, "standards.create");
+    const res = await this.db.from("standards").insert(payload as never).select("id").single();
+    if (res.error) throw AppError.fromSupabase(res.error, "standards.create");
+    return (res.data as { id: string }).id;
   }
 
   async update(id: string, input: Partial<StandardInput>): Promise<void> {

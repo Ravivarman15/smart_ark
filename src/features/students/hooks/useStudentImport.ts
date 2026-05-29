@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { importService } from "../services/import.service";
+import type { CreatedAcademicSummary } from "../services/academicProvision.service";
 import { STUDENT_MIGRATION_WARNING } from "../utils/constants";
 import type { StudentWriteInput } from "../types/student.types";
 
@@ -20,11 +21,14 @@ export const useCommitImport = () => {
       rows,
       fileName,
       onProgress,
+      createdAcademic,
     }: {
       rows: StudentWriteInput[];
       fileName: string;
       onProgress?: (done: number, total: number) => void;
-    }) => importService.commit(rows, fileName, user?.profileId, onProgress),
+      createdAcademic?: CreatedAcademicSummary;
+    }) =>
+      importService.commit(rows, fileName, user?.profileId, onProgress, createdAcademic),
     onSuccess: (batch) => {
       qc.invalidateQueries({ queryKey: queryKeys.students.all });
       toast.success(
