@@ -52,10 +52,13 @@ const A = (
 
 export const ACTION_CATALOG: ActionDef[] = [
   // ── Student ────────────────────────────────────────────────────────────
+  A("student.view",          "View student profile",      "edit",    "student.manage",       "student.control"),
   A("student.create",        "Create student",            "create",  "student.add",          "student.control"),
   A("student.edit",          "Edit student",              "edit",    "student.manage",       "student.control"),
   A("student.delete",        "Delete student",            "delete",  "student.manage",       "student.control"),
   A("student.export",        "Export student data",       "export",  "student.manage"),
+  A("student.download_record",
+                              "Download student record",   "export",  "student.manage"),
   A("student.assign_batch",  "Assign batch",              "assign",  "student.assign_batch"),
   A("student.year_transfer", "Year transfer",             "edit",    "student.year_transfer"),
   A("student.untransfer",    "Untransfer student",        "edit",    "student.untransfer"),

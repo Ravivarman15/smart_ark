@@ -8,3 +8,4 @@ export { RiskBadge, StatusBadge } from "./RiskBadge";
 export { StudentAvatar } from "./StudentAvatar";
 export { StatTile } from "./StatTile";
 export { RowActions } from "./RowActions";
+export { StudentProfileDrawer } from "./StudentProfileDrawer";
