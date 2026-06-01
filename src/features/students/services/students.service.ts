@@ -337,6 +337,28 @@ class StudentsService extends BaseService {
       .eq("id", id);
     if (error) throw AppError.fromSupabase(error, "students.reactivate");
   }
+
+  /**
+   * Hard-delete a student record (cascade via FK actions retrofitted in
+   * 20260611_students_delete_cascade.sql). On a pre-migration DB the linked
+   * rows still block the delete with 23503 — surface a clear message so ops
+   * know which migration to apply.
+   */
+  async remove(id: string): Promise<void> {
+    const { error } = await this.db.from("students").delete().eq("id", id);
+    if (!error) return;
+    // 23503 = foreign_key_violation. The cascade migration has not been applied
+    // (or a newer table references students(id) on NO ACTION).
+    const code = (error as { code?: string }).code;
+    if (code === "23503") {
+      throw AppError.validation(
+        "This student has linked records (attendance, fees, exams, documents). " +
+          "Apply 20260611_students_delete_cascade.sql to enable permanent deletion, " +
+          "or deactivate the student instead.",
+      );
+    }
+    throw AppError.fromSupabase(error, "students.remove");
+  }
 }
 
 export const studentsService = new StudentsService();

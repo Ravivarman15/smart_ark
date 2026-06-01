@@ -13,6 +13,7 @@ import {
   RotateCcw,
   Save,
   Search,
+  Trash,
   Trash2,
   Users,
 } from "lucide-react";
@@ -61,6 +62,7 @@ import {
 } from "../components";
 import { useStudents } from "../hooks/useStudents";
 import { useDeactivateStudent } from "../hooks/useDeactivateStudent";
+import { useDeleteStudent } from "../hooks/useDeleteStudent";
 import { useUpdateStudent } from "../hooks/useUpdateStudent";
 import {
   useAcademicYearOptions,
@@ -101,6 +103,7 @@ const ManageStudentsPage = () => {
 
   const canExport = canDo("student.export");
   const canDownloadRecord = canDo("student.download_record");
+  const canDelete = canDo("student.delete");
   // Teachers see only their campus's students (their "assigned" scope); admin /
   // management / coordinator see everyone. Enforced server-side below.
   const teacherCampusScope = user?.role === "teacher" ? user.campusId : undefined;
@@ -111,6 +114,7 @@ const ManageStudentsPage = () => {
   const [page, setPage] = useState(1);
   const [drawerStudent, setDrawerStudent] = useState<Student | null>(null);
   const [pendingToggle, setPendingToggle] = useState<Student | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Student | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
   const [presetName, setPresetName] = useState("");
 
@@ -119,6 +123,7 @@ const ManageStudentsPage = () => {
   const { data: courseTypes = [] } = useCourseTypeOptions();
   const { data: academicYears = [] } = useAcademicYearOptions();
   const deactivate = useDeactivateStudent();
+  const deleteStudent = useDeleteStudent();
   const updateStudent = useUpdateStudent();
   const { presets, savePreset, deletePreset } = useStudentFilterPresets();
 
@@ -212,6 +217,23 @@ const ManageStudentsPage = () => {
     if (pendingToggle.active) deactivate.mutate(pendingToggle.id);
     else updateStudent.mutate({ id: pendingToggle.id, updates: { active: true } });
     setPendingToggle(null);
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    deleteStudent.mutate(id, {
+      onSuccess: () => {
+        if (drawerStudent?.id === id) setDrawerStudent(null);
+        setSelected((prev) => {
+          if (!prev.has(id)) return prev;
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      },
+    });
+    setPendingDelete(null);
   };
 
   // ── presets ────────────────────────────────────────────────────────────────
@@ -309,6 +331,18 @@ const ManageStudentsPage = () => {
             {s.active ? <Power className="w-3 h-3" /> : <RotateCcw className="w-3 h-3" />}
             {s.active ? "Deactivate" : "Restore"}
           </Button>
+          {canDelete && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setPendingDelete(s)}
+              title="Permanently delete this student and all linked records"
+            >
+              <Trash className="w-3 h-3" />
+              Delete
+            </Button>
+          )}
         </div>
       ),
     },
@@ -618,6 +652,20 @@ const ManageStudentsPage = () => {
         confirmLabel={pendingToggle?.active ? "Deactivate" : "Restore"}
         destructive={!!pendingToggle?.active}
         onConfirm={confirmToggle}
+      />
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => !o && setPendingDelete(null)}
+        title={`Permanently delete ${pendingDelete?.name ?? "student"}?`}
+        description={
+          "This removes the student and ALL linked records — attendance, fees, " +
+          "exam results, documents, leave requests, transfers and messages. " +
+          "This cannot be undone. Use Deactivate if you only want to hide them."
+        }
+        confirmLabel="Delete permanently"
+        destructive
+        onConfirm={confirmDelete}
       />
 
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
