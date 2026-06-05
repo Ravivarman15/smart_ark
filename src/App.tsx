@@ -77,6 +77,40 @@ const StudentFeedbackPage = lazy(() => import("./features/students/pages/Student
 const AppAccessRightsPage = lazy(() => import("./features/students/pages/AppAccessRightsPage"));
 const AttendanceHistoryPage = lazy(() => import("./features/students/pages/AttendanceHistoryPage"));
 
+// Attendance module pages (feature-based — src/features/attendance)
+const AttDashboard = lazy(() => import("./features/attendance/pages/AttendanceDashboardPage"));
+const AttMarkStudent = lazy(() => import("./features/attendance/pages/MarkStudentAttendancePage"));
+const AttStudentRegister = lazy(() => import("./features/attendance/pages/StudentRegisterPage"));
+const AttBackdated = lazy(() => import("./features/attendance/pages/BackdatedAttendancePage"));
+const AttStudentCorrections = lazy(() => import("./features/attendance/pages/StudentCorrectionsPage"));
+const AttStaffManual = lazy(() => import("./features/attendance/pages/StaffManualAttendancePage"));
+const AttStaffCheckInOut = lazy(() => import("./features/attendance/pages/StaffCheckInOutPage"));
+const AttWorkHours = lazy(() => import("./features/attendance/pages/WorkHoursDashboardPage"));
+const AttStaffRegister = lazy(() => import("./features/attendance/pages/StaffRegisterPage"));
+const AttStaffCorrections = lazy(() => import("./features/attendance/pages/StaffCorrectionsPage"));
+const AttStudentImport = lazy(() => import("./features/attendance/pages/StudentAttendanceImportPage"));
+const AttStaffImport = lazy(() => import("./features/attendance/pages/StaffAttendanceImportPage"));
+const AttSettings = lazy(() => import("./features/attendance/pages/AttendanceSettingsPage"));
+// Attendance analytics (Phase 3 — src/features/attendance/analytics)
+const AttStudentAnalytics = lazy(() => import("./features/attendance/analytics/pages/StudentAnalyticsPage"));
+const AttStaffAnalytics = lazy(() => import("./features/attendance/analytics/pages/StaffAnalyticsPage"));
+const AttTrends = lazy(() => import("./features/attendance/analytics/pages/AttendanceTrendsPage"));
+const AttRisk = lazy(() => import("./features/attendance/analytics/pages/RiskAnalysisPage"));
+const AttWorkHoursAnalytics = lazy(() => import("./features/attendance/analytics/pages/WorkHoursAnalyticsPage"));
+const AttReports = lazy(() => import("./features/attendance/analytics/pages/AttendanceReportsPage"));
+// Attendance governance (Phase 5 — src/features/attendance/governance)
+const AttCompliance = lazy(() => import("./features/attendance/governance/pages/ComplianceDashboardPage"));
+const AttLocks = lazy(() => import("./features/attendance/governance/pages/LockPeriodsPage"));
+const AttClosing = lazy(() => import("./features/attendance/governance/pages/MonthlyClosingPage"));
+const AttReopen = lazy(() => import("./features/attendance/governance/pages/ReopenRequestsPage"));
+const AttApprovals = lazy(() => import("./features/attendance/governance/pages/ApprovalQueuePage"));
+const AttAuditCenter = lazy(() => import("./features/attendance/governance/pages/AuditCenterPage"));
+const AttHealth = lazy(() => import("./features/attendance/governance/pages/AttendanceHealthPage"));
+// Attendance automation (Phase 5 — src/features/attendance/automation)
+const AttAutomation = lazy(() => import("./features/attendance/automation/pages/AutomationCenterPage"));
+const AttStudentAlerts = lazy(() => import("./features/attendance/automation/pages/StudentAlertsPage"));
+const AttStaffAlerts = lazy(() => import("./features/attendance/automation/pages/StaffAlertsPage"));
+
 // Reports & Analytics module pages (feature-based — src/features/reports)
 const RptTimetable = lazy(() => import("./features/reports/pages/TimetableReportPage"));
 const RptStudentInquiry = lazy(() => import("./features/reports/pages/StudentInquiryReportPage"));
@@ -245,6 +279,44 @@ const studentRoutes = () => (
   </>
 );
 
+// Attendance module child routes — identical under /admin, /management and
+// /coordinator. RBAC submodule gates in menu.config decide visibility per role.
+const attendanceRoutes = () => (
+  <>
+    <Route path="attendance/dashboard" element={<AttDashboard />} />
+    <Route path="attendance/students/mark" element={<AttMarkStudent />} />
+    <Route path="attendance/students/register" element={<AttStudentRegister />} />
+    <Route path="attendance/students/backdated" element={<AttBackdated />} />
+    <Route path="attendance/students/corrections" element={<AttStudentCorrections />} />
+    <Route path="attendance/students/import" element={<AttStudentImport />} />
+    <Route path="attendance/staff/manual" element={<AttStaffManual />} />
+    <Route path="attendance/staff/check-in" element={<AttStaffCheckInOut />} />
+    <Route path="attendance/staff/work-hours" element={<AttWorkHours />} />
+    <Route path="attendance/staff/register" element={<AttStaffRegister />} />
+    <Route path="attendance/staff/corrections" element={<AttStaffCorrections />} />
+    <Route path="attendance/staff/import" element={<AttStaffImport />} />
+    <Route path="attendance/analytics/students" element={<AttStudentAnalytics />} />
+    <Route path="attendance/analytics/staff" element={<AttStaffAnalytics />} />
+    <Route path="attendance/analytics/trends" element={<AttTrends />} />
+    <Route path="attendance/analytics/risk" element={<AttRisk />} />
+    <Route path="attendance/analytics/work-hours" element={<AttWorkHoursAnalytics />} />
+    <Route path="attendance/reports" element={<AttReports />} />
+    {/* Governance (Phase 5) */}
+    <Route path="attendance/governance/compliance" element={<AttCompliance />} />
+    <Route path="attendance/governance/locks" element={<AttLocks />} />
+    <Route path="attendance/governance/closing" element={<AttClosing />} />
+    <Route path="attendance/governance/reopen" element={<AttReopen />} />
+    <Route path="attendance/governance/approvals" element={<AttApprovals />} />
+    <Route path="attendance/governance/audit" element={<AttAuditCenter />} />
+    <Route path="attendance/governance/health" element={<AttHealth />} />
+    {/* Automation (Phase 5) */}
+    <Route path="attendance/automation" element={<AttAutomation />} />
+    <Route path="attendance/automation/students" element={<AttStudentAlerts />} />
+    <Route path="attendance/automation/staff" element={<AttStaffAlerts />} />
+    <Route path="attendance/settings" element={<AttSettings />} />
+  </>
+);
+
 const AppRoutes: React.FC = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-4 border-accent border-t-transparent animate-spin"></div></div>}>
     <Routes>
@@ -280,6 +352,10 @@ const AppRoutes: React.FC = () => (
         <Route path="help/history/:id" element={<HelpSupportHistory />} />
         <Route path="help/feedback" element={<HelpPublicFeedbackBoard />} />
         <Route path="help/feedback/new" element={<HelpFeedback />} />
+        {/* Attendance — teacher subset (mark students, register, self check-in) */}
+        <Route path="attendance/students/mark" element={<AttMarkStudent />} />
+        <Route path="attendance/students/register" element={<AttStudentRegister />} />
+        <Route path="attendance/staff/check-in" element={<AttStaffCheckInOut />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
         {renderSharedRoutes("teacher")}
       </Route>
@@ -291,6 +367,7 @@ const AppRoutes: React.FC = () => (
         <Route path="staff" element={<StaffControl />} />
         <Route path="staff-manage" element={<ManageStaff />} />
         {studentRoutes()}
+        {attendanceRoutes()}
         <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
@@ -409,6 +486,7 @@ const AppRoutes: React.FC = () => (
         <Route path="staff-attendance" element={<TeacherCheckins />} />
         <Route path="teachers" element={<TeacherRanking />} />
         {studentRoutes()}
+        {attendanceRoutes()}
         <Route path="admin-kpi" element={<AdminKPI />} />
         <Route path="admin-checkins" element={<AdminCheckinApprovals />} />
         <Route path="academic" element={<AcademicExecution />} />
@@ -522,6 +600,7 @@ const AppRoutes: React.FC = () => (
         <Route path="enquiries" element={<EnquiryManagement />} />
         <Route path="timetable" element={<TimetableView />} />
         {studentRoutes()}
+        {attendanceRoutes()}
         {/* Help & Support module routes — feature-based */}
         <Route path="help" element={<HelpSupportRequest />} />
         <Route path="help/new" element={<HelpSupportRequest />} />

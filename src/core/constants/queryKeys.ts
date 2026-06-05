@@ -82,6 +82,38 @@ export const queryKeys = {
       [...queryKeys.attendance.all, "teacher", teacherId, date] as const,
     studentDay: (batchId: string, date: string) =>
       [...queryKeys.attendance.all, "student", batchId, date] as const,
+    // ── Enterprise attendance module ──────────────────────────────────────────
+    studentMark: (batchId: string, date: string) =>
+      [...queryKeys.attendance.all, "student-mark", batchId, date] as const,
+    studentRegister: (params?: Record<string, unknown>) =>
+      [...queryKeys.attendance.all, "student-register", params ?? {}] as const,
+    studentAudit: (params?: Record<string, unknown>) =>
+      [...queryKeys.attendance.all, "student-audit", params ?? {}] as const,
+    staffDay: (date: string) => [...queryKeys.attendance.all, "staff-day", date] as const,
+    staffMember: (staffId: string, from: string, to: string) =>
+      [...queryKeys.attendance.all, "staff-member", staffId, from, to] as const,
+    staffRange: (from: string, to: string, staffId?: string) =>
+      [...queryKeys.attendance.all, "staff-range", from, to, staffId ?? "all"] as const,
+    staffAudit: (params?: Record<string, unknown>) =>
+      [...queryKeys.attendance.all, "staff-audit", params ?? {}] as const,
+    workHours: (scope: string) => [...queryKeys.attendance.all, "work-hours", scope] as const,
+    dashboard: (date: string) => [...queryKeys.attendance.all, "dashboard", date] as const,
+    settings: () => [...queryKeys.attendance.all, "settings"] as const,
+    lookups: (kind: string) => [...queryKeys.attendance.all, "lookups", kind] as const,
+    analytics: (kind: string, params?: Record<string, unknown>) =>
+      [...queryKeys.attendance.all, "analytics", kind, params ?? {}] as const,
+    // ── Phase 5 — governance & automation ─────────────────────────────────────
+    locks: () => [...queryKeys.attendance.all, "locks"] as const,
+    closings: () => [...queryKeys.attendance.all, "closings"] as const,
+    approvals: (params?: Record<string, unknown>) =>
+      [...queryKeys.attendance.all, "approvals", params ?? {}] as const,
+    govAudit: (params?: Record<string, unknown>) =>
+      [...queryKeys.attendance.all, "gov-audit", params ?? {}] as const,
+    compliance: () => [...queryKeys.attendance.all, "compliance"] as const,
+    health: () => [...queryKeys.attendance.all, "health"] as const,
+    alerts: (params?: Record<string, unknown>) =>
+      [...queryKeys.attendance.all, "alerts", params ?? {}] as const,
+    automationRuns: () => [...queryKeys.attendance.all, "automation-runs"] as const,
   },
   exams: {
     all: ["exams"] as const,

@@ -102,6 +102,15 @@ const studentPaths = (suffix = ""): Partial<Record<Role, string>> => ({
   management: `/management/students${suffix}`,
 });
 
+// ── attendancePaths() — same Attendance route under each role layout ─────────
+// Includes teacher (teachers mark students + self check-in/out).
+const attendancePaths = (suffix = ""): Partial<Record<Role, string>> => ({
+  admin: `/admin/attendance${suffix}`,
+  coordinator: `/coordinator/attendance${suffix}`,
+  management: `/management/attendance${suffix}`,
+  teacher: `/teacher/attendance${suffix}`,
+});
+
 // ── The 15-module navigation tree ───────────────────────────────────────────
 export const NAV_CONFIG: NavGroupConfig[] = [
   // 1. Dashboard — direct link to each role's home (NOT collapsible)
@@ -230,6 +239,49 @@ export const NAV_CONFIG: NavGroupConfig[] = [
         management: "/management/students/attendance-history",
         teacher: "/teacher/students/attendance-history",
       }, all),
+    ],
+  },
+
+  // 6b. Attendance (enterprise module)
+  {
+    key: "attendance",
+    label: "Attendance",
+    icon: "CalendarCheck",
+    module: "attendance",
+    collapsible: true,
+    roles: all,
+    items: [
+      ...sub("attendance.dashboard",     "Attendance Dashboard",       attendancePaths("/dashboard"),          adminCoordMgmt),
+      ...sub("attendance.student_mark",  "Mark Student Attendance",    attendancePaths("/students/mark"),      all),
+      ...sub("attendance.student_register","Student Attendance Register", attendancePaths("/students/register"), all),
+      ...sub("attendance.student_backdated","Backdated Attendance",     attendancePaths("/students/backdated"), adminCoordMgmt),
+      ...sub("attendance.student_corrections","Attendance Corrections", attendancePaths("/students/corrections"), adminCoordMgmt),
+      ...sub("attendance.student_import","Import Student Attendance",   attendancePaths("/students/import"),     adminMgmt),
+      ...sub("attendance.staff_manual",  "Staff Manual Attendance",    attendancePaths("/staff/manual"),       adminMgmt),
+      ...sub("attendance.staff_checkin", "Check In / Check Out",       attendancePaths("/staff/check-in"),     all),
+      ...sub("attendance.staff_hours",   "Work Hours Dashboard",       attendancePaths("/staff/work-hours"),   adminMgmt),
+      ...sub("attendance.staff_register","Staff Attendance Register",  attendancePaths("/staff/register"),     adminMgmt),
+      ...sub("attendance.staff_corrections","Staff Corrections",       attendancePaths("/staff/corrections"),  adminMgmt),
+      ...sub("attendance.staff_import",  "Import Staff Attendance",    attendancePaths("/staff/import"),       adminMgmt),
+      ...sub("attendance.analytics_students","Student Analytics",      attendancePaths("/analytics/students"), adminCoordMgmt),
+      ...sub("attendance.analytics_staff","Staff Analytics",           attendancePaths("/analytics/staff"),    adminMgmt),
+      ...sub("attendance.analytics_trends","Attendance Trends",        attendancePaths("/analytics/trends"),   adminCoordMgmt),
+      ...sub("attendance.analytics_risk","Risk Analysis",              attendancePaths("/analytics/risk"),     adminCoordMgmt),
+      ...sub("attendance.analytics_hours","Work Hours Analytics",      attendancePaths("/analytics/work-hours"), adminMgmt),
+      ...sub("attendance.reports",       "Attendance Reports",         attendancePaths("/reports"),            adminCoordMgmt),
+      // Governance (Phase 5)
+      ...sub("attendance.gov_compliance","Compliance Dashboard",       attendancePaths("/governance/compliance"), adminCoordMgmt),
+      ...sub("attendance.gov_locks",     "Lock Periods",               attendancePaths("/governance/locks"),      adminMgmt),
+      ...sub("attendance.gov_closing",   "Monthly Closing",            attendancePaths("/governance/closing"),    adminMgmt),
+      ...sub("attendance.gov_reopen",    "Reopen Requests",            attendancePaths("/governance/reopen"),     adminCoordMgmt),
+      ...sub("attendance.gov_approvals", "Approval Queue",             attendancePaths("/governance/approvals"),  adminCoordMgmt),
+      ...sub("attendance.gov_audit",     "Audit Center",               attendancePaths("/governance/audit"),      adminCoordMgmt),
+      ...sub("attendance.gov_health",    "Attendance Health",          attendancePaths("/governance/health"),     adminMgmt),
+      // Automation Center (Phase 5)
+      ...sub("attendance.auto_center",   "Automation Center",          attendancePaths("/automation"),            adminMgmt),
+      ...sub("attendance.auto_students", "Attendance Alerts",          attendancePaths("/automation/students"),   adminCoordMgmt),
+      ...sub("attendance.auto_staff",    "Staff Alerts",               attendancePaths("/automation/staff"),      adminMgmt),
+      ...sub("attendance.settings",      "Attendance Settings",        attendancePaths("/settings"),           adminMgmt),
     ],
   },
 

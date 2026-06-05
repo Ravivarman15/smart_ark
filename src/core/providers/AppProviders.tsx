@@ -7,7 +7,7 @@ import { StaffRightsProvider } from "@/contexts/StaffRightsContext";
 import { AppDataProvider } from "@/contexts/AppDataContext";
 import { RbacRealtimeProvider } from "@/features/rbac/providers/RbacRealtimeProvider";
 import { HelpRealtimeProvider } from "@/features/help/providers/HelpRealtimeProvider";
-import { AttendanceRealtimeProvider } from "@/features/students/providers/AttendanceRealtimeProvider";
+import { AttendanceRealtimeProvider } from "@/features/attendance";
 import { FeesRealtimeProvider } from "@/features/fee/providers/FeesRealtimeProvider";
 import { FinanceRealtimeProvider } from "@/features/finance/providers/FinanceRealtimeProvider";
 import { EnquiriesRealtimeProvider } from "@/features/enquiries/providers/EnquiriesRealtimeProvider";
