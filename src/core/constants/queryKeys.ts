@@ -321,6 +321,13 @@ export const queryKeys = {
       [...queryKeys.communication.all, "audit", entity, id ?? "all"] as const,
     recipientCandidates: (kind: string, filter?: Record<string, unknown>) =>
       [...queryKeys.communication.all, "candidates", kind, filter ?? {}] as const,
+    credentialHealth: () => [...queryKeys.communication.all, "credential-health"] as const,
+  },
+  authAccounts: {
+    all: ["auth-accounts"] as const,
+    students: () => [...queryKeys.authAccounts.all, "students"] as const,
+    parents: () => [...queryKeys.authAccounts.all, "parents"] as const,
+    health: () => [...queryKeys.authAccounts.all, "health"] as const,
   },
   dashboard: {
     all: ["dashboard"] as const,
@@ -330,5 +337,27 @@ export const queryKeys = {
     enquiries: (scope: string) => [...queryKeys.dashboard.all, "enquiries", scope] as const,
     approvals: () => [...queryKeys.dashboard.all, "approvals"] as const,
     layout: (scope: string) => [...queryKeys.dashboard.all, "layout", scope] as const,
+  },
+  payroll: {
+    all: ["payroll"] as const,
+    roleRates: () => [...queryKeys.payroll.all, "role-rates"] as const,
+    staffRates: () => [...queryKeys.payroll.all, "staff-rates"] as const,
+    shifts: (scope?: string) =>
+      [...queryKeys.payroll.all, "shifts", scope ?? "all"] as const,
+    rules: (type?: string) =>
+      [...queryKeys.payroll.all, "rules", type ?? "all"] as const,
+    runs: (params?: Record<string, unknown>) =>
+      [...queryKeys.payroll.all, "runs", params ?? {}] as const,
+    run: (id: string) => [...queryKeys.payroll.all, "run", id] as const,
+    items: (runId: string) => [...queryKeys.payroll.all, "items", runId] as const,
+    myItems: (staffId: string) =>
+      [...queryKeys.payroll.all, "my-items", staffId] as const,
+    overview: () => [...queryKeys.payroll.all, "overview"] as const,
+    analytics: (scope: string) =>
+      [...queryKeys.payroll.all, "analytics", scope] as const,
+    audit: (entity: string, id?: string) =>
+      [...queryKeys.payroll.all, "audit", entity, id ?? "all"] as const,
+    settings: () => [...queryKeys.payroll.all, "settings"] as const,
+    lookups: (kind: string) => [...queryKeys.payroll.all, "lookups", kind] as const,
   },
 } as const;

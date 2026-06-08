@@ -30,13 +30,16 @@ export type ModuleId =
   | "staff_user"
   | "enquiry_leads"
   | "student"
+  | "attendance"
   | "live_class"
   | "fee"
   | "exam"
   | "estudy"
   | "certificate"
   | "whatsapp"
+  | "authentication"
   | "expense_income"
+  | "payroll"
   | "reports"
   | "help";
 
@@ -147,6 +150,43 @@ export const MODULE_CATALOG: ModuleDef[] = [
     ],
   },
   {
+    id: "attendance",
+    label: "Attendance",
+    icon: "UserCheck",
+    defaultRoles: all,
+    submodules: [
+      { id: "attendance.dashboard",          label: "Attendance Dashboard",        route: "/admin/attendance/dashboard" },
+      { id: "attendance.student_mark",       label: "Mark Student Attendance",     route: "/admin/attendance/students/mark" },
+      { id: "attendance.student_register",   label: "Student Attendance Register", route: "/admin/attendance/students/register" },
+      { id: "attendance.student_backdated",  label: "Backdated Attendance",        route: "/admin/attendance/students/backdated" },
+      { id: "attendance.student_corrections",label: "Attendance Corrections",      route: "/admin/attendance/students/corrections" },
+      { id: "attendance.student_import",     label: "Import Student Attendance",   route: "/admin/attendance/students/import" },
+      { id: "attendance.staff_manual",       label: "Staff Manual Attendance",     route: "/admin/attendance/staff/manual" },
+      { id: "attendance.staff_checkin",      label: "Check In / Check Out",        route: "/admin/attendance/staff/check-in" },
+      { id: "attendance.staff_hours",        label: "Work Hours Dashboard",        route: "/admin/attendance/staff/work-hours" },
+      { id: "attendance.staff_register",     label: "Staff Attendance Register",   route: "/admin/attendance/staff/register" },
+      { id: "attendance.staff_corrections",  label: "Staff Corrections",           route: "/admin/attendance/staff/corrections" },
+      { id: "attendance.staff_import",       label: "Import Staff Attendance",     route: "/admin/attendance/staff/import" },
+      { id: "attendance.analytics_students", label: "Student Analytics",           route: "/admin/attendance/analytics/students" },
+      { id: "attendance.analytics_staff",    label: "Staff Analytics",             route: "/admin/attendance/analytics/staff" },
+      { id: "attendance.analytics_trends",   label: "Attendance Trends",           route: "/admin/attendance/analytics/trends" },
+      { id: "attendance.analytics_risk",     label: "Risk Analysis",               route: "/admin/attendance/analytics/risk" },
+      { id: "attendance.analytics_hours",    label: "Work Hours Analytics",        route: "/admin/attendance/analytics/work-hours" },
+      { id: "attendance.reports",            label: "Attendance Reports",          route: "/admin/attendance/reports" },
+      { id: "attendance.gov_compliance",     label: "Compliance Dashboard",        route: "/admin/attendance/governance/compliance" },
+      { id: "attendance.gov_locks",          label: "Lock Periods",                route: "/admin/attendance/governance/locks" },
+      { id: "attendance.gov_closing",        label: "Monthly Closing",             route: "/admin/attendance/governance/closing" },
+      { id: "attendance.gov_reopen",         label: "Reopen Requests",             route: "/admin/attendance/governance/reopen" },
+      { id: "attendance.gov_approvals",      label: "Approval Queue",              route: "/admin/attendance/governance/approvals" },
+      { id: "attendance.gov_audit",          label: "Audit Center",                route: "/admin/attendance/governance/audit" },
+      { id: "attendance.gov_health",         label: "Attendance Health",           route: "/admin/attendance/governance/health" },
+      { id: "attendance.auto_center",        label: "Automation Center",           route: "/admin/attendance/automation" },
+      { id: "attendance.auto_students",      label: "Attendance Alerts",           route: "/admin/attendance/automation/students" },
+      { id: "attendance.auto_staff",         label: "Staff Alerts",                route: "/admin/attendance/automation/staff" },
+      { id: "attendance.settings",           label: "Attendance Settings",         route: "/admin/attendance/settings" },
+    ],
+  },
+  {
     id: "live_class",
     label: "Live Class",
     icon: "BookOpen",
@@ -221,6 +261,20 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "whatsapp.send_fee_due",       label: "Send Fee Due Reminder SMS" },
       { id: "whatsapp.send_absent",        label: "Send Today Absent Attendance SMS" },
       { id: "whatsapp.send_birthday",      label: "Send Student Birthday SMS" },
+      { id: "whatsapp.credential_health",  label: "Credential Health" },
+    ],
+  },
+  {
+    id: "authentication",
+    label: "Authentication",
+    icon: "ShieldCheck",
+    defaultRoles: mgmtAdmin,
+    submodules: [
+      { id: "authentication.account_health",  label: "Account Health" },
+      { id: "authentication.student_accounts", label: "Student Accounts" },
+      { id: "authentication.parent_accounts",  label: "Parent Accounts" },
+      { id: "authentication.credential_repair", label: "Credential Repair" },
+      { id: "authentication.login_audit",      label: "Login Audit" },
     ],
   },
   {
@@ -237,6 +291,25 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "income.manage_type",   label: "Manage Income Type" },
       { id: "income.add",           label: "Add Income",          route: "/admin/expenses",                 legacyAction: "expense.manage" },
       { id: "income.manage",        label: "Manage Income",       route: "/admin/expenses",                 legacyAction: "expense.manage" },
+    ],
+  },
+  {
+    id: "payroll",
+    label: "Payroll",
+    icon: "Wallet",
+    defaultRoles: mgmtAdmin,
+    submodules: [
+      { id: "payroll.dashboard",   label: "Payroll Dashboard", route: "/admin/payroll/dashboard",          legacyAction: "payroll.dashboard" },
+      { id: "payroll.role_rates",  label: "Role Wise Salary",  route: "/admin/payroll/config/role-rates",  legacyAction: "payroll.salary_configure" },
+      { id: "payroll.staff_rates", label: "Staff Wise Salary", route: "/admin/payroll/config/staff-rates", legacyAction: "payroll.salary_configure" },
+      { id: "payroll.shifts",      label: "Shift Assignment",  route: "/admin/payroll/config/shifts",      legacyAction: "payroll.salary_configure" },
+      { id: "payroll.rules",       label: "Overtime & Rules",  route: "/admin/payroll/config/rules",       legacyAction: "payroll.salary_configure" },
+      { id: "payroll.processing",  label: "Salary Processing", route: "/admin/payroll/processing",         legacyAction: "payroll.create" },
+      { id: "payroll.register",    label: "Salary Register",   route: "/admin/payroll/register",           legacyAction: "payroll.salary_view_all" },
+      { id: "payroll.analytics",   label: "Payroll Analytics", route: "/admin/payroll/analytics",          legacyAction: "payroll.analytics" },
+      { id: "payroll.audit",       label: "Payroll Audit",     route: "/admin/payroll/audit",              legacyAction: "payroll.audit" },
+      { id: "payroll.settings",    label: "Payroll Settings",  route: "/admin/payroll/settings",           legacyAction: "payroll.settings" },
+      { id: "payroll.my_salary",   label: "My Salary",         route: "/admin/payroll/my-salary",          legacyAction: "payroll.salary_view_self" },
     ],
   },
   {

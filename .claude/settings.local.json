@@ -34,7 +34,19 @@
       "Bash(echo \"EXIT_CODE=$?\")",
       "PowerShell(Test-Path *)",
       "PowerShell(winget install *)",
-      "Bash(supabase db *)"
+      "Bash(supabase db *)",
+      "Bash(npx vitest *)",
+      "Bash(npx eslint *)",
+      "Bash(node -e \"const i=require\\('lucide-react'\\); console.log\\('Image:', typeof i.Image, '| FileText:', typeof i.FileText\\)\")",
+      "Bash(echo \"---exit:$?---\")",
+      "Bash(grep -oE \"^[A-Z_]+=\" .env)",
+      "Bash(ls supabase/.temp)",
+      "Bash(cat supabase/.temp/project-ref)",
+      "Bash(docker --version)",
+      "Bash(npx supabase *)",
+      "Bash(awk '/CREATE TABLE IF NOT EXISTS public.staff_attendance\\\\b/,/\\\\\\);/' supabase/migrations/20260612_attendance_module.sql)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(echo \"build-exit:$?\")"
     ]
   }
 }

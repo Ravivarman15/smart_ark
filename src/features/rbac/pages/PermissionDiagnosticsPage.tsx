@@ -46,6 +46,8 @@ import {
   SHARED_ROUTES,
 } from "@/core/routing/sharedRoutes";
 import { SUBMODULES_BY_ID } from "@/features/rbac";
+import { auditRbacRegistry, type RegistryFinding } from "../utils/registryAudit";
+import { auditRbacRoutes, type RouteFinding } from "../utils/rbacRouteAudit";
 import {
   EffectiveAccessPanel,
   resolveAccess,
@@ -261,6 +263,10 @@ export const PermissionDiagnosticsPage = () => {
         />
       )}
 
+      <RegistryConsistencyPanel />
+
+      <RouteConsistencyPanel />
+
       <ValidationPanel
         findings={activeValidation.findings}
         ok={activeValidation.ok}
@@ -284,6 +290,167 @@ export const PermissionDiagnosticsPage = () => {
         <a href="/management/permissions">Back to permission matrix →</a>
       </Button>
     </div>
+  );
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// RegistryConsistencyPanel — static cross-check of the four RBAC registries
+// (catalog · actionCatalog · menu.config · StaffRightsContext). Surfaces the
+// drift class that hid Attendance & Payroll from Manage Staff Role: a module/
+// submodule/action wired into nav but never registered in the catalogs. Mirrors
+// the build-gating registryAudit.test.ts so operators see the same verdict CI does.
+// ──────────────────────────────────────────────────────────────────────────────
+
+const RegistryConsistencyPanel = () => {
+  const report = useMemo(() => auditRbacRegistry(), []);
+
+  return (
+    <section className="space-y-2 rounded-lg border border-border/60 bg-card/40 p-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-indigo-600" />
+          Registry consistency
+          <Badge
+            variant="outline"
+            className={
+              report.ok
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+                : "border-rose-500/40 bg-rose-500/10 text-rose-700"
+            }
+          >
+            {report.ok ? "All modules registered" : "Drift detected"}
+          </Badge>
+        </h3>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Cross-checks navigation, the module/action catalogs and the legacy
+        context. Any new module must appear in all of them or it can't be granted
+        in Manage Staff Role — this is the check that catches that drift.
+      </p>
+
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-center">
+        <Stat label="Modules" value={report.counts.modules} />
+        <Stat label="Submodules" value={report.counts.submodules} />
+        <Stat label="Actions" value={report.counts.actions} />
+        <Stat label="Missing reg." value={report.missingRegistrations.length} />
+        <Stat label="Orphans" value={report.orphans.length} />
+        <Stat label="Duplicates" value={report.duplicates.length} />
+      </div>
+
+      {report.findings.length === 0 ? (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs flex items-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="text-foreground">
+            0 missing registrations · 0 orphan actions · 0 duplicates. Every nav
+            module/submodule/action resolves to a catalog entry.
+          </span>
+        </div>
+      ) : (
+        <ul className="space-y-1.5">
+          {report.findings.map((f: RegistryFinding) => (
+            <li
+              key={`${f.kind}:${f.id}`}
+              className={`rounded-md border p-2.5 text-xs ${
+                f.severity === "error"
+                  ? "border-rose-500/40 bg-rose-500/10"
+                  : "border-amber-500/40 bg-amber-500/10"
+              }`}
+            >
+              <p className="font-medium text-foreground flex items-center gap-1.5">
+                <AlertTriangle
+                  className={`w-3.5 h-3.5 ${f.severity === "error" ? "text-rose-600" : "text-amber-600"}`}
+                />
+                <span className="font-mono">{f.id}</span>
+                <Badge variant="outline" className="text-[9px]">
+                  {f.kind}
+                </Badge>
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{f.detail}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// RouteConsistencyPanel — cross-checks the route layer: every protected route
+// resolves to a catalogued submodule/action, every catalog submodule that
+// claims a route actually mounts, and no path double-registers. Mirrors the
+// build-gating rbacRouteAudit.test.ts.
+// ──────────────────────────────────────────────────────────────────────────────
+
+const RouteConsistencyPanel = () => {
+  const report = useMemo(() => auditRbacRoutes(), []);
+  const surfaced = report.findings.filter((f) => f.severity !== "info");
+
+  return (
+    <section className="space-y-2 rounded-lg border border-border/60 bg-card/40 p-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+          <ShieldQuestion className="w-4 h-4 text-indigo-600" />
+          Route consistency
+          <Badge
+            variant="outline"
+            className={
+              report.ok
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+                : "border-rose-500/40 bg-rose-500/10 text-rose-700"
+            }
+          >
+            {report.ok ? "Every route registered" : "Route gaps detected"}
+          </Badge>
+        </h3>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Verifies App.tsx / sharedRoutes against the RBAC catalog — flags protected
+        routes with no registration and grants that lead to a missing page.
+      </p>
+
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-center">
+        <Stat label="Total routes" value={report.counts.totalRoutes} />
+        <Stat label="Protected" value={report.counts.protectedRoutes} />
+        <Stat label="Shared reg." value={report.counts.sharedRoutes} />
+        <Stat label="Missing reg." value={report.counts.missingRegistrations} />
+        <Stat label="Orphan reg." value={report.counts.orphanRegistrations} />
+        <Stat label="Duplicates" value={report.counts.duplicateRegistrations} />
+      </div>
+
+      {surfaced.length === 0 ? (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs flex items-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="text-foreground">
+            0 missing registrations · 0 orphan grants · 0 harmful duplicates.
+            Every protected route resolves to a catalog submodule.
+          </span>
+        </div>
+      ) : (
+        <ul className="space-y-1.5">
+          {surfaced.map((f: RouteFinding) => (
+            <li
+              key={`${f.kind}:${f.id}`}
+              className={`rounded-md border p-2.5 text-xs ${
+                f.severity === "error"
+                  ? "border-rose-500/40 bg-rose-500/10"
+                  : "border-amber-500/40 bg-amber-500/10"
+              }`}
+            >
+              <p className="font-medium text-foreground flex items-center gap-1.5">
+                <AlertTriangle
+                  className={`w-3.5 h-3.5 ${f.severity === "error" ? "text-rose-600" : "text-amber-600"}`}
+                />
+                <span className="font-mono">{f.id}</span>
+                <Badge variant="outline" className="text-[9px]">
+                  {f.kind}
+                </Badge>
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{f.detail}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 };
 

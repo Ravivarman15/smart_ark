@@ -10,6 +10,19 @@ verify_jwt = true
 [functions.send-whatsapp]
 verify_jwt = true
 
+# ─── send-aisensy: WhatsApp queue drainer ────────────────────────────────────
+# Drains message_queue → AiSensy. Invoked by the app (authenticated JWT, via
+# aisensyService.dispatchViaEdge) and optionally by a cron schedule.
+# Requires secrets: AISENSY_API_KEY (optional: AISENSY_DEFAULT_CAMPAIGN).
+[functions.send-aisensy]
+verify_jwt = true
+
+# ─── aisensy-webhook: provider delivery-status callbacks ─────────────────────
+# External provider call — no user JWT. Authenticated by AISENSY_WEBHOOK_SECRET
+# (?secret= or x-webhook-secret header) checked inside the function.
+[functions.aisensy-webhook]
+verify_jwt = false
+
 # ─── end-of-day-check: client-invoked by admin, verify JWT at the edge ───────
 [functions.end-of-day-check]
 verify_jwt = true
@@ -25,6 +38,21 @@ verify_jwt = false
 
 # ─── seed-users: one-time setup, gated by management role inside the function ─
 [functions.seed-users]
+verify_jwt = true
+
+# ─── verify-credentials: PROVE login works before sending ID/password ────────
+# Resolves the auth account, rotates to a known temp password, then performs a
+# real signInWithPassword to prove the credentials log in. Only a verified
+# result lets the client send the credential WhatsApp. Gated by admin/mgmt.
+# Requires the auto-provided SUPABASE_ANON_KEY for the login proof.
+[functions.verify-credentials]
+verify_jwt = true
+
+# ─── student-parent-accounts: student/parent auth provisioning + login proof ─
+# Creates real auth.users logins for students/parents, rotates passwords, proves
+# login via signInWithPassword, manages status + parent↔student links. Gated to
+# admin/management. Uses the auto-provided SUPABASE_ANON_KEY for the login proof.
+[functions.student-parent-accounts]
 verify_jwt = true
 
 # ─── invite-staff: staff provisioning + welcome email, gated by admin/mgmt ───

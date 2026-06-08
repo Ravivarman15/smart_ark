@@ -190,6 +190,39 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     }
   ),
   def(
+    "parent_credentials",
+    "credentials",
+    "Parent app credentials",
+    "Hi {{parent_name}}, your {{branch_name}} parent portal credentials are:\nUser: {{username}}\nTemp Password: {{password}}\nYou can view all your children's attendance, fees and results.",
+    {
+      buttons: [{ type: "url", label: "Open Portal", value: "{{login_url}}" }],
+    }
+  ),
+  def(
+    "password_reset",
+    "credentials",
+    "Password reset",
+    "Hi {{name}}, your {{branch_name}} login password has been reset.\nUser: {{username}}\nNew Temp Password: {{password}}\nPlease log in and change it.",
+    {
+      buttons: [{ type: "url", label: "Login", value: "{{login_url}}" }],
+    }
+  ),
+  def(
+    "account_activated",
+    "credentials",
+    "Account activated",
+    "Hi {{name}}, your {{branch_name}} account ({{username}}) is now active. You can log in any time.",
+    {
+      buttons: [{ type: "url", label: "Login", value: "{{login_url}}" }],
+    }
+  ),
+  def(
+    "account_disabled",
+    "credentials",
+    "Account disabled",
+    "Hi {{name}}, your {{branch_name}} account ({{username}}) has been disabled. Contact the office if you believe this is a mistake.",
+  ),
+  def(
     "live_class_notification",
     "announcement",
     "Live class notification",

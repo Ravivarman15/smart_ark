@@ -1,22 +1,36 @@
 // Pure date helpers for the attendance module. NO React, NO Supabase.
 // All dates are handled as `YYYY-MM-DD` strings (local), matching the DB
 // `date` columns and the existing students-feature pages.
+//
+// IMPORTANT: format from LOCAL components (getFullYear/Month/Date), never via
+// toISOString(). toISOString() emits UTC, so in a +offset timezone (e.g. IST
+// +5:30) a local-midnight date round-tripped through UTC lands on the PREVIOUS
+// calendar day — which silently broke addDays/previousDay/dateRange/weekStart
+// by a full day. Local-component formatting is timezone-independent.
+
+/** YYYY-MM-DD from a Date's LOCAL calendar components. */
+const fmtLocal = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 /** Today as YYYY-MM-DD (local). */
-export const today = (): string => new Date().toISOString().split("T")[0];
+export const today = (): string => fmtLocal(new Date());
 
 /** N days ago as YYYY-MM-DD (local). */
 export const daysAgo = (n: number): string => {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split("T")[0];
+  return fmtLocal(d);
 };
 
 /** Shift a YYYY-MM-DD string by `delta` days. */
 export const addDays = (date: string, delta: number): string => {
   const d = new Date(`${date}T00:00:00`);
   d.setDate(d.getDate() + delta);
-  return d.toISOString().split("T")[0];
+  return fmtLocal(d);
 };
 
 /** The day before `date`. Used by "Copy Yesterday". */

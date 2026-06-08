@@ -33,6 +33,7 @@ import type {
 } from "../types/communication.types";
 import type { RenderedMessage } from "../utils/whatsappTemplates";
 import { safeInsert, safeInsertBatch } from "../utils/safeInsert";
+import { validateEnqueue, dedupeKey, dropDuplicates, normalizePhone } from "../utils/commsValidation";
 
 // FK-bearing columns on `message_queue`. Order matters — `created_by` is
 // stripped first because it's the most common offender (auth uid vs profile id).
@@ -66,10 +67,17 @@ export interface EnqueueInput {
   createdBy?: string;
 }
 
+export interface InvalidEnqueue {
+  reason: string;
+  recipient?: string;
+}
+
 export interface EnqueueResult {
   queued: number;
   skipped: number;
   ids: string[];
+  /** Recipients rejected by validation (bad/missing phone, unresolved vars). */
+  invalid: InvalidEnqueue[];
 }
 
 const toQueueMessage = (r: Record<string, unknown>): QueueMessage => ({
@@ -114,10 +122,13 @@ class AiSensyService extends BaseService {
       language: r.language,
       recipient_kind: input.recipient.kind ?? "student",
       recipient_name: input.recipient.name ?? null,
-      recipient_phone: input.recipient.phone ?? null,
+      recipient_phone: input.recipient.phone ? normalizePhone(input.recipient.phone) : null,
       recipient_student_id: input.recipient.studentId ?? null,
       campaign_id: input.campaignId ?? null,
-      payload: r.variables,
+      // Persist the fully-rendered body alongside the variables under a reserved
+      // key so the queue drainer can dispatch the exact text and the UI can
+      // preview it. `__body` is ignored by variable consumers.
+      payload: { ...r.variables, __body: r.body },
       context_type: input.contextType ?? null,
       context_id: input.contextId ?? null,
       status: "queued",
@@ -126,8 +137,21 @@ class AiSensyService extends BaseService {
     };
   }
 
-  /** Queue a single message. Returns the new row id or skipped count. */
+  /** Run a single input through validation; returns the failing reason or null. */
+  private validate(input: EnqueueInput): InvalidEnqueue | null {
+    const res = validateEnqueue({
+      channel: input.channel ?? "whatsapp",
+      rendered: input.rendered,
+      recipient: input.recipient,
+    });
+    return res.ok ? null : { reason: res.reason ?? "invalid", recipient: input.recipient.name };
+  }
+
+  /** Queue a single message. Validates first — never queues an unsendable row. */
   async enqueue(input: EnqueueInput): Promise<EnqueueResult> {
+    const bad = this.validate(input);
+    if (bad) return { queued: 0, skipped: 1, ids: [], invalid: [bad] };
+
     const res = await safeInsert<{ id?: string }>(
       this.db,
       "message_queue",
@@ -136,17 +160,47 @@ class AiSensyService extends BaseService {
       "id"
     );
     if (res.error) {
-      if (isMissingTable(res.error)) return { queued: 0, skipped: 1, ids: [] };
+      if (isMissingTable(res.error)) return { queued: 0, skipped: 1, ids: [], invalid: [] };
       throw AppError.fromSupabase(res.error, "message_queue");
     }
     const id = res.data?.id;
-    return { queued: 1, skipped: 0, ids: id ? [id] : [] };
+    return { queued: 1, skipped: 0, ids: id ? [id] : [], invalid: [] };
   }
 
-  /** Bulk queue — used by campaign launches. */
+  /**
+   * Bulk queue — used by campaign launches & every "Send X" page.
+   * Pipeline: validate each → drop in-batch duplicates → insert the survivors.
+   * Invalid recipients are reported (never silently "sent"); duplicates and
+   * invalids both count toward `skipped`.
+   */
   async enqueueBulk(inputs: EnqueueInput[]): Promise<EnqueueResult> {
-    if (inputs.length === 0) return { queued: 0, skipped: 0, ids: [] };
-    const rows = inputs.map((i) => this.buildRow(i));
+    if (inputs.length === 0) return { queued: 0, skipped: 0, ids: [], invalid: [] };
+
+    // 1. Validation gate.
+    const invalid: InvalidEnqueue[] = [];
+    const valid: EnqueueInput[] = [];
+    for (const input of inputs) {
+      const bad = this.validate(input);
+      if (bad) invalid.push(bad);
+      else valid.push(input);
+    }
+
+    // 2. De-duplicate within the batch (same template+phone+context).
+    const { unique, dropped } = dropDuplicates(valid, (i) =>
+      dedupeKey({
+        templateKey: i.rendered.templateKey,
+        phone: i.recipient.phone,
+        contextType: i.contextType,
+        contextId: i.contextId,
+      })
+    );
+
+    const baseSkipped = invalid.length + dropped;
+    if (unique.length === 0) {
+      return { queued: 0, skipped: baseSkipped, ids: [], invalid };
+    }
+
+    const rows = unique.map((i) => this.buildRow(i));
     const res = await safeInsertBatch<{ id: string }>(
       this.db,
       "message_queue",
@@ -156,12 +210,17 @@ class AiSensyService extends BaseService {
     );
     if (res.error) {
       if (isMissingTable(res.error)) {
-        return { queued: 0, skipped: inputs.length, ids: [] };
+        return { queued: 0, skipped: inputs.length, ids: [], invalid };
       }
       throw AppError.fromSupabase(res.error, "message_queue.bulk");
     }
     const ids = (res.data ?? []).map((r) => r.id);
-    return { queued: ids.length, skipped: inputs.length - ids.length, ids };
+    return {
+      queued: ids.length,
+      skipped: baseSkipped + (unique.length - ids.length),
+      ids,
+      invalid,
+    };
   }
 
   /** List recent queued messages with optional filters. */
@@ -227,7 +286,16 @@ class AiSensyService extends BaseService {
     reason?: string;
   }> {
     try {
-      const fn = (this.db as unknown as { functions?: { invoke: Function } }).functions;
+      const fn = (
+        this.db as unknown as {
+          functions?: {
+            invoke: (
+              name: string,
+              opts?: { body?: unknown }
+            ) => Promise<{ error?: { message?: string } | null }>;
+          };
+        }
+      ).functions;
       if (!fn) return { dispatched: false, reason: "no-edge-runtime" };
       const res = await fn.invoke("send-aisensy", {
         body: { campaignId: payload.campaignId, limit: payload.limit ?? 50 },

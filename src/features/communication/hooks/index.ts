@@ -5,3 +5,4 @@ export * from "./useCommsAnalytics";
 export * from "./useCommsAudit";
 export * from "./useRecipientCandidates";
 export * from "./useCommsLookups";
+export * from "./useCredentials";

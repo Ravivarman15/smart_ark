@@ -111,6 +111,12 @@ const attendancePaths = (suffix = ""): Partial<Record<Role, string>> => ({
   teacher: `/teacher/attendance${suffix}`,
 });
 
+// ── payrollPaths() — same Payroll route under admin + management layouts ──────
+const payrollPaths = (suffix = ""): Partial<Record<Role, string>> => ({
+  admin: `/admin/payroll${suffix}`,
+  management: `/management/payroll${suffix}`,
+});
+
 // ── The 15-module navigation tree ───────────────────────────────────────────
 export const NAV_CONFIG: NavGroupConfig[] = [
   // 1. Dashboard — direct link to each role's home (NOT collapsible)
@@ -416,6 +422,20 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("whatsapp.send_fee_due",        "Send Fee Due Reminder SMS",       { admin: "/admin/communication/send-fee-due-reminder",    management: "/management/communication/send-fee-due-reminder" },    adminMgmt),
       ...sub("whatsapp.send_absent",         "Send Today Absent Attendance SMS",{ admin: "/admin/communication/send-absent-attendance",   management: "/management/communication/send-absent-attendance" },   adminMgmt),
       ...sub("whatsapp.send_birthday",       "Send Student Birthday SMS",       { admin: "/admin/communication/send-birthday",            management: "/management/communication/send-birthday" },            adminMgmt),
+      ...sub("whatsapp.credential_health",   "Credential Health",               { admin: "/admin/communication/credential-health",        management: "/management/communication/credential-health" },        adminMgmt),
+    ],
+  },
+
+  // 13. Authentication (student & parent accounts)
+  {
+    key: "authentication",
+    label: "Authentication",
+    icon: "ShieldCheck",
+    module: "authentication",
+    collapsible: true,
+    roles: adminMgmt,
+    items: [
+      ...sub("authentication.account_health", "Account Health", { admin: "/admin/authentication/account-health", management: "/management/authentication/account-health" }, adminMgmt),
     ],
   },
 
@@ -436,6 +456,35 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("income.manage_type",  "Manage Income Type",  { admin: "/admin/finance/manage-income-type",  management: "/management/finance/manage-income-type" },  adminMgmt),
       ...sub("income.add",          "Add Income",          { admin: "/admin/finance/add-income",          management: "/management/finance/add-income" },          adminMgmt),
       ...sub("income.manage",       "Manage Income",       { admin: "/admin/finance/manage-income",       management: "/management/finance/manage-income" },       adminMgmt),
+    ],
+  },
+
+  // 13b. Payroll — Enterprise Payroll & Compensation
+  {
+    key: "payroll",
+    label: "Payroll",
+    icon: "Wallet",
+    module: "payroll",
+    collapsible: true,
+    roles: all,
+    items: [
+      ...sub("payroll.dashboard",   "Payroll Dashboard",   payrollPaths("/dashboard"),            adminMgmt, { action: "payroll.dashboard" }),
+      ...sub("payroll.role_rates",  "Role Wise Salary",    payrollPaths("/config/role-rates"),    adminMgmt, { action: "payroll.salary_configure" }),
+      ...sub("payroll.staff_rates", "Staff Wise Salary",   payrollPaths("/config/staff-rates"),   adminMgmt, { action: "payroll.salary_configure" }),
+      ...sub("payroll.shifts",      "Shift Assignment",    payrollPaths("/config/shifts"),        adminMgmt, { action: "payroll.salary_configure" }),
+      ...sub("payroll.rules",       "Overtime & Rules",    payrollPaths("/config/rules"),         adminMgmt, { action: "payroll.salary_configure" }),
+      ...sub("payroll.processing",  "Salary Processing",   payrollPaths("/processing"),           adminMgmt, { action: "payroll.create" }),
+      ...sub("payroll.register",    "Salary Register",     payrollPaths("/register"),             adminMgmt, { action: "payroll.salary_view_all" }),
+      ...sub("payroll.analytics",   "Payroll Analytics",   payrollPaths("/analytics"),            adminMgmt, { action: "payroll.analytics" }),
+      ...sub("payroll.audit",       "Payroll Audit",       payrollPaths("/audit"),                adminMgmt, { action: "payroll.audit" }),
+      ...sub("payroll.settings",    "Payroll Settings",    payrollPaths("/settings"),             adminMgmt, { action: "payroll.settings" }),
+      // My Salary — every role (staff self-service)
+      ...sub("payroll.my_salary",   "My Salary",           {
+        admin: "/admin/payroll/my-salary",
+        management: "/management/payroll/my-salary",
+        coordinator: "/coordinator/payroll/my-salary",
+        teacher: "/teacher/payroll/my-salary",
+      }, all, { action: "payroll.salary_view_self" }),
     ],
   },
 

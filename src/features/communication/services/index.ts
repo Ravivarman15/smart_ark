@@ -4,3 +4,4 @@ export { commsCampaignsService } from "./commsCampaigns.service";
 export { commsAuditService, type AuditInput } from "./commsAudit.service";
 export { commsAnalyticsService } from "./commsAnalytics.service";
 export { commsRecipientsService } from "./commsRecipients.service";
+export { credentialsService, type VerifyInput } from "./credentials.service";

@@ -132,6 +132,22 @@ const REALTIME_CHANNELS: RealtimeChannel[] = [
     purpose: "Live Expense & Income transactions + budget alerts",
   },
   {
+    name: "payroll-sync",
+    tables: [
+      "payroll_role_rates",
+      "payroll_staff_rates",
+      "payroll_shifts",
+      "payroll_rules",
+      "payroll_runs",
+      "payroll_items",
+      "payroll_audit",
+      "payroll_settings",
+    ],
+    publicationMigration: "20260614_payroll_module",
+    purpose:
+      "Live payroll — salary config, run generation/approval/payment, slips, analytics + self-service salary view",
+  },
+  {
     name: "enquiries-sync",
     tables: ["admission_calls"],
     purpose: "Live admission funnel — Enquiry Management updates across tabs",
@@ -247,11 +263,27 @@ const PROBES: ProbeSpec[] = [
   { module: "Comms",    table: "comms_campaign_recipients", migration: "20260527_communication_module" },
   { module: "Comms",    table: "comms_audit",         migration: "20260527_communication_module" },
 
+  // ── Authentication (student & parent accounts) ───────────────────────
+  { module: "Authentication", table: "student_auth_accounts", migration: "20260615_student_parent_auth" },
+  { module: "Authentication", table: "parent_auth_accounts",  migration: "20260615_student_parent_auth" },
+  { module: "Authentication", table: "parent_student_links",  migration: "20260615_student_parent_auth" },
+  { module: "Authentication", table: "auth_login_audit",      migration: "20260615_student_parent_auth" },
+
   // ── Help ─────────────────────────────────────────────────────────────
   { module: "Help",     table: "support_tickets",     migration: "20260528_help_module" },
   { module: "Help",     table: "support_ticket_messages", migration: "20260528_help_module" },
   { module: "Help",     table: "support_ticket_attachments", migration: "20260528_help_module" },
   { module: "Help",     table: "support_feedback",    migration: "20260528_help_module" },
+
+  // ── Payroll ──────────────────────────────────────────────────────────
+  { module: "Payroll",  table: "payroll_role_rates",  migration: "20260614_payroll_module" },
+  { module: "Payroll",  table: "payroll_staff_rates", migration: "20260614_payroll_module" },
+  { module: "Payroll",  table: "payroll_shifts",      migration: "20260614_payroll_module" },
+  { module: "Payroll",  table: "payroll_rules",       migration: "20260614_payroll_module" },
+  { module: "Payroll",  table: "payroll_runs",        column: "total_net",    migration: "20260614_payroll_module" },
+  { module: "Payroll",  table: "payroll_items",       column: "finance_txn_id", migration: "20260614_payroll_module" },
+  { module: "Payroll",  table: "payroll_audit",       migration: "20260614_payroll_module" },
+  { module: "Payroll",  table: "payroll_settings",    migration: "20260614_payroll_module" },
 
   // ── Reports ──────────────────────────────────────────────────────────
   { module: "Reports",  table: "report_presets",      migration: "20260526_reports_module" },

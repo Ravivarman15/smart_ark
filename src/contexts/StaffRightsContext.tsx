@@ -14,6 +14,8 @@ export const MODULE_KEYS = [
   "operations",
   "fee",
   "expense_income",
+  "payroll",
+  "authentication",
   "reports",
 ] as const;
 
@@ -75,6 +77,19 @@ export const ACTION_DEFS: { key: string; module: ModuleKey; label: string }[] = 
   // Expense & Income
   { key: "expense.categories", module: "expense_income",label: "Expense Types" },
   { key: "expense.manage",     module: "expense_income",label: "Expense & Income" },
+  // Payroll
+  { key: "payroll.dashboard",        module: "payroll", label: "Payroll Dashboard" },
+  { key: "payroll.salary_configure", module: "payroll", label: "Salary Configuration" },
+  { key: "payroll.create",           module: "payroll", label: "Generate Payroll" },
+  { key: "payroll.approve",          module: "payroll", label: "Approve Payroll" },
+  { key: "payroll.process",          module: "payroll", label: "Process Payments" },
+  { key: "payroll.salary_view_all",  module: "payroll", label: "View All Salaries" },
+  { key: "payroll.salary_view_self", module: "payroll", label: "View Own Salary" },
+  { key: "payroll.analytics",        module: "payroll", label: "Payroll Analytics" },
+  { key: "payroll.reports",          module: "payroll", label: "Payroll Reports" },
+  { key: "payroll.export",           module: "payroll", label: "Export Payroll" },
+  { key: "payroll.audit",            module: "payroll", label: "Payroll Audit" },
+  { key: "payroll.settings",         module: "payroll", label: "Payroll Settings" },
   // Reports
   { key: "reports.analysis",   module: "reports",       label: "Analysis Reports" },
   { key: "reports.reports",    module: "reports",       label: "Reports" },
@@ -91,6 +106,8 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   operations:     "Operations",
   fee:            "Fee",
   expense_income: "Expense & Income",
+  payroll:        "Payroll",
+  authentication: "Authentication",
   reports:        "Reports",
 };
 

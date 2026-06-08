@@ -161,6 +161,19 @@ const FinManageExpensePage = lazy(() => import("./features/finance/pages/ManageE
 const FinAddIncomePage = lazy(() => import("./features/finance/pages/AddIncomePage"));
 const FinManageIncomePage = lazy(() => import("./features/finance/pages/ManageIncomePage"));
 
+// Payroll module pages (feature-based — src/features/payroll)
+const PayDashboard = lazy(() => import("./features/payroll/pages/PayrollDashboardPage"));
+const PayRoleRates = lazy(() => import("./features/payroll/pages/RoleRatesPage"));
+const PayStaffRates = lazy(() => import("./features/payroll/pages/StaffRatesPage"));
+const PayShifts = lazy(() => import("./features/payroll/pages/ShiftsPage"));
+const PayRules = lazy(() => import("./features/payroll/pages/RulesPage"));
+const PayProcessing = lazy(() => import("./features/payroll/pages/SalaryProcessingPage"));
+const PayRegister = lazy(() => import("./features/payroll/pages/SalaryRegisterPage"));
+const PayAnalytics = lazy(() => import("./features/payroll/pages/PayrollAnalyticsPage"));
+const PayAudit = lazy(() => import("./features/payroll/pages/PayrollAuditPage"));
+const PaySettings = lazy(() => import("./features/payroll/pages/PayrollSettingsPage"));
+const PayMySalary = lazy(() => import("./features/payroll/pages/MySalaryPage"));
+
 // Exam module pages (feature-based — src/features/exams)
 const ManageManualExamPage = lazy(() => import("./features/exams/pages/ManageManualExamPage"));
 const CreateManualExamPage = lazy(() => import("./features/exams/pages/CreateManualExamPage"));
@@ -317,6 +330,24 @@ const attendanceRoutes = () => (
   </>
 );
 
+// Payroll module child routes — identical under /admin and /management. RBAC
+// module + action gates in menu.config decide visibility per role.
+const payrollRoutes = () => (
+  <>
+    <Route path="payroll/dashboard" element={<PayDashboard />} />
+    <Route path="payroll/config/role-rates" element={<PayRoleRates />} />
+    <Route path="payroll/config/staff-rates" element={<PayStaffRates />} />
+    <Route path="payroll/config/shifts" element={<PayShifts />} />
+    <Route path="payroll/config/rules" element={<PayRules />} />
+    <Route path="payroll/processing" element={<PayProcessing />} />
+    <Route path="payroll/register" element={<PayRegister />} />
+    <Route path="payroll/analytics" element={<PayAnalytics />} />
+    <Route path="payroll/audit" element={<PayAudit />} />
+    <Route path="payroll/settings" element={<PaySettings />} />
+    <Route path="payroll/my-salary" element={<PayMySalary />} />
+  </>
+);
+
 const AppRoutes: React.FC = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-4 border-accent border-t-transparent animate-spin"></div></div>}>
     <Routes>
@@ -356,6 +387,7 @@ const AppRoutes: React.FC = () => (
         <Route path="attendance/students/mark" element={<AttMarkStudent />} />
         <Route path="attendance/students/register" element={<AttStudentRegister />} />
         <Route path="attendance/staff/check-in" element={<AttStaffCheckInOut />} />
+        <Route path="payroll/my-salary" element={<PayMySalary />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
         {renderSharedRoutes("teacher")}
       </Route>
@@ -368,6 +400,7 @@ const AppRoutes: React.FC = () => (
         <Route path="staff-manage" element={<ManageStaff />} />
         {studentRoutes()}
         {attendanceRoutes()}
+        {payrollRoutes()}
         <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
@@ -487,6 +520,7 @@ const AppRoutes: React.FC = () => (
         <Route path="teachers" element={<TeacherRanking />} />
         {studentRoutes()}
         {attendanceRoutes()}
+        {payrollRoutes()}
         <Route path="admin-kpi" element={<AdminKPI />} />
         <Route path="admin-checkins" element={<AdminCheckinApprovals />} />
         <Route path="academic" element={<AcademicExecution />} />
@@ -601,6 +635,7 @@ const AppRoutes: React.FC = () => (
         <Route path="timetable" element={<TimetableView />} />
         {studentRoutes()}
         {attendanceRoutes()}
+        <Route path="payroll/my-salary" element={<PayMySalary />} />
         {/* Help & Support module routes — feature-based */}
         <Route path="help" element={<HelpSupportRequest />} />
         <Route path="help/new" element={<HelpSupportRequest />} />

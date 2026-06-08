@@ -119,6 +119,8 @@ const CommSendFeeStatus = lazy(() => import("@/features/communication/pages/Send
 const CommSendFeeDueReminder = lazy(() => import("@/features/communication/pages/SendFeeDueReminderPage"));
 const CommSendAbsent = lazy(() => import("@/features/communication/pages/SendAbsentAttendancePage"));
 const CommSendBirthday = lazy(() => import("@/features/communication/pages/SendBirthdayPage"));
+const CommCredentialHealth = lazy(() => import("@/features/communication/pages/CredentialHealthPage"));
+const AuthAccountHealth = lazy(() => import("@/features/auth-accounts/pages/AccountHealthPage"));
 
 // Finance module (Expense & Income)
 const FinAddExpenseTypePage = lazy(() => import("@/features/finance/pages/AddExpenseTypePage"));
@@ -597,6 +599,22 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     label: "Send Student Birthday SMS",
     layouts: ["coordinator", "teacher"],
   },
+  {
+    path: "communication/credential-health",
+    element: <CommCredentialHealth />,
+    submodule: "whatsapp.credential_health",
+    label: "Credential Health",
+    layouts: ["coordinator", "teacher"],
+  },
+
+  // ── Authentication (student & parent accounts) ────────────────────────
+  {
+    path: "authentication/account-health",
+    element: <AuthAccountHealth />,
+    submodule: "authentication.account_health",
+    label: "Account Health",
+    layouts: ["coordinator", "teacher"],
+  },
 
   // ── Expense & Income / Finance (coordinator + teacher) ────────────────
   {
@@ -835,10 +853,20 @@ export const getRoutePath = (layout: Role, submodule: string): string | null => 
  * Returns an array of `<Route>` elements suitable for spreading inside a
  * parent `<Route>`'s children.
  */
-export const renderSharedRoutes = (layout: Role): ReactNode[] =>
-  SHARED_ROUTES.filter((r) => matchesLayout(r, layout)).map((r) => (
-    <Route key={`${layout}:${r.path}`} path={r.path} element={r.element} />
-  ));
+export const renderSharedRoutes = (layout: Role): ReactNode[] => {
+  // Several registry rows intentionally alias one path to multiple submodules
+  // (e.g. setup/years serves both "Add Year" and "Manage Year"). Dedupe by path
+  // so we never emit two <Route> with the same path (or the same React key) —
+  // the first registration wins, which is exactly how React Router resolves it.
+  const seen = new Set<string>();
+  const nodes: ReactNode[] = [];
+  for (const r of SHARED_ROUTES) {
+    if (!matchesLayout(r, layout) || seen.has(r.path)) continue;
+    seen.add(r.path);
+    nodes.push(<Route key={`${layout}:${r.path}`} path={r.path} element={r.element} />);
+  }
+  return nodes;
+};
 
 /**
  * Diagnostics helper — full registry rows visible to a given layout. Used

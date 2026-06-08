@@ -262,6 +262,49 @@ export interface CommsAnalytics {
   byDay: Array<{ date: string; total: number; delivered: number; failed: number }>;
 }
 
+// ── Credentials ─────────────────────────────────────────────────────────────
+export type CredentialSubject = "staff" | "student";
+
+/** Result of the server-side verify-credentials gate (login proven or blocked). */
+export interface CredentialVerifyResult {
+  verified: boolean;
+  subject: CredentialSubject;
+  profileId?: string;
+  userId?: string;
+  authEmail?: string;
+  /** Login username to put in the message (staff = email). */
+  username?: string;
+  /** Login-proven temporary password to put in the message. */
+  password?: string;
+  loginVerified?: boolean;
+  loginUrl?: string;
+  /** Machine code when verified=false: no_auth_account | orphaned_auth |
+   *  login_failed | rotate_failed | no_student_auth_backend | edge_error … */
+  reason?: string;
+  message?: string;
+}
+
+/** Per-staff credential status derived client-side from profiles (no secrets). */
+export type StaffCredentialStatus = "linked" | "no_auth_link" | "no_email" | "inactive";
+
+export interface CredentialHealthSnapshot {
+  staff: {
+    total: number;
+    active: number;
+    linked: number;        // has user_id + email
+    missingAuthLink: number;
+    missingEmail: number;
+    duplicateEmails: string[];
+    issues: Array<{ profileId: string; name: string; status: StaffCredentialStatus }>;
+  };
+  student: {
+    total: number;
+    appAccessEnabled: number;
+    /** Students have no auth backend — this is always true until one is built. */
+    noAuthBackend: boolean;
+  };
+}
+
 // ── Recipient picker source ─────────────────────────────────────────────────
 export interface RecipientCandidate {
   id: string;

@@ -141,6 +141,42 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("finance.recurring.manage","Manage recurring txns",   "edit",    "expense.manage"),
   A("finance.attachment.manage","Upload / delete attachments","edit","expense.manage"),
 
+  // ── Attendance ─────────────────────────────────────────────────────────
+  A("attendance.student.mark",   "Mark student attendance",   "create",  "attendance.student_mark",       "attendance.student.mark"),
+  A("attendance.student.edit",   "Edit student attendance",   "edit",    "attendance.student_corrections","attendance.student.edit"),
+  A("attendance.student.import", "Import student attendance", "create",  "attendance.student_import",     "attendance.student.import"),
+  A("attendance.student.export", "Export student attendance", "export",  "attendance.student_register",   "attendance.student.export"),
+  A("attendance.staff.mark",     "Mark staff attendance",     "create",  "attendance.staff_manual",       "attendance.staff.mark"),
+  A("attendance.staff.edit",     "Edit staff attendance",     "edit",    "attendance.staff_corrections",  "attendance.staff.edit"),
+  A("attendance.staff.import",   "Import staff attendance",   "create",  "attendance.staff_import",       "attendance.staff.import"),
+  A("attendance.staff.export",   "Export staff attendance",   "export",  "attendance.staff_register",     "attendance.staff.export"),
+  A("attendance.analytics",      "View attendance analytics", "export",  "attendance.analytics_students", "attendance.analytics"),
+  A("attendance.reports",        "View attendance reports",   "export",  "attendance.reports",            "attendance.reports"),
+  A("attendance.lock",           "Lock attendance period",    "approve", "attendance.gov_locks",          "attendance.lock"),
+  A("attendance.unlock",         "Unlock attendance period",  "approve", "attendance.gov_locks",          "attendance.unlock"),
+  A("attendance.close",          "Close month",               "approve", "attendance.gov_closing",        "attendance.close"),
+  A("attendance.reopen",         "Reopen month",              "approve", "attendance.gov_reopen",         "attendance.reopen"),
+  A("attendance.approve",        "Approve requests",          "approve", "attendance.gov_approvals",      "attendance.approve"),
+  A("attendance.reject",         "Reject requests",           "approve", "attendance.gov_approvals",      "attendance.reject"),
+  A("attendance.audit",          "View attendance audit",     "export",  "attendance.gov_audit",          "attendance.audit"),
+  A("attendance.automation",     "Run attendance automation", "override","attendance.auto_center",        "attendance.automation"),
+  A("attendance.compliance",     "View compliance dashboard", "export",  "attendance.gov_compliance",     "attendance.compliance"),
+  A("attendance.health",         "View attendance health",    "export",  "attendance.gov_health",         "attendance.health"),
+  A("attendance.settings",       "Edit attendance settings",  "edit",    "attendance.settings",           "attendance.settings"),
+
+  // ── Payroll ────────────────────────────────────────────────────────────
+  A("payroll.salary_configure", "Configure salary structure", "edit",    "payroll.role_rates",  "payroll.salary_configure"),
+  A("payroll.create",           "Generate payroll run",       "create",  "payroll.processing",  "payroll.create"),
+  A("payroll.approve",          "Approve payroll run",        "approve", "payroll.processing",  "payroll.approve"),
+  A("payroll.process",          "Process salary payments",    "approve", "payroll.processing",  "payroll.process"),
+  A("payroll.salary_view_all",  "View all salaries",          "export",  "payroll.register",    "payroll.salary_view_all"),
+  A("payroll.salary_view_self", "View own salary",            "export",  "payroll.my_salary",   "payroll.salary_view_self"),
+  A("payroll.analytics",        "View payroll analytics",     "export",  "payroll.analytics",   "payroll.analytics"),
+  A("payroll.reports",          "View payroll reports",       "export",  "payroll.analytics",   "payroll.reports"),
+  A("payroll.export",           "Export payroll / slips",     "export",  "payroll.register",    "payroll.export"),
+  A("payroll.audit",            "View payroll audit",         "export",  "payroll.audit",       "payroll.audit"),
+  A("payroll.settings",         "Edit payroll settings",      "edit",    "payroll.settings",    "payroll.settings"),
+
   // ── Setup ──────────────────────────────────────────────────────────────
   A("setup.batch.create",    "Create class/batch",        "create",  "setup.add_batch",      "setup.batches"),
   A("setup.batch.edit",      "Edit class/batch",          "edit",    "setup.manage_batch",   "setup.batches"),
@@ -200,6 +236,16 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("comms.queue.retry",        "Retry failed messages",        "edit",    "whatsapp.send_inquiry"),
   A("comms.queue.cancel",       "Cancel queued messages",       "edit",    "whatsapp.send_inquiry"),
   A("comms.analytics.view",     "View communication analytics", "export",  "whatsapp.send_inquiry"),
+
+  // ── Authentication (student & parent accounts) ──────────────────────────
+  A("authentication.view",         "View login accounts",        "edit",   "authentication.account_health"),
+  A("authentication.create",       "Create login account",       "create", "authentication.student_accounts"),
+  A("authentication.bulk_create",  "Bulk create accounts",       "create", "authentication.student_accounts"),
+  A("authentication.edit",         "Edit / disable account",     "edit",   "authentication.student_accounts"),
+  A("authentication.verify",       "Verify account login",       "edit",   "authentication.account_health"),
+  A("authentication.repair",       "Repair credentials",         "edit",   "authentication.credential_repair"),
+  A("authentication.audit",        "View login audit",           "export", "authentication.login_audit"),
+  A("authentication.health",       "View account health",        "export", "authentication.account_health"),
 ];
 
 // ── Convenience lookups ─────────────────────────────────────────────────────

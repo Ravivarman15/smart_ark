@@ -21,18 +21,33 @@ export const useCommsQueue = (filter: {
 export const useEnqueueMessages = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (inputs: EnqueueInput[]) => aisensyService.enqueueBulk(inputs),
+    mutationFn: async (inputs: EnqueueInput[]) => {
+      const res = await aisensyService.enqueueBulk(inputs);
+      // Nudge the edge drainer to send now (best-effort; queue also drains on
+      // its own schedule). Only when something was actually queued.
+      if (res.queued > 0) await aisensyService.dispatchViaEdge({ limit: res.queued });
+      return res;
+    },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: queryKeys.communication.all });
-      const msg =
-        res.queued > 0
-          ? `Queued ${res.queued} message${res.queued === 1 ? "" : "s"}`
-          : "No messages queued";
-      const detail =
-        res.skipped > 0
-          ? ` (${res.skipped} skipped — message queue not configured yet)`
-          : "";
-      toast.success(`${msg}${detail}`);
+
+      // Surface rejected recipients — never report a clean success when some
+      // messages could not be queued (bad/missing phone, unresolved variables).
+      if (res.invalid.length > 0) {
+        const first = res.invalid[0]?.reason ?? "validation failed";
+        const more = res.invalid.length > 1 ? ` +${res.invalid.length - 1} more` : "";
+        toast.warning(`${res.invalid.length} not sent — ${first}${more}`);
+      }
+
+      if (res.queued > 0) {
+        toast.success(`Queued ${res.queued} message${res.queued === 1 ? "" : "s"} for delivery`);
+      } else if (res.invalid.length === 0) {
+        toast.info(
+          res.skipped > 0
+            ? "Nothing queued (duplicates skipped or message queue not configured)"
+            : "No messages queued"
+        );
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
