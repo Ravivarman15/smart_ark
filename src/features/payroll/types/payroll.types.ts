@@ -144,6 +144,7 @@ export type PayrollRunStatus =
   | "draft"
   | "pending"
   | "approved"
+  | "on_hold"
   | "paid"
   | "cancelled";
 

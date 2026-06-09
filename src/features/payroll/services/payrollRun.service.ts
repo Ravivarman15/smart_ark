@@ -1,7 +1,15 @@
 import { BaseService, AppError } from "@/shared/services";
 import { staffService } from "@/features/staff/services/staff.service";
 import { computePayroll, summariseRun, round2 } from "../utils/payrollCalc";
-import { canApprove, canPay, findOverlappingRun } from "../utils/payrollLifecycle";
+import {
+  canApprove,
+  canDeleteRun,
+  canEditRun,
+  canHold,
+  canPay,
+  canResume,
+  findOverlappingRun,
+} from "../utils/payrollLifecycle";
 import { payrollConfigService } from "./payrollConfig.service";
 import { payrollFinanceService } from "./payrollFinance.service";
 import type {
@@ -446,16 +454,88 @@ class PayrollRunService extends BaseService {
     return { financeTxnId };
   }
 
-  async cancel(runId: string): Promise<void> {
-    // Reverse the Finance expense if this run was already paid.
-    const detail = await this.getDetail(runId);
+  /** Read just the current status — used by the lifecycle guards below. */
+  private async currentStatus(runId: string): Promise<PayrollRunStatus> {
+    const cur = await this.runs().select("status").eq("id", runId).single();
+    return String(
+      (this.guard(cur, "payroll_run") as { status?: string }).status ?? "",
+    ) as PayrollRunStatus;
+  }
+
+  /**
+   * Reverse a run's Finance expense (if any) EXACTLY ONCE and null out the
+   * finance_txn_id on its items so a later cancel/delete can't double-reverse.
+   * The underlying delete is idempotent, but clearing the ids keeps state clean.
+   */
+  private async reverseFinance(detail: PayrollRunDetail): Promise<void> {
     const txnId = detail.items.find((i) => i.financeTxnId)?.financeTxnId;
-    if (txnId) await payrollFinanceService.removeRunExpense(txnId);
+    if (!txnId) return;
+    await payrollFinanceService.removeRunExpense(txnId);
+    await this.items()
+      .update({ finance_txn_id: null } as never)
+      .eq("run_id", detail.id)
+      .not("finance_txn_id", "is", null);
+  }
+
+  /** Put a pending/approved run on hold so it can't advance until resumed. */
+  async hold(runId: string): Promise<void> {
+    const guard = canHold(await this.currentStatus(runId));
+    if (!guard.ok) throw AppError.validation(guard.reason ?? "Run cannot be held.");
+    await this.setRunStatus(runId, "on_hold");
+  }
+
+  /**
+   * Resume a held run, restoring the state it was in before the hold:
+   * a run that had been approved (approved_at stamped) returns to "approved",
+   * otherwise it returns to "pending".
+   */
+  async resume(runId: string): Promise<PayrollRunStatus> {
+    const runRes = await this.runs()
+      .select("status, approved_at")
+      .eq("id", runId)
+      .single();
+    const row = this.guard(runRes, "payroll_run") as {
+      status?: string;
+      approved_at?: string | null;
+    };
+    const guard = canResume(String(row.status ?? "") as PayrollRunStatus);
+    if (!guard.ok) throw AppError.validation(guard.reason ?? "Run cannot be resumed.");
+    const next: PayrollRunStatus = row.approved_at ? "approved" : "pending";
+    await this.setRunStatus(runId, next);
+    return next;
+  }
+
+  async cancel(runId: string): Promise<void> {
+    // Reverse the Finance expense if this run was already paid (exactly once).
+    const detail = await this.getDetail(runId);
+    await this.reverseFinance(detail);
     await this.setRunStatus(runId, "cancelled");
   }
 
   async deleteRun(runId: string): Promise<void> {
+    const detail = await this.getDetail(runId);
+    const guard = canDeleteRun(detail.status);
+    if (!guard.ok) throw AppError.validation(guard.reason ?? "Run cannot be deleted.");
+    // Reverse any Finance expense before deleting so we never orphan a posted
+    // Salary transaction (items cascade-delete with the run).
+    await this.reverseFinance(detail);
     const res = await this.runs().delete().eq("id", runId);
+    if (res.error) throw AppError.fromSupabase(res.error, "payroll_runs");
+  }
+
+  /** Edit a run's editable metadata (title / notes). Never touches computed
+   *  totals or per-staff items — those are driven by attendance at generate time. */
+  async updateRunDetails(
+    runId: string,
+    patch: { title?: string; notes?: string },
+  ): Promise<void> {
+    const guard = canEditRun(await this.currentStatus(runId));
+    if (!guard.ok) throw AppError.validation(guard.reason ?? "Run cannot be edited.");
+    const fields: Record<string, unknown> = {};
+    if (patch.title !== undefined) fields.title = patch.title;
+    if (patch.notes !== undefined) fields.notes = patch.notes || null;
+    if (Object.keys(fields).length === 0) return;
+    const res = await this.runs().update(fields as never).eq("id", runId);
     if (res.error) throw AppError.fromSupabase(res.error, "payroll_runs");
   }
 

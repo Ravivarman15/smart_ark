@@ -119,6 +119,41 @@ export const useSetRunStatus = () => {
   });
 };
 
+export const useHoldPayrollRun = () => {
+  const qc = useQueryClient();
+  const actor = useActor();
+  return useMutation({
+    mutationFn: (runId: string) => payrollRunService.hold(runId),
+    onSuccess: (_d, runId) => {
+      payrollAuditService.log({
+        entityType: "run",
+        entityId: runId,
+        action: "held",
+        actor: { actorId: actor.id, actorName: actor.name },
+      });
+      invalidate(qc);
+    },
+  });
+};
+
+export const useResumePayrollRun = () => {
+  const qc = useQueryClient();
+  const actor = useActor();
+  return useMutation({
+    mutationFn: (runId: string) => payrollRunService.resume(runId),
+    onSuccess: (nextStatus, runId) => {
+      payrollAuditService.log({
+        entityType: "run",
+        entityId: runId,
+        action: "resumed",
+        detail: `→ ${nextStatus}`,
+        actor: { actorId: actor.id, actorName: actor.name },
+      });
+      invalidate(qc);
+    },
+  });
+};
+
 export const useDeletePayrollRun = () => {
   const qc = useQueryClient();
   const actor = useActor();
@@ -129,6 +164,27 @@ export const useDeletePayrollRun = () => {
         entityType: "run",
         entityId: runId,
         action: "deleted",
+        actor: { actorId: actor.id, actorName: actor.name },
+      });
+      invalidate(qc);
+    },
+  });
+};
+
+export const useUpdatePayrollRun = () => {
+  const qc = useQueryClient();
+  const actor = useActor();
+  return useMutation({
+    mutationFn: (args: {
+      runId: string;
+      patch: { title?: string; notes?: string };
+    }) => payrollRunService.updateRunDetails(args.runId, args.patch),
+    onSuccess: (_d, args) => {
+      payrollAuditService.log({
+        entityType: "run",
+        entityId: args.runId,
+        action: "edited",
+        detail: args.patch.title ?? undefined,
         actor: { actorId: actor.id, actorName: actor.name },
       });
       invalidate(qc);

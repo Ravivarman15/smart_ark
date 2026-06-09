@@ -174,6 +174,9 @@ const PayAudit = lazy(() => import("./features/payroll/pages/PayrollAuditPage"))
 const PaySettings = lazy(() => import("./features/payroll/pages/PayrollSettingsPage"));
 const PayMySalary = lazy(() => import("./features/payroll/pages/MySalaryPage"));
 
+// Authentication module (student/parent account health) — feature-based
+const AuthAccountHealth = lazy(() => import("./features/auth-accounts/pages/AccountHealthPage"));
+
 // Exam module pages (feature-based — src/features/exams)
 const ManageManualExamPage = lazy(() => import("./features/exams/pages/ManageManualExamPage"));
 const CreateManualExamPage = lazy(() => import("./features/exams/pages/CreateManualExamPage"));
@@ -453,6 +456,8 @@ const AppRoutes: React.FC = () => (
         <Route path="communication/send-fee-due-reminder" element={<CommSendFeeDueReminder />} />
         <Route path="communication/send-absent-attendance" element={<CommSendAbsent />} />
         <Route path="communication/send-birthday" element={<CommSendBirthday />} />
+        {/* Authentication module routes — feature-based */}
+        <Route path="authentication/account-health" element={<AuthAccountHealth />} />
         {/* Reports & Analytics routes */}
         <Route path="reports/timetable" element={<RptTimetable />} />
         <Route path="reports/student-inquiry" element={<RptStudentInquiry />} />
@@ -579,6 +584,8 @@ const AppRoutes: React.FC = () => (
         <Route path="communication/send-fee-due-reminder" element={<CommSendFeeDueReminder />} />
         <Route path="communication/send-absent-attendance" element={<CommSendAbsent />} />
         <Route path="communication/send-birthday" element={<CommSendBirthday />} />
+        {/* Authentication module routes — feature-based, management-owned */}
+        <Route path="authentication/account-health" element={<AuthAccountHealth />} />
         {/* Reports & Analytics routes — management-owned, full access */}
         <Route path="reports/timetable" element={<RptTimetable />} />
         <Route path="reports/student-inquiry" element={<RptStudentInquiry />} />

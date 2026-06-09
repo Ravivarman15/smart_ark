@@ -46,7 +46,13 @@
       "Bash(npx supabase *)",
       "Bash(awk '/CREATE TABLE IF NOT EXISTS public.staff_attendance\\\\b/,/\\\\\\);/' supabase/migrations/20260612_attendance_module.sql)",
       "Bash(echo \"exit:$?\")",
-      "Bash(echo \"build-exit:$?\")"
+      "Bash(echo \"build-exit:$?\")",
+      "PowerShell(npx tsc --noEmit -p tsconfig.app.json 2>&1 | Select-Object -First 40)",
+      "PowerShell($out = npx tsc --noEmit -p tsconfig.app.json 2>&1 | Out-String; $matches = $out -split \"`n\" | Where-Object { $_ -match \"payroll|App\\\\.tsx|auth-accounts|PayrollStatusBadge|SalaryProcessing\" }; if \\($matches\\) { $matches } else { \"NO ERRORS IN TOUCHED FILES\" })",
+      "PowerShell(npx vitest run src/features/payroll 2>&1 | Select-Object -Last 25)",
+      "PowerShell(npx vitest run src/features/payroll src/features/rbac/utils/registryAudit.test.ts 2>&1 | Select-Object -Last 30)",
+      "PowerShell($out = npx tsc --noEmit -p tsconfig.app.json 2>&1 | Out-String; $m = $out -split \"`n\" | Where-Object { $_ -match \"payroll|App\\\\.tsx|actionCatalog|SalaryProcessing|payrollLifecycle|usePayrollRuns|useCanDo\" }; if \\($m\\) { $m } else { \"NO ERRORS IN TOUCHED FILES\" })",
+      "PowerShell($out = npx tsc --noEmit -p tsconfig.app.json 2>&1 | Out-String; $m = $out -split \"`n\" | Where-Object { $_ -match \"on_hold|PayrollRunStatus|PayrollRun\\\\b\" }; if \\($m\\) { $m } else { \"NO on_hold / PayrollRunStatus EXHAUSTIVENESS ERRORS\" })"
     ]
   }
 }

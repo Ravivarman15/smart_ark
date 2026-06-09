@@ -167,8 +167,13 @@ export const ACTION_CATALOG: ActionDef[] = [
   // ── Payroll ────────────────────────────────────────────────────────────
   A("payroll.salary_configure", "Configure salary structure", "edit",    "payroll.role_rates",  "payroll.salary_configure"),
   A("payroll.create",           "Generate payroll run",       "create",  "payroll.processing",  "payroll.create"),
+  A("payroll.view",             "View payroll run register",  "export",  "payroll.processing"),
   A("payroll.approve",          "Approve payroll run",        "approve", "payroll.processing",  "payroll.approve"),
   A("payroll.process",          "Process salary payments",    "approve", "payroll.processing",  "payroll.process"),
+  A("payroll.hold",             "Hold / resume payroll run",  "override","payroll.processing"),
+  A("payroll.edit",             "Edit payroll run",           "edit",    "payroll.processing"),
+  A("payroll.cancel",           "Cancel payroll run",         "override","payroll.processing"),
+  A("payroll.delete",           "Delete payroll run",         "delete",  "payroll.processing"),
   A("payroll.salary_view_all",  "View all salaries",          "export",  "payroll.register",    "payroll.salary_view_all"),
   A("payroll.salary_view_self", "View own salary",            "export",  "payroll.my_salary",   "payroll.salary_view_self"),
   A("payroll.analytics",        "View payroll analytics",     "export",  "payroll.analytics",   "payroll.analytics"),

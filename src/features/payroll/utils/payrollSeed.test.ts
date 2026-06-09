@@ -10,6 +10,10 @@ import {
   findOverlappingRun,
   canApprove,
   canPay,
+  canHold,
+  canResume,
+  canEditRun,
+  canDeleteRun,
 } from "./payrollLifecycle";
 import type {
   PayrollCalcInput,
@@ -249,5 +253,45 @@ describe("payroll seed — lifecycle & duplicate guards", () => {
     expect(canPay("paid").ok).toBe(false);    // ← prevents a second Finance post
     expect(canPay("pending").ok).toBe(false);
     expect(canPay("cancelled").ok).toBe(false);
+  });
+
+  // ── Edge cases requested for Edit / Delete / Hold / Resume ──────────────────
+  it("edge: a held run cannot be paid (#5)", () => {
+    expect(canPay("on_hold").ok).toBe(false);
+  });
+
+  it("edge: a held run cannot be approved — resume first (#6)", () => {
+    expect(canApprove("on_hold").ok).toBe(false);
+  });
+
+  it("hold guard: only pending/approved runs may be held; paid cannot (#3)", () => {
+    expect(canHold("pending").ok).toBe(true);
+    expect(canHold("approved").ok).toBe(true);
+    expect(canHold("paid").ok).toBe(false);       // #3
+    expect(canHold("cancelled").ok).toBe(false);
+    expect(canHold("on_hold").ok).toBe(false);
+  });
+
+  it("resume guard: only a held run may be resumed (#8)", () => {
+    expect(canResume("on_hold").ok).toBe(true);
+    expect(canResume("pending").ok).toBe(false);
+    expect(canResume("approved").ok).toBe(false);
+    expect(canResume("paid").ok).toBe(false);
+  });
+
+  it("edit guard: paid & cancelled runs cannot be edited (#1)", () => {
+    expect(canEditRun("draft").ok).toBe(true);
+    expect(canEditRun("pending").ok).toBe(true);
+    expect(canEditRun("approved").ok).toBe(true);
+    expect(canEditRun("on_hold").ok).toBe(true);
+    expect(canEditRun("paid").ok).toBe(false);    // #1
+    expect(canEditRun("cancelled").ok).toBe(false);
+  });
+
+  it("delete guard: a paid run cannot be deleted (#2)", () => {
+    expect(canDeleteRun("paid").ok).toBe(false);  // #2
+    expect(canDeleteRun("cancelled").ok).toBe(true);
+    expect(canDeleteRun("pending").ok).toBe(true);
+    expect(canDeleteRun("on_hold").ok).toBe(true);
   });
 });

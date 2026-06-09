@@ -45,9 +45,38 @@ export interface GuardResult {
 export const canApprove = (status: PayrollRunStatus): GuardResult => {
   if (status === "pending" || status === "draft") return { ok: true };
   if (status === "approved") return { ok: false, reason: "This run is already approved." };
+  if (status === "on_hold") return { ok: false, reason: "Resume the run before approving it." };
   if (status === "paid") return { ok: false, reason: "Paid runs cannot be re-approved." };
   return { ok: false, reason: "Cancelled runs cannot be approved." };
 };
+
+/** A run may be put on hold only while it is still in flight (pending/approved). */
+export const canHold = (status: PayrollRunStatus): GuardResult => {
+  if (status === "pending" || status === "approved") return { ok: true };
+  if (status === "on_hold") return { ok: false, reason: "This run is already on hold." };
+  if (status === "paid") return { ok: false, reason: "Paid runs cannot be held." };
+  if (status === "cancelled") return { ok: false, reason: "Cancelled runs cannot be held." };
+  return { ok: false, reason: "Only pending or approved runs can be held." };
+};
+
+/** Resume restores the pre-hold state — approved if it had been approved, else pending. */
+export const canResume = (status: PayrollRunStatus): GuardResult =>
+  status === "on_hold"
+    ? { ok: true }
+    : { ok: false, reason: "Only a run that is on hold can be resumed." };
+
+/** Title / notes may be edited until the run is terminal (paid or cancelled). */
+export const canEditRun = (status: PayrollRunStatus): GuardResult => {
+  if (status === "paid") return { ok: false, reason: "Paid runs cannot be edited." };
+  if (status === "cancelled") return { ok: false, reason: "Cancelled runs cannot be edited." };
+  return { ok: true };
+};
+
+/** A run may be deleted unless it has been paid (cancel a paid run first). */
+export const canDeleteRun = (status: PayrollRunStatus): GuardResult =>
+  status === "paid"
+    ? { ok: false, reason: "Paid runs cannot be deleted — cancel the run first." }
+    : { ok: true };
 
 /**
  * A run may be paid only once, from the approved state. This is the guard that
