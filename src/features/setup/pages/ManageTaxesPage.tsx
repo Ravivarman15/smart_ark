@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Percent } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +24,7 @@ import { useCreateTax, useDeleteTax, useTaxes, useUpdateTax } from "../hooks";
 import { useNewParam } from "../hooks/useNewParam";
 import { taxSchema } from "../schemas/setup.schema";
 import { formatTaxValue, validate } from "../utils";
+import { toast } from "sonner";
 import type { Tax } from "../types/setup.types";
 
 interface FormState {
@@ -43,10 +44,22 @@ const blank: FormState = {
 };
 
 const ManageTaxesPage = () => {
-  const { data: rows = [], isLoading } = useTaxes();
+  const { data: rows = [], isLoading, error: fetchError } = useTaxes();
   const createMut = useCreateTax();
   const updateMut = useUpdateTax();
   const deleteMut = useDeleteTax();
+
+  // Surface fetch errors so users see a toast instead of a misleading empty state.
+  useEffect(() => {
+    if (fetchError) {
+      console.error("[ManageTaxesPage] fetch error:", fetchError);
+      toast.error(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to load taxes"
+      );
+    }
+  }, [fetchError]);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Tax | null>(null);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Archive,
@@ -64,11 +64,23 @@ const ManageMcqPaperPage = () => {
   const { user } = useAuth();
   const base = pathname.startsWith("/management") ? "/management" : "/admin";
 
-  const { data: papers = [], isLoading, error } = useMcqPapers();
+  const { data: papers = [], isLoading, error: fetchError } = useMcqPapers();
   const { data: overview } = useMcqPaperOverview();
   const deleteMut = useDeletePaper();
   const cloneMut = useClonePaper();
   const statusMut = useSetPaperStatus();
+
+  // Surface fetch errors so users see a toast instead of a misleading empty state.
+  useEffect(() => {
+    if (fetchError) {
+      console.error("[ManageMcqPaperPage] fetch error:", fetchError);
+      toast.error(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to load MCQ papers"
+      );
+    }
+  }, [fetchError]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<McqPaperStatus | "all">(
@@ -80,9 +92,9 @@ const ManageMcqPaperPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<McqPaper | null>(null);
 
   const migrationNeeded =
-    !!error &&
+    !!fetchError &&
     /mcq_papers|schema cache|does not exist/i.test(
-      error instanceof Error ? error.message : String(error),
+      fetchError instanceof Error ? fetchError.message : String(fetchError),
     );
 
   const filtered = useMemo(

@@ -10,6 +10,8 @@ export const useTaxes = () =>
     queryKey: queryKeys.setup.taxes(),
     queryFn: () => taxesService.list(),
     staleTime: LOOKUP_STALE_TIME,
+    retry: 2,
+    meta: { errorMessage: "Failed to load taxes" },
   });
 
 export const useCreateTax = () => {
@@ -17,10 +19,17 @@ export const useCreateTax = () => {
   return useMutation({
     mutationFn: (input: TaxInput) => taxesService.create(input),
     onSuccess: () => {
+      // Invalidate all dependent namespaces (cross-module sync).
       invalidateSetupLookups(qc);
+      // Also force an immediate refetch of the taxes list specifically,
+      // ensuring the Manage Taxes table updates right away.
+      qc.refetchQueries({ queryKey: queryKeys.setup.taxes() });
       toast.success("Tax created");
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Create failed"),
+    onError: (err) => {
+      console.error("[useCreateTax] error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to create tax");
+    },
   });
 };
 
@@ -31,9 +40,13 @@ export const useUpdateTax = () => {
       taxesService.update(id, input),
     onSuccess: () => {
       invalidateSetupLookups(qc);
+      qc.refetchQueries({ queryKey: queryKeys.setup.taxes() });
       toast.success("Tax updated");
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Update failed"),
+    onError: (err) => {
+      console.error("[useUpdateTax] error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to update tax");
+    },
   });
 };
 
@@ -43,8 +56,12 @@ export const useDeleteTax = () => {
     mutationFn: (id: string) => taxesService.remove(id),
     onSuccess: () => {
       invalidateSetupLookups(qc);
+      qc.refetchQueries({ queryKey: queryKeys.setup.taxes() });
       toast.success("Tax deleted");
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Delete failed"),
+    onError: (err) => {
+      console.error("[useDeleteTax] error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to delete tax");
+    },
   });
 };

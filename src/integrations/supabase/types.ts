@@ -1661,25 +1661,31 @@ export type Database = {
       }
       taxes: {
         Row: {
+          amount: number | null
           created_at: string
           id: string
           is_active: boolean
           name: string
           percentage: number
+          tax_type: string | null
         }
         Insert: {
+          amount?: number | null
           created_at?: string
           id?: string
           is_active?: boolean
           name: string
           percentage?: number
+          tax_type?: string | null
         }
         Update: {
+          amount?: number | null
           created_at?: string
           id?: string
           is_active?: boolean
           name?: string
           percentage?: number
+          tax_type?: string | null
         }
         Relationships: []
       }
