@@ -31,6 +31,7 @@ export type ModuleId =
   | "enquiry_leads"
   | "student"
   | "attendance"
+  | "tasks"
   | "live_class"
   | "fee"
   | "exam"
@@ -184,6 +185,25 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "attendance.auto_students",      label: "Attendance Alerts",           route: "/admin/attendance/automation/students" },
       { id: "attendance.auto_staff",         label: "Staff Alerts",                route: "/admin/attendance/automation/staff" },
       { id: "attendance.settings",           label: "Attendance Settings",         route: "/admin/attendance/settings" },
+    ],
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    icon: "ListTodo",
+    defaultRoles: all,
+    submodules: [
+      { id: "tasks.dashboard", label: "Task Dashboard", route: "/admin/tasks/dashboard" },
+      { id: "tasks.my",        label: "My Tasks",        route: "/admin/tasks/my" },
+      { id: "tasks.team",      label: "Team Tasks",      route: "/admin/tasks/team" },
+      { id: "tasks.board",     label: "Kanban Board",    route: "/admin/tasks/board" },
+      { id: "tasks.workload",  label: "Team Workload",   route: "/admin/tasks/workload" },
+      // Future-ready (catalog only — no Phase-1 route/UI). Pre-configurable so
+      // permissions exist before Phase 2/3 ships the surfaces.
+      { id: "tasks.analytics", label: "Task Analytics" },
+      { id: "tasks.reports",   label: "Task Reports" },
+      { id: "tasks.templates", label: "Task Templates" },
+      { id: "tasks.settings",  label: "Task Settings" },
     ],
   },
   {

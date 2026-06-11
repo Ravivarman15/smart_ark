@@ -68,6 +68,13 @@ const HelpManagementTriage = lazy(() => import("@/features/help/pages/Management
 const HelpTicketAnalytics = lazy(() => import("@/features/help/pages/TicketAnalyticsPage"));
 const HelpPublicFeedbackBoard = lazy(() => import("@/features/help/pages/PublicFeedbackBoardPage"));
 
+// Tasks module (enterprise task management) — shared across all role layouts.
+const TasksDashboardPage = lazy(() => import("@/features/tasks/pages/TasksDashboardPage"));
+const MyTasksPage = lazy(() => import("@/features/tasks/pages/MyTasksPage"));
+const TeamTasksPage = lazy(() => import("@/features/tasks/pages/TeamTasksPage"));
+const TaskBoardPage = lazy(() => import("@/features/tasks/pages/TaskBoardPage"));
+const TaskWorkloadPage = lazy(() => import("@/features/tasks/pages/WorkloadPage"));
+
 const ComingSoon = lazy(() => import("@/pages/shared/ComingSoon"));
 const LeaveManagement = lazy(() => import("@/pages/shared/LeaveManagement"));
 
@@ -804,6 +811,45 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
   },
 
   // ── Certificate — admin + management only, mounted natively in App.tsx ─
+
+  // ── Tasks (coordinator + teacher; admin/management mount natively) ────
+  {
+    path: "tasks/dashboard",
+    element: <TasksDashboardPage />,
+    submodule: "tasks.dashboard",
+    label: "Task Dashboard",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "tasks/my",
+    element: <MyTasksPage />,
+    submodule: "tasks.my",
+    label: "My Tasks",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "tasks/team",
+    element: <TeamTasksPage />,
+    submodule: "tasks.team",
+    action: "tasks.view_all",
+    label: "Team Tasks",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "tasks/board",
+    element: <TaskBoardPage />,
+    submodule: "tasks.board",
+    label: "Kanban Board",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "tasks/workload",
+    element: <TaskWorkloadPage />,
+    submodule: "tasks.workload",
+    action: "tasks.view_all",
+    label: "Team Workload",
+    layouts: ["coordinator", "teacher"],
+  },
 
   // ── Catch-alls ───────────────────────────────────────────────────────
   {

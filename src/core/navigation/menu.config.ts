@@ -117,6 +117,14 @@ const payrollPaths = (suffix = ""): Partial<Record<Role, string>> => ({
   management: `/management/payroll${suffix}`,
 });
 
+// ── taskPaths() — same Tasks route under every role layout ───────────────────
+const taskPaths = (suffix = ""): Partial<Record<Role, string>> => ({
+  admin: `/admin/tasks${suffix}`,
+  coordinator: `/coordinator/tasks${suffix}`,
+  management: `/management/tasks${suffix}`,
+  teacher: `/teacher/tasks${suffix}`,
+});
+
 // ── The 15-module navigation tree ───────────────────────────────────────────
 export const NAV_CONFIG: NavGroupConfig[] = [
   // 1. Dashboard — direct link to each role's home (NOT collapsible)
@@ -288,6 +296,23 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("attendance.auto_students", "Attendance Alerts",          attendancePaths("/automation/students"),   adminCoordMgmt),
       ...sub("attendance.auto_staff",    "Staff Alerts",               attendancePaths("/automation/staff"),      adminMgmt),
       ...sub("attendance.settings",      "Attendance Settings",        attendancePaths("/settings"),           adminMgmt),
+    ],
+  },
+
+  // 6c. Tasks (enterprise task management — institute-wide)
+  {
+    key: "tasks",
+    label: "Tasks",
+    icon: "ListTodo",
+    module: "tasks",
+    collapsible: true,
+    roles: all,
+    items: [
+      ...sub("tasks.dashboard", "Task Dashboard", taskPaths("/dashboard"), all),
+      ...sub("tasks.my",        "My Tasks",       taskPaths("/my"),        all),
+      ...sub("tasks.team",      "Team Tasks",     taskPaths("/team"),      adminCoordMgmt, { action: "tasks.view_all" }),
+      ...sub("tasks.board",     "Kanban Board",   taskPaths("/board"),     all),
+      ...sub("tasks.workload",  "Team Workload",  taskPaths("/workload"),  adminCoordMgmt, { action: "tasks.view_all" }),
     ],
   },
 

@@ -169,6 +169,20 @@ const REALTIME_CHANNELS: RealtimeChannel[] = [
     purpose:
       "Live Setup reference data — standards/batches/course types/years/subjects/taxes fan out to every module's dropdowns, filters and reports",
   },
+  {
+    name: "tasks-sync",
+    tables: [
+      "tasks",
+      "task_comments",
+      "task_checklist_items",
+      "task_attachments",
+      "task_watchers",
+      "task_activity",
+    ],
+    publicationMigration: "20260616_tasks_module",
+    purpose:
+      "Live task management — status workflow, Kanban moves, checklist progress, comments, attachments + activity timeline across sessions",
+  },
 ];
 
 interface ProbeSpec {
@@ -246,6 +260,16 @@ const PROBES: ProbeSpec[] = [
   // ── Live Classes ─────────────────────────────────────────────────────
   { module: "Live",     table: "live_classes",        migration: "20260521_live_classes_and_fee_module" },
   { module: "Live",     table: "live_class_attendance", migration: "20260521_live_classes_and_fee_module" },
+
+  // ── Tasks (enterprise task management) ───────────────────────────────
+  { module: "Tasks",    table: "tasks",                 column: "status",   migration: "20260616_tasks_module" },
+  { module: "Tasks",    table: "task_categories",       migration: "20260616_tasks_module" },
+  { module: "Tasks",    table: "task_comments",         migration: "20260616_tasks_module" },
+  { module: "Tasks",    table: "task_checklist_items",  migration: "20260616_tasks_module" },
+  { module: "Tasks",    table: "task_attachments",      migration: "20260616_tasks_module" },
+  { module: "Tasks",    table: "task_watchers",         migration: "20260616_tasks_module" },
+  { module: "Tasks",    table: "task_activity",         migration: "20260616_tasks_module" },
+  { module: "Tasks",    table: "task_templates",        migration: "20260616_tasks_module" },
 
   // ── Finance ──────────────────────────────────────────────────────────
   { module: "Finance",  table: "expense_categories",  column: "color",        migration: "20260525_finance_module" },

@@ -32,7 +32,15 @@ const ComplianceViolations = lazy(() => import("./pages/management/ComplianceVio
 const AcademicExecution = lazy(() => import("./pages/management/AcademicExecution"));
 const WeeklyAcademicSummary = lazy(() => import("./pages/management/WeeklyAcademicSummary"));
 const CoordinatorLayout = lazy(() => import("./pages/coordinator/CoordinatorLayout"));
-const TaskManagement = lazy(() => import("./pages/coordinator/TaskManagement"));
+// Enterprise Tasks module — admin/management mount natively via taskRoutes();
+// coordinator/teacher mount via renderSharedRoutes. The legacy coordinator
+// TaskManagement page is superseded (the /coordinator index now redirects to
+// the new Tasks dashboard).
+const TasksDashboardPage = lazy(() => import("./features/tasks/pages/TasksDashboardPage"));
+const TasksMyPage = lazy(() => import("./features/tasks/pages/MyTasksPage"));
+const TasksTeamPage = lazy(() => import("./features/tasks/pages/TeamTasksPage"));
+const TasksBoardPage = lazy(() => import("./features/tasks/pages/TaskBoardPage"));
+const TasksWorkloadPage = lazy(() => import("./features/tasks/pages/WorkloadPage"));
 const TeacherOverview = lazy(() => import("./pages/coordinator/TeacherOverview"));
 const EnquiryManagement = lazy(() => import("./pages/shared/EnquiryManagement"));
 const PublicAdmissionFormPage = lazy(
@@ -351,6 +359,16 @@ const payrollRoutes = () => (
   </>
 );
 
+const taskRoutes = () => (
+  <>
+    <Route path="tasks/dashboard" element={<TasksDashboardPage />} />
+    <Route path="tasks/my" element={<TasksMyPage />} />
+    <Route path="tasks/team" element={<TasksTeamPage />} />
+    <Route path="tasks/board" element={<TasksBoardPage />} />
+    <Route path="tasks/workload" element={<TasksWorkloadPage />} />
+  </>
+);
+
 const AppRoutes: React.FC = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-4 border-accent border-t-transparent animate-spin"></div></div>}>
     <Routes>
@@ -404,6 +422,7 @@ const AppRoutes: React.FC = () => (
         {studentRoutes()}
         {attendanceRoutes()}
         {payrollRoutes()}
+        {taskRoutes()}
         <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
@@ -526,6 +545,7 @@ const AppRoutes: React.FC = () => (
         {studentRoutes()}
         {attendanceRoutes()}
         {payrollRoutes()}
+        {taskRoutes()}
         <Route path="admin-kpi" element={<AdminKPI />} />
         <Route path="admin-checkins" element={<AdminCheckinApprovals />} />
         <Route path="academic" element={<AcademicExecution />} />
@@ -635,7 +655,9 @@ const AppRoutes: React.FC = () => (
       </Route>
 
       <Route path="/coordinator" element={<ProtectedRoute allowedRoles={roles("coordinator")}><CoordinatorLayout /></ProtectedRoute>}>
-        <Route index element={<TaskManagement />} />
+        {/* Legacy coordinator Task Management is superseded by the enterprise
+            Tasks module — the home redirects to the new Tasks dashboard. */}
+        <Route index element={<Navigate to="/coordinator/tasks/dashboard" replace />} />
         <Route path="teachers" element={<TeacherOverview />} />
         <Route path="academic" element={<AcademicControl />} />
         <Route path="enquiries" element={<EnquiryManagement />} />

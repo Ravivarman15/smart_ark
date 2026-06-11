@@ -164,6 +164,17 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("attendance.health",         "View attendance health",    "export",  "attendance.gov_health",         "attendance.health"),
   A("attendance.settings",       "Edit attendance settings",  "edit",    "attendance.settings",           "attendance.settings"),
 
+  // ── Tasks ──────────────────────────────────────────────────────────────
+  A("tasks.create",        "Create task",            "create", "tasks.team"),
+  A("tasks.edit",          "Edit task",              "edit",   "tasks.team"),
+  A("tasks.delete",        "Delete task",            "delete", "tasks.team"),
+  A("tasks.assign",        "Assign task to staff",   "assign", "tasks.team"),
+  A("tasks.status_change", "Change task status",     "edit",   "tasks.board"),
+  A("tasks.comment",       "Comment on tasks",       "edit",   "tasks.my"),
+  A("tasks.attach",        "Add task attachments",   "edit",   "tasks.my"),
+  A("tasks.view_all",      "View all team tasks",    "export", "tasks.team"),
+  A("tasks.view_assigned", "View assigned tasks",    "edit",   "tasks.my"),
+
   // ── Payroll ────────────────────────────────────────────────────────────
   A("payroll.salary_configure", "Configure salary structure", "edit",    "payroll.role_rates",  "payroll.salary_configure"),
   A("payroll.create",           "Generate payroll run",       "create",  "payroll.processing",  "payroll.create"),

@@ -338,6 +338,20 @@ export const queryKeys = {
     approvals: () => [...queryKeys.dashboard.all, "approvals"] as const,
     layout: (scope: string) => [...queryKeys.dashboard.all, "layout", scope] as const,
   },
+  tasks: {
+    all: ["tasks"] as const,
+    list: (params?: Record<string, unknown>) =>
+      [...queryKeys.tasks.all, "list", params ?? {}] as const,
+    detail: (id: string) => [...queryKeys.tasks.all, "detail", id] as const,
+    kpis: (scope: string) => [...queryKeys.tasks.all, "kpis", scope] as const,
+    workload: () => [...queryKeys.tasks.all, "workload"] as const,
+    categories: () => [...queryKeys.tasks.all, "categories"] as const,
+    assignees: () => [...queryKeys.tasks.all, "assignees"] as const,
+    comments: (taskId: string) => [...queryKeys.tasks.all, "comments", taskId] as const,
+    checklist: (taskId: string) => [...queryKeys.tasks.all, "checklist", taskId] as const,
+    attachments: (taskId: string) => [...queryKeys.tasks.all, "attachments", taskId] as const,
+    activity: (taskId: string) => [...queryKeys.tasks.all, "activity", taskId] as const,
+  },
   payroll: {
     all: ["payroll"] as const,
     roleRates: () => [...queryKeys.payroll.all, "role-rates"] as const,

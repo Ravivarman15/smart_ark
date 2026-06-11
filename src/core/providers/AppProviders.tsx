@@ -14,6 +14,7 @@ import { PayrollRealtimeProvider } from "@/features/payroll/providers/PayrollRea
 import { EnquiriesRealtimeProvider } from "@/features/enquiries/providers/EnquiriesRealtimeProvider";
 import { ReportsRealtimeProvider } from "@/features/reports/providers/ReportsRealtimeProvider";
 import { SetupRealtimeProvider } from "@/features/setup/providers/SetupRealtimeProvider";
+import { TasksRealtimeProvider } from "@/features/tasks/providers/TasksRealtimeProvider";
 import { ThemeProvider } from "@/core/theme";
 import { QueryProvider } from "./QueryProvider";
 
@@ -55,7 +56,9 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
                         <PayrollRealtimeProvider>
                           <EnquiriesRealtimeProvider>
                             <ReportsRealtimeProvider>
-                              <AppDataProvider>{children}</AppDataProvider>
+                              <TasksRealtimeProvider>
+                                <AppDataProvider>{children}</AppDataProvider>
+                              </TasksRealtimeProvider>
                             </ReportsRealtimeProvider>
                           </EnquiriesRealtimeProvider>
                         </PayrollRealtimeProvider>
