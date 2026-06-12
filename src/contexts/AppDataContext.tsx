@@ -39,7 +39,7 @@ export interface WeeklyPlan { id: string; batch: string; teacher: string; portio
 export interface ActionItem { text: string; done: boolean; assignedTo?: string; dueDate?: string; }
 export interface MeetingNote { id: string; date: string; title: string; items: ActionItem[]; createdAt: string; linkedAlertId?: string; }
 export interface BatchInfo { id: string; name: string; campus: string; avgMarks: number; portionComplete: number; retestRate: number; health: "strong" | "moderate" | "risk"; weakChapters?: string[]; teacherResponsible?: string; timing?: string; batchLetter?: string; capacity?: number; }
-export interface StudentInfo { id: string; name: string; batch: string; spi: number; risk: "safe" | "watch" | "critical"; lastTestDate?: string; retestStatus?: "none" | "pending" | "allocated" | "completed"; campus?: string; subject?: string; active?: boolean; parentName?: string; parentContact?: string; parentContact1?: string; parentContact2?: string; parentEmail?: string; dateOfBirth?: string; dateOfJoining?: string; }
+export interface StudentInfo { id: string; name: string; batch: string; batchId?: string; spi: number; risk: "safe" | "watch" | "critical"; lastTestDate?: string; retestStatus?: "none" | "pending" | "allocated" | "completed"; campus?: string; subject?: string; active?: boolean; parentName?: string; parentContact?: string; parentContact1?: string; parentContact2?: string; parentEmail?: string; dateOfBirth?: string; dateOfJoining?: string; }
 export interface AppAlert { id: string | number; type: "danger" | "warning" | "info"; severity?: "critical" | "warning" | "info"; message: string; timestamp: string; reviewed?: boolean; }
 export interface Violation { id: string; userId: string; userName: string; type: "marks-sla" | "retest-delay" | "late-checkin" | "checklist-miss" | "fee-target" | "attendance-gap"; date: string; resolved: boolean; overrideId?: string; details?: string; }
 export interface OverrideRequest { id: string; userId: string; userName: string; type: string; reason: string; requestedBy: string; approvedBy?: string; status: "pending" | "approved" | "rejected"; timestamp: string; comment?: string; }
@@ -365,6 +365,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           id: s.id,
           name: s.name,
           batch: (s.batches as any)?.name || "",
+          batchId: s.batch_id,
           spi: Number(s.spi) || 0,
           risk: (s.risk_level === "high_risk" ? "critical" : s.risk_level || "safe") as any,
           campus: (s.campuses as any)?.name || "",
@@ -1012,7 +1013,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return student
           ? {
               student_id: student.id,
-              batch_id: null as string | null,
+              batch_id: student.batchId || null,
               attendance_date: date,
               date,
               status,
@@ -1044,6 +1045,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (res.error && isSchemaMiss(res.error)) {
       const legacy = rows.map(r => ({
         student_id: r.student_id,
+        batch_id: r.batch_id ?? null,
         date: r.date,
         status: r.status,
         marked_by: r.marked_by ?? null,
@@ -1181,18 +1183,42 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const toggleChecklistItem = useCallback(async (id: string) => {
     const item = adminChecklist.find(c => c.id === id);
     if (!item) return;
+    const nextDone = !item.done;
+
     // Optimistic flip first so the UI feels instant; rollback if DB fails.
-    setAdminChecklist(prev => prev.map(c => c.id === id ? { ...c, done: !c.done } : c));
-    const { error } = await supabase.from("admin_checklist").update({
-      completed: !item.done,
-      completed_at: !item.done ? new Date().toISOString() : null,
-    }).eq("id", id);
-    if (error) {
-      console.error("[toggleChecklistItem] DB update failed, rolling back:", error.message);
-      setAdminChecklist(prev => prev.map(c => c.id === id ? { ...c, done: item.done } : c));
-      throw new Error(error.message || "Failed to update checklist item");
+    setAdminChecklist(prev => prev.map(c => c.id === id ? { ...c, done: nextDone } : c));
+
+    if (id.startsWith("chk-")) {
+      const { data, error } = await supabase.from("admin_checklist").insert({
+        admin_id: user?.profileId || null,
+        date: today,
+        item_name: item.label,
+        completed: nextDone,
+        completed_at: nextDone ? new Date().toISOString() : null,
+      }).select("id").single();
+
+      if (error) {
+        console.error("[toggleChecklistItem] DB insert failed, rolling back:", error.message);
+        setAdminChecklist(prev => prev.map(c => c.id === id ? { ...c, done: item.done } : c));
+        throw new Error(error.message || "Failed to create checklist item");
+      }
+
+      if (data) {
+        setAdminChecklist(prev => prev.map(c => c.label === item.label ? { ...c, id: data.id } : c));
+      }
+    } else {
+      const { error } = await supabase.from("admin_checklist").update({
+        completed: nextDone,
+        completed_at: nextDone ? new Date().toISOString() : null,
+      }).eq("id", id);
+
+      if (error) {
+        console.error("[toggleChecklistItem] DB update failed, rolling back:", error.message);
+        setAdminChecklist(prev => prev.map(c => c.id === id ? { ...c, done: item.done } : c));
+        throw new Error(error.message || "Failed to update checklist item");
+      }
     }
-  }, [adminChecklist]);
+  }, [adminChecklist, user, today]);
 
   const updatePlanStatus = useCallback(async (id: string, status: WeeklyPlan["status"]) => {
     const dbStatus = status === "on-track" ? "pending" : status;

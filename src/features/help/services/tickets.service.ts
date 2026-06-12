@@ -138,7 +138,7 @@ class TicketsService extends BaseService {
       .limit(filter.limit ?? 200);
     if (filter.status && filter.status !== "all") {
       if (filter.status === "open_only") {
-        q = q.in("status", ["open", "in_progress", "waiting_user"]);
+        q = q.in("status", ["open", "in_progress", "waiting_user", "resolved"]);
       } else {
         q = q.eq("status", filter.status);
       }

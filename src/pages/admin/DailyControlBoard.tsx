@@ -141,11 +141,49 @@ const DailyControlBoard: React.FC = () => {
   const canSignOff = checklistDone === checklistTotal && retestPending.length === 0;
 
   const alertItems = [
-    ...(retestPending.length > 2 ? [{ msg: `${retestPending.length} retest allocations pending`, type: "danger" as const, severity: "critical" as const }] : []),
-    ...(feePercent < 75 ? [{ msg: `Fee collection at ${feePercent}% — below target`, type: "warning" as const, severity: "warning" as const }] : []),
-    ...(notCheckedIn > 0 ? [{ msg: `${notCheckedIn} teachers not checked in`, type: "warning" as const, severity: "warning" as const }] : []),
-    ...(checklistDone < checklistTotal ? [{ msg: `Admin checklist: ${checklistDone}/${checklistTotal} complete`, type: "warning" as const, severity: "info" as const }] : []),
-    ...(marksCritical > 0 ? [{ msg: `${marksCritical} marks verifications overdue >48hrs`, type: "danger" as const, severity: "critical" as const }] : []),
+    ...(retestPending.length > 2 ? [{
+      msg: `${retestPending.length} retest allocations pending`,
+      type: "danger" as const,
+      severity: "critical" as const,
+      onResolve: () => {
+        setShowRetestList(true);
+        toast.info("Retest allocations section opened below.");
+      }
+    }] : []),
+    ...(feePercent < 75 ? [{
+      msg: `Fee collection at ${feePercent}% — below target`,
+      type: "warning" as const,
+      severity: "warning" as const,
+      onResolve: () => {
+        navigate("/admin/fees");
+      }
+    }] : []),
+    ...(notCheckedIn > 0 ? [{
+      msg: `${notCheckedIn} teachers not checked in`,
+      type: "warning" as const,
+      severity: "warning" as const,
+      onResolve: () => {
+        navigate("/admin/teacher-checkins");
+      }
+    }] : []),
+    ...(checklistDone < checklistTotal ? [{
+      msg: `Admin checklist: ${checklistDone}/${checklistTotal} complete`,
+      type: "warning" as const,
+      severity: "info" as const,
+      onResolve: () => {
+        setShowChecklist(true);
+        toast.info("End-of-day checklist section opened below.");
+      }
+    }] : []),
+    ...(marksCritical > 0 ? [{
+      msg: `${marksCritical} marks verifications overdue >48hrs`,
+      type: "danger" as const,
+      severity: "critical" as const,
+      onResolve: () => {
+        setShowRetestList(true);
+        toast.info("Retest allocations section opened below.");
+      }
+    }] : []),
   ];
 
   return (
@@ -210,7 +248,7 @@ const DailyControlBoard: React.FC = () => {
       </section>
 
       {/* Admin Self Check-out */}
-      {myCheckin && myCheckin.status !== "pending" && (
+      {myCheckin && (
         <section>
           {myCheckin.checkoutTime && myCheckin.checkoutStatus !== "pending" ? (
             <div className="state-card-success">
@@ -405,7 +443,7 @@ const DailyControlBoard: React.FC = () => {
                   </div>
                   <p className="text-sm text-foreground mt-1">{a.msg}</p>
                 </div>
-                <Button variant="ghost" size="sm" className="text-xs shrink-0" onClick={() => toast.success("Alert resolved")}>
+                 <Button variant="ghost" size="sm" className="text-xs shrink-0" onClick={a.onResolve}>
                   Resolve
                 </Button>
               </div>

@@ -78,29 +78,32 @@ class StudentAnalyticsService extends BaseService {
     return { batchIds, batchName, batchStandard, standardName };
   }
 
-  private async fetchRows(batchIds: string[], from: string, to: string): Promise<StudentAttRow[]> {
-    if (batchIds.length === 0) return [];
+  private async fetchRows(studentIds: string[], roster: Map<string, RosterEntry>, from: string, to: string): Promise<StudentAttRow[]> {
+    if (studentIds.length === 0) return [];
     const run = (col: "attendance_date" | "date") =>
       this.db
         .from("student_attendance")
         .select(`student_id, batch_id, status, ${col}`)
         .gte(col, from)
         .lte(col, to)
-        .in("batch_id", batchIds)
+        .in("student_id", studentIds)
         .limit(50000);
     let res = await run("attendance_date");
     if (res.error && isSchemaCacheMiss(res.error)) res = await run("date");
     if (res.error) throw AppError.fromSupabase(res.error, "student_attendance");
-    return ((res.data ?? []) as Record<string, unknown>[]).map((r) => ({
-      studentId: String(r.student_id),
-      batchId: (r.batch_id as string) ?? undefined,
-      date: String(r.attendance_date ?? r.date ?? ""),
-      status: r.status as StudentAttendanceStatus,
-    }));
+    return ((res.data ?? []) as Record<string, unknown>[]).map((r) => {
+      const studentId = String(r.student_id);
+      return {
+        studentId,
+        batchId: (r.batch_id as string) ?? roster.get(studentId)?.batchId,
+        date: String(r.attendance_date ?? r.date ?? ""),
+        status: r.status as StudentAttendanceStatus,
+      };
+    });
   }
 
-  private async countPct(batchIds: string[], from: string, to: string): Promise<number> {
-    if (batchIds.length === 0) return 0;
+  private async countPct(studentIds: string[], from: string, to: string): Promise<number> {
+    if (studentIds.length === 0) return 0;
     const count = async (refine: (q: any) => any): Promise<number> => {
       const run = (col: "attendance_date" | "date") => {
         let q = this.db
@@ -108,7 +111,7 @@ class StudentAnalyticsService extends BaseService {
           .select("id", { count: "exact", head: true })
           .gte(col, from)
           .lte(col, to)
-          .in("batch_id", batchIds);
+          .in("student_id", studentIds);
         q = refine(q);
         return q;
       };
@@ -148,17 +151,18 @@ class StudentAnalyticsService extends BaseService {
       }
     }
 
-    const rangeRows = await this.fetchRows(scope.batchIds, filters.from, filters.to);
+    const studentIds = Array.from(roster.keys());
+    const rangeRows = await this.fetchRows(studentIds, roster, filters.from, filters.to);
     const todayRows =
       td >= filters.from && td <= filters.to
         ? rangeRows.filter((r) => r.date === td)
-        : await this.fetchRows(scope.batchIds, td, td);
+        : await this.fetchRows(studentIds, roster, td, td);
 
     // KPIs
     const todayCount = (s: StudentAttendanceStatus) => todayRows.filter((r) => r.status === s).length;
     const [monthPct, yearPct] = await Promise.all([
-      this.countPct(scope.batchIds, monthStart(td), td),
-      this.countPct(scope.batchIds, yearStart(td), td),
+      this.countPct(studentIds, monthStart(td), td),
+      this.countPct(studentIds, yearStart(td), td),
     ]);
     const agg = rollupStudents(rangeRows);
     let rangeNum = 0;

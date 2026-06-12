@@ -143,8 +143,17 @@ const trendBy = (
 export const dailyTrend = (rows: StudentAttRow[]): SeriesPoint[] =>
   trendBy(rows, (d) => d, (k) => formatDate(k).slice(0, 6));
 
+const formatMonthLabel = (k: string): string => {
+  const [year, month] = k.split("-");
+  if (!year || !month) return k;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const mIdx = parseInt(month, 10) - 1;
+  if (mIdx < 0 || mIdx > 11) return k;
+  return `${months[mIdx]} '${year.slice(2)}`;
+};
+
 export const monthlyTrend = (rows: StudentAttRow[]): SeriesPoint[] =>
-  trendBy(rows, (d) => d.slice(0, 7), (k) => k);
+  trendBy(rows, (d) => d.slice(0, 7), formatMonthLabel);
 
 // ── Group comparison (batch / standard) ──────────────────────────────────────
 export const groupComparison = (

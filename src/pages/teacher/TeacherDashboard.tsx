@@ -556,7 +556,7 @@ const HomeTab: React.FC<HomeTabProps> = ({
     </section>
 
     {/* Check-out Card (Shows if already checked in) */}
-    {todayCheckin && todayCheckin.status !== "pending" && (
+    {todayCheckin && (
       <section>
         {todayCheckin.checkoutTime && todayCheckin.checkoutStatus !== "pending" ? (
           <div className="state-card-success">

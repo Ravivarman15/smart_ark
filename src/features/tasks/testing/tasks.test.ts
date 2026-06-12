@@ -5,7 +5,7 @@ import {
   isTerminalStatus,
   TRANSITIONS,
 } from "../utils/workflow";
-import { deriveOverdue, statusFromLegacy, withDerived } from "../utils/tasksSchema";
+import { deriveOverdue, statusFromLegacy, withDerived, todayISO } from "../utils/tasksSchema";
 import { computeKpis, computeWorkload } from "../utils/taskMetrics";
 import { ALL_STATUSES } from "../utils/taskConfig";
 import type { Task, TaskAssignee, TaskStatus, TaskPriority } from "../types/tasks.types";
@@ -112,7 +112,7 @@ describe("statusFromLegacy", () => {
 
 // ── 4. KPI engine ───────────────────────────────────────────────────────────────
 describe("computeKpis", () => {
-  const today = "2026-06-10";
+  const today = todayISO();
   const tasks: Task[] = [
     task({ status: "completed", priority: "high" }),
     task({ status: "completed", priority: "low" }),

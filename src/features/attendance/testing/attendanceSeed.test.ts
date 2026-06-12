@@ -421,3 +421,35 @@ describe("attendance seed — date helpers", () => {
     expect(DEFAULT_SETTINGS.expectedWeeklyMinutes).toBeGreaterThanOrEqual(DEFAULT_SETTINGS.expectedDailyMinutes);
   });
 });
+
+// ── 8. ANALYTICS TRENDS — monthly trend label formatting ──────────────────────
+import { monthlyTrend } from "../analytics/utils/aggregate";
+import type { StudentAttRow } from "../analytics/utils/aggregate";
+
+describe("attendance analytics — monthlyTrend label formatter", () => {
+  it("formats YYYY-MM key into MMM 'YY", () => {
+    const rows: StudentAttRow[] = [
+      { studentId: "s1", date: "2026-06-01", status: "present" },
+      { studentId: "s1", date: "2026-06-02", status: "absent" },
+      { studentId: "s1", date: "2026-05-15", status: "present" },
+      { studentId: "s1", date: "2025-12-25", status: "present" },
+      { studentId: "s2", date: "2026-06-01", status: "holiday" }, // holiday excluded
+    ];
+    const trend = monthlyTrend(rows);
+    expect(trend).toHaveLength(3);
+    // Sorted ascending by key: 2025-12, 2026-05, 2026-06
+    expect(trend[0]).toEqual({ label: "Dec '25", value: 100 });
+    expect(trend[1]).toEqual({ label: "May '26", value: 100 });
+    expect(trend[2]).toEqual({ label: "Jun '26", value: 50 }); // 1 present of 2 counted
+  });
+
+  it("handles malformed date key gracefully", () => {
+    const rows: StudentAttRow[] = [
+      { studentId: "s1", date: "invalid-date", status: "present" },
+    ];
+    const trend = monthlyTrend(rows);
+    expect(trend).toHaveLength(1);
+    expect(trend[0].label).toBe("invalid"); // slice(0, 7) of "invalid-date" is "invalid", split("-") yields ["invalid"], returns k
+  });
+});
+
