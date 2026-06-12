@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppData, isNearCampus } from "@/contexts/AppDataContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,6 +36,8 @@ const DailyControlBoard: React.FC = () => {
   const [showChecklist, setShowChecklist] = useState(false);
   const [showRetestList, setShowRetestList] = useState(false);
   const [checkinLoading, setCheckinLoading] = useState(false);
+  const checklistRef = useRef<HTMLDivElement>(null);
+  const retestRef = useRef<HTMLDivElement>(null);
 
   // Admin's own check-in status
   const myCheckin = user?.profileId ? adminCheckins[user.profileId]?.[today] : null;
@@ -148,6 +150,9 @@ const DailyControlBoard: React.FC = () => {
       onResolve: () => {
         setShowRetestList(true);
         toast.info("Retest allocations section opened below.");
+        setTimeout(() => {
+          retestRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
       }
     }] : []),
     ...(feePercent < 75 ? [{
@@ -173,6 +178,9 @@ const DailyControlBoard: React.FC = () => {
       onResolve: () => {
         setShowChecklist(true);
         toast.info("End-of-day checklist section opened below.");
+        setTimeout(() => {
+          checklistRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
       }
     }] : []),
     ...(marksCritical > 0 ? [{
@@ -182,6 +190,9 @@ const DailyControlBoard: React.FC = () => {
       onResolve: () => {
         setShowRetestList(true);
         toast.info("Retest allocations section opened below.");
+        setTimeout(() => {
+          retestRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
       }
     }] : []),
   ];
@@ -376,7 +387,7 @@ const DailyControlBoard: React.FC = () => {
 
       {/* Clickable Retest List */}
       {showRetestList && retestPending.length > 0 && (
-        <div className="glass-card p-4 md:p-5 animate-in fade-in slide-in-from-top-2">
+        <div ref={retestRef} className="glass-card p-4 md:p-5 animate-in fade-in slide-in-from-top-2">
           <h2 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2">
             <RotateCcw className="w-4 h-4 text-accent" /> Pending Retest Allocations
           </h2>
@@ -396,7 +407,7 @@ const DailyControlBoard: React.FC = () => {
 
       {/* Clickable Checklist */}
       {showChecklist && (
-        <div className="glass-card p-4 md:p-5 animate-in fade-in slide-in-from-top-2">
+        <div ref={checklistRef} className="glass-card p-4 md:p-5 animate-in fade-in slide-in-from-top-2">
           <h2 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-accent" /> End-of-Day Checklist
           </h2>

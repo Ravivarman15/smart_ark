@@ -569,27 +569,35 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .select("*")
         .eq("date", today);
 
-      if (checklistData && checklistData.length > 0) {
-        setAdminChecklist(checklistData.map(c => ({
-          id: c.id,
-          label: c.item_name,
-          done: c.completed || false,
-        })));
-      } else {
-        // Create default checklist items for today
-        const defaultItems = [
-          "All marks verified (24–28 hr SLA)",
-          "Retest allocated for students <75%",
-          "Attendance checked for all batches",
-          "Weekly plan updated",
-          "Fee follow-ups completed",
-        ];
-        setAdminChecklist(defaultItems.map((label, i) => ({
-          id: `chk-${i}`,
+      const defaultItems = [
+        "All marks verified (24–28 hr SLA)",
+        "Retest allocated for students <75%",
+        "Attendance checked for all batches",
+        "Weekly plan updated",
+        "Fee follow-ups completed",
+      ];
+
+      const dbMap = new Map((checklistData || []).map(c => [c.item_name, c]));
+      const items = defaultItems.map((label, i) => {
+        const dbRow = dbMap.get(label);
+        return {
+          id: dbRow ? dbRow.id : `chk-${i}`,
           label,
-          done: false,
-        })));
+          done: dbRow ? dbRow.completed : false,
+        };
+      });
+
+      const defaultSet = new Set(defaultItems);
+      for (const c of checklistData || []) {
+        if (!defaultSet.has(c.item_name)) {
+          items.push({
+            id: c.id,
+            label: c.item_name,
+            done: c.completed || false,
+          });
+        }
       }
+      setAdminChecklist(items);
 
       // Load daily checklist from Supabase (replaces localStorage)
       if (user?.profileId) {
@@ -881,6 +889,43 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, []);
 
+  const refreshAdminChecklist = useCallback(async () => {
+    const { data: checklistData } = await supabase
+      .from("admin_checklist")
+      .select("*")
+      .eq("date", today);
+
+    const defaultItems = [
+      "All marks verified (24–28 hr SLA)",
+      "Retest allocated for students <75%",
+      "Attendance checked for all batches",
+      "Weekly plan updated",
+      "Fee follow-ups completed",
+    ];
+
+    const dbMap = new Map((checklistData || []).map(c => [c.item_name, c]));
+    const items = defaultItems.map((label, i) => {
+      const dbRow = dbMap.get(label);
+      return {
+        id: dbRow ? dbRow.id : `chk-${i}`,
+        label,
+        done: dbRow ? dbRow.completed : false,
+      };
+    });
+
+    const defaultSet = new Set(defaultItems);
+    for (const c of checklistData || []) {
+      if (!defaultSet.has(c.item_name)) {
+        items.push({
+          id: c.id,
+          label: c.item_name,
+          done: c.completed || false,
+        });
+      }
+    }
+    setAdminChecklist(items);
+  }, [today]);
+
   const refreshDailyChecklist = useCallback(async () => {
     if (!user?.profileId) return;
     const { data } = await supabase.from("daily_checklists").select("*").eq("date", today).eq("user_id", user.profileId).maybeSingle();
@@ -941,10 +986,11 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .on("postgres_changes", { event: "*", schema: "public", table: "retests" }, () => { refreshRetests(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "daily_checklists" }, () => { refreshDailyChecklist(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => { refreshTasks(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_checklist" }, () => { refreshAdminChecklist(); })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isAuthenticated, today, refreshAttendance, refreshRetests, refreshDailyChecklist, refreshTasks]);
+  }, [isAuthenticated, today, refreshAttendance, refreshRetests, refreshDailyChecklist, refreshTasks, refreshAdminChecklist]);
 
   // ── Walk-ins computed value ──────────────────────────────────────────────
   const walkIns = admissionCalls.filter(c => c.date === today && c.type === "walk-in").length;

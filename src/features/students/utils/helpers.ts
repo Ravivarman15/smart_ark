@@ -64,16 +64,47 @@ export const dayCount = (from: string, to: string): number => {
 };
 
 // ── CSV parsing ──────────────────────────────────────────────────────────────
+
+/** Strip UTF-8 BOM (\uFEFF) that Excel / institution tools prepend. */
+const stripBom = (s: string): string =>
+  s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
+
 /**
- * Minimal RFC-4180-ish CSV parser — handles quoted fields, escaped quotes
- * and CRLF. Good enough for student import sheets exported from Excel/Sheets.
+ * Detect the delimiter used in a CSV by inspecting the first non-empty line.
+ * Checks comma, semicolon, tab, and pipe — picks whichever appears most often
+ * in the header row (institution exports are consistent within a file).
+ * Falls back to comma if none found (single-column file).
+ */
+function detectDelimiter(headerLine: string): string {
+  const candidates = [",", ";", "\t", "|"];
+  let best = ",";
+  let bestCount = 0;
+  for (const d of candidates) {
+    const count = headerLine.split(d).length - 1;
+    if (count > bestCount) {
+      bestCount = count;
+      best = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * Robust RFC-4180-ish CSV parser — handles quoted fields, escaped quotes,
+ * CRLF, BOM, and auto-detects the delimiter (comma / semicolon / tab / pipe).
+ * Good enough for student import sheets exported from Excel, Google Sheets,
+ * and Indian institution management software.
  */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
   let inQuotes = false;
-  const src = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const src = stripBom(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Detect delimiter from the first non-empty line.
+  const firstLine = src.split("\n").find((l) => l.trim() !== "") ?? "";
+  const delim = detectDelimiter(firstLine);
 
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
@@ -90,7 +121,7 @@ export function parseCsv(text: string): string[][] {
       }
     } else if (c === '"') {
       inQuotes = true;
-    } else if (c === ",") {
+    } else if (c === delim) {
       row.push(field);
       field = "";
     } else if (c === "\n") {
