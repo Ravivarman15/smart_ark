@@ -191,12 +191,12 @@ class CommsRecipientsService extends BaseService {
     let q = this.db
       .from("admission_calls" as never)
       .select(
-        "id, name, phone, email, status, assigned_to, created_at, campus_id, campuses(name)"
+        "id, prospect_name, phone, email, status, assigned_to, created_at"
       )
       .order("created_at", { ascending: false })
       .limit(1000);
     if (filter.segment) q = q.eq("status", filter.segment);
-    if (filter.search) q = q.ilike("name", `%${filter.search}%`);
+    if (filter.search) q = q.ilike("prospect_name", `%${filter.search}%`);
     if (filter.dateFrom) q = q.gte("created_at", filter.dateFrom);
     if (filter.dateTo) q = q.lte("created_at", filter.dateTo);
     const res = await q;
@@ -206,24 +206,23 @@ class CommsRecipientsService extends BaseService {
     }
     type Row = {
       id: string;
-      name: string;
+      prospect_name: string | null;
       phone: string | null;
       email: string | null;
       status: string | null;
       assigned_to: string | null;
       created_at: string;
-      campuses: { name: string | null } | { name: string | null }[] | null;
     };
     return ((res.data as unknown as Row[]) ?? []).map((i) => ({
       id: i.id,
       kind: "inquiry" as RecipientKind,
-      name: i.name,
+      name: i.prospect_name ?? "Unknown",
       phone: i.phone ?? undefined,
       email: i.email ?? undefined,
       meta: {
         status: i.status ?? undefined,
         assigned_to: i.assigned_to ?? undefined,
-        campus_name: pickName(i.campuses as unknown as StudentRow["campuses"]),
+        campus_name: undefined,
       },
     }));
   }

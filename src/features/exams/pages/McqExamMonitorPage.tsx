@@ -37,7 +37,7 @@ const McqExamMonitorPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const base = pathname.startsWith("/management") ? "/management" : "/admin";
+  const base = `/${pathname.split("/")[1]}`;  // e.g. "/admin", "/management", "/coordinator"
 
   const { data: exam, isLoading, error } = useMcqExam(id ?? null);
   const liveMut = useSetExamLiveStatus();

@@ -125,6 +125,14 @@ const taskPaths = (suffix = ""): Partial<Record<Role, string>> => ({
   teacher: `/teacher/tasks${suffix}`,
 });
 
+// ── examPaths() — same Exam route under admin, coordinator, management, teacher
+const examPaths = (suffix = ""): Partial<Record<Role, string>> => ({
+  admin: `/admin/exams${suffix}`,
+  coordinator: `/coordinator/exams${suffix}`,
+  management: `/management/exams${suffix}`,
+  teacher: `/teacher/exams${suffix}`,
+});
+
 // ── The 15-module navigation tree ───────────────────────────────────────────
 export const NAV_CONFIG: NavGroupConfig[] = [
   // 1. Dashboard — direct link to each role's home (NOT collapsible)
@@ -371,12 +379,12 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: all,
     items: [
-      ...sub("exam.create_manual",    "Create Manual Exam",  { admin: "/admin/exams/manual/create", management: "/management/exams/manual/create" }, adminMgmtTeacher, { action: "exam.create" }),
-      ...sub("exam.manage_manual",    "Manage Manual Exam",  { admin: "/admin/exams/manual",        management: "/management/exams/manual" },        all),
-      ...sub("exam.create_mcq_paper", "Create MCQ Paper",    { admin: "/admin/exams/mcq-papers/create", management: "/management/exams/mcq-papers/create" }, adminMgmtTeacher, { action: "exam.mcq.paper_create" }),
-      ...sub("exam.manage_mcq_paper", "Manage MCQ Paper",    { admin: "/admin/exams/mcq-papers",        management: "/management/exams/mcq-papers" },        all),
-      ...sub("exam.create_mcq_exam",  "Create MCQ Exam",     { admin: "/admin/exams/mcq-exams/create", management: "/management/exams/mcq-exams/create" }, adminMgmtTeacher, { action: "exam.mcq.create" }),
-      ...sub("exam.manage_mcq_exam",  "Manage MCQ Exam",     { admin: "/admin/exams/mcq-exams",        management: "/management/exams/mcq-exams" },        all),
+      ...sub("exam.create_manual",    "Create Manual Exam",  examPaths("/manual/create"),       adminMgmtTeacher, { action: "exam.create" }),
+      ...sub("exam.manage_manual",    "Manage Manual Exam",  examPaths("/manual"),              all),
+      ...sub("exam.create_mcq_paper", "Create MCQ Paper",    examPaths("/mcq-papers/create"),   adminMgmtTeacher, { action: "exam.mcq.paper_create" }),
+      ...sub("exam.manage_mcq_paper", "Manage MCQ Paper",    examPaths("/mcq-papers"),          all),
+      ...sub("exam.create_mcq_exam",  "Create MCQ Exam",     examPaths("/mcq-exams/create"),    adminMgmtTeacher, { action: "exam.mcq.create" }),
+      ...sub("exam.manage_mcq_exam",  "Manage MCQ Exam",     examPaths("/mcq-exams"),           all),
     ],
   },
 

@@ -52,7 +52,7 @@ const CreateMcqExamPage = () => {
   const { canDo } = useCanDo();
   const isEdit = !!id;
 
-  const base = pathname.startsWith("/management") ? "/management" : "/admin";
+  const base = `/${pathname.split("/")[1]}`;  // e.g. "/admin", "/management", "/coordinator"
   const managePath = `${base}/exams/mcq-exams`;
 
   const { data: lookups } = useExamLookups();

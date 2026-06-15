@@ -24,7 +24,8 @@ const CreateManualExamPage = () => {
   const { canDo } = useCanDo();
 
   const isEdit = !!id;
-  const managePath = `${pathname.startsWith("/management") ? "/management" : "/admin"}/exams/manual`;
+  const base = `/${pathname.split("/")[1]}`;  // e.g. "/admin", "/management", "/coordinator"
+  const managePath = `${base}/exams/manual`;
 
   const { data: lookups } = useExamLookups();
   const { data: existing } = useExam(id ?? null);

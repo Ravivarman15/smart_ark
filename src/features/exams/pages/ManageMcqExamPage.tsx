@@ -60,7 +60,7 @@ import type { LiveStatus, McqExam } from "../types/mcqExam.types";
 const ManageMcqExamPage = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const base = pathname.startsWith("/management") ? "/management" : "/admin";
+  const base = `/${pathname.split("/")[1]}`;  // e.g. "/admin", "/management", "/coordinator"
 
   const { data: exams = [], isLoading, error } = useMcqExams();
   const { data: overview } = useMcqExamOverview();

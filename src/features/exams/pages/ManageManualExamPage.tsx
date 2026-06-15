@@ -77,7 +77,7 @@ const downloadCsv = (filename: string, csv: string) => {
 const ManageManualExamPage = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const base = pathname.startsWith("/management") ? "/management" : "/admin";
+  const base = `/${pathname.split("/")[1]}`;  // e.g. "/admin", "/management", "/coordinator"
 
   const { data: exams = [], isLoading, error } = useExams({ mode: "manual" });
   const { data: overview } = useExamOverview();

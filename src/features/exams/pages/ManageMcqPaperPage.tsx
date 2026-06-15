@@ -62,7 +62,7 @@ const ManageMcqPaperPage = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const base = pathname.startsWith("/management") ? "/management" : "/admin";
+  const base = `/${pathname.split("/")[1]}`;  // e.g. "/admin", "/management", "/coordinator"
 
   const { data: papers = [], isLoading, error: fetchError } = useMcqPapers();
   const { data: overview } = useMcqPaperOverview();

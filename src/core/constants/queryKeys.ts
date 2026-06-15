@@ -166,6 +166,12 @@ export const queryKeys = {
     mcqStudentExams: (batchId: string) =>
       [...queryKeys.exams.all, "mcq-student-exams", batchId] as const,
   },
+  estudy: {
+    all: ["estudy"] as const,
+    list: (filters?: Record<string, unknown>) =>
+      [...queryKeys.estudy.all, "list", filters ?? {}] as const,
+    detail: (id: string) => [...queryKeys.estudy.all, "detail", id] as const,
+  },
   reports: {
     all: ["reports"] as const,
     kpi: (scope: string) => [...queryKeys.reports.all, "kpi", scope] as const,

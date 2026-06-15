@@ -268,76 +268,74 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     label: "Manage Fee Structure",
   },
 
-  // ── Exam (teacher layout) ─────────────────────────────────────────────
-  // The menu.config sub() helper only assigns admin/management paths to
-  // exam items, so teacher entries are coming-soon stubs. Registering
-  // them here gives useNavigation a real path to swap in and gives
-  // renderSharedRoutes("teacher") an element to mount.
+  // ── Exam (coordinator + teacher layouts) ────────────────────────────────
+  // Admin/management mount exam routes directly in App.tsx. Coordinator
+  // and teacher get them via renderSharedRoutes().
   {
     path: "exams/manual",
     element: <ManageManualExamPage />,
     submodule: "exam.manage_manual",
     label: "Manage Manual Exam",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/manual/create",
     element: <CreateManualExamPage />,
     submodule: "exam.create_manual",
     label: "Create Manual Exam",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/manual/:id/edit",
     element: <CreateManualExamPage />,
     label: "Edit Manual Exam",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/mcq-papers",
     element: <ManageMcqPaperPage />,
     submodule: "exam.manage_mcq_paper",
     label: "Manage MCQ Paper",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/mcq-papers/create",
     element: <CreateMcqPaperPage />,
     submodule: "exam.create_mcq_paper",
     label: "Create MCQ Paper",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/mcq-papers/:id/edit",
     element: <CreateMcqPaperPage />,
     label: "Edit MCQ Paper",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/mcq-exams",
     element: <ManageMcqExamPage />,
     submodule: "exam.manage_mcq_exam",
     label: "Manage MCQ Exam",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/mcq-exams/create",
     element: <CreateMcqExamPage />,
     submodule: "exam.create_mcq_exam",
     label: "Create MCQ Exam",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/mcq-exams/:id/edit",
     element: <CreateMcqExamPage />,
     label: "Edit MCQ Exam",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "exams/mcq-exams/:id/monitor",
     element: <McqExamMonitorPage />,
     label: "Monitor MCQ Exam",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
 
   // ── Student ────────────────────────────────────────────────────────────
