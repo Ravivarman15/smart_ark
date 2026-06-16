@@ -144,7 +144,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     items: [
       { path: "/admin",        label: "Daily Control",        icon: "LayoutDashboard", roles: ["admin"],       isHome: true, action: "ops.daily_control" },
       { path: "/management",   label: "Management Dashboard", icon: "LayoutDashboard", roles: ["management"],  isHome: true },
-      { path: "/coordinator",  label: "Task Management",      icon: "LayoutDashboard", roles: ["coordinator"], isHome: true },
+      { path: "/coordinator",  label: "Coordinator Dashboard", icon: "LayoutDashboard", roles: ["coordinator"], isHome: true },
       { path: "/teacher",      label: "Teacher Dashboard",    icon: "LayoutDashboard", roles: ["teacher"],     isHome: true },
     ],
   },

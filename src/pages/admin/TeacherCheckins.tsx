@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useAppData, CheckinRecord, TeacherInfo } from "@/contexts/AppDataContext";
 import {
   UserCheck, Clock, MapPin, ShieldCheck, CheckCircle2,
-  XCircle, Search, Filter, AlertTriangle, Users, LogOut,
+  XCircle, Search, AlertTriangle, Users, LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,25 @@ import { toast } from "sonner";
 
 type FilterTab = "all" | "on-time" | "pending" | "missed" | "pending-out";
 
+interface StaffInfo extends TeacherInfo {
+  roleLabel: string;
+  role: string;
+}
+
 const TeacherCheckins: React.FC = () => {
-  const { teachers, checkins, approveCheckin, approveCheckout } = useAppData();
+  const {
+    teachers,
+    coordinators,
+    management,
+    admins,
+    checkins,
+    adminCheckins,
+    approveCheckin,
+    approveAdminCheckin,
+    approveCheckout,
+    approveAdminCheckout,
+  } = useAppData();
+
   const today = new Date().toISOString().split("T")[0];
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
@@ -25,10 +42,26 @@ const TeacherCheckins: React.FC = () => {
   const [selectedStaff, setSelectedStaff] = useState<{ id: string, name: string, type: "in" | "out" } | null>(null);
   const [overrideForm, setOverrideForm] = useState({ comments: "", overrideTime: "" });
 
-  // Build teacher checkin data
-  const teacherCheckinData = useMemo(() => {
-    return teachers.map(t => {
-      const checkin = checkins[t.id]?.[today] || null;
+  // Combine all staff (teachers, coordinators, management, admins)
+  const allStaff = useMemo(() => {
+    const list: StaffInfo[] = [
+      ...teachers.map(t => ({ ...t, roleLabel: "Teacher", role: "teacher" })),
+      ...coordinators.map(c => ({ ...c, roleLabel: "Coordinator", role: "coordinator", subject: "Coordination" })),
+      ...management.map(m => ({ ...m, roleLabel: "Management", role: "management", subject: "Administration" })),
+      ...admins.map(a => ({ ...a, roleLabel: "Admin", role: "admin", subject: "Administration" })),
+    ];
+    const seen = new Set();
+    return list.filter(s => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+  }, [teachers, coordinators, management, admins]);
+
+  // Build staff checkin data
+  const staffCheckinData = useMemo(() => {
+    return allStaff.map(s => {
+      const checkin = checkins[s.id]?.[today] || adminCheckins[s.id]?.[today] || null;
       let category: "on-time" | "pending" | "missed" | "pending-out";
       if (!checkin) {
         category = "missed";
@@ -37,46 +70,51 @@ const TeacherCheckins: React.FC = () => {
       } else if (checkin.checkoutStatus === "pending") {
         category = "pending-out";
       } else {
-        category = "on-time"; // on-time or late — both are approved/checked-in
+        category = "on-time";
       }
-      return { teacher: t, checkin, category };
+      return { staff: s, checkin, category };
     });
-  }, [teachers, checkins, today]);
+  }, [allStaff, checkins, adminCheckins, today]);
 
   // Counts
   const counts = useMemo(() => ({
-    all: teacherCheckinData.length,
-    "on-time": teacherCheckinData.filter(d => d.category === "on-time").length,
-    pending: teacherCheckinData.filter(d => d.category === "pending").length,
-    "pending-out": teacherCheckinData.filter(d => d.category === "pending-out").length,
-    missed: teacherCheckinData.filter(d => d.category === "missed").length,
-  }), [teacherCheckinData]);
+    all: staffCheckinData.length,
+    "on-time": staffCheckinData.filter(d => d.category === "on-time").length,
+    pending: staffCheckinData.filter(d => d.category === "pending").length,
+    "pending-out": staffCheckinData.filter(d => d.category === "pending-out").length,
+    missed: staffCheckinData.filter(d => d.category === "missed").length,
+  }), [staffCheckinData]);
 
   // Filtered list
   const filtered = useMemo(() => {
-    let list = teacherCheckinData;
+    let list = staffCheckinData;
     if (activeFilter !== "all") list = list.filter(d => d.category === activeFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(d => d.teacher.name.toLowerCase().includes(q) || d.teacher.campus.toLowerCase().includes(q));
+      list = list.filter(
+        d =>
+          d.staff.name.toLowerCase().includes(q) ||
+          d.staff.campus.toLowerCase().includes(q) ||
+          d.staff.roleLabel.toLowerCase().includes(q)
+      );
     }
     // Sort: pending first, pending-out second, then missed, then on-time
     return list.sort((a, b) => {
       const order = { pending: 0, "pending-out": 1, missed: 2, "on-time": 3 };
       return order[a.category] - order[b.category];
     });
-  }, [teacherCheckinData, activeFilter, search]);
+  }, [staffCheckinData, activeFilter, search]);
 
-  const handleApprove = (teacherId: string, teacherName: string) => {
-    setSelectedStaff({ id: teacherId, name: teacherName, type: "in" });
+  const handleApprove = (staffId: string, staffName: string) => {
+    setSelectedStaff({ id: staffId, name: staffName, type: "in" });
     const now = new Date();
     const defaultTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T09:30`;
     setOverrideForm({ comments: "", overrideTime: defaultTime });
     setOverrideDialogOpen(true);
   };
 
-  const handleApproveOut = (teacherId: string, teacherName: string) => {
-    setSelectedStaff({ id: teacherId, name: teacherName, type: "out" });
+  const handleApproveOut = (staffId: string, staffName: string) => {
+    setSelectedStaff({ id: staffId, name: staffName, type: "out" });
     const now = new Date();
     const defaultTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T16:00`;
     setOverrideForm({ comments: "", overrideTime: defaultTime });
@@ -87,11 +125,21 @@ const TeacherCheckins: React.FC = () => {
     if (!selectedStaff) return;
     setApprovingId(selectedStaff.type === "in" ? selectedStaff.id : selectedStaff.id + "-out");
     try {
+      const staffMember = allStaff.find(s => s.id === selectedStaff.id);
+      const isAdm = staffMember?.role === "admin";
       if (selectedStaff.type === "in") {
-        await approveCheckin(selectedStaff.id, overrideForm.comments, overrideForm.overrideTime);
+        if (isAdm) {
+          await approveAdminCheckin(selectedStaff.id, overrideForm.comments, overrideForm.overrideTime);
+        } else {
+          await approveCheckin(selectedStaff.id, overrideForm.comments, overrideForm.overrideTime);
+        }
         toast.success(`${selectedStaff.name}'s check-in approved!`);
       } else {
-        await approveCheckout(selectedStaff.id, overrideForm.comments, overrideForm.overrideTime);
+        if (isAdm) {
+          await approveAdminCheckout(selectedStaff.id, overrideForm.comments, overrideForm.overrideTime);
+        } else {
+          await approveCheckout(selectedStaff.id, overrideForm.comments, overrideForm.overrideTime);
+        }
         toast.success(`${selectedStaff.name}'s check-out approved!`);
       }
       setOverrideDialogOpen(false);
@@ -104,13 +152,19 @@ const TeacherCheckins: React.FC = () => {
 
   const handleApproveAll = async () => {
     if (approvingAll) return;
-    const pendingTeachers = teacherCheckinData.filter(d => d.category === "pending");
-    if (pendingTeachers.length === 0) return;
+    const pendingStaff = staffCheckinData.filter(d => d.category === "pending");
+    if (pendingStaff.length === 0) return;
     setApprovingAll(true);
     try {
-      // Run in parallel with allSettled — one failure must not abort the rest.
       const results = await Promise.allSettled(
-        pendingTeachers.map(({ teacher }) => approveCheckin(teacher.id))
+        pendingStaff.map(({ staff }) => {
+          const isAdm = staff.role === "admin";
+          if (isAdm) {
+            return approveAdminCheckin(staff.id);
+          } else {
+            return approveCheckin(staff.id);
+          }
+        })
       );
       const succeeded = results.filter(r => r.status === "fulfilled").length;
       const failed = results.length - succeeded;
@@ -127,7 +181,7 @@ const TeacherCheckins: React.FC = () => {
   };
 
   const filterTabs: { id: FilterTab; label: string; color: string; count: number }[] = [
-    { id: "all", label: "All Teachers", color: "text-accent", count: counts.all },
+    { id: "all", label: "All Staff", color: "text-accent", count: counts.all },
     { id: "on-time", label: "Checked In/Out", color: "text-ark-success", count: counts["on-time"] },
     { id: "pending", label: "Pending In", color: "text-ark-warning", count: counts.pending },
     { id: "pending-out", label: "Pending Out", color: "text-muted-foreground", count: counts["pending-out"] },
@@ -140,7 +194,7 @@ const TeacherCheckins: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-display font-bold text-foreground flex items-center gap-2">
-            <UserCheck className="w-6 h-6 text-accent" /> Teacher Check-ins
+            <UserCheck className="w-6 h-6 text-accent" /> Staff Check-ins
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
@@ -166,7 +220,7 @@ const TeacherCheckins: React.FC = () => {
             <Users className="w-4 h-4 text-accent" />
           </div>
           <p className="text-2xl font-display font-bold text-foreground">{counts.all}</p>
-          <p className="text-xs text-muted-foreground">Teachers today</p>
+          <p className="text-xs text-muted-foreground">Staff today</p>
         </div>
         <div className="metric-card border-ark-success/30">
           <div className="flex items-center justify-between">
@@ -222,7 +276,7 @@ const TeacherCheckins: React.FC = () => {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name or campus..."
+            placeholder="Search by name, campus or role..."
             className="w-full bg-card border border-border rounded-lg pl-10 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
           />
         </div>
@@ -233,7 +287,7 @@ const TeacherCheckins: React.FC = () => {
         <div className="flex items-center gap-3 p-3 rounded-lg bg-ark-warning/5 border border-ark-warning/20">
           <AlertTriangle className="w-4 h-4 text-ark-warning flex-shrink-0" />
           <p className="text-sm text-foreground flex-1">
-            <strong className="text-ark-warning">{counts.pending}</strong> teacher check-in{counts.pending > 1 ? "s" : ""} pending your approval
+            <strong className="text-ark-warning">{counts.pending}</strong> staff check-in{counts.pending > 1 ? "s" : ""} pending your approval
           </p>
           <button
             onClick={() => setActiveFilter("pending")}
@@ -244,25 +298,25 @@ const TeacherCheckins: React.FC = () => {
         </div>
       )}
 
-      {/* Teacher List */}
+      {/* Staff List */}
       <div className="glass-card p-4 md:p-5">
         <div className="space-y-2">
           {filtered.length === 0 ? (
             <div className="text-center py-12">
               <UserCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-sm text-muted-foreground">No teachers match this filter</p>
+              <p className="text-sm text-muted-foreground">No staff members match this filter</p>
             </div>
           ) : (
-            filtered.map(({ teacher, checkin, category }) => (
+            filtered.map(({ staff, checkin, category }) => (
               <TeacherCheckinRow
-                key={teacher.id}
-                teacher={teacher}
+                key={staff.id}
+                staff={staff}
                 checkin={checkin}
                 category={category}
-                onApprove={() => handleApprove(teacher.id, teacher.name)}
-                onApproveOut={() => handleApproveOut(teacher.id, teacher.name)}
-                isApproving={approvingId === teacher.id}
-                isApprovingOut={approvingId === teacher.id + "-out"}
+                onApprove={() => handleApprove(staff.id, staff.name)}
+                onApproveOut={() => handleApproveOut(staff.id, staff.name)}
+                isApproving={approvingId === staff.id}
+                isApprovingOut={approvingId === staff.id + "-out"}
               />
             ))
           )}
@@ -277,17 +331,17 @@ const TeacherCheckins: React.FC = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Override Time (Optional)</label>
-              <Input 
-                type="datetime-local" 
-                value={overrideForm.overrideTime} 
+              <Input
+                type="datetime-local"
+                value={overrideForm.overrideTime}
                 onChange={e => setOverrideForm({ ...overrideForm, overrideTime: e.target.value })}
               />
               <p className="text-[10px] text-muted-foreground">Adjust this if the staff logged in earlier but couldn't mark attendance.</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Comments / Remarks</label>
-              <Textarea 
-                placeholder="e.g., Forgot to mark, internet issue, permission granted..." 
+              <Textarea
+                placeholder="e.g., Forgot to mark, internet issue, permission granted..."
                 value={overrideForm.comments}
                 onChange={e => setOverrideForm({ ...overrideForm, comments: e.target.value })}
               />
@@ -305,16 +359,16 @@ const TeacherCheckins: React.FC = () => {
   );
 };
 
-// ── Individual Teacher Row ─────────────────────────────────────────
+// ── Individual Staff Row ─────────────────────────────────────────
 const TeacherCheckinRow: React.FC<{
-  teacher: TeacherInfo;
+  staff: StaffInfo;
   checkin: CheckinRecord | null;
   category: "on-time" | "pending" | "missed" | "pending-out";
   onApprove: () => void;
   onApproveOut: () => void;
   isApproving: boolean;
   isApprovingOut: boolean;
-}> = ({ teacher, checkin, category, onApprove, onApproveOut, isApproving, isApprovingOut }) => {
+}> = ({ staff, checkin, category, onApprove, onApproveOut, isApproving, isApprovingOut }) => {
   const borderClass = category === "on-time"
     ? "border-ark-success/15 bg-ark-success/[0.02]"
     : category === "pending"
@@ -323,7 +377,7 @@ const TeacherCheckinRow: React.FC<{
     ? "border-border bg-muted/[0.03]"
     : "border-border bg-muted/5";
 
-  const initials = teacher.name.split(" ").map(n => n[0]).join("").toUpperCase();
+  const initials = staff.name.split(" ").map(n => n[0]).join("").toUpperCase();
 
   return (
     <div className={`flex items-center justify-between p-3 rounded-lg border transition-all ${borderClass}`}>
@@ -340,11 +394,25 @@ const TeacherCheckinRow: React.FC<{
 
         {/* Info */}
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{teacher.name}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-foreground truncate">{staff.name}</p>
+            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+              staff.roleLabel === "Admin" ? "bg-ark-danger/10 text-ark-danger"
+              : staff.roleLabel === "Coordinator" ? "bg-accent/15 text-accent"
+              : staff.roleLabel === "Management" ? "bg-ark-warning/20 text-ark-warning"
+              : "bg-muted/40 text-muted-foreground"
+            }`}>
+              {staff.roleLabel}
+            </span>
+          </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
-            <span>{teacher.campus}</span>
-            <span className="text-border">·</span>
-            <span>{teacher.subject}</span>
+            <span>{staff.campus}</span>
+            {staff.subject && (
+              <>
+                <span className="text-border">·</span>
+                <span>{staff.subject}</span>
+              </>
+            )}
             {checkin && (
               <>
                 <span className="text-border">·</span>

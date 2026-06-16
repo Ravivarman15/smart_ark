@@ -32,10 +32,11 @@ const ComplianceViolations = lazy(() => import("./pages/management/ComplianceVio
 const AcademicExecution = lazy(() => import("./pages/management/AcademicExecution"));
 const WeeklyAcademicSummary = lazy(() => import("./pages/management/WeeklyAcademicSummary"));
 const CoordinatorLayout = lazy(() => import("./pages/coordinator/CoordinatorLayout"));
+const CoordinatorDashboard = lazy(() => import("./pages/coordinator/CoordinatorDashboard"));
 // Enterprise Tasks module — admin/management mount natively via taskRoutes();
 // coordinator/teacher mount via renderSharedRoutes. The legacy coordinator
-// TaskManagement page is superseded (the /coordinator index now redirects to
-// the new Tasks dashboard).
+// TaskManagement page is superseded (the /coordinator index now renders the
+// dedicated coordinator dashboard).
 const TasksDashboardPage = lazy(() => import("./features/tasks/pages/TasksDashboardPage"));
 const TasksMyPage = lazy(() => import("./features/tasks/pages/MyTasksPage"));
 const TasksTeamPage = lazy(() => import("./features/tasks/pages/TeamTasksPage"));
@@ -658,9 +659,8 @@ const AppRoutes: React.FC = () => (
       </Route>
 
       <Route path="/coordinator" element={<ProtectedRoute allowedRoles={roles("coordinator")}><CoordinatorLayout /></ProtectedRoute>}>
-        {/* Legacy coordinator Task Management is superseded by the enterprise
-            Tasks module — the home redirects to the new Tasks dashboard. */}
-        <Route index element={<Navigate to="/coordinator/tasks/dashboard" replace />} />
+        {/* Dedicated coordinator dashboard with check-in, check-out, and oversight metrics */}
+        <Route index element={<CoordinatorDashboard />} />
         <Route path="teachers" element={<TeacherOverview />} />
         <Route path="academic" element={<AcademicControl />} />
         <Route path="enquiries" element={<EnquiryManagement />} />

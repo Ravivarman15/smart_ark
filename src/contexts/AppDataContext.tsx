@@ -88,6 +88,8 @@ interface AppDataContextType {
   campuses: string[];
   teachers: TeacherInfo[]; addTeacher: (teacher: Omit<TeacherInfo, "id">) => Promise<void>; updateTeacher: (id: string, updates: Partial<TeacherInfo>) => Promise<void>; deleteTeacher: (id: string) => Promise<void>; getTeacherById: (id: string) => TeacherInfo | undefined; addStudentToTeacher: (teacherId: string, studentName: string) => void;
   admins: AdminInfo[];
+  coordinators: AdminInfo[];
+  management: AdminInfo[];
   batches: BatchInfo[]; addBatch: (batch: Omit<BatchInfo, "id">) => Promise<void>; updateBatch: (id: string, updates: Partial<BatchInfo>) => Promise<void>; deleteBatch: (id: string) => Promise<void>;
   students: StudentInfo[]; addStudent: (student: Omit<StudentInfo, "id">) => Promise<void>; updateStudent: (id: string, updates: Partial<StudentInfo>) => Promise<void>; deactivateStudent: (id: string) => Promise<void>;
   alerts: AppAlert[]; addAlert: (alert: Omit<AppAlert, "id">) => void; dismissAlert: (id: string | number) => void; markAlertReviewed: (id: string | number) => void;
@@ -151,6 +153,8 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [campuses, setCampuses] = useState<string[]>([]);
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
   const [admins, setAdmins] = useState<AdminInfo[]>([]);
+  const [coordinators, setCoordinators] = useState<AdminInfo[]>([]);
+  const [management, setManagement] = useState<AdminInfo[]>([]);
   const [batches, setBatches] = useState<BatchInfo[]>([]);
   const [students, setStudents] = useState<StudentInfo[]>([]);
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
@@ -208,6 +212,42 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         })));
       } else {
         setAdmins([]);
+      }
+
+      // Load coordinators (profiles with role=coordinator)
+      const coordinatorProfiles = qry(
+        await supabase.from("profiles").select("id, name, role, campuses(name)").eq("role", "coordinator").eq("is_active", true),
+        "coordinator profiles"
+      );
+
+      if (coordinatorProfiles && coordinatorProfiles.length > 0) {
+        setCoordinators(coordinatorProfiles.map(c => ({
+          id: c.id,
+          profileId: c.id,
+          name: c.name,
+          role: c.role as string,
+          campus: (c.campuses as any)?.name || "All Campuses",
+        })));
+      } else {
+        setCoordinators([]);
+      }
+
+      // Load management (profiles with role=management)
+      const managementProfiles = qry(
+        await supabase.from("profiles").select("id, name, role, campuses(name)").eq("role", "management").eq("is_active", true),
+        "management profiles"
+      );
+
+      if (managementProfiles && managementProfiles.length > 0) {
+        setManagement(managementProfiles.map(m => ({
+          id: m.id,
+          profileId: m.id,
+          name: m.name,
+          role: m.role as string,
+          campus: (m.campuses as any)?.name || "All Campuses",
+        })));
+      } else {
+        setManagement([]);
       }
 
       // ── Load teacher data via junction tables (UUID FK — no name matching) ──
@@ -1944,6 +1984,8 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     campuses,
     teachers, addTeacher, updateTeacher, deleteTeacher, getTeacherById, addStudentToTeacher,
     admins,
+    coordinators,
+    management,
     batches, addBatch, updateBatch, deleteBatch,
     students, addStudent, updateStudent, deactivateStudent,
     alerts, addAlert, dismissAlert, markAlertReviewed,
@@ -1961,7 +2003,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }), [
     tasks, attendance, checkins, adminCheckins, retestQueue, classSchedule,
     adminChecklist, dailyChecklistState, weeklyPlans, feeRecords, admissionCalls,
-    meetingNotes, campuses, teachers, admins, batches, students, alerts, violations,
+    meetingNotes, campuses, teachers, admins, coordinators, management, batches, students, alerts, violations,
     overrideRequests, leaveRequests, expenses, marksEntries, strictMode, walkIns,
     campusMetrics, ihiTrend, feeTrend, historicalAttendance, loading,
     addTask, markTaskComplete, getTasksForTeacher, submitAttendance,

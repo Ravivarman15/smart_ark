@@ -1,5 +1,5 @@
 import { ShieldCheck } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePendingApprovals } from "../hooks/usePendingApprovals";
 
@@ -20,17 +20,20 @@ interface Props {
   basePath?: string;
 }
 
-export const PendingApprovalCard = ({ basePath = "/management" }: Props) => {
+export const PendingApprovalCard = ({ basePath }: Props) => {
+  const location = useLocation();
+  const determinedBasePath = basePath ?? (location.pathname.startsWith("/admin") ? "/admin" : "/management");
+  const checkinsPath = determinedBasePath === "/admin" ? "/admin/teacher-checkins" : "/management/staff-attendance";
   const { data, isLoading, error } = usePendingApprovals();
 
   if (error) return <p className="text-xs text-rose-600">Failed to load approvals</p>;
   if (isLoading || !data) return <Skeleton className="h-32 w-full" />;
 
   const rows: Row[] = [
-    { label: "Admissions", count: data.pendingAdmissions, to: `${basePath}/enquiries` },
-    { label: "Leave Requests", count: data.pendingLeaves, to: `${basePath}/leave-management` },
-    { label: "Check-ins", count: data.pendingCheckIns, to: `${basePath}/admin-checkins` },
-    { label: "Check-outs", count: data.pendingCheckOuts, to: `${basePath}/admin-checkins` },
+    { label: "Admissions", count: data.pendingAdmissions, to: `${determinedBasePath}/enquiries` },
+    { label: "Leave Requests", count: data.pendingLeaves, to: `${determinedBasePath}/leave-management` },
+    { label: "Check-ins", count: data.pendingCheckIns, to: checkinsPath },
+    { label: "Check-outs", count: data.pendingCheckOuts, to: checkinsPath },
   ];
 
   return (

@@ -29,7 +29,7 @@ const MetricCard: React.FC<{
 };
 
 const DailyControlBoard: React.FC = () => {
-  const { teachers, checkins, adminCheckins, adminCheckIn, adminCheckout, retestQueue, feeRecords, admissionCalls, attendance, adminChecklist, weeklyPlans, students, toggleChecklistItem, walkIns, violations, overrideRequests } = useAppData();
+  const { teachers, coordinators, management, admins, checkins, adminCheckins, adminCheckIn, adminCheckout, retestQueue, feeRecords, admissionCalls, attendance, adminChecklist, weeklyPlans, students, toggleChecklistItem, walkIns, violations, overrideRequests } = useAppData();
   const { user } = useAuth();
   const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
@@ -97,11 +97,33 @@ const DailyControlBoard: React.FC = () => {
     );
   };
 
-  const todayCheckins = teachers.map(t => ({ teacher: t, checkin: checkins[t.id]?.[today] }));
+  // Combine all staff (teachers, coordinators, management, admins) to get total checkin counts
+  const allStaff = useMemo(() => {
+    const list = [
+      ...teachers,
+      ...coordinators,
+      ...management,
+      ...admins,
+    ];
+    const seen = new Set();
+    return list.filter(s => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+  }, [teachers, coordinators, management, admins]);
+
+  const todayCheckins = useMemo(() => {
+    return allStaff.map(s => {
+      const checkin = checkins[s.id]?.[today] || adminCheckins[s.id]?.[today] || null;
+      return { staff: s, checkin };
+    });
+  }, [allStaff, checkins, adminCheckins, today]);
+
   const onTime = todayCheckins.filter(c => c.checkin?.status === "on-time").length;
   const late = todayCheckins.filter(c => c.checkin?.status === "late").length;
-  const pendingCheckins = todayCheckins.filter(c => c.checkin?.status === "pending");
-  const notCheckedIn = teachers.length - todayCheckins.filter(c => c.checkin).length;
+  const pendingCheckins = todayCheckins.filter(c => c.checkin?.status === "pending" || c.checkin?.checkoutStatus === "pending");
+  const notCheckedIn = allStaff.length - todayCheckins.filter(c => c.checkin).length;
 
   const retestPending = retestQueue.filter(r => r.status === "pending");
   const feesPaid = feeRecords.filter(f => f.paid).length;
@@ -164,7 +186,7 @@ const DailyControlBoard: React.FC = () => {
       }
     }] : []),
     ...(notCheckedIn > 0 ? [{
-      msg: `${notCheckedIn} teachers not checked in`,
+      msg: `${notCheckedIn} staff not checked in`,
       type: "warning" as const,
       severity: "warning" as const,
       onResolve: () => {
@@ -313,12 +335,12 @@ const DailyControlBoard: React.FC = () => {
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {/* Teacher Check-in: On Time / Pending / Missed */}
+        {/* Staff Check-in: On Time / Pending / Missed */}
         <div className={`metric-card col-span-2 lg:col-span-1 cursor-pointer hover:bg-muted/20 ${pendingCheckins.length > 0 ? 'border-ark-warning/30' : 'border-accent/30'}`}
           onClick={() => navigate("/admin/teacher-checkins")}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Teacher Check-in</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Staff Check-in</span>
             <UserCheck className="w-4 h-4 text-accent" />
           </div>
           <div className="grid grid-cols-3 gap-1 mt-1">
