@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, Plus, UserPlus, Users, AlertCircle, FileText, CheckCircle2, Link2, ExternalLink, Filter, Bell } from "lucide-react";
+import { Phone, Plus, UserPlus, Users, AlertCircle, FileText, CheckCircle2, Link2, ExternalLink, Filter, Bell, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,12 @@ interface Enquiry {
   follow_up_date: string | null;
   interested_standard: string | null;
   interested_course: string | null;
+  // ── Origin marker. Rows sourced from the new `leads` table are read-only
+  // here (they own their own pipeline at /<role>/leads) so their mutate
+  // buttons are swapped for a "View in Leads" link. `_source` carries the
+  // raw lead source so the type filter can treat landing/meta as web-form.
+  _origin?: "enquiry" | "lead";
+  _source?: string | null;
 }
 
 interface Staff {
@@ -32,7 +39,21 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   follow_up:      { label: "Follow-up",       color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   converted:      { label: "Converted",       color: "bg-green-100 text-green-700 border-green-200" },
   not_interested: { label: "Not Interested",  color: "bg-red-100 text-red-700 border-red-200" },
+  // ── Lead pipeline statuses (from the new `leads` table) ──────────────────
+  new:            { label: "New",             color: "bg-blue-100 text-blue-700 border-blue-200" },
+  contacted:      { label: "Contacted",       color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
+  followup:       { label: "Follow-up",       color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+  demo_scheduled: { label: "Demo Scheduled",  color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  demo_attended:  { label: "Demo Attended",   color: "bg-purple-100 text-purple-700 border-purple-200" },
+  admission:      { label: "Admission",       color: "bg-green-100 text-green-700 border-green-200" },
+  closed:         { label: "Closed",          color: "bg-gray-100 text-gray-600 border-gray-200" },
 };
+
+// Statuses that count as "won" / "dead" regardless of origin (enquiry vs lead).
+const CONVERTED_STATUSES = new Set(["converted", "admission"]);
+const DEAD_STATUSES      = new Set(["not_interested", "closed"]);
+const isConverted = (s?: string | null) => CONVERTED_STATUSES.has(s || "");
+const isClosed    = (s?: string | null) => CONVERTED_STATUSES.has(s || "") || DEAD_STATUSES.has(s || "");
 
 const PRIORITY_MAP: Record<string, string> = {
   high:   "bg-red-100 text-red-600",
@@ -42,6 +63,7 @@ const PRIORITY_MAP: Record<string, string> = {
 
 const EnquiryManagement: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,34 +94,72 @@ const EnquiryManagement: React.FC = () => {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: eq }, { data: sp }] = await Promise.all([
+    // Pull the legacy enquiries (admission_calls), the new automated leads, and
+    // staff in parallel. The `leads` table may not exist yet (migration pending)
+    // — its query is wrapped so a missing table degrades to "no leads" instead
+    // of breaking the whole page.
+    const [{ data: eq }, leadsRes, { data: sp }] = await Promise.all([
       // select("*") is safe before and after migration (returns only existing columns)
       (supabase as any).from("admission_calls")
         .select("*")
         .order("created_at", { ascending: false }),
+      (supabase as any).from("leads")
+        .select("*")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .then((r: any) => r, () => ({ data: null, error: true })),
       supabase.from("profiles").select("id, name").eq("is_active", true).in("role", ["admin", "teacher"]),
     ]);
-    setEnquiries((eq || []) as Enquiry[]);
+
+    const enquiryRows: Enquiry[] = ((eq || []) as Enquiry[]).map(e => ({ ...e, _origin: "enquiry" as const }));
+
+    // Map new-module leads into the shared Enquiry shape (read-only here).
+    const leadRows: Enquiry[] = (leadsRes?.data || []).map((l: any): Enquiry => ({
+      id: `lead:${l.id}`,
+      prospect_name: l.student_name || l.parent_name || "Unknown",
+      phone: l.phone ?? null,
+      date: l.created_at ? String(l.created_at).split("T")[0] : null,
+      status: l.status ?? "new",
+      notes: l.notes ?? null,
+      is_walkin: l.source === "walk_in",
+      priority: l.priority ?? null,
+      assigned_to: l.assigned_to ?? null,
+      follow_up_date: l.sla_due_at ? String(l.sla_due_at).split("T")[0] : null,
+      interested_standard: l.standard ?? null,
+      interested_course: l.course ?? null,
+      _origin: "lead",
+      _source: l.source ?? null,
+    }));
+
+    const merged = [...enquiryRows, ...leadRows].sort(
+      (a, b) => (b.date || "").localeCompare(a.date || ""),
+    );
+
+    setEnquiries(merged);
     setStaff(sp || []);
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  // A lead from a landing page / Meta ad counts as a "web-form" enquiry.
+  const isWebForm = (e: Enquiry) =>
+    e.notes?.includes("web-form") || e._source === "landing" || e._source === "meta_ads";
+
   const filtered = enquiries.filter(e => {
     if (typeFilter === "walk-in" && !e.is_walkin) return false;
-    if (typeFilter === "call" && (e.is_walkin || e.notes?.includes("web"))) return false;
-    if (typeFilter === "web-form" && !e.notes?.includes("web-form")) return false;
-    if (statusFilter === "active" && (e.status === "converted" || e.status === "not_interested")) return false;
-    if (statusFilter === "converted" && e.status !== "converted") return false;
+    if (typeFilter === "call" && (e.is_walkin || isWebForm(e))) return false;
+    if (typeFilter === "web-form" && !isWebForm(e)) return false;
+    if (statusFilter === "active" && isClosed(e.status)) return false;
+    if (statusFilter === "converted" && !isConverted(e.status)) return false;
     return true;
   });
 
-  // Metrics
-  const totalActive   = enquiries.filter(e => e.status === "interested" || e.status === "follow_up").length;
-  const todayCalls    = enquiries.filter(e => e.date === today && !e.is_walkin).length;
-  const todayWalkIns  = enquiries.filter(e => e.date === today && e.is_walkin).length;
-  const totalConverted = enquiries.filter(e => e.status === "converted").length;
+  // Metrics — origin-agnostic (an active lead/enquiry is one that isn't won or dead).
+  const totalActive    = enquiries.filter(e => !isClosed(e.status)).length;
+  const todayCalls     = enquiries.filter(e => e.date === today && !e.is_walkin).length;
+  const todayWalkIns   = enquiries.filter(e => e.date === today && e.is_walkin).length;
+  const totalConverted = enquiries.filter(e => isConverted(e.status)).length;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -350,6 +410,11 @@ const EnquiryManagement: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="text-sm font-bold text-foreground">{e.prospect_name || "Unknown"}</h3>
+                        {e._origin === "lead" && (
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-accent/15 text-accent font-medium border border-accent/30 inline-flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5" /> LEAD
+                          </span>
+                        )}
                         {e.is_walkin && <span className="px-2 py-0.5 rounded text-[10px] bg-purple-100 text-purple-700 font-medium border border-purple-200">WALK-IN</span>}
                         {e.priority && (
                           <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${PRIORITY_MAP[e.priority] || ""}`}>
@@ -373,25 +438,37 @@ const EnquiryManagement: React.FC = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-2 items-center flex-shrink-0">
-                      {/* Assign */}
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setAssignTarget(e)}>
-                        <Users className="w-3 h-3" /> {assignedStaff ? assignedStaff.name : "Assign"}
-                      </Button>
-
-                      {/* Follow-up */}
-                      {e.status !== "converted" && e.status !== "not_interested" && (
+                      {e._origin === "lead" ? (
+                        /* Leads own their automated pipeline (scoring, assignment,
+                           WhatsApp follow-ups) in the Leads module — surface them
+                           here read-only and deep-link to manage them there. */
                         <Button variant="outline" size="sm" className="h-7 text-xs gap-1 bg-accent/10 text-accent border-accent/20"
-                          onClick={() => { setFollowTarget(e); setNewStatus(e.status || "follow_up"); setNoteText(""); setFollowDate(e.follow_up_date || ""); }}>
-                          <FileText className="w-3 h-3" /> Follow-up
+                          onClick={() => navigate("../leads")}>
+                          <ExternalLink className="w-3 h-3" /> View in Leads
                         </Button>
-                      )}
+                      ) : (
+                        <>
+                          {/* Assign */}
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setAssignTarget(e)}>
+                            <Users className="w-3 h-3" /> {assignedStaff ? assignedStaff.name : "Assign"}
+                          </Button>
 
-                      {/* Approve admission */}
-                      {["admin", "management"].includes(user?.role || "") && e.status === "interested" && (
-                        <Button size="sm" className="h-7 text-xs gap-1 bg-green-500/20 text-green-700 hover:bg-green-500/30 border border-green-200"
-                          variant="outline" onClick={() => handleApprove(e)}>
-                          <CheckCircle2 className="w-3 h-3" /> Approve
-                        </Button>
+                          {/* Follow-up */}
+                          {e.status !== "converted" && e.status !== "not_interested" && (
+                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 bg-accent/10 text-accent border-accent/20"
+                              onClick={() => { setFollowTarget(e); setNewStatus(e.status || "follow_up"); setNoteText(""); setFollowDate(e.follow_up_date || ""); }}>
+                              <FileText className="w-3 h-3" /> Follow-up
+                            </Button>
+                          )}
+
+                          {/* Approve admission */}
+                          {["admin", "management"].includes(user?.role || "") && e.status === "interested" && (
+                            <Button size="sm" className="h-7 text-xs gap-1 bg-green-500/20 text-green-700 hover:bg-green-500/30 border border-green-200"
+                              variant="outline" onClick={() => handleApprove(e)}>
+                              <CheckCircle2 className="w-3 h-3" /> Approve
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
