@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, Plus, UserPlus, Users, AlertCircle, FileText, CheckCircle2, Link2, ExternalLink, Filter, Bell, Sparkles } from "lucide-react";
+import { Phone, Plus, UserPlus, Users, AlertCircle, FileText, CheckCircle2, Link2, ExternalLink, Filter, Bell, Sparkles, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -267,6 +267,22 @@ const EnquiryManagement: React.FC = () => {
     await load();
   };
 
+  const handleDelete = async (e: Enquiry) => {
+    if (!confirm(`Delete the enquiry for ${e.prospect_name || "this prospect"}? This cannot be undone.`)) return;
+    // Lead-origin rows are soft-deleted in the leads table (id is "lead:<uuid>");
+    // legacy enquiries are hard-deleted from admission_calls.
+    const { error } =
+      e._origin === "lead"
+        ? await (supabase as any).from("leads")
+            .update({ deleted_at: new Date().toISOString() })
+            .eq("id", e.id.replace(/^lead:/, ""))
+        : await (supabase as any).from("admission_calls").delete().eq("id", e.id);
+
+    if (error) return toast.error("Failed to delete: " + error.message);
+    toast.success("Enquiry deleted");
+    await load();
+  };
+
   const isOverdue = (date?: string | null) => !!date && date < today;
 
   return (
@@ -439,13 +455,22 @@ const EnquiryManagement: React.FC = () => {
 
                     <div className="flex flex-wrap gap-2 items-center flex-shrink-0">
                       {e._origin === "lead" ? (
-                        /* Leads own their automated pipeline (scoring, assignment,
-                           WhatsApp follow-ups) in the Leads module — surface them
-                           here read-only and deep-link to manage them there. */
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 bg-accent/10 text-accent border-accent/20"
-                          onClick={() => navigate("../leads")}>
-                          <ExternalLink className="w-3 h-3" /> View in Leads
-                        </Button>
+                        <>
+                          {/* Leads own their automated pipeline (scoring, assignment,
+                             WhatsApp follow-ups) in the Leads module — surface them
+                             here read-only and deep-link to manage them there. */}
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1 bg-accent/10 text-accent border-accent/20"
+                            onClick={() => navigate("../leads")}>
+                            <ExternalLink className="w-3 h-3" /> View in Leads
+                          </Button>
+                          {/* Delete (soft-delete the lead) */}
+                          {["admin", "management"].includes(user?.role || "") && (
+                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                              onClick={() => handleDelete(e)}>
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </Button>
+                          )}
+                        </>
                       ) : (
                         <>
                           {/* Assign */}
@@ -466,6 +491,14 @@ const EnquiryManagement: React.FC = () => {
                             <Button size="sm" className="h-7 text-xs gap-1 bg-green-500/20 text-green-700 hover:bg-green-500/30 border border-green-200"
                               variant="outline" onClick={() => handleApprove(e)}>
                               <CheckCircle2 className="w-3 h-3" /> Approve
+                            </Button>
+                          )}
+
+                          {/* Delete */}
+                          {["admin", "management"].includes(user?.role || "") && (
+                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                              onClick={() => handleDelete(e)}>
+                              <Trash2 className="w-3 h-3" /> Delete
                             </Button>
                           )}
                         </>
