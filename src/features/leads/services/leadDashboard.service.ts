@@ -13,7 +13,10 @@ const startOfTodayISO = (): string => {
 };
 
 class LeadDashboardService extends BaseService {
-  async counselor(counselorId: string): Promise<CounselorDashboard> {
+  // `counselorId === null` ⇒ org-wide scope ("all leads"), used when a
+  // reassign-capable user (admin/management) views the workspace so the KPI
+  // cards match the all-leads table instead of showing only their own.
+  async counselor(counselorId: string | null): Promise<CounselorDashboard> {
     const empty: CounselorDashboard = {
       totalLeads: 0, todayLeads: 0, pendingFollowups: 0, overdueLeads: 0,
       demosScheduled: 0, admissions: 0, conversionRate: 0, avgResponseMinutes: 0,
@@ -21,31 +24,41 @@ class LeadDashboardService extends BaseService {
     };
     try {
       const today = startOfTodayISO();
+      // Apply the assigned_to filter only when scoped to a single counselor.
+      const scoped = <T extends { eq: (c: string, v: string) => T }>(q: T): T =>
+        counselorId ? q.eq("assigned_to", counselorId) : q;
 
       const [total, todayC, overdue] = await Promise.all([
-        this.db.from("leads").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("assigned_to", counselorId),
-        this.db.from("leads").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("assigned_to", counselorId).gte("created_at", today),
-        this.db.from("leads").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("assigned_to", counselorId).eq("is_overdue", true),
+        scoped(this.db.from("leads").select("id", { count: "exact", head: true }).is("deleted_at", null)),
+        scoped(this.db.from("leads").select("id", { count: "exact", head: true }).is("deleted_at", null).gte("created_at", today)),
+        scoped(this.db.from("leads").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("is_overdue", true)),
       ]);
       if (total.error) return empty;
 
-      const pending = await this.db
-        .from("lead_followups")
-        .select("id", { count: "exact", head: true })
-        .eq("assigned_to", counselorId)
-        .eq("status", "pending");
-
-      // demos + admissions need this counselor's lead ids.
-      const leadIdsRes = await this.db
-        .from("leads").select("id").is("deleted_at", null).eq("assigned_to", counselorId);
-      const leadIds = (leadIdsRes.data as Record<string, unknown>[] | null ?? []).map((r) => String(r.id));
+      const pending = await scoped(
+        this.db.from("lead_followups").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      );
 
       let demos = 0;
       let admissions = 0;
-      if (leadIds.length) {
+      if (counselorId) {
+        // demos + admissions need this counselor's lead ids.
+        const leadIdsRes = await this.db
+          .from("leads").select("id").is("deleted_at", null).eq("assigned_to", counselorId);
+        const leadIds = (leadIdsRes.data as Record<string, unknown>[] | null ?? []).map((r) => String(r.id));
+        if (leadIds.length) {
+          const [d, a] = await Promise.all([
+            this.db.from("demo_classes").select("id", { count: "exact", head: true }).in("lead_id", leadIds).eq("status", "scheduled"),
+            this.db.from("admissions").select("id", { count: "exact", head: true }).in("lead_id", leadIds),
+          ]);
+          demos = d.count ?? 0;
+          admissions = a.count ?? 0;
+        }
+      } else {
+        // Org-wide: count all scheduled demos + all admissions directly.
         const [d, a] = await Promise.all([
-          this.db.from("demo_classes").select("id", { count: "exact", head: true }).in("lead_id", leadIds).eq("status", "scheduled"),
-          this.db.from("admissions").select("id", { count: "exact", head: true }).in("lead_id", leadIds),
+          this.db.from("demo_classes").select("id", { count: "exact", head: true }).eq("status", "scheduled"),
+          this.db.from("admissions").select("id", { count: "exact", head: true }),
         ]);
         demos = d.count ?? 0;
         admissions = a.count ?? 0;
@@ -53,13 +66,11 @@ class LeadDashboardService extends BaseService {
 
       const totalLeads = total.count ?? 0;
 
-      // Avg response time (bounded fetch of responded leads).
-      const respRes = await this.db
-        .from("leads")
-        .select("created_at, first_response_at")
-        .eq("assigned_to", counselorId)
-        .not("first_response_at", "is", null)
-        .limit(500);
+      // Avg response time (bounded fetch of responded leads). Scope the filter
+      // before applying the row limit (filters must precede transforms).
+      const respRes = await scoped(
+        this.db.from("leads").select("created_at, first_response_at").not("first_response_at", "is", null),
+      ).limit(500);
       const respRows = (respRes.data as Record<string, unknown>[] | null) ?? [];
       const avgResponseMinutes = respRows.length
         ? Math.round(
