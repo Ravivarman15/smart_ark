@@ -37,12 +37,13 @@ class SlaService extends BaseService {
   }
 
   /** Compliance % for a counselor: resolved-before-breach / total closed windows. */
-  async complianceForCounselor(counselorId: string | null): Promise<number> {
-    // Join via leads.assigned_to; fetch the relevant lead ids first.
-    // A null counselorId means "all leads" (org-wide view).
-    let leadQ = this.db.from("leads").select("id").is("deleted_at", null);
-    if (counselorId) leadQ = leadQ.eq("assigned_to", counselorId);
-    const leadRes = await leadQ;
+  async complianceForCounselor(counselorId: string): Promise<number> {
+    // Join via leads.assigned_to; fetch this counselor's lead ids first.
+    const leadRes = await this.db
+      .from("leads")
+      .select("id")
+      .eq("assigned_to", counselorId)
+      .is("deleted_at", null);
     if (leadRes.error || !leadRes.data?.length) return 100;
     const ids = (leadRes.data as Record<string, unknown>[]).map((r) => String(r.id));
 

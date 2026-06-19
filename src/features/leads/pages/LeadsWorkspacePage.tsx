@@ -32,16 +32,12 @@ const LeadsWorkspacePage = () => {
   const { user } = useAuth();
   const { canDo } = useCanDo();
   const counselorId = user?.profileId;
-  // Reassign-capable users (admin/management) see every lead, so scope both the
-  // KPI cards and the table org-wide; everyone else sees only their own queue.
-  const seesAll = canDo("lead.reassign");
-  const scope = seesAll ? "all" : counselorId;
 
-  const { data: dash } = useCounselorDashboard(scope);
+  const { data: dash } = useCounselorDashboard(counselorId);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<LeadStatus | "all">("all");
   const { data: list } = useLeads({
-    assignedTo: seesAll ? "all" : counselorId,
+    assignedTo: canDo("lead.reassign") ? "all" : counselorId,
     status,
     search: search || undefined,
     pageSize: 200,
@@ -64,12 +60,8 @@ const LeadsWorkspacePage = () => {
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">{seesAll ? "All Leads" : "My Leads"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {seesAll
-              ? "Every lead across counselors — follow-ups and conversions."
-              : "Your assigned leads, follow-ups and conversions."}
-          </p>
+          <h1 className="text-xl font-bold">My Leads</h1>
+          <p className="text-sm text-muted-foreground">Your assigned leads, follow-ups and conversions.</p>
         </div>
         <ActionGuard action="lead.create">
           <Button onClick={() => setAddOpen(true)}>
