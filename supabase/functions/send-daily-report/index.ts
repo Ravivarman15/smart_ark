@@ -11,7 +11,7 @@ const corsHeaders = {
 const AISENSY_API_URL   = "https://backend.aisensy.com/campaign/t1/api/v2";
 const AISENSY_CAMPAIGN  = "ark_daily_report_summary";  // must match your AiSensy dashboard
 const RECIPIENT_NAME    = "Management";            // display name in AiSensy CRM
-const REPORT_RECIPIENT  = "+917639399217";         // +91 76393 99217 (management number, with +)
+const REPORT_RECIPIENT  = "+917358199217";         // +91 73581 99217 (management number, with +)
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

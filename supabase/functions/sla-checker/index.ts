@@ -215,6 +215,372 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ──────────────────────────────────────────────────────────────────────
+    // 6. LEAD CRM — follow-up escalation ladder (15m / 1h / 3h) + SLA breach.
+    //    Self-contained + degrades silently (missing tables just return errors
+    //    the client swallows; the try/catch is a final safety net).
+    // ──────────────────────────────────────────────────────────────────────
+    let leadFollowupsEscalated = 0;
+    let leadSlaBreached = 0;
+    try {
+      const { data: mgmtAdmins } = await supabase
+        .from("profiles")
+        .select("id, name, phone")
+        .in("role", ["management", "admin"])
+        .eq("is_active", true);
+      const mgmtIds = (mgmtAdmins || []).map((p: any) => p.id);
+
+      // `vars` carries the named positional values (counselor_name/student_name/
+      // course_name/…) so the drainer's buildTemplateParams can order them for
+      // the Meta utility template. __body is kept for the guard + single-param
+      // fallback templates.
+      const enqueueWa = async (
+        phone: string | null | undefined,
+        body: string,
+        leadId: string,
+        templateKey: string,
+        recipientKind = "staff",
+        vars: Record<string, unknown> = {}
+      ) => {
+        if (!phone) return;
+        await supabase.from("message_queue").insert({
+          channel: "whatsapp",
+          provider: "aisensy",
+          template: templateKey,
+          template_key: templateKey,
+          language: "en",
+          recipient_kind: recipientKind,
+          recipient_phone: phone,
+          payload: { __body: body, ...vars },
+          context_type: "lead",
+          context_id: leadId,
+          status: "queued",
+          scheduled_at: new Date().toISOString(),
+        });
+        // Mirror to lead_whatsapp_logs + comms_audit so escalation messages are
+        // as traceable as app-originated ones.
+        await supabase.from("lead_whatsapp_logs").insert({
+          lead_id: leadId,
+          template_key: templateKey,
+          template_name: templateKey,
+          recipient_phone: phone,
+          recipient_kind: recipientKind,
+          message_body: body,
+          status: "queued",
+          queued_at: new Date().toISOString(),
+        });
+        await supabase.from("comms_audit").insert({
+          entity_type: "lead",
+          entity_id: leadId,
+          action: "queue",
+          payload: { template: templateKey, recipient_kind: recipientKind, message_body: body, source: "sla-checker" },
+        });
+      };
+
+      const { data: dueFollowups } = await supabase
+        .from("lead_followups")
+        .select("*")
+        .eq("status", "pending")
+        .lte("due_at", now.toISOString());
+
+      for (const f of dueFollowups || []) {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("*")
+          .eq("id", f.lead_id)
+          .maybeSingle();
+        if (!lead || lead.deleted_at) continue;
+
+        // Counselor already responded → close the timer, no escalation.
+        if (lead.first_response_at) {
+          await supabase
+            .from("lead_followups")
+            .update({ status: "done", completed_at: now.toISOString() })
+            .eq("id", f.id);
+          continue;
+        }
+
+        const ageMin = (now.getTime() - new Date(lead.created_at).getTime()) / 60000;
+        const esc = lead.escalation_count || 0;
+
+        let counselorPhone: string | null = null;
+        let counselorName: string | null = null;
+        if (lead.assigned_to) {
+          const { data: c } = await supabase
+            .from("profiles")
+            .select("name, phone")
+            .eq("id", lead.assigned_to)
+            .maybeSingle();
+          counselorPhone = c?.phone || null;
+          counselorName = c?.name || null;
+        }
+        // Named positional vars for the lead_followup_reminder Meta template.
+        const followupVars = {
+          counselor_name: counselorName || "Counselor",
+          student_name: lead.student_name,
+          course_name: lead.course || "",
+        };
+
+        if (ageMin >= 180 && esc < 2) {
+          // 3 hours: WhatsApp everyone + mark OVERDUE.
+          await supabase
+            .from("leads")
+            .update({ is_overdue: true, escalation_count: 2 })
+            .eq("id", lead.id);
+          await supabase.from("lead_followups").update({ status: "overdue" }).eq("id", f.id);
+          await enqueueWa(
+            counselorPhone,
+            `Reminder: please contact ${lead.student_name} (${lead.phone || ""}). Lead pending follow-up for 3+ hours.`,
+            lead.id,
+            "lead_followup_reminder",
+            "staff",
+            followupVars
+          );
+          for (const p of mgmtAdmins || [])
+            await enqueueWa(
+              p.phone,
+              `OVERDUE lead: ${lead.student_name} has had no follow-up for 3+ hours.`,
+              lead.id,
+              "lead_followup_reminder",
+              "management",
+              followupVars
+            );
+          const recips = [...mgmtIds, ...(lead.assigned_to ? [lead.assigned_to] : [])];
+          if (recips.length)
+            await supabase.from("lead_notifications").insert(
+              recips.map((rid: string) => ({
+                recipient_id: rid,
+                lead_id: lead.id,
+                type: "followup_missed",
+                title: "Lead overdue (3h+)",
+                message: lead.student_name,
+              }))
+            );
+          await supabase.from("escalation_log").insert({
+            issue_type: "lead_overdue",
+            description: `Lead ${lead.student_name} overdue >3h without follow-up`,
+            status: "open",
+            date: today,
+          });
+          leadFollowupsEscalated++;
+        } else if (ageMin >= 60 && esc < 1) {
+          // 1 hour: escalate management/admin + dashboard alert.
+          await supabase.from("leads").update({ escalation_count: 1 }).eq("id", lead.id);
+          if (mgmtIds.length)
+            await supabase.from("lead_notifications").insert(
+              mgmtIds.map((rid: string) => ({
+                recipient_id: rid,
+                lead_id: lead.id,
+                type: "followup_missed",
+                title: "Lead pending 1h+",
+                message: lead.student_name,
+              }))
+            );
+          await supabase.from("alerts").insert({
+            type: "warning",
+            severity: "warning",
+            message: `Lead pending follow-up >1h: ${lead.student_name}`,
+            related_user_id: lead.assigned_to || null,
+          });
+          await supabase.from("escalation_log").insert({
+            issue_type: "lead_followup",
+            description: `Lead ${lead.student_name} no follow-up >1h`,
+            status: "open",
+            date: today,
+          });
+          leadFollowupsEscalated++;
+        } else if (esc < 1) {
+          // 15 minutes: nudge the counselor.
+          await enqueueWa(
+            counselorPhone,
+            `New lead pending follow-up: ${lead.student_name} (${lead.phone || ""}). Please reach out.`,
+            lead.id,
+            "lead_followup_reminder",
+            "staff",
+            followupVars
+          );
+          if (lead.assigned_to)
+            await supabase.from("lead_notifications").insert({
+              recipient_id: lead.assigned_to,
+              lead_id: lead.id,
+              type: "followup_due",
+              title: "Follow-up due",
+              message: lead.student_name,
+            });
+        }
+      }
+
+      // SLA breaches across any open stage window.
+      const { data: openSla } = await supabase
+        .from("lead_sla")
+        .select("*")
+        .eq("breached", false)
+        .is("resolved_at", null)
+        .lte("due_at", now.toISOString());
+
+      for (const s of openSla || []) {
+        await supabase
+          .from("lead_sla")
+          .update({
+            breached: true,
+            breached_at: now.toISOString(),
+            escalation_count: (s.escalation_count || 0) + 1,
+          })
+          .eq("id", s.id);
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("id, student_name, phone, course, assigned_to")
+          .eq("id", s.lead_id)
+          .maybeSingle();
+        if (lead) {
+          await supabase.from("leads").update({ sla_breached: true }).eq("id", lead.id);
+          if (mgmtIds.length)
+            await supabase.from("lead_notifications").insert(
+              mgmtIds.map((rid: string) => ({
+                recipient_id: rid,
+                lead_id: lead.id,
+                type: "sla_breach",
+                title: `SLA breach (${s.stage})`,
+                message: lead.student_name,
+              }))
+            );
+          // WhatsApp the SLA breach to the assigned counselor + management.
+          let breachCounselorPhone: string | null = null;
+          let breachCounselorName: string | null = null;
+          if (lead.assigned_to) {
+            const { data: c } = await supabase
+              .from("profiles")
+              .select("name, phone")
+              .eq("id", lead.assigned_to)
+              .maybeSingle();
+            breachCounselorPhone = c?.phone || null;
+            breachCounselorName = c?.name || null;
+          }
+          const breachBody =
+            `SLA BREACH\n\nLead: ${lead.student_name}\nStage: ${s.stage}\n` +
+            `Mobile: ${lead.phone || ""}\n\nThis lead has crossed its response SLA. Immediate action required.\n\nARK CRM`;
+          // Positional vars for sla_breach_alert: [counselor_name, student_name, course_name].
+          const breachVars = {
+            counselor_name: breachCounselorName || "Counselor",
+            student_name: lead.student_name,
+            course_name: lead.course || "",
+          };
+          await enqueueWa(breachCounselorPhone, breachBody, lead.id, "sla_breach_alert", "staff", breachVars);
+          for (const p of mgmtAdmins || [])
+            await enqueueWa(p.phone, breachBody, lead.id, "sla_breach_alert", "management", breachVars);
+          await supabase.from("escalation_log").insert({
+            issue_type: "lead_sla",
+            description: `SLA breach on ${lead.student_name} at stage ${s.stage}`,
+            status: "open",
+            date: today,
+          });
+          leadSlaBreached++;
+        }
+      }
+      // ── Daily reminders (deduped per lead+type+day via lead_reminders) ────
+      const todayStart = new Date(`${today}T00:00:00.000Z`).toISOString();
+      const remind = async (
+        leadId: string,
+        type: string,
+        recipientId: string | null,
+        title: string,
+        message: string,
+        phone?: string | null,
+        body?: string
+      ) => {
+        const { data: existing } = await supabase
+          .from("lead_reminders")
+          .select("id")
+          .eq("lead_id", leadId)
+          .eq("type", type)
+          .gte("due_at", todayStart)
+          .limit(1)
+          .maybeSingle();
+        if (existing) return;
+        await supabase.from("lead_reminders").insert({
+          lead_id: leadId,
+          type,
+          channel: phone ? "whatsapp" : "app",
+          recipient_id: recipientId,
+          due_at: now.toISOString(),
+          status: "sent",
+          sent_at: now.toISOString(),
+        });
+        if (recipientId)
+          await supabase
+            .from("lead_notifications")
+            .insert({ recipient_id: recipientId, lead_id: leadId, type, title, message });
+        // Demo reminder goes to the LEAD — use a single-body template (not the
+        // counselor-facing positional lead_followup_reminder) so the actual
+        // reminder text is delivered via the {{1}} fallback.
+        if (phone && body) await enqueueWa(phone, body, leadId, "lead_demo_reminder", "lead");
+      };
+
+      // Demos scheduled for tomorrow / today → remind faculty + counselor.
+      const dayStart = (d: Date) => {
+        const x = new Date(d);
+        x.setHours(0, 0, 0, 0);
+        return x;
+      };
+      const dayEnd = (d: Date) => {
+        const x = new Date(d);
+        x.setHours(23, 59, 59, 999);
+        return x;
+      };
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      for (const [type, day] of [["demo_today", now], ["demo_tomorrow", tomorrow]] as [string, Date][]) {
+        const { data: demos } = await supabase
+          .from("demo_classes")
+          .select("id, lead_id, faculty_id, scheduled_at")
+          .eq("status", "scheduled")
+          .gte("scheduled_at", dayStart(day).toISOString())
+          .lte("scheduled_at", dayEnd(day).toISOString());
+        for (const d of demos || []) {
+          const { data: lead } = await supabase
+            .from("leads")
+            .select("student_name, phone, assigned_to")
+            .eq("id", d.lead_id)
+            .maybeSingle();
+          if (!lead) continue;
+          const when = new Date(d.scheduled_at).toLocaleString();
+          if (d.faculty_id)
+            await remind(d.lead_id, `${type}_faculty`, d.faculty_id, "Upcoming demo", `${lead.student_name} — ${when}`);
+          if (lead.assigned_to)
+            await remind(d.lead_id, `${type}_counselor`, lead.assigned_to, "Upcoming demo", `${lead.student_name} — ${when}`);
+          await remind(
+            d.lead_id,
+            type,
+            null,
+            "Demo reminder",
+            lead.student_name,
+            lead.phone,
+            `Reminder: ${lead.student_name}'s ARK demo is ${type === "demo_today" ? "today" : "tomorrow"} at ${when}.`
+          );
+        }
+      }
+
+      // Unassigned + high-value leads still waiting → nudge management.
+      const { data: waiting } = await supabase
+        .from("leads")
+        .select("id, student_name, assignment_state, score_category, assigned_to")
+        .is("deleted_at", null)
+        .neq("status", "closed")
+        .or("assignment_state.eq.unassigned,score_category.in.(hot,priority)")
+        .limit(200);
+      for (const l of waiting || []) {
+        if (l.assignment_state === "unassigned") {
+          for (const rid of mgmtIds)
+            await remind(l.id, "unassigned", rid, "Unassigned lead waiting", l.student_name);
+        } else if (!l.assigned_to) {
+          for (const rid of mgmtIds)
+            await remind(l.id, "high_value", rid, "High-value lead unassigned", l.student_name);
+        }
+      }
+    } catch (e: unknown) {
+      console.warn("[sla-checker] lead block failed:", (e as Error).message);
+    }
+
     // Insert all violations (dedup by user_id + type + date)
     for (const v of violations) {
       const { data: existing } = await supabase
@@ -246,6 +612,8 @@ Deno.serve(async (req) => {
         violations_created: violations.length,
         alerts_created: alerts.length,
         escalations_created: escalations.length,
+        lead_followups_escalated: leadFollowupsEscalated,
+        lead_sla_breached: leadSlaBreached,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

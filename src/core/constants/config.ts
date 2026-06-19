@@ -10,7 +10,7 @@ export const APP_CONFIG = {
   geoRadiusMeters: 200,
   checkInLateAfter: { hour: 8, minute: 59 },
   management: {
-    reportRecipientPhone: "+917639399217",
+    reportRecipientPhone: "+917358199217",
   },
 } as const;
 

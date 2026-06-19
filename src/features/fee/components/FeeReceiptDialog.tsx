@@ -40,7 +40,7 @@ const BRAND = {
 const ORG = {
   name: "ARK Learning Arena",
   address: "No 2/31, Mugappair West, Chennai",
-  contact: "Phone: 7639399217  |  www.arklearning.com",
+  contact: "Phone: 7358199217  |  www.arklearning.com",
 };
 
 // ── Amount → words (Indian numbering, INR) ───────────────────────────────────

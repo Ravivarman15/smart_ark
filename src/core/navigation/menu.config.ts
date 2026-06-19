@@ -229,6 +229,15 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("enquiry.add",    "Add Student Enquiry",   { admin: "/admin/enquiries",       coordinator: "/coordinator/enquiries", management: "/management/enquiries" }, adminCoordMgmt),
       ...sub("enquiry.assign", "Assign Enquiry",        { admin: "/admin/enquiries",       coordinator: "/coordinator/enquiries", management: "/management/enquiries" }, adminCoordMgmt),
       ...sub("enquiry.manage", "Manage Enquiry",        { admin: "/admin/enquiries",       coordinator: "/coordinator/enquiries", management: "/management/enquiries" }, adminCoordMgmt),
+      // ── Lead Management + Automation CRM ──────────────────────────────────
+      ...sub("lead.counselor_board", "My Leads",            { admin: "/admin/leads",            coordinator: "/coordinator/leads",            management: "/management/leads" },            adminCoordMgmt),
+      ...sub("lead.pipeline",        "Lead Pipeline",       { admin: "/admin/leads/pipeline",   coordinator: "/coordinator/leads/pipeline",   management: "/management/leads/pipeline" },   adminCoordMgmt),
+      ...sub("lead.management",      "Lead Management",     { admin: "/admin/leads/management", management: "/management/leads/management" },   adminMgmt),
+      ...sub("lead.demos",           "Demo Classes",        { admin: "/admin/leads/demos",      coordinator: "/coordinator/leads/demos",      management: "/management/leads/demos" },      adminCoordMgmt),
+      ...sub("lead.admissions",      "Lead Admissions",     { admin: "/admin/leads/admissions", coordinator: "/coordinator/leads/admissions", management: "/management/leads/admissions" }, adminCoordMgmt),
+      ...sub("lead.analytics",       "Lead Analytics",      { admin: "/admin/leads/analytics",  coordinator: "/coordinator/leads/analytics",  management: "/management/leads/analytics" },  adminCoordMgmt),
+      ...sub("lead.whatsapp",        "WhatsApp Delivery",   { admin: "/admin/leads/whatsapp",   coordinator: "/coordinator/leads/whatsapp",   management: "/management/leads/whatsapp" },   adminCoordMgmt),
+      ...sub("lead.config",          "Automation Config",   { admin: "/admin/leads/config",     management: "/management/leads/config" },      adminMgmt),
     ],
   },
 

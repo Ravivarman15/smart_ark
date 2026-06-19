@@ -217,7 +217,7 @@ export interface QueueMessage {
 }
 
 // ── Audit ───────────────────────────────────────────────────────────────────
-export type CommsAuditEntity = "template" | "campaign" | "recipient" | "queue" | "webhook";
+export type CommsAuditEntity = "template" | "campaign" | "recipient" | "queue" | "webhook" | "lead";
 
 export type CommsAuditAction =
   | "create"
@@ -227,6 +227,7 @@ export type CommsAuditAction =
   | "reject"
   | "schedule"
   | "launch"
+  | "queue"
   | "send"
   | "deliver"
   | "read"

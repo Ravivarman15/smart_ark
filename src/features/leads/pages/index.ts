@@ -1,0 +1,9 @@
+export { default as LeadsWorkspacePage } from "./LeadsWorkspacePage";
+export { default as LeadPipelinePage } from "./LeadPipelinePage";
+export { default as ManagementLeadsPage } from "./ManagementLeadsPage";
+export { default as LeadDemosPage } from "./LeadDemosPage";
+export { default as LeadAdmissionsPage } from "./LeadAdmissionsPage";
+export { default as LeadConfigPage } from "./LeadConfigPage";
+export { default as LeadAnalyticsPage } from "./LeadAnalyticsPage";
+export { default as LeadWhatsappDashboardPage } from "./LeadWhatsappDashboardPage";
+export { default as PublicLeadFormPage } from "./PublicLeadFormPage";

@@ -27,6 +27,13 @@ verify_jwt = false
 [functions.end-of-day-check]
 verify_jwt = true
 
+# ─── lead-intake: PUBLIC Meta-ads / landing-page lead webhook ────────────────
+# No user JWT (external callers). Optionally gated by LEAD_INTAKE_SECRET
+# (?key= or x-intake-key header) checked inside the function. Runs the full
+# intake automation pipeline server-side with the service role.
+[functions.lead-intake]
+verify_jwt = false
+
 # ─── Cron-invoked functions: gated by CRON_SECRET header inside the function ─
 # The platform cannot verify a JWT here (cron has no user session), so the
 # function itself checks `x-cron-key` against the CRON_SECRET env var.

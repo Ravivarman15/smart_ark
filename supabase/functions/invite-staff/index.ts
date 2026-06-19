@@ -176,7 +176,7 @@ const patchProfile = async (
     for (const [k, v] of Object.entries(match)) q = q.eq(k, v);
     return await q;
   };
-  let res = await apply(patch);
+  const res = await apply(patch);
   if (res.error && isColumnError(res.error.message)) {
     const stripped = { ...patch };
     for (const k of OPTIONAL_PROFILE_KEYS) delete stripped[k];

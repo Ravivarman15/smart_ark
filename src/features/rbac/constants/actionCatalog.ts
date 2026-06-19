@@ -86,6 +86,18 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("enquiry.convert",       "Convert to admission",      "approve", "enquiry.manage",       "enquiry.manage"),
   A("enquiry.export",        "Export enquiries",          "export",  "enquiry.manage"),
 
+  // ── Lead CRM ─────────────────────────────────────────────────────────────
+  A("lead.create",           "Create lead",               "create",  "lead.pipeline"),
+  A("lead.edit",             "Edit lead",                 "edit",    "lead.pipeline"),
+  A("lead.assign",           "Assign lead",               "assign",  "lead.pipeline"),
+  A("lead.reassign",         "Reassign lead",             "assign",  "lead.pipeline"),
+  A("lead.move_stage",       "Move lead pipeline stage",  "edit",    "lead.pipeline"),
+  A("lead.delete",           "Delete lead",               "delete",  "lead.pipeline"),
+  A("lead.schedule_demo",    "Schedule demo class",       "create",  "lead.demos"),
+  A("lead.convert",          "Convert lead to admission", "approve", "lead.admissions"),
+  A("lead.export",           "Export leads / reports",    "export",  "lead.analytics"),
+  A("lead.configure",        "Manage lead automation",    "override","lead.config"),
+
   // ── Fee ────────────────────────────────────────────────────────────────
   A("fee.structure.create",  "Create fee structure",      "create",  "fee.create_structure"),
   A("fee.structure.edit",    "Edit fee structure",        "edit",    "fee.manage_structure", "fee.structures"),

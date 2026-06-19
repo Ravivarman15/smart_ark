@@ -38,8 +38,51 @@ const AISENSY_API_URL = "https://backend.aisensy.com/campaign/t1/api/v2";
 const MAX_RETRIES = 3;
 const BACKOFF_MINUTES = [1, 5, 30];
 const backoff = (n: number) => BACKOFF_MINUTES[Math.min(Math.max(n, 0), BACKOFF_MINUTES.length - 1)];
+// Retry ONLY for these provider/server statuses. Everything else (incl. 401/403/
+// 404 auth/permission/not-found, 4xx, network) is a permanent failure — no retry.
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const classify = (status: number): "transient" | "permanent" =>
-  status === 0 || status === 429 || status >= 500 ? "transient" : "permanent";
+  RETRYABLE_STATUSES.has(status) ? "transient" : "permanent";
+
+// ── Ordered Meta utility template params ─────────────────────────────────────
+// KEEP IN LOCKSTEP with src/features/leads/utils/templateParams.ts.
+// Meta utility templates take positional params ({{1}},{{2}},…). Map the queue
+// payload (resolved variable map) to the ordered array per template; fall back
+// to the single rendered body for templates without a positional spec.
+const tVal = (p: Record<string, unknown>, ...keys: string[]): string => {
+  for (const k of keys) {
+    const v = p[k];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return String(v);
+  }
+  return "";
+};
+const TEMPLATE_PARAM_SPECS: Record<string, (p: Record<string, unknown>) => string[]> = {
+  lead_welcome: (p) => [tVal(p, "student_name"), tVal(p, "course_name", "course")],
+  lead_assigned_counselor: (p) => [
+    tVal(p, "counselor_name"),
+    tVal(p, "student_name"),
+    tVal(p, "course_name", "course"),
+    tVal(p, "mobile_number", "mobile", "phone"),
+  ],
+  lead_followup_reminder: (p) => [
+    tVal(p, "counselor_name"),
+    tVal(p, "student_name"),
+    tVal(p, "course_name", "course"),
+  ],
+  sla_breach_alert: (p) => [
+    tVal(p, "counselor_name"),
+    tVal(p, "student_name"),
+    tVal(p, "course_name", "course"),
+  ],
+  demo_scheduled: (p) => [tVal(p, "student_name"), tVal(p, "course_name", "course")],
+  admission_completed: (p) => [tVal(p, "student_name"), tVal(p, "course_name", "course")],
+};
+const buildTemplateParams = (templateName: string, payload: Record<string, unknown>): string[] => {
+  const spec = TEMPLATE_PARAM_SPECS[templateName];
+  if (spec) return spec(payload || {});
+  const body = (payload || {})["__body"];
+  return body !== undefined && body !== null ? [String(body)] : [];
+};
 
 const normalizePhone = (phone: string): string => {
   const digits = String(phone ?? "").replace(/[^0-9]/g, "");
@@ -60,6 +103,8 @@ interface QueueRow {
   payload: Record<string, unknown> | null;
   campaign_id: string | null;
   retry_count: number | null;
+  context_type: string | null;
+  context_id: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -92,7 +137,7 @@ Deno.serve(async (req) => {
     // ── Claim due rows: queued, scheduled, not waiting on backoff ───────────
     let q = supabase
       .from("message_queue")
-      .select("id, channel, provider, template, recipient_name, recipient_phone, payload, campaign_id, retry_count")
+      .select("id, channel, provider, template, recipient_name, recipient_phone, payload, campaign_id, retry_count, context_type, context_id")
       .eq("status", "queued")
       .eq("provider", "aisensy")
       .in("channel", ["whatsapp", "sms"])
@@ -124,56 +169,77 @@ Deno.serve(async (req) => {
         .eq("status", "queued");
 
       const dest = normalizePhone(row.recipient_phone ?? "");
-      const bodyText = String((row.payload ?? {})["__body"] ?? "");
+      const payload = row.payload ?? {};
+      const bodyText = String(payload["__body"] ?? "");
+      // Ordered positional params for the Meta utility template (falls back to
+      // the single rendered body for non-positional templates).
+      const templateParams = buildTemplateParams(row.template || "", payload);
 
       // Guard: a row with no phone / no body should never have been queued —
       // fail it permanently rather than burn a provider call.
       if (!dest || !bodyText) {
+        const reason = !dest ? "no destination phone" : "empty body";
         await supabase
           .from("message_queue")
-          .update({ status: "failed", last_error: !dest ? "no destination phone" : "empty body" })
+          .update({ status: "failed", last_error: reason })
           .eq("id", row.id);
+        await updateLeadLog(supabase, row, { status: "failed", error: reason });
         await audit(supabase, row, "fail", { reason: !dest ? "no_phone" : "empty_body" });
         failed += 1;
         continue;
       }
 
+      const campaignName = row.template || defaultCampaign;
+      // Official AiSensy Campaign API V2 body. apiKey goes IN THE BODY (no
+      // Authorization header). Content-Type application/json.
+      const requestBody = {
+        apiKey,
+        campaignName,
+        destination: dest,
+        userName: row.recipient_name || "ARK LEARNING ARENA",
+        source: "ARK Lead CRM",
+        media: {},
+        templateParams,
+        tags: [],
+        attributes: {},
+      };
+      // Log the request WITHOUT the apiKey.
+      console.log("send-aisensy → request", { campaignName, destination: dest, templateParams });
+
       let httpStatus = 0;
       let providerMsgId: string | null = null;
       let errText = "";
+      let responseText = "";
       try {
         const res = await fetch(AISENSY_API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            apiKey,
-            campaignName: row.template || defaultCampaign,
-            destination: dest,
-            userName: row.recipient_name || "Customer",
-            source: "smart-ark-send-aisensy",
-            templateParams: [bodyText],
-          }),
+          body: JSON.stringify(requestBody),
         });
         httpStatus = res.status;
-        const text = await res.text();
+        responseText = await res.text();
+        // Log response status + body.
+        console.log("send-aisensy ← response", { status: httpStatus, body: responseText.slice(0, 1000) });
         try {
-          const json = JSON.parse(text);
+          const json = JSON.parse(responseText);
           providerMsgId = json?.messageId ?? json?.data?.messageId ?? null;
-          if (!res.ok) errText = json?.message || res.statusText;
+          if (!res.ok) errText = json?.message || json?.error || res.statusText;
         } catch {
-          if (!res.ok) errText = text || res.statusText;
+          if (!res.ok) errText = responseText || res.statusText;
         }
       } catch (e) {
         httpStatus = 0;
         errText = (e as Error).message;
+        console.log("send-aisensy ← network error", { message: errText });
       }
 
       if (httpStatus >= 200 && httpStatus < 300) {
+        const sentAt = new Date().toISOString();
         await supabase
           .from("message_queue")
           .update({
             status: "sent",
-            sent_at: new Date().toISOString(),
+            sent_at: sentAt,
             provider_message_id: providerMsgId,
             last_error: null,
             attempts: (row.retry_count ?? 0) + 1,
@@ -181,8 +247,14 @@ Deno.serve(async (req) => {
           .eq("id", row.id);
         await supabase
           .from("comms_campaign_recipients")
-          .update({ status: "sent", sent_at: new Date().toISOString() })
+          .update({ status: "sent", sent_at: sentAt })
           .eq("message_queue_id", row.id);
+        await updateLeadLog(supabase, row, {
+          status: "sent",
+          provider_message_id: providerMsgId,
+          sent_at: sentAt,
+          error: null,
+        });
         await audit(supabase, row, "send", { providerMessageId: providerMsgId });
         sent += 1;
         continue;
@@ -205,18 +277,20 @@ Deno.serve(async (req) => {
         await audit(supabase, row, "retry", { httpStatus, retryAt });
         retried += 1;
       } else {
+        const lastError = `HTTP ${httpStatus}: ${errText}`.slice(0, 500);
         await supabase
           .from("message_queue")
           .update({
             status: "failed",
             retry_count: priorRetries + 1,
-            last_error: `HTTP ${httpStatus}: ${errText}`.slice(0, 500),
+            last_error: lastError,
           })
           .eq("id", row.id);
         await supabase
           .from("comms_campaign_recipients")
           .update({ status: "failed", last_error: `HTTP ${httpStatus}` })
           .eq("message_queue_id", row.id);
+        await updateLeadLog(supabase, row, { status: "failed", error: lastError });
         await audit(supabase, row, "fail", { httpStatus, error: errText });
         failed += 1;
       }
@@ -250,5 +324,27 @@ async function audit(
       actor_name: "send-aisensy",
       payload: { campaignId: row.campaign_id, template: row.template, ...payload },
     });
+  } catch { /* swallow */ }
+}
+
+// Best-effort lead_whatsapp_logs lifecycle update. Matches the log row by its
+// message_queue_id link (app-originated sends) AND, for lead-context rows that
+// weren't linked (edge-originated enqueues), flips the still-queued row for the
+// same lead + template. Never blocks the drain.
+async function updateLeadLog(
+  supabase: ReturnType<typeof createClient>,
+  row: QueueRow,
+  patch: Record<string, unknown>,
+) {
+  try {
+    await supabase.from("lead_whatsapp_logs").update(patch).eq("message_queue_id", row.id);
+    if (row.context_type === "lead" && row.context_id) {
+      await supabase
+        .from("lead_whatsapp_logs")
+        .update(patch)
+        .eq("lead_id", row.context_id)
+        .eq("template_key", row.template)
+        .eq("status", "queued");
+    }
   } catch { /* swallow */ }
 }

@@ -44,9 +44,17 @@ const TasksBoardPage = lazy(() => import("./features/tasks/pages/TaskBoardPage")
 const TasksWorkloadPage = lazy(() => import("./features/tasks/pages/WorkloadPage"));
 const TeacherOverview = lazy(() => import("./pages/coordinator/TeacherOverview"));
 const EnquiryManagement = lazy(() => import("./pages/shared/EnquiryManagement"));
-const PublicAdmissionFormPage = lazy(
-  () => import("./features/enquiries/pages/PublicAdmissionFormPage")
-);
+
+// Lead Management + Automation CRM
+const LeadsWorkspacePage = lazy(() => import("./features/leads/pages/LeadsWorkspacePage"));
+const LeadPipelinePage = lazy(() => import("./features/leads/pages/LeadPipelinePage"));
+const ManagementLeadsPage = lazy(() => import("./features/leads/pages/ManagementLeadsPage"));
+const LeadDemosPage = lazy(() => import("./features/leads/pages/LeadDemosPage"));
+const LeadAdmissionsPage = lazy(() => import("./features/leads/pages/LeadAdmissionsPage"));
+const LeadConfigPage = lazy(() => import("./features/leads/pages/LeadConfigPage"));
+const LeadAnalyticsPage = lazy(() => import("./features/leads/pages/LeadAnalyticsPage"));
+const LeadWhatsappDashboardPage = lazy(() => import("./features/leads/pages/LeadWhatsappDashboardPage"));
+const PublicLeadFormPage = lazy(() => import("./features/leads/pages/PublicLeadFormPage"));
 const FeeManagement = lazy(() => import("./pages/shared/FeeManagement"));
 const NotificationCenter = lazy(() => import("./pages/shared/NotificationCenter"));
 const ExpenseManagement = lazy(() => import("./pages/shared/ExpenseManagement"));
@@ -371,13 +379,30 @@ const taskRoutes = () => (
   </>
 );
 
+// Lead CRM routes — shared across admin/coordinator/management layouts.
+// `management` adds the org-wide management dashboard + automation config.
+const leadRoutes = (opts: { management?: boolean } = {}) => (
+  <>
+    <Route path="leads" element={<LeadsWorkspacePage />} />
+    <Route path="leads/pipeline" element={<LeadPipelinePage />} />
+    <Route path="leads/demos" element={<LeadDemosPage />} />
+    <Route path="leads/admissions" element={<LeadAdmissionsPage />} />
+    <Route path="leads/analytics" element={<LeadAnalyticsPage />} />
+    <Route path="leads/whatsapp" element={<LeadWhatsappDashboardPage />} />
+    {opts.management && <Route path="leads/management" element={<ManagementLeadsPage />} />}
+    {opts.management && <Route path="leads/config" element={<LeadConfigPage />} />}
+  </>
+);
+
 const AppRoutes: React.FC = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-4 border-accent border-t-transparent animate-spin"></div></div>}>
     <Routes>
       <Route path="/login" element={<Login />} />
-      {/* Public, unauthenticated admission enquiry form — the URL produced by
-          the "Copy Form Link" button in Enquiry Management. */}
-      <Route path="/admissions/apply" element={<PublicAdmissionFormPage />} />
+      {/* Legacy admission enquiry URL → the WhatsApp-enabled lead capture form
+          (single canonical public form: dynamic course dropdown + automation). */}
+      <Route path="/admissions/apply" element={<Navigate to="/leads/apply" replace />} />
+      {/* Public, unauthenticated lead capture form for Meta Ads / landing pages. */}
+      <Route path="/leads/apply" element={<PublicLeadFormPage />} />
       {/* Public, unauthenticated student exam kiosk — proctored entry point
           used by lab devices. Roster + identity selection happen in-page. */}
       <Route path="/exam" element={<StudentExamPage />} />
@@ -428,6 +453,7 @@ const AppRoutes: React.FC = () => (
         <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
+        {leadRoutes({ management: true })}
         <Route path="reports" element={<Reports />} />
         <Route path="analysis" element={<AnalysisReports />} />
         <Route path="expenses" element={<ExpenseManagement />} />
@@ -558,6 +584,7 @@ const AppRoutes: React.FC = () => (
         <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
+        {leadRoutes({ management: true })}
         <Route path="compliance" element={<ComplianceViolations />} />
         <Route path="alerts" element={<AlertsPage />} />
         <Route path="analysis" element={<AnalysisReports />} />
@@ -664,6 +691,7 @@ const AppRoutes: React.FC = () => (
         <Route path="teachers" element={<TeacherOverview />} />
         <Route path="academic" element={<AcademicControl />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
+        {leadRoutes()}
         <Route path="timetable" element={<TimetableView />} />
         {studentRoutes()}
         {attendanceRoutes()}

@@ -125,6 +125,15 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "enquiry.add",    label: "Add Student Enquiry",    route: "/admin/enquiries",  legacyAction: "enquiry.manage" },
       { id: "enquiry.assign", label: "Assign Enquiry",         route: "/admin/enquiries",  legacyAction: "enquiry.manage" },
       { id: "enquiry.manage", label: "Manage Enquiry",         route: "/admin/enquiries",  legacyAction: "enquiry.manage" },
+      // ── Lead CRM (routes wired with the pages in a later phase) ───────────
+      { id: "lead.counselor_board", label: "My Leads (Counselor Board)" },
+      { id: "lead.pipeline",        label: "Lead Pipeline" },
+      { id: "lead.management",      label: "Lead Management Dashboard" },
+      { id: "lead.demos",           label: "Demo Classes" },
+      { id: "lead.admissions",      label: "Lead Admissions" },
+      { id: "lead.analytics",       label: "Lead Analytics" },
+      { id: "lead.whatsapp",        label: "WhatsApp Delivery Dashboard" },
+      { id: "lead.config",          label: "Lead Automation Config" },
     ],
   },
   {

@@ -12,6 +12,7 @@ import { FeesRealtimeProvider } from "@/features/fee/providers/FeesRealtimeProvi
 import { FinanceRealtimeProvider } from "@/features/finance/providers/FinanceRealtimeProvider";
 import { PayrollRealtimeProvider } from "@/features/payroll/providers/PayrollRealtimeProvider";
 import { EnquiriesRealtimeProvider } from "@/features/enquiries/providers/EnquiriesRealtimeProvider";
+import { LeadsRealtimeProvider } from "@/features/leads/providers/LeadsRealtimeProvider";
 import { ReportsRealtimeProvider } from "@/features/reports/providers/ReportsRealtimeProvider";
 import { SetupRealtimeProvider } from "@/features/setup/providers/SetupRealtimeProvider";
 import { TasksRealtimeProvider } from "@/features/tasks/providers/TasksRealtimeProvider";
@@ -55,11 +56,13 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
                       <FinanceRealtimeProvider>
                         <PayrollRealtimeProvider>
                           <EnquiriesRealtimeProvider>
-                            <ReportsRealtimeProvider>
-                              <TasksRealtimeProvider>
-                                <AppDataProvider>{children}</AppDataProvider>
-                              </TasksRealtimeProvider>
-                            </ReportsRealtimeProvider>
+                            <LeadsRealtimeProvider>
+                              <ReportsRealtimeProvider>
+                                <TasksRealtimeProvider>
+                                  <AppDataProvider>{children}</AppDataProvider>
+                                </TasksRealtimeProvider>
+                              </ReportsRealtimeProvider>
+                            </LeadsRealtimeProvider>
                           </EnquiriesRealtimeProvider>
                         </PayrollRealtimeProvider>
                       </FinanceRealtimeProvider>

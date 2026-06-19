@@ -143,7 +143,7 @@ const ReceiptGenerator: React.FC<ReceiptGeneratorProps> = ({
               <div>
                 <div style={{ fontSize: '22px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', color: '#111' }}>ARK Learning Arena</div>
                 <div style={{ fontSize: '13px', color: '#666' }}>No 2/31, Mugappair West, Chennai</div>
-                <div style={{ fontSize: '13px', color: '#666' }}>Phone: 7639399217 | www.arklearning.com</div>
+                <div style={{ fontSize: '13px', color: '#666' }}>Phone: 7358199217 | www.arklearning.com</div>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
