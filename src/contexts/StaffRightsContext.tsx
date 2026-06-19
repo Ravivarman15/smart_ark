@@ -40,6 +40,7 @@ export const ACTION_DEFS: { key: string; module: ModuleKey; label: string }[] = 
   { key: "staff.attendance",   module: "staff_user",    label: "Staff Attendance" },
   // Enquiry
   { key: "enquiry.manage",     module: "enquiry_leads", label: "Enquiries" },
+  { key: "bulk_import.view",   module: "enquiry_leads", label: "Bulk Lead Import" },
   // Student
   { key: "student.control",    module: "student",       label: "Student Control" },
   // Attendance (enterprise module)

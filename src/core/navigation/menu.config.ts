@@ -238,6 +238,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("lead.analytics",       "Lead Analytics",      { admin: "/admin/leads/analytics",  coordinator: "/coordinator/leads/analytics",  management: "/management/leads/analytics" },  adminCoordMgmt),
       ...sub("lead.whatsapp",        "WhatsApp Delivery",   { admin: "/admin/leads/whatsapp",   coordinator: "/coordinator/leads/whatsapp",   management: "/management/leads/whatsapp" },   adminCoordMgmt),
       ...sub("lead.config",          "Automation Config",   { admin: "/admin/leads/config",     management: "/management/leads/config" },      adminMgmt),
+      ...sub("lead.bulk_import",     "Bulk Import",         { admin: "/admin/leads/bulk-import", management: "/management/leads/bulk-import" }, adminMgmt, { action: "bulk_import.view" }),
     ],
   },
 

@@ -134,6 +134,7 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "lead.analytics",       label: "Lead Analytics" },
       { id: "lead.whatsapp",        label: "WhatsApp Delivery Dashboard" },
       { id: "lead.config",          label: "Lead Automation Config" },
+      { id: "lead.bulk_import",     label: "Bulk Import",          route: "/admin/leads/bulk-import" },
     ],
   },
   {

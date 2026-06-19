@@ -7,3 +7,4 @@ export { default as LeadConfigPage } from "./LeadConfigPage";
 export { default as LeadAnalyticsPage } from "./LeadAnalyticsPage";
 export { default as LeadWhatsappDashboardPage } from "./LeadWhatsappDashboardPage";
 export { default as PublicLeadFormPage } from "./PublicLeadFormPage";
+export { default as BulkImportPage } from "./BulkImportPage";

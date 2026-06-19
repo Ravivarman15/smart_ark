@@ -52,6 +52,7 @@ const ManagementLeadsPage = lazy(() => import("./features/leads/pages/Management
 const LeadDemosPage = lazy(() => import("./features/leads/pages/LeadDemosPage"));
 const LeadAdmissionsPage = lazy(() => import("./features/leads/pages/LeadAdmissionsPage"));
 const LeadConfigPage = lazy(() => import("./features/leads/pages/LeadConfigPage"));
+const BulkImportPage = lazy(() => import("./features/leads/pages/BulkImportPage"));
 const LeadAnalyticsPage = lazy(() => import("./features/leads/pages/LeadAnalyticsPage"));
 const LeadWhatsappDashboardPage = lazy(() => import("./features/leads/pages/LeadWhatsappDashboardPage"));
 const PublicLeadFormPage = lazy(() => import("./features/leads/pages/PublicLeadFormPage"));
@@ -391,6 +392,7 @@ const leadRoutes = (opts: { management?: boolean } = {}) => (
     <Route path="leads/whatsapp" element={<LeadWhatsappDashboardPage />} />
     {opts.management && <Route path="leads/management" element={<ManagementLeadsPage />} />}
     {opts.management && <Route path="leads/config" element={<LeadConfigPage />} />}
+    {opts.management && <Route path="leads/bulk-import" element={<BulkImportPage />} />}
   </>
 );
 

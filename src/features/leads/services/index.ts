@@ -13,3 +13,4 @@ export { leadDashboardService } from "./leadDashboard.service";
 export { leaderboardService, type LeaderboardResult } from "./leaderboard.service";
 export { leadWhatsappAnalyticsService, type WhatsappLogsQuery } from "./leadWhatsappAnalytics.service";
 export { leadCoursesService, type LeadCourse } from "./leadCourses.service";
+export { bulkImportService } from "./bulkImport.service";

@@ -78,13 +78,23 @@ const SystemHealthPage = () => {
 
   // List of migration filenames that have at least one missing/degraded
   // probe — the actionable "what should I apply?" callout at the top.
+  // `unknown` probes are deliberately excluded: that status means the table
+  // exists but the probe errored for a non-schema reason (almost always RLS /
+  // permission-denied), so re-running the migration won't change anything.
   const pendingMigrations = useMemo(() => {
     const set = new Set<string>();
     for (const c of data?.checks ?? []) {
-      if (c.status !== "ok" && c.migration) set.add(c.migration);
+      if ((c.status === "missing" || c.status === "degraded") && c.migration) set.add(c.migration);
     }
     return Array.from(set).sort();
   }, [data?.checks]);
+
+  // Probes that errored for a non-schema reason — surfaced separately so an
+  // RLS-blocked table doesn't masquerade as a pending migration.
+  const unknownChecks = useMemo(
+    () => (data?.checks ?? []).filter((c) => c.status === "unknown"),
+    [data?.checks],
+  );
 
   return (
     <div className="space-y-5">
@@ -120,7 +130,7 @@ const SystemHealthPage = () => {
       </header>
 
       {/* ── Summary ──────────────────────────────────────────────────── */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <section className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <ScoreTile
           label="Readiness"
           value={data ? `${data.summary.readinessScore}%` : "—"}
@@ -130,6 +140,7 @@ const SystemHealthPage = () => {
         <ScoreTile label="OK"        value={data?.summary.ok ?? 0}       tone="text-emerald-600" />
         <ScoreTile label="Degraded"  value={data?.summary.degraded ?? 0} tone="text-amber-600" />
         <ScoreTile label="Missing"   value={data?.summary.missing ?? 0}  tone="text-rose-600" />
+        <ScoreTile label="Unknown"   value={data?.summary.unknown ?? 0}  tone="text-slate-500" />
         <ScoreTile label="Total"     value={data?.summary.total ?? 0}    tone="text-foreground" />
       </section>
 
@@ -159,6 +170,34 @@ const SystemHealthPage = () => {
             After applying, also run <code className="font-mono">notify pgrst, 'reload schema';</code> in
             the SQL editor to clear PostgREST's column cache.
           </p>
+        </section>
+      )}
+
+      {/* ── Unknown probes callout ─────────────────────────────────── */}
+      {unknownChecks.length > 0 && (
+        <section className="rounded-lg border border-slate-500/40 bg-slate-500/5 p-4 space-y-2">
+          <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-slate-500" />
+            {unknownChecks.length} table{unknownChecks.length > 1 ? "s" : ""} could not be probed
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            These tables exist but the probe errored for a non-schema reason —
+            almost always <strong>row-level security denying the current
+            role</strong> read access. This is <em>not</em> a missing migration, so
+            re-running SQL or reloading the schema won't change it. Check the table's
+            RLS policies if this role should be able to read it.
+          </p>
+          <ul className="space-y-1">
+            {unknownChecks.map((c) => (
+              <li
+                key={`${c.table}-${c.column ?? ""}`}
+                className="text-xs px-2 py-1 rounded bg-card border border-border/60 text-foreground"
+              >
+                <span className="font-mono">{c.table}{c.column ? ` · ${c.column}` : ""}</span>
+                {c.message && <span className="text-muted-foreground"> — {c.message}</span>}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

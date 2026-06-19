@@ -25,3 +25,5 @@ export { useStaffOptions } from "./useStaffOptions";
 export { useLeaderboard } from "./useLeaderboard";
 export { useWhatsappDelivery } from "./useWhatsappDelivery";
 export { useLeadCourses, useCreateLeadCourse, useRemoveLeadCourse } from "./useLeadCourses";
+export { useBulkImport, type UseBulkImport } from "./useBulkImport";
+export { useBulkImportJobs, useImportAudit, bulkImportKeys } from "./useBulkImportJobs";

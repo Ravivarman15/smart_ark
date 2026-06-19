@@ -98,6 +98,14 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("lead.export",           "Export leads / reports",    "export",  "lead.analytics"),
   A("lead.configure",        "Manage lead automation",    "override","lead.config"),
 
+  // ── Bulk Lead Import ─────────────────────────────────────────────────────
+  A("bulk_import.view",      "View bulk imports",         "edit",    "lead.bulk_import"),
+  A("bulk_import.upload",    "Upload import file",        "create",  "lead.bulk_import"),
+  A("bulk_import.start",     "Start / resume import",     "create",  "lead.bulk_import"),
+  A("bulk_import.cancel",    "Pause / cancel import",     "delete",  "lead.bulk_import"),
+  A("bulk_import.audit",     "View import audit log",     "edit",    "lead.bulk_import"),
+  A("bulk_import.export",    "Download import reports",   "export",  "lead.bulk_import"),
+
   // ── Fee ────────────────────────────────────────────────────────────────
   A("fee.structure.create",  "Create fee structure",      "create",  "fee.create_structure"),
   A("fee.structure.edit",    "Edit fee structure",        "edit",    "fee.manage_structure", "fee.structures"),

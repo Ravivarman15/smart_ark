@@ -53,6 +53,8 @@ export interface SystemHealthReport {
     ok: number;
     degraded: number;
     missing: number;
+    /** Probes that errored for a non-schema reason (usually RLS / permission). */
+    unknown: number;
     total: number;
     /** 0–100 readiness score: ok = 100, degraded = 50, missing = 0. */
     readinessScore: number;
@@ -427,9 +429,10 @@ class SystemHealthService extends BaseService {
         if (r.status === "ok") acc.ok++;
         else if (r.status === "degraded") acc.degraded++;
         else if (r.status === "missing") acc.missing++;
+        else acc.unknown++;
         return acc;
       },
-      { ok: 0, degraded: 0, missing: 0 },
+      { ok: 0, degraded: 0, missing: 0, unknown: 0 },
     );
     const total = results.length;
     const readinessScore =
