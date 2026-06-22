@@ -6,3 +6,4 @@ export {
   welcomeTemplateForCourse,
   type LeadTemplateKey,
 } from "./leadWhatsappTemplates";
+export { ensureWhatsappPhone, isWhatsappPhone, type EnsuredPhone } from "./whatsappPhone";

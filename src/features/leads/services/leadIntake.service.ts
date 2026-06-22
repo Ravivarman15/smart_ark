@@ -20,22 +20,56 @@ import { followupsService } from "./followups.service";
 import { slaService } from "./sla.service";
 import { calculateLeadScore } from "../utils/leadScore";
 import { welcomeTemplateForCourse } from "../utils/leadWhatsappTemplates";
+import { ensureWhatsappPhone } from "../utils/whatsappPhone";
 import type { CreateLeadInput, IntakeResult, Lead } from "../types/lead.types";
 
 interface ProfileLite {
   id: string;
   name: string;
+  role?: string;
+  /** Raw stored values — for diagnostics only. */
+  rawMobile?: string;
+  rawPhone?: string;
+  /** Normalised AiSensy MSISDN (mobile ?? phone → 91XXXXXXXXXX), or undefined. */
   phone?: string;
+  /** profiles.can_receive_whatsapp (default true when column absent). */
+  canReceiveWhatsapp: boolean;
+  /** profiles.can_receive_leads (default false when column absent). */
+  canReceiveLeads: boolean;
 }
 
 const FOLLOWUP_MINUTES = 15;
 
 class LeadIntakeService extends BaseService {
   private async getProfile(id: string): Promise<ProfileLite | null> {
-    const res = await this.db.from("profiles").select("id, name, phone").eq("id", id).maybeSingle();
+    // ROOT CAUSE FIX: the Create/Edit Staff form writes the staff member's number
+    // to `profiles.mobile`; `profiles.phone` is a LEGACY column that form never
+    // populates. Reading only `phone` is why lead_assigned_counselor never had a
+    // number to send to (and was skipped) even when the staff member clearly had
+    // a mobile on file. Prefer `mobile`, fall back to the legacy `phone`, then
+    // canonicalise for AiSensy (invalid → undefined → visible skip with reason).
+    // Falls back gracefully if the capability columns aren't migrated yet.
+    const FULL = "id, name, role, mobile, phone, can_receive_whatsapp, can_receive_leads";
+    const CORE = "id, name, role, mobile, phone";
+    let res = await this.db.from("profiles").select(FULL).eq("id", id).maybeSingle();
+    if (res.error && /column|schema cache|does not exist/i.test(res.error.message ?? "")) {
+      res = await this.db.from("profiles").select(CORE).eq("id", id).maybeSingle();
+    }
     if (res.error || !res.data) return null;
     const r = res.data as Record<string, unknown>;
-    return { id: String(r.id), name: String(r.name ?? ""), phone: r.phone ? String(r.phone) : undefined };
+    const rawMobile = r.mobile ? String(r.mobile) : undefined;
+    const rawPhone = r.phone ? String(r.phone) : undefined;
+    const { phone } = ensureWhatsappPhone(rawMobile ?? rawPhone ?? null);
+    return {
+      id: String(r.id),
+      name: String(r.name ?? ""),
+      role: r.role ? String(r.role) : undefined,
+      rawMobile,
+      rawPhone,
+      phone: phone ?? undefined,
+      canReceiveWhatsapp: r.can_receive_whatsapp !== false, // default true when absent
+      canReceiveLeads: r.can_receive_leads === true,
+    };
   }
 
   private async recipientsByRole(roles: string[]): Promise<string[]> {
@@ -129,28 +163,45 @@ class LeadIntakeService extends BaseService {
         title: "New lead assigned",
         message: `${lead.studentName}${lead.course ? ` — ${lead.course}` : ""} (${lead.phone ?? "no phone"})`,
       });
-      // WhatsApp to the counselor — "New Lead Assigned, contact within 15 min".
-      if (counselor?.phone) {
-        await leadWhatsappService.send({
-          leadId: lead.id,
-          templateKey: "lead_assigned_counselor",
-          phone: counselor.phone,
-          recipientName: counselor.name,
-          recipientKind: "counselor",
-          studentName: lead.studentName,
-          courseName: lead.course,
-          course: lead.course,
-          leadClass: lead.standard,
-          vars: {
-            counselor_name: counselor.name ?? "Counselor",
-            student_name: lead.studentName,
-            course_name: lead.course ?? "—",
-            mobile_number: lead.phone ?? "—",
-          },
-          createdBy: actor?.profileId,
-          actorName: actor?.name,
+      // TASK 6: trace the assigned staff member (role-agnostic).
+      if (import.meta.env.DEV) {
+        console.log("[leadIntake] assigned staff → lead_assigned_counselor", {
+          staffId: counselorId,
+          staffName: counselor?.name,
+          staffRole: counselor?.role,
+          canReceiveLeads: counselor?.canReceiveLeads,
+          canReceiveWhatsapp: counselor?.canReceiveWhatsapp,
+          mobile: counselor?.rawMobile ?? null,
+          phone: counselor?.rawPhone ?? null,
+          normalizedWhatsapp: counselor?.phone ?? null,
+          template: "lead_assigned_counselor",
         });
       }
+      // WhatsApp to the assigned staff member — "New Lead Assigned, contact
+      // within 15 min". Called UNCONDITIONALLY: when the staff member has no
+      // phone on file OR has WhatsApp disabled, leadWhatsappService.send records
+      // a visible status='skipped' row ("WhatsApp disabled or phone missing")
+      // instead of silently dropping the alert.
+      await leadWhatsappService.send({
+        leadId: lead.id,
+        templateKey: "lead_assigned_counselor",
+        phone: counselor?.phone,
+        recipientName: counselor?.name,
+        recipientKind: "staff",
+        canReceiveWhatsapp: counselor?.canReceiveWhatsapp,
+        studentName: lead.studentName,
+        courseName: lead.course,
+        course: lead.course,
+        leadClass: lead.standard,
+        vars: {
+          counselor_name: counselor?.name ?? "Team",
+          student_name: lead.studentName,
+          course_name: lead.course ?? "—",
+          mobile_number: lead.phone ?? "—",
+        },
+        createdBy: actor?.profileId,
+        actorName: actor?.name,
+      });
     } else {
       // 4b. Nobody available → UNASSIGNED + alert management/admin.
       await leadsService.update(lead.id, { assignmentState: "unassigned" });

@@ -255,27 +255,28 @@ export function useBulkImport(): UseBulkImport {
 
             if (lead.assignedTo) {
               const counselor = staff.get(lead.assignedTo);
-              if (counselor?.phone) {
-                const okCounselor = await leadWhatsappService.send({
-                  leadId: lead.id,
-                  templateKey: "lead_assigned_counselor",
-                  phone: counselor.phone,
-                  recipientName: counselor.name,
-                  recipientKind: "counselor",
-                  studentName: lead.studentName,
-                  courseName: lead.course,
-                  course: lead.course,
-                  leadClass: lead.standard,
-                  vars: {
-                    counselor_name: counselor.name || "Counselor",
-                    student_name: lead.studentName,
-                    course_name: lead.course ?? "—",
-                    mobile_number: lead.phone,
-                  },
-                  createdBy: actor,
-                });
-                if (okCounselor) whatsappQueued++;
-              }
+              // Called unconditionally — a missing phone / WhatsApp opt-out lands
+              // as a visible status='skipped' row instead of being dropped.
+              const okCounselor = await leadWhatsappService.send({
+                leadId: lead.id,
+                templateKey: "lead_assigned_counselor",
+                phone: counselor?.phone,
+                recipientName: counselor?.name,
+                recipientKind: "staff",
+                canReceiveWhatsapp: counselor?.canReceiveWhatsapp,
+                studentName: lead.studentName,
+                courseName: lead.course,
+                course: lead.course,
+                leadClass: lead.standard,
+                vars: {
+                  counselor_name: counselor?.name || "Team",
+                  student_name: lead.studentName,
+                  course_name: lead.course ?? "—",
+                  mobile_number: lead.phone,
+                },
+                createdBy: actor,
+              });
+              if (okCounselor) whatsappQueued++;
             }
           }
         }

@@ -5,6 +5,7 @@
 import { BaseService, AppError } from "@/shared/services";
 import { isSchemaMissing, SLA_MINUTES } from "./leadMappers";
 import { normalizeMobile } from "../utils/bulkImportMapping";
+import { ensureWhatsappPhone } from "../utils/whatsappPhone";
 import type {
   ImportJobStatus,
   ImportRowError,
@@ -271,19 +272,34 @@ class BulkImportService extends BaseService {
   }
 
   // ── Assignment snapshot ────────────────────────────────────────────────
-  /** Active staff profiles (id → name/phone/role) for counselor WhatsApp + alerts. */
-  async loadStaffProfiles(): Promise<Map<string, { name: string; phone?: string; role: string }>> {
-    const map = new Map<string, { name: string; phone?: string; role: string }>();
-    const res = await this.db
-      .from("profiles")
-      .select("id, name, phone, role, is_active");
+  /**
+   * Active staff profiles (id → name/whatsapp/role/opt-out) for staff WhatsApp
+   * + alerts. Reads `mobile` first (the Create/Edit Staff form writes there;
+   * `phone` is legacy), normalises for AiSensy, and reads the WhatsApp opt-out.
+   * Degrades if the capability columns aren't migrated yet.
+   */
+  async loadStaffProfiles(): Promise<
+    Map<string, { name: string; phone?: string; role: string; canReceiveWhatsapp: boolean }>
+  > {
+    const map = new Map<string, { name: string; phone?: string; role: string; canReceiveWhatsapp: boolean }>();
+    const FULL = "id, name, mobile, phone, role, is_active, can_receive_whatsapp";
+    const CORE = "id, name, mobile, phone, role, is_active";
+    let res = await this.db.from("profiles").select(FULL);
+    if (res.error && /column|schema cache|does not exist/i.test((res.error as { message?: string }).message ?? "")) {
+      res = await this.db.from("profiles").select(CORE);
+    }
     if (res.error) return map;
     for (const r of ((res.data as Row[]) ?? [])) {
-      if ((r as { is_active?: boolean }).is_active === false) continue;
-      map.set(String(r.id), {
-        name: String(r.name ?? ""),
-        phone: r.phone ? String(r.phone) : undefined,
-        role: String(r.role ?? ""),
+      const row = r as Record<string, unknown>;
+      if (row.is_active === false) continue;
+      const { phone } = ensureWhatsappPhone(
+        (row.mobile ? String(row.mobile) : row.phone ? String(row.phone) : null),
+      );
+      map.set(String(row.id), {
+        name: String(row.name ?? ""),
+        phone: phone ?? undefined,
+        role: String(row.role ?? ""),
+        canReceiveWhatsapp: row.can_receive_whatsapp !== false,
       });
     }
     return map;

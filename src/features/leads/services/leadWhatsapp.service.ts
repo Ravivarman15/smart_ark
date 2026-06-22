@@ -14,8 +14,18 @@ export interface SendLeadWhatsappInput {
   templateKey: LeadTemplateKey;
   phone?: string;
   recipientName?: string;
-  /** 'lead' (default), 'counselor' or 'management' — drives lead_whatsapp_logs.recipient_kind. */
-  recipientKind?: "lead" | "counselor" | "management";
+  /**
+   * Drives lead_whatsapp_logs.recipient_kind:
+   *   'lead' (default) | 'staff' (any assigned staff member — role-agnostic) |
+   *   'counselor' / 'management' (legacy labels, still accepted).
+   */
+  recipientKind?: "lead" | "staff" | "counselor" | "management";
+  /**
+   * Per-recipient WhatsApp opt-out (profiles.can_receive_whatsapp). When false
+   * the send is skipped (status='skipped') even if a phone is on file. Defaults
+   * to true (undefined = allowed).
+   */
+  canReceiveWhatsapp?: boolean;
   /** Stored on the log row for reporting (the {{1}} student_name variable). */
   studentName?: string;
   /** Stored on the log row for reporting (the {{2}} course_name variable). */
@@ -48,7 +58,10 @@ class LeadWhatsappService extends BaseService {
     let status: "queued" | "skipped" | "failed" = "skipped";
     let error: string | undefined;
 
-    if (input.phone) {
+    // TASK 4: send ONLY IF the recipient is allowed WhatsApp AND has a phone.
+    // Otherwise record a visible status='skipped' row — never fail silently.
+    const waAllowed = input.canReceiveWhatsapp !== false;
+    if (input.phone && waAllowed) {
       try {
         const res = await aisensyService.enqueue({
           channel: "whatsapp",
@@ -70,7 +83,26 @@ class LeadWhatsappService extends BaseService {
         error = (e as Error).message;
       }
     } else {
-      error = "no phone";
+      // Make the silent gap visible & queryable instead of dropping the alert.
+      const isStaff = recipientKind === "staff" || recipientKind === "counselor";
+      error = isStaff
+        ? "WhatsApp disabled or phone missing"
+        : recipientKind === "management"
+          ? "Management phone missing"
+          : "Recipient phone missing";
+    }
+
+    if (import.meta.env.DEV) {
+      // TASK 6: trace each WhatsApp stage at the client boundary.
+      console.log("[leadWhatsapp] send", {
+        template: input.templateKey,
+        recipientKind,
+        phone: input.phone ?? null,
+        canReceiveWhatsapp: waAllowed,
+        status,
+        queueId: queueId ?? null,
+        error: error ?? null,
+      });
     }
 
     // 1. lead_whatsapp_logs — full lifecycle row.

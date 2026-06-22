@@ -83,9 +83,26 @@ class AssignmentService extends BaseService {
   }
 
   /**
-   * Resolve the best counselor for a lead's course. Returns a profile id or null.
+   * Resolve the best staff member to own a lead. Returns a profile id or null.
+   *
+   * 1. Course-mapping routing (curated `counselor_course_mapping`) wins when a
+   *    mapping matches the lead's course.
+   * 2. FALLBACK — ANY active staff opted into the pool via `can_receive_leads`
+   *    (role-agnostic: admin / management / coordinator / teacher / any role),
+   *    load-balanced by fewest active leads → fewest overdue → round-robin.
+   * 3. Nothing eligible → null (caller marks UNASSIGNED + alerts management).
+   *
+   * Method name kept as `resolveCounselor` for caller compatibility; it resolves
+   * the assignee regardless of role.
    */
   async resolveCounselor(course?: string): Promise<string | null> {
+    const viaMapping = await this.resolveViaMapping(course);
+    if (viaMapping) return viaMapping;
+    return this.resolveViaCapability();
+  }
+
+  /** Curated course→staff routing via counselor_course_mapping. */
+  private async resolveViaMapping(course?: string): Promise<string | null> {
     const mappings = await this.listMappings();
     if (mappings.length === 0) return null;
 
@@ -120,6 +137,44 @@ class AssignmentService extends BaseService {
     });
 
     return stats[0]?.counselorId ?? null;
+  }
+
+  /**
+   * Active staff opted into the lead pool (`can_receive_leads = true`), purely
+   * by capability — NEVER by role. Degrades to [] before the migration adds the
+   * column, so resolution falls through to UNASSIGNED (previous behaviour).
+   */
+  private async eligibleAssigneeIds(): Promise<string[]> {
+    const res = await this.db
+      .from("profiles")
+      .select("id")
+      .eq("can_receive_leads", true)
+      .eq("is_active", true);
+    if (res.error) return [];
+    return ((res.data as Record<string, unknown>[]) ?? []).map((r) => String(r.id));
+  }
+
+  /** Pick the least-loaded eligible staff member (any role). */
+  private async resolveViaCapability(): Promise<string | null> {
+    const ids = await this.eligibleAssigneeIds();
+    if (ids.length === 0) return null;
+    if (ids.length === 1) return ids[0];
+
+    const stats = await Promise.all(
+      ids.map(async (id) => ({
+        id,
+        activeLeads: await this.activeLeadCount(id),
+        overdueLeads: await this.overdueCount(id),
+        lastAssignedAt: await this.lastAssignedAt(id),
+      })),
+    );
+    stats.sort(
+      (a, b) =>
+        a.activeLeads - b.activeLeads ||
+        a.overdueLeads - b.overdueLeads ||
+        a.lastAssignedAt - b.lastAssignedAt,
+    );
+    return stats[0]?.id ?? null;
   }
 
   // ── Mapping management (config page) ────────────────────────────────────────

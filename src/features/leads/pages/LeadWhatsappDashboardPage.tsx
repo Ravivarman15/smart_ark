@@ -6,6 +6,8 @@ import {
   Clock,
   XCircle,
   Download,
+  Ban,
+  AlertTriangle,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -184,13 +186,41 @@ const LeadWhatsappDashboardPage = () => {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <LeadKpiCard label="Queued" value={a.buckets.queued} icon={Clock} tone="warning" />
         <LeadKpiCard label="Sent" value={a.buckets.sent} icon={Send} tone="accent" />
         <LeadKpiCard label="Delivered" value={a.buckets.delivered} icon={CheckCheck} tone="success" />
         <LeadKpiCard label="Read" value={a.buckets.read} icon={Eye} tone="success" />
         <LeadKpiCard label="Failed" value={a.buckets.failed} icon={XCircle} tone="danger" />
+        <LeadKpiCard label="Skipped" value={a.buckets.skipped} icon={Ban} tone="warning" />
       </div>
+
+      {/* Why-not-sent — the single most useful panel when a template "won't send".
+          A row here means the message never reached AiSensy (skipped) or AiSensy
+          rejected it (failed). Empty = everything dispatched. */}
+      {a.reasons.length > 0 && (
+        <div className="glass-card p-4">
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            Delivery blockers (why messages didn’t send)
+          </p>
+          <div className="space-y-1.5">
+            {a.reasons.map((r) => (
+              <div key={r.reason} className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <span className="font-medium">{r.reason}</span>
+                  {r.sample && (
+                    <span className="ml-2 truncate text-xs text-muted-foreground">— {r.sample}</span>
+                  )}
+                </div>
+                <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600">
+                  {r.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-3">
         <LeadKpiCard label="Delivery %" value={a.rates.deliveryPct} suffix="%" icon={CheckCheck} tone="success" />
         <LeadKpiCard label="Read %" value={a.rates.readPct} suffix="%" icon={Eye} tone="accent" />

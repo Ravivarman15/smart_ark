@@ -93,6 +93,15 @@ const normalizePhone = (phone: string): string => {
   return digits; // already has CC (e.g. 12-digit 91XXXXXXXXXX) or other format
 };
 
+// STEP 6 — explicit debug-probe payload (TEST MODE; never touches the queue).
+interface DebugProbe {
+  campaignName?: string;
+  destination?: string;
+  templateParams?: unknown[];
+  userName?: string;
+  source?: string;
+}
+
 interface QueueRow {
   id: string;
   channel: string;
@@ -134,11 +143,70 @@ Deno.serve(async (req) => {
 
     let campaignId: string | undefined;
     let limit = 50;
+    let debug: DebugProbe | undefined;
     try {
       const body = await req.json();
       campaignId = body?.campaignId;
       if (Number.isFinite(body?.limit)) limit = Math.min(Math.max(1, body.limit), 200);
+      if (body?.debug && typeof body.debug === "object") debug = body.debug as DebugProbe;
     } catch { /* defaults */ }
+
+    // ── STEP 6 — TEST MODE (sendAiSensyDebug) ───────────────────────────────
+    // POST { debug: { campaignName, destination, templateParams?, userName?, source? } }
+    // Posts a single message to AiSensy and returns the raw status + body WITHOUT
+    // reading or mutating message_queue / lead_whatsapp_logs. Use this to prove
+    // whether a given campaign + params is accepted by AiSensy, independent of
+    // the queue/automation. Never fires unless an explicit `debug` block is sent.
+    if (debug && (debug.campaignName || debug.destination)) {
+      const dest = normalizePhone(String(debug.destination ?? ""));
+      const templateParams = Array.isArray(debug.templateParams)
+        ? debug.templateParams.map((v) => String(v))
+        : [];
+      const requestBody = {
+        apiKey,
+        campaignName: debug.campaignName ?? "",
+        destination: dest,
+        userName: debug.userName || "ARK LEARNING ARENA",
+        source: debug.source || "ARK Lead CRM Debug",
+        templateParams,
+        tags: [] as string[],
+        attributes: {} as Record<string, unknown>,
+      };
+      console.log("send-aisensy [DEBUG] → request", {
+        campaignName: requestBody.campaignName,
+        destination: dest,
+        templateParams,
+      });
+      let responseStatus = 0;
+      let responseBody = "";
+      try {
+        const res = await fetch(AISENSY_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        responseStatus = res.status;
+        responseBody = await res.text();
+      } catch (e) {
+        responseStatus = 0;
+        responseBody = (e as Error).message;
+      }
+      console.log("send-aisensy [DEBUG] ← response", {
+        status: responseStatus,
+        body: responseBody.slice(0, 1000),
+      });
+      return new Response(
+        JSON.stringify({
+          debug: true,
+          campaignName: requestBody.campaignName,
+          destination: dest,
+          templateParams,
+          responseStatus,
+          responseBody,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const nowIso = new Date().toISOString();
 
@@ -212,13 +280,17 @@ Deno.serve(async (req) => {
         tags: [] as string[],
         attributes: {} as Record<string, unknown>,
       };
-      // Log the FULL request body WITHOUT the apiKey.
+      // STEP 1 — full per-row trace WITHOUT the apiKey. `template` is the queue
+      // row's template, `campaignName` is what we send to AiSensy (they should
+      // match), and `payload` is the stored variable map the params derive from.
       console.log("send-aisensy → request", {
+        template: row.template,
         campaignName,
         destination: dest,
         userName,
         source,
         templateParams,
+        payload,
       });
 
       let httpStatus = 0;

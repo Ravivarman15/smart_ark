@@ -20,6 +20,8 @@ export interface WaLogRow {
   counselorId: string | null;
   recipientKind: string | null;
   status: string;
+  /** Failure / skip reason copied from lead_whatsapp_logs.error (null when ok). */
+  error: string | null;
   queuedAt: string | null;
   sentAt: string | null;
   deliveredAt: string | null;
@@ -62,6 +64,30 @@ export interface DeliveryAnalytics {
   byCounselor: DeliveryGroupRow[];
   byTemplate: DeliveryGroupRow[];
   byDay: Array<{ day: string; sent: number; delivered: number; read: number; failed: number }>;
+  /** Why messages did NOT send — categorized over failed + skipped rows. */
+  reasons: Array<{ reason: string; count: number; sample: string | null }>;
+}
+
+/**
+ * Bucket a failed/skipped row's raw error into an operator-friendly category so
+ * the dashboard can answer "why didn't this send?" at a glance. Mirrors the
+ * categories in the WhatsApp Delivery Debug spec.
+ */
+export function categorizeReason(row: WaLogRow): string | null {
+  const b = bucketOf(row);
+  if (b !== "failed" && b !== "skipped") return null;
+  const e = (row.error ?? "").toLowerCase();
+  if (!e) return b === "skipped" ? "Skipped (no reason recorded)" : "AiSensy rejection (no body)";
+  if (e.includes("disabled")) return "Staff WhatsApp disabled / no number";
+  if (e.includes("phone")) return "Missing / invalid phone";
+  if (e.includes("missing_vars") || e.includes("unresolved") || e.includes("variable")) return "Variable mismatch";
+  if (e.includes("empty body") || e.includes("empty_body")) return "Empty message body";
+  if (e.includes("campaign") && (e.includes("not found") || e.includes("does not exist") || e.includes("invalid")))
+    return "Campaign not found / not live";
+  if (e.includes("param") || e.includes("template") || e.includes("mismatch")) return "Template / param mismatch";
+  if (e.includes("401") || e.includes("unauthorized") || e.includes("err401")) return "AiSensy auth rejection (401)";
+  if (e.includes("429") || e.includes("rate")) return "Rate limited (429)";
+  return "AiSensy rejection";
 }
 
 export interface DeliveryFilters {
@@ -144,6 +170,20 @@ export function computeDelivery(
     dayMap.set(day, d);
   }
 
+  // Why-not-sent breakdown over the non-delivering rows.
+  const reasonMap = new Map<string, { count: number; sample: string | null }>();
+  for (const r of rows) {
+    const cat = categorizeReason(r);
+    if (!cat) continue;
+    const g = reasonMap.get(cat) ?? { count: 0, sample: null };
+    g.count += 1;
+    if (!g.sample && r.error) g.sample = r.error;
+    reasonMap.set(cat, g);
+  }
+  const reasons = [...reasonMap.entries()]
+    .map(([reason, v]) => ({ reason, count: v.count, sample: v.sample }))
+    .sort((a, b) => b.count - a.count);
+
   return {
     buckets,
     rates,
@@ -151,5 +191,6 @@ export function computeDelivery(
     byCounselor: groupBy(rows, (r) => counselorName(r.counselorId)),
     byTemplate: groupBy(rows, (r) => r.templateKey),
     byDay: [...dayMap.entries()].sort().map(([day, v]) => ({ day, ...v })),
+    reasons,
   };
 }

@@ -21,7 +21,21 @@ import {
 } from "@/components/ui/select";
 import { useRoles } from "../hooks/useRoles";
 import { useUpdateStaff } from "../hooks/useStaffMutations";
+import { isWhatsappPhone } from "@/features/leads/utils/whatsappPhone";
 import { updateStaffSchema, type UpdateStaffFormValues } from "../schemas/staff.schema";
+
+// Roles whose Lead CRM WhatsApp automation depends on a valid number on file.
+const WA_AUTOMATION_ROLES = ["counselor", "management", "admin"];
+
+const warnIfWhatsappMissing = (role?: string, mobile?: string) => {
+  if (!role || !WA_AUTOMATION_ROLES.includes(role)) return;
+  if (isWhatsappPhone(mobile)) return;
+  toast.warning(
+    role === "counselor"
+      ? "Counselor WhatsApp number required for Lead CRM automation."
+      : "WhatsApp number required for Lead CRM automation (lead & SLA alerts).",
+  );
+};
 import type { Staff } from "../types/staff.types";
 import { ProfilePictureUploader } from "./ProfilePictureUploader";
 
@@ -123,6 +137,7 @@ export const EditStaffSheet = ({ staff, onOpenChange, onSaved }: Props) => {
         updates: { ...editable, active },
       });
       toast.success("Staff updated");
+      warnIfWhatsappMissing(parsed.data.role ?? staff.role, parsed.data.mobile ?? staff.mobile);
       onSaved?.();
       onOpenChange(false);
     } catch (err) {

@@ -231,9 +231,15 @@ Deno.serve(async (req) => {
       await supabase.from("lead_activities").insert({
         lead_id: lead.id, type: "assigned", detail: "Auto-assigned to counselor", new_value: assignedTo,
       });
-      const { data: c } = await supabase.from("profiles").select("name, phone").eq("id", assignedTo).maybeSingle();
+      // Staff numbers live in profiles.mobile (the Create/Edit Staff form writes
+      // there); `phone` is a legacy column kept for older rows. Prefer mobile.
+      const { data: c } = await supabase
+        .from("profiles")
+        .select("name, mobile, phone")
+        .eq("id", assignedTo)
+        .maybeSingle();
       counselorName = c?.name ?? counselorName;
-      counselorPhone = c?.phone ?? null;
+      counselorPhone = c?.mobile ?? c?.phone ?? null;
       await supabase.from("lead_notifications").insert({
         recipient_id: assignedTo, lead_id: lead.id, type: "new_lead",
         title: "New lead assigned", message: `${studentName}${course ? ` — ${course}` : ""} (${phone})`,

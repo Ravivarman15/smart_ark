@@ -12,6 +12,7 @@ import { admissionsService } from "./admissions.service";
 import { followupsService } from "./followups.service";
 import { slaService } from "./sla.service";
 import { statusLabel } from "../utils/leadStatus";
+import { ensureWhatsappPhone } from "../utils/whatsappPhone";
 import type { Lead, LeadStatus } from "../types/lead.types";
 
 interface Actor {
@@ -20,11 +21,29 @@ interface Actor {
 }
 
 class LeadActionsService extends BaseService {
-  private async getProfile(id: string): Promise<{ name: string; phone?: string } | null> {
-    const res = await this.db.from("profiles").select("name, phone").eq("id", id).maybeSingle();
+  private async getProfile(
+    id: string,
+  ): Promise<{ name: string; role?: string; phone?: string; canReceiveWhatsapp: boolean } | null> {
+    // Staff numbers live in profiles.mobile (the Create/Edit Staff form writes
+    // there); `phone` is legacy. Prefer mobile, normalise for AiSensy, and read
+    // the WhatsApp opt-out. Degrades if capability columns aren't migrated yet.
+    const FULL = "name, role, mobile, phone, can_receive_whatsapp";
+    const CORE = "name, role, mobile, phone";
+    let res = await this.db.from("profiles").select(FULL).eq("id", id).maybeSingle();
+    if (res.error && /column|schema cache|does not exist/i.test(res.error.message ?? "")) {
+      res = await this.db.from("profiles").select(CORE).eq("id", id).maybeSingle();
+    }
     if (res.error || !res.data) return null;
     const r = res.data as Record<string, unknown>;
-    return { name: String(r.name ?? ""), phone: r.phone ? String(r.phone) : undefined };
+    const { phone } = ensureWhatsappPhone(
+      (r.mobile ? String(r.mobile) : r.phone ? String(r.phone) : null),
+    );
+    return {
+      name: String(r.name ?? ""),
+      role: r.role ? String(r.role) : undefined,
+      phone: phone ?? undefined,
+      canReceiveWhatsapp: r.can_receive_whatsapp !== false,
+    };
   }
 
   private async recipientsByRole(roles: string[]): Promise<string[]> {
@@ -112,29 +131,30 @@ class LeadActionsService extends BaseService {
       title: "Lead assigned to you",
       message: `${lead.studentName}${lead.course ? ` — ${lead.course}` : ""}`,
     });
-    // WhatsApp to the counselor (+ comms_audit + lead_whatsapp_logs inside send()).
+    // WhatsApp to the assigned staff member (+ comms_audit + lead_whatsapp_logs
+    // inside send()). Called UNCONDITIONALLY — a missing phone or WhatsApp opt-out
+    // records a visible status='skipped' row instead of silently dropping it.
     const counselor = await this.getProfile(counselorId);
-    if (counselor?.phone) {
-      await leadWhatsappService.send({
-        leadId: lead.id,
-        templateKey: "lead_assigned_counselor",
-        phone: counselor.phone,
-        recipientName: counselor.name,
-        recipientKind: "counselor",
-        studentName: lead.studentName,
-        courseName: lead.course,
-        course: lead.course,
-        leadClass: lead.standard,
-        vars: {
-          counselor_name: counselor.name ?? "Counselor",
-          student_name: lead.studentName,
-          course_name: lead.course ?? "—",
-          mobile_number: lead.phone ?? "—",
-        },
-        createdBy: actor?.profileId,
-        actorName: actor?.name,
-      });
-    }
+    await leadWhatsappService.send({
+      leadId: lead.id,
+      templateKey: "lead_assigned_counselor",
+      phone: counselor?.phone,
+      recipientName: counselor?.name,
+      recipientKind: "staff",
+      canReceiveWhatsapp: counselor?.canReceiveWhatsapp,
+      studentName: lead.studentName,
+      courseName: lead.course,
+      course: lead.course,
+      leadClass: lead.standard,
+      vars: {
+        counselor_name: counselor?.name ?? "Team",
+        student_name: lead.studentName,
+        course_name: lead.course ?? "—",
+        mobile_number: lead.phone ?? "—",
+      },
+      createdBy: actor?.profileId,
+      actorName: actor?.name,
+    });
   }
 
   async scheduleDemo(

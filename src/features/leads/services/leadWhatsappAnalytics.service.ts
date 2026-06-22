@@ -21,7 +21,7 @@ class LeadWhatsappAnalyticsService extends BaseService {
     let query = this.db
       .from("lead_whatsapp_logs" as never)
       .select(
-        "id, lead_id, template_key, course, recipient_kind, status, queued_at, sent_at, delivered_at, read_at, created_at",
+        "id, lead_id, template_key, course, recipient_kind, status, error, queued_at, sent_at, delivered_at, read_at, created_at",
       )
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -66,6 +66,7 @@ class LeadWhatsappAnalyticsService extends BaseService {
         counselorId: parent?.assignedTo ?? null,
         recipientKind: (l.recipient_kind as string) ?? null,
         status: String(l.status ?? "queued"),
+        error: (l.error as string) ?? null,
         queuedAt: (l.queued_at as string) ?? null,
         sentAt: (l.sent_at as string) ?? null,
         deliveredAt: (l.delivered_at as string) ?? null,

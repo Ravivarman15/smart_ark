@@ -30,7 +30,28 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "../hooks/useRoles";
 import { useInviteStaff } from "../hooks/useStaffMutations";
+import { isWhatsappPhone } from "@/features/leads/utils/whatsappPhone";
 import { createStaffSchema, type CreateStaffFormValues } from "../schemas/staff.schema";
+
+// Roles that drive Lead CRM WhatsApp automation and therefore NEED a valid
+// WhatsApp number on file: counselors receive lead_assigned_counselor / SLA
+// nudges; management & admin receive unassigned + escalation alerts.
+const WA_AUTOMATION_ROLES = ["counselor", "management", "admin"];
+
+/**
+ * Warn (don't block) when a staff member who participates in Lead CRM WhatsApp
+ * automation is saved without a usable WhatsApp number — otherwise their lead
+ * alerts silently land as status='skipped'. TASK 5.
+ */
+const warnIfWhatsappMissing = (role?: string, mobile?: string) => {
+  if (!role || !WA_AUTOMATION_ROLES.includes(role)) return;
+  if (isWhatsappPhone(mobile)) return;
+  toast.warning(
+    role === "counselor"
+      ? "Counselor WhatsApp number required for Lead CRM automation."
+      : "WhatsApp number required for Lead CRM automation (lead & SLA alerts).",
+  );
+};
 import { staffService } from "../services/staff.service";
 import type { InviteStaffInput, InviteStaffResult, Staff } from "../types/staff.types";
 import { ProfilePictureUploader } from "./ProfilePictureUploader";
@@ -184,6 +205,7 @@ export const CreateStaffSheet = ({
       } else {
         toast.warning("Staff created — welcome email not delivered");
       }
+      warnIfWhatsappMissing(values.role, values.mobile);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to invite staff";
       if (/already exists/i.test(msg)) {
