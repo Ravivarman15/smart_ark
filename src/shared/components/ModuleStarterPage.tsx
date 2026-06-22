@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -101,6 +102,7 @@ export const ModuleStarterPage = ({
   filter,
 }: ModuleStarterPageProps) => {
   const { rows, add, update, remove } = useLocalCollection<StarterRecord>(storageKey);
+  const confirm = useConfirm();
   const [params, setParams] = useSearchParams();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<StarterRecord | null>(null);
@@ -148,8 +150,16 @@ export const ModuleStarterPage = ({
     setEditorOpen(false);
   };
 
-  const onDelete = (row: StarterRecord) => {
-    if (!confirm(`Delete this ${entityNoun.toLowerCase()}? This cannot be undone.`)) return;
+  const onDelete = async (row: StarterRecord) => {
+    if (
+      !(await confirm({
+        type: "danger",
+        title: `Delete ${entityNoun}`,
+        description: `Delete this ${entityNoun.toLowerCase()}? This action cannot be undone.`,
+        confirmText: "Delete",
+      }))
+    )
+      return;
     remove(row.id);
     toast.success(`${entityNoun} deleted`);
   };

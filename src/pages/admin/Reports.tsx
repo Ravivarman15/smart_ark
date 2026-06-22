@@ -4,10 +4,12 @@ import { FileText, Plus, Trash2, CheckCircle2, Circle, Clock, User, AlertTriangl
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 const Reports: React.FC = () => {
   const { meetingNotes, addMeetingNote, deleteMeetingNote, toggleActionItem, alerts, updateMeetingNote } = useAppData();
+  const confirm = useConfirm();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [formTitle, setFormTitle] = useState("");
@@ -52,7 +54,15 @@ const Reports: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this meeting note?")) return;
+    if (
+      !(await confirm({
+        type: "danger",
+        title: "Delete Meeting Note",
+        description: "Delete this meeting note? This action cannot be undone.",
+        confirmText: "Delete",
+      }))
+    )
+      return;
     try {
       await deleteMeetingNote(id);
       toast.success("Meeting note removed");

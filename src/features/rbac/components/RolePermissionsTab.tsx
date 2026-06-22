@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Eye, Loader2, RotateCcw, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +67,7 @@ export const RolePermissionsTab = ({ role }: Props) => {
   const assignActions = useAssignActionRights();
   const resetPerms = useResetRolePermissions();
   const resetActions = useResetActionRights();
+  const confirm = useConfirm();
 
   const [draft, setDraft] = useState<BuilderDraft>({
     modules: {},
@@ -238,9 +240,12 @@ export const RolePermissionsTab = ({ role }: Props) => {
 
   const handleHardReset = async () => {
     if (
-      !confirm(
-        `Delete every saved permission and action row for "${role.name}"? Falls back to catalog defaults.`,
-      )
+      !(await confirm({
+        type: "danger",
+        title: "Reset All Grants",
+        description: `Delete every saved permission and action row for "${role.name}"? Falls back to catalog defaults.`,
+        confirmText: "Reset",
+      }))
     ) {
       return;
     }

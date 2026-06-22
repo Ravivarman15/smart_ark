@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { StaffRightsProvider } from "@/contexts/StaffRightsContext";
 import { AppDataProvider } from "@/contexts/AppDataContext";
@@ -46,6 +47,7 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <ConfirmDialogProvider>
         <AuthProvider>
           <StaffRightsProvider>
             <RbacRealtimeProvider>
@@ -73,6 +75,7 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
             </RbacRealtimeProvider>
           </StaffRightsProvider>
         </AuthProvider>
+        </ConfirmDialogProvider>
       </TooltipProvider>
     </QueryProvider>
   </ThemeProvider>

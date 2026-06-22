@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { toast } from "sonner";
 import { Paperclip, Trash2, Upload, FileText, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   useDeleteAttachment,
   useFinanceAttachments,
@@ -22,6 +23,7 @@ export const AttachmentManager = ({ transactionId, readOnly }: Props) => {
   const { data: attachments = [], isLoading } = useFinanceAttachments(transactionId);
   const upload = useUploadAttachment();
   const remove = useDeleteAttachment();
+  const confirm = useConfirm();
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,7 +38,15 @@ export const AttachmentManager = ({ transactionId, readOnly }: Props) => {
   };
 
   const onDelete = async (id: string) => {
-    if (!confirm("Remove this attachment?")) return;
+    if (
+      !(await confirm({
+        type: "danger",
+        title: "Remove Attachment",
+        description: "Remove this attachment? This action cannot be undone.",
+        confirmText: "Remove",
+      }))
+    )
+      return;
     try {
       await remove.mutateAsync(id);
       toast.success("Attachment removed");

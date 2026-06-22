@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { resolveIcon } from "@/shared/icons";
 import {
@@ -37,6 +38,7 @@ const RoleEditorPage = () => {
   const roles = useRolesCatalog({ includeArchived: true });
   const roleQuery = useRoleCatalogEntry(isNew ? undefined : slug);
   const archive = useArchiveRole();
+  const confirm = useConfirm();
 
   const role = isNew ? null : roleQuery.data;
   const Icon = resolveIcon(role?.icon ?? "Shield");
@@ -53,11 +55,14 @@ const RoleEditorPage = () => {
       return;
     }
     if (
-      !confirm(
-        role.isArchived
+      !(await confirm({
+        type: role.isArchived ? "info" : "warning",
+        title: role.isArchived ? "Restore Role" : "Archive Role",
+        description: role.isArchived
           ? `Restore "${role.name}" so it shows up in role pickers again?`
           : `Archive "${role.name}"? Staff already holding it keep their assignment but the role disappears from pickers.`,
-      )
+        confirmText: role.isArchived ? "Restore" : "Archive",
+      }))
     ) {
       return;
     }

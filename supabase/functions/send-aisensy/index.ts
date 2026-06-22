@@ -84,13 +84,13 @@ const buildTemplateParams = (templateName: string, payload: Record<string, unkno
   return body !== undefined && body !== null ? [String(body)] : [];
 };
 
+// AiSensy Campaign API V2 expects the destination as bare digits WITH the
+// country code and WITHOUT a leading "+", spaces or hyphens (e.g. 917305801869).
 const normalizePhone = (phone: string): string => {
   const digits = String(phone ?? "").replace(/[^0-9]/g, "");
-  let withCC: string;
-  if (digits.length === 10) withCC = "91" + digits;
-  else if (digits.startsWith("0") && digits.length === 11) withCC = "91" + digits.slice(1);
-  else withCC = digits;
-  return withCC ? "+" + withCC : "";
+  if (digits.length === 10) return "91" + digits;
+  if (digits.startsWith("0") && digits.length === 11) return "91" + digits.slice(1);
+  return digits; // already has CC (e.g. 12-digit 91XXXXXXXXXX) or other format
 };
 
 interface QueueRow {
@@ -113,16 +113,24 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("AISENSY_API_KEY") || "";
+    // Trim defensively: copy-pasted secrets frequently carry a trailing newline
+    // or surrounding whitespace, which makes AiSensy reject the key as ERR401.
+    const apiKey = (Deno.env.get("AISENSY_API_KEY") || "").trim();
+    const projectName = (Deno.env.get("AISENSY_PROJECT_NAME") || "").trim();
     const defaultCampaign = Deno.env.get("AISENSY_DEFAULT_CAMPAIGN") || "ark_broadcast_alert";
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // ── Secret diagnostics (NEVER log the key value itself) ─────────────────
+    console.log("AISENSY_API_KEY_EXISTS", !!apiKey);
+    console.log("AISENSY_API_KEY_LENGTH", apiKey.length);
+    console.log("PROJECT", projectName);
+    console.log("Using Project:", projectName);
+
+    // A missing key is a hard stop — never burn a provider call without it.
     if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "AISENSY_API_KEY not configured in edge function secrets" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      throw new Error("AISENSY_API_KEY missing");
     }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     let campaignId: string | undefined;
     let limit = 50;
@@ -190,21 +198,28 @@ Deno.serve(async (req) => {
       }
 
       const campaignName = row.template || defaultCampaign;
+      const userName = row.recipient_name || "ARK LEARNING ARENA";
+      const source = "ARK Lead CRM";
       // Official AiSensy Campaign API V2 body. apiKey goes IN THE BODY (no
-      // Authorization header). Content-Type application/json.
+      // Authorization header). Content-Type: application/json only.
       const requestBody = {
         apiKey,
         campaignName,
         destination: dest,
-        userName: row.recipient_name || "ARK LEARNING ARENA",
-        source: "ARK Lead CRM",
-        media: {},
+        userName,
+        source,
         templateParams,
-        tags: [],
-        attributes: {},
+        tags: [] as string[],
+        attributes: {} as Record<string, unknown>,
       };
-      // Log the request WITHOUT the apiKey.
-      console.log("send-aisensy → request", { campaignName, destination: dest, templateParams });
+      // Log the FULL request body WITHOUT the apiKey.
+      console.log("send-aisensy → request", {
+        campaignName,
+        destination: dest,
+        userName,
+        source,
+        templateParams,
+      });
 
       let httpStatus = 0;
       let providerMsgId: string | null = null;

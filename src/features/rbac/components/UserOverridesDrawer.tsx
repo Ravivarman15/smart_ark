@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, RotateCcw, Save, ShieldQuestion } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Sheet,
   SheetContent,
@@ -97,6 +98,7 @@ export const UserOverridesDrawer = ({ open, onOpenChange, role, user }: Props) =
   const removeModule = useRemoveUserOverride();
   const upsertAction = useUpsertUserActionOverride();
   const removeAction = useRemoveUserActionOverride();
+  const confirm = useConfirm();
 
   const [draft, setDraft] = useState<BuilderDraft>({
     modules: {},
@@ -265,8 +267,15 @@ export const UserOverridesDrawer = ({ open, onOpenChange, role, user }: Props) =
     }
   };
 
-  const handleResetToRole = () => {
-    if (!confirm(`Reset ${user?.name ?? "this user"}'s overrides — they'll inherit ${role.name}'s defaults again?`)) {
+  const handleResetToRole = async () => {
+    if (
+      !(await confirm({
+        type: "warning",
+        title: "Reset Overrides",
+        description: `Reset ${user?.name ?? "this user"}'s overrides — they'll inherit ${role.name}'s defaults again?`,
+        confirmText: "Reset",
+      }))
+    ) {
       return;
     }
     setDraft({ ...inheritance });

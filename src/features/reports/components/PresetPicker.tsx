@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ActionGuard } from "@/features/rbac";
@@ -40,6 +41,7 @@ export const PresetPicker = ({
   const { data: presets = [] } = useReportPresets(reportKey);
   const createMut = useCreateReportPreset();
   const removeMut = useDeleteReportPreset();
+  const confirm = useConfirm();
   const [saveOpen, setSaveOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -70,7 +72,15 @@ export const PresetPicker = ({
   };
 
   const remove = async (p: ReportPreset) => {
-    if (!confirm(`Delete preset "${p.name}"?`)) return;
+    if (
+      !(await confirm({
+        type: "danger",
+        title: "Delete Preset",
+        description: `Delete preset "${p.name}"? This action cannot be undone.`,
+        confirmText: "Delete",
+      }))
+    )
+      return;
     try {
       await removeMut.mutateAsync(p.id);
       toast.success("Preset deleted");

@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   ApprovalDialog,
   CategoryBreakdownChart,
@@ -121,6 +122,7 @@ const ManageTransactionPage = ({ kind }: Props) => {
   const bulkDelete = useBulkDeleteTransactions();
   const markPaid = useMarkTransactionPaid();
   const remove = useDeleteTransaction();
+  const confirm = useConfirm();
 
   const totals = useMemo(() => {
     const all = rows.reduce(
@@ -149,7 +151,14 @@ const ManageTransactionPage = ({ kind }: Props) => {
   };
   const onBulkDelete = async () => {
     if (selected.length === 0) return;
-    if (!confirm(`Delete ${selected.length} transaction(s)? This cannot be undone.`))
+    if (
+      !(await confirm({
+        type: "danger",
+        title: "Delete Transactions",
+        description: `Delete ${selected.length} transaction(s)? This action cannot be undone.`,
+        confirmText: "Delete",
+      }))
+    )
       return;
     try {
       await bulkDelete.mutateAsync(selected);
@@ -170,7 +179,14 @@ const ManageTransactionPage = ({ kind }: Props) => {
   };
 
   const onDelete = async (t: FinanceTransaction) => {
-    if (!confirm(`Delete "${t.title ?? t.category}"? This cannot be undone.`))
+    if (
+      !(await confirm({
+        type: "danger",
+        title: "Delete Transaction",
+        description: `Delete "${t.title ?? t.category}"? This action cannot be undone.`,
+        confirmText: "Delete",
+      }))
+    )
       return;
     try {
       await remove.mutateAsync(t.id);

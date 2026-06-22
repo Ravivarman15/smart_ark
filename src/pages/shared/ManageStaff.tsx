@@ -3,6 +3,7 @@ import { Plus, Search, UserCheck, UserCog, Users, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm, usePrompt } from "@/components/ui/confirm-dialog";
 import {
   Select,
   SelectContent,
@@ -61,6 +62,8 @@ const ONBOARDING_OPTIONS: { value: OnboardingStatus | "all"; label: string }[] =
 const ManageStaff = () => {
   const { user } = useAuth();
   const roles = useRoles();
+  const confirm = useConfirm();
+  const prompt = usePrompt();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] = useState<Staff | null>(null);
@@ -141,7 +144,14 @@ const ManageStaff = () => {
   );
 
   const handleDeactivate = async (s: Staff) => {
-    if (!confirm(`Deactivate ${s.name}? They will lose access immediately.`))
+    if (
+      !(await confirm({
+        type: "warning",
+        title: "Deactivate Staff",
+        description: `Deactivate ${s.name}? They will lose access immediately.`,
+        confirmText: "Deactivate",
+      }))
+    )
       return;
     try {
       await deactivate.mutateAsync(s.id);
@@ -164,11 +174,15 @@ const ManageStaff = () => {
 
   const handleDelete = async (s: Staff) => {
     if (
-      !confirm(
-        `Permanently delete ${s.name}? This removes their profile and login ` +
+      !(await confirm({
+        type: "danger",
+        title: "Permanently Delete Staff",
+        description:
+          `Permanently delete ${s.name}? This removes their profile and login ` +
           `for good and cannot be undone. To keep their records, deactivate ` +
-          `the account instead.`
-      )
+          `the account instead.`,
+        confirmText: "Delete",
+      }))
     )
       return;
     try {
@@ -232,13 +246,18 @@ const ManageStaff = () => {
 
   const handleChangeLoginEmail = async (s: Staff) => {
     const current = s.email ?? "";
-    const next = window.prompt(
-      `New login email for ${s.name}\n\n` +
+    const next = await prompt({
+      type: "info",
+      title: `Change login email — ${s.name}`,
+      description:
         `Updating this changes both auth.users.email and profiles.email in ` +
         `one atomic step, so the next welcome / reset email matches what ` +
         `Supabase Auth actually expects at sign-in.`,
-      current,
-    );
+      placeholder: "new-email@example.com",
+      defaultValue: current,
+      inputType: "email",
+      confirmText: "Update email",
+    });
     if (!next || next.trim() === "" || next.trim().toLowerCase() === current.toLowerCase()) {
       return;
     }

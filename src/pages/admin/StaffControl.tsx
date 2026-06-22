@@ -4,10 +4,12 @@ import { Users, Clock, CheckCircle2, XCircle, Plus, Edit, Filter, AlertTriangle 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { usePrompt } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 const StaffControl: React.FC = () => {
   const { teachers, checkins, campuses, addTeacher, updateTeacher, addOverrideRequest, historicalAttendance } = useAppData();
+  const prompt = usePrompt();
   const today = new Date().toISOString().split("T")[0];
 
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -82,7 +84,13 @@ const StaffControl: React.FC = () => {
   };
 
   const handleOverride = async (id: string, name: string) => {
-    const reason = prompt(`Override reason for ${name}:`);
+    const reason = await prompt({
+      type: "info",
+      title: "Override Request",
+      description: `Enter an override reason for ${name}:`,
+      placeholder: "Reason for override",
+      confirmText: "Submit",
+    });
     if (!reason || !reason.trim()) return;
     try {
       await addOverrideRequest({

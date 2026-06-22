@@ -6,6 +6,7 @@ import { Phone, Plus, UserPlus, Users, AlertCircle, FileText, CheckCircle2, Link
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 interface Enquiry {
@@ -64,6 +65,7 @@ const PRIORITY_MAP: Record<string, string> = {
 const EnquiryManagement: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -261,14 +263,30 @@ const EnquiryManagement: React.FC = () => {
   };
 
   const handleApprove = async (e: Enquiry) => {
-    if (!confirm(`Convert ${e.prospect_name} to admitted student?`)) return;
+    if (
+      !(await confirm({
+        type: "success",
+        title: "Convert to admitted student?",
+        description: `Convert ${e.prospect_name} to an admitted student?`,
+        confirmText: "Convert",
+      }))
+    )
+      return;
     await supabase.from("admission_calls").update({ status: "converted" }).eq("id", e.id);
     toast.success("Enquiry marked as converted");
     await load();
   };
 
   const handleDelete = async (e: Enquiry) => {
-    if (!confirm(`Delete the enquiry for ${e.prospect_name || "this prospect"}? This cannot be undone.`)) return;
+    if (
+      !(await confirm({
+        type: "danger",
+        title: "Delete Enquiry",
+        description: `Delete the enquiry for ${e.prospect_name || "this prospect"}? This action cannot be undone.`,
+        confirmText: "Delete",
+      }))
+    )
+      return;
     // Lead-origin rows are soft-deleted in the leads table (id is "lead:<uuid>");
     // legacy enquiries are hard-deleted from admission_calls.
     const { error } =

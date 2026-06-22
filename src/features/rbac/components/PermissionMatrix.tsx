@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,7 @@ export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
   const sourceRolePerms = useRolePermissions(undefined); // for "copy-from"
   const assign = useAssignRolePermissions();
   const resetRole = useResetRolePermissions();
+  const confirm = useConfirm();
 
   // Draft state — mirror of effective permissions for this role, mutable.
   const [draft, setDraft] = useState<{
@@ -230,9 +232,12 @@ export const PermissionMatrix = ({ initialRole = "admin" }: Props) => {
 
   const handleResetRole = async () => {
     if (
-      !confirm(
-        `Delete every saved permission row for "${role}"? They'll fall back to catalog defaults.`,
-      )
+      !(await confirm({
+        type: "danger",
+        title: "Reset Role Permissions",
+        description: `Delete every saved permission row for "${role}"? They'll fall back to catalog defaults.`,
+        confirmText: "Reset",
+      }))
     ) {
       return;
     }

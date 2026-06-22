@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -292,14 +293,23 @@ const SectionCard: React.FC<{
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const DailyChecklist: React.FC = () => {
   const { dailyChecklistState, toggleDailyChecklist, signOffDailyChecklist, resetDailyChecklist } = useAppData();
+  const confirm = useConfirm();
   const { checked, signName, signTime, signedOff, date: dateKey } = dailyChecklistState;
   
   const today = new Date(dateKey).toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   const toggle = (id: string) => toggleDailyChecklist(id);
 
-  const resetAll = () => {
-    if (!confirm("Reset all checklist items for today?")) return;
+  const resetAll = async () => {
+    if (
+      !(await confirm({
+        type: "warning",
+        title: "Reset Checklist",
+        description: "Reset all checklist items for today? This cannot be undone.",
+        confirmText: "Reset",
+      }))
+    )
+      return;
     resetDailyChecklist();
     toast.success("Checklist reset");
   };

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Tags } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { EntityCrudTable, type ColumnDef } from "@/shared/components";
 import {
   CategoryDot,
@@ -23,6 +24,7 @@ const ManageTypePage = ({ kind }: Props) => {
   const { data: rows = [], isLoading } = useFinanceCategories(kind);
   const toggle = useToggleFinanceCategory();
   const remove = useDeleteFinanceCategory();
+  const confirm = useConfirm();
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<FinanceCategory | null>(null);
@@ -44,7 +46,15 @@ const ManageTypePage = ({ kind }: Props) => {
     }
   };
   const onDelete = async (c: FinanceCategory) => {
-    if (!confirm(`Delete "${c.name}"? This cannot be undone.`)) return;
+    if (
+      !(await confirm({
+        type: "danger",
+        title: "Delete Category",
+        description: `Delete "${c.name}"? This action cannot be undone.`,
+        confirmText: "Delete",
+      }))
+    )
+      return;
     try {
       await remove.mutateAsync(c.id);
       toast.success("Deleted");

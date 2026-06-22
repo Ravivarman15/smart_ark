@@ -4,6 +4,7 @@ import { BookOpen, CheckCircle2, AlertCircle, RotateCcw, Clock, Plus, Trash2, Ca
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 const statusBadge = (status: string) => {
@@ -25,6 +26,7 @@ const timingColor = (timing: string) => {
 
 const AcademicControl: React.FC = () => {
   const { weeklyPlans, updatePlanStatus, addWeeklyPlan, deleteWeeklyPlan, retestQueue, allocateRetest, completeRetest, addRetestItem, adminChecklist, toggleChecklistItem, batches, teachers, students, classSchedule } = useAppData();
+  const confirm = useConfirm();
 
   const [retestMarksInput, setRetestMarksInput] = useState<Record<string, string>>({});
   const [isPlanOpen, setIsPlanOpen] = useState(false);
@@ -58,8 +60,15 @@ const AcademicControl: React.FC = () => {
     }
   };
 
-  const handleDeletePlan = (id: string) => {
-    if (confirm("Remove this plan?")) {
+  const handleDeletePlan = async (id: string) => {
+    if (
+      await confirm({
+        type: "danger",
+        title: "Remove Plan",
+        description: "Remove this weekly plan? This action cannot be undone.",
+        confirmText: "Remove",
+      })
+    ) {
       deleteWeeklyPlan(id);
       toast.success("Plan removed");
     }
