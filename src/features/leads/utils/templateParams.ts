@@ -49,10 +49,27 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "student_name"),
     val(p, "course_name", "course"),
   ],
-  // {{1}} student_name, {{2}} course_name
-  demo_scheduled: (p) => [val(p, "student_name"), val(p, "course_name", "course")],
-  // {{1}} student_name, {{2}} course_name
-  admission_completed: (p) => [val(p, "student_name"), val(p, "course_name", "course")],
+  // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time, {{5}} faculty_name
+  lead_demo_scheduled_v2: (p) => [
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "demo_date"),
+    val(p, "demo_time"),
+    val(p, "faculty_name", "faculty"),
+  ],
+  // {{1}} parent_name, {{2}} student_name, {{3}} course_name  (order is FINAL)
+  lead_admission_completed_v2: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+  ],
+  // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time
+  lead_demo_reminder_v2: (p) => [
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "demo_date"),
+    val(p, "demo_time"),
+  ],
 };
 
 /** Templates that use ordered positional params (vs the single-body fallback). */

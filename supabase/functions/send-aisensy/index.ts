@@ -74,8 +74,27 @@ const TEMPLATE_PARAM_SPECS: Record<string, (p: Record<string, unknown>) => strin
     tVal(p, "student_name"),
     tVal(p, "course_name", "course"),
   ],
-  demo_scheduled: (p) => [tVal(p, "student_name"), tVal(p, "course_name", "course")],
-  admission_completed: (p) => [tVal(p, "student_name"), tVal(p, "course_name", "course")],
+  // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time, {{5}} faculty_name
+  lead_demo_scheduled_v2: (p) => [
+    tVal(p, "student_name"),
+    tVal(p, "course_name", "course"),
+    tVal(p, "demo_date"),
+    tVal(p, "demo_time"),
+    tVal(p, "faculty_name", "faculty"),
+  ],
+  // {{1}} parent_name, {{2}} student_name, {{3}} course_name  (order is FINAL)
+  lead_admission_completed_v2: (p) => [
+    tVal(p, "parent_name"),
+    tVal(p, "student_name"),
+    tVal(p, "course_name", "course"),
+  ],
+  // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time
+  lead_demo_reminder_v2: (p) => [
+    tVal(p, "student_name"),
+    tVal(p, "course_name", "course"),
+    tVal(p, "demo_date"),
+    tVal(p, "demo_time"),
+  ],
 };
 const buildTemplateParams = (templateName: string, payload: Record<string, unknown>): string[] => {
   const spec = TEMPLATE_PARAM_SPECS[templateName];

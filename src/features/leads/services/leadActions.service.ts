@@ -177,16 +177,18 @@ class LeadActionsService extends BaseService {
     const d = new Date(input.scheduledAt);
     await leadWhatsappService.send({
       leadId: lead.id,
-      templateKey: "demo_scheduled",
+      templateKey: "lead_demo_scheduled_v2",
       phone: lead.phone,
       recipientName: lead.parentName ?? lead.studentName,
+      studentName: lead.studentName,
+      courseName: lead.course,
+      course: lead.course,
       vars: {
         student_name: lead.studentName,
         course_name: lead.course ?? "—",
         demo_date: d.toLocaleDateString(),
         demo_time: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        faculty: faculty?.name ?? "ARK faculty",
-        batch: input.batch ?? "—",
+        faculty_name: faculty?.name ?? "ARK faculty",
       },
       createdBy: actor?.profileId,
     });
@@ -236,9 +238,13 @@ class LeadActionsService extends BaseService {
     });
     await leadWhatsappService.send({
       leadId: lead.id,
-      templateKey: "admission_completed",
+      templateKey: "lead_admission_completed_v2",
       phone: lead.phone,
       recipientName: lead.parentName ?? lead.studentName,
+      studentName: lead.studentName,
+      courseName: input.course ?? lead.course,
+      course: input.course ?? lead.course,
+      // Variable order is FINAL: {{1}} parent_name, {{2}} student_name, {{3}} course_name
       vars: {
         parent_name: lead.parentName ?? lead.studentName,
         student_name: lead.studentName,

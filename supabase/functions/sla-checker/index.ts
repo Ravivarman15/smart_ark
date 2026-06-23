@@ -486,7 +486,8 @@ Deno.serve(async (req) => {
         title: string,
         message: string,
         phone?: string | null,
-        body?: string
+        body?: string,
+        waVars: Record<string, unknown> = {}
       ) => {
         const { data: existing } = await supabase
           .from("lead_reminders")
@@ -510,10 +511,11 @@ Deno.serve(async (req) => {
           await supabase
             .from("lead_notifications")
             .insert({ recipient_id: recipientId, lead_id: leadId, type, title, message });
-        // Demo reminder goes to the LEAD — use a single-body template (not the
-        // counselor-facing positional lead_followup_reminder) so the actual
-        // reminder text is delivered via the {{1}} fallback.
-        if (phone && body) await enqueueWa(phone, body, leadId, "lead_demo_reminder", "lead");
+        // Demo reminder goes to the LEAD via the approved AiSensy Utility template
+        // lead_demo_reminder_v2. Positional params {{1}} student_name, {{2}} course_name,
+        // {{3}} demo_date, {{4}} demo_time are carried in waVars (body kept for logs).
+        if (phone && body)
+          await enqueueWa(phone, body, leadId, "lead_demo_reminder_v2", "lead", waVars);
       };
 
       // Demos scheduled for tomorrow / today → remind faculty + counselor.
@@ -539,11 +541,14 @@ Deno.serve(async (req) => {
         for (const d of demos || []) {
           const { data: lead } = await supabase
             .from("leads")
-            .select("student_name, phone, assigned_to")
+            .select("student_name, phone, assigned_to, course")
             .eq("id", d.lead_id)
             .maybeSingle();
           if (!lead) continue;
-          const when = new Date(d.scheduled_at).toLocaleString();
+          const scheduled = new Date(d.scheduled_at);
+          const when = scheduled.toLocaleString();
+          const demoDate = scheduled.toLocaleDateString();
+          const demoTime = scheduled.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
           if (d.faculty_id)
             await remind(d.lead_id, `${type}_faculty`, d.faculty_id, "Upcoming demo", `${lead.student_name} — ${when}`);
           if (lead.assigned_to)
@@ -555,7 +560,14 @@ Deno.serve(async (req) => {
             "Demo reminder",
             lead.student_name,
             lead.phone,
-            `Reminder: ${lead.student_name}'s ARK demo is ${type === "demo_today" ? "today" : "tomorrow"} at ${when}.`
+            `Reminder: ${lead.student_name}'s ARK demo is ${type === "demo_today" ? "today" : "tomorrow"} at ${when}.`,
+            // lead_demo_reminder_v2 positional vars.
+            {
+              student_name: lead.student_name,
+              course_name: lead.course ?? "your course",
+              demo_date: demoDate,
+              demo_time: demoTime,
+            }
           );
         }
       }

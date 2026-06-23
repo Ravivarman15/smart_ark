@@ -40,16 +40,49 @@ describe("buildTemplateParams", () => {
     ).toEqual(["Asha", "Arjun", "NEET"]);
   });
 
-  it("demo_scheduled → [student_name, course_name]", () => {
+  it("lead_demo_scheduled_v2 → [student_name, course_name, demo_date, demo_time, faculty_name]", () => {
     expect(
-      buildTemplateParams("demo_scheduled", { student_name: "Arjun", course_name: "Foundation" }),
-    ).toEqual(["Arjun", "Foundation"]);
+      buildTemplateParams("lead_demo_scheduled_v2", {
+        student_name: "Arjun",
+        course_name: "Foundation",
+        demo_date: "24 Jun 2026",
+        demo_time: "05:30 PM",
+        faculty_name: "Mr. Rao",
+      }),
+    ).toEqual(["Arjun", "Foundation", "24 Jun 2026", "05:30 PM", "Mr. Rao"]);
   });
 
-  it("admission_completed → [student_name, course_name]", () => {
+  it("lead_demo_scheduled_v2 accepts faculty alias for faculty_name", () => {
     expect(
-      buildTemplateParams("admission_completed", { student_name: "Arjun", course_name: "NEET" }),
-    ).toEqual(["Arjun", "NEET"]);
+      buildTemplateParams("lead_demo_scheduled_v2", {
+        student_name: "Arjun",
+        course: "Foundation",
+        demo_date: "24 Jun 2026",
+        demo_time: "05:30 PM",
+        faculty: "Mr. Rao",
+      }),
+    ).toEqual(["Arjun", "Foundation", "24 Jun 2026", "05:30 PM", "Mr. Rao"]);
+  });
+
+  it("lead_admission_completed_v2 → [parent_name, student_name, course_name] (order is FINAL)", () => {
+    expect(
+      buildTemplateParams("lead_admission_completed_v2", {
+        parent_name: "Mr. Sharma",
+        student_name: "Arjun",
+        course_name: "NEET",
+      }),
+    ).toEqual(["Mr. Sharma", "Arjun", "NEET"]);
+  });
+
+  it("lead_demo_reminder_v2 → [student_name, course_name, demo_date, demo_time]", () => {
+    expect(
+      buildTemplateParams("lead_demo_reminder_v2", {
+        student_name: "Arjun",
+        course_name: "JEE",
+        demo_date: "24 Jun 2026",
+        demo_time: "05:30 PM",
+      }),
+    ).toEqual(["Arjun", "JEE", "24 Jun 2026", "05:30 PM"]);
   });
 
   it("aliases course_name←course and mobile_number←mobile/phone", () => {
@@ -70,8 +103,8 @@ describe("buildTemplateParams", () => {
   it("non-positional templates fall back to the single rendered body", () => {
     expect(buildTemplateParams("lead_unassigned_alert", { __body: "unassigned text" }))
       .toEqual(["unassigned text"]);
-    expect(buildTemplateParams("lead_demo_reminder", { __body: "demo tomorrow" }))
-      .toEqual(["demo tomorrow"]);
+    expect(buildTemplateParams("lead_low_performance", { __body: "low perf" }))
+      .toEqual(["low perf"]);
   });
 
   it("unknown template with no body → empty array", () => {
@@ -84,8 +117,9 @@ describe("buildTemplateParams", () => {
       "lead_assigned_counselor",
       "lead_followup_reminder",
       "sla_breach_alert",
-      "demo_scheduled",
-      "admission_completed",
+      "lead_demo_scheduled_v2",
+      "lead_admission_completed_v2",
+      "lead_demo_reminder_v2",
     ]);
   });
 });

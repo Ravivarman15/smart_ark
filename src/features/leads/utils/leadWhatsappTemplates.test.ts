@@ -66,8 +66,9 @@ describe("renderLeadMessage", () => {
       "lead_assigned_counselor",
       "lead_followup_reminder",
       "sla_breach_alert",
-      "demo_scheduled",
-      "admission_completed",
+      "lead_demo_scheduled_v2",
+      "lead_admission_completed_v2",
+      "lead_demo_reminder_v2",
       "lead_unassigned_alert",
     ] as const;
     for (const key of required) {
@@ -75,5 +76,53 @@ describe("renderLeadMessage", () => {
       // providerName is what becomes the AiSensy campaignName — must equal the key.
       expect(LEAD_TEMPLATES[key].providerName, key).toBe(key);
     }
+  });
+
+  it("retires the legacy demo/admission campaign names", () => {
+    expect(LEAD_TEMPLATES).not.toHaveProperty("demo_scheduled");
+    expect(LEAD_TEMPLATES).not.toHaveProperty("admission_completed");
+    expect(LEAD_TEMPLATES).not.toHaveProperty("lead_demo_reminder");
+  });
+
+  it("renders lead_demo_scheduled_v2 with all 5 positional vars", () => {
+    const r = renderLeadMessage("lead_demo_scheduled_v2", {
+      student_name: "Arjun",
+      course_name: "Foundation",
+      demo_date: "24 Jun 2026",
+      demo_time: "05:30 PM",
+      faculty_name: "Mr. Rao",
+    });
+    expect(r.body).toContain("Hi Arjun");
+    expect(r.body).toContain("Foundation");
+    expect(r.body).toContain("24 Jun 2026");
+    expect(r.body).toContain("05:30 PM");
+    expect(r.body).toContain("Mr. Rao");
+    expect(r.missing).toHaveLength(0);
+  });
+
+  it("renders lead_admission_completed_v2 in FINAL order (parent, student, course)", () => {
+    const r = renderLeadMessage("lead_admission_completed_v2", {
+      parent_name: "Mr. Sharma",
+      student_name: "Arjun",
+      course_name: "NEET",
+    });
+    expect(r.body).toContain("Hi Mr. Sharma");
+    expect(r.body).toContain("admission of Arjun for NEET");
+    expect(r.body).toContain("Welcome to ARK Learning Arena");
+    expect(r.missing).toHaveLength(0);
+  });
+
+  it("renders lead_demo_reminder_v2 with 4 positional vars", () => {
+    const r = renderLeadMessage("lead_demo_reminder_v2", {
+      student_name: "Arjun",
+      course_name: "JEE",
+      demo_date: "24 Jun 2026",
+      demo_time: "05:30 PM",
+    });
+    expect(r.body).toContain("Hi Arjun");
+    expect(r.body).toContain("JEE");
+    expect(r.body).toContain("24 Jun 2026");
+    expect(r.body).toContain("05:30 PM");
+    expect(r.missing).toHaveLength(0);
   });
 });
