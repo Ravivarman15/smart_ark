@@ -199,9 +199,13 @@ export const LeadDetailDrawer = ({
                   value={demoFaculty}
                   onChange={(e) => setDemoFaculty(e.target.value)}
                 >
-                  <option value="">Select faculty…</option>
-                  {staff.filter((s) => s.role === "teacher").map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                  <option value="">Select staff for demo…</option>
+                  {/* Any active staff member can take a demo — not just teachers
+                      (admin / management / coordinator are all eligible). */}
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}{s.role ? ` (${s.role})` : ""}
+                    </option>
                   ))}
                 </select>
                 <Button
