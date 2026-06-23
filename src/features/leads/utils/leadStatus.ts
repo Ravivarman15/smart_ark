@@ -35,3 +35,8 @@ export function nextStage(s: LeadStatus): LeadStatus | null {
   const i = stageIndex(s);
   return i >= 0 && i < LEAD_PIPELINE.length - 1 ? LEAD_PIPELINE[i + 1] : null;
 }
+
+/** Stages a lead can be moved to from `from` (drives the mobile quick-move menu). */
+export function transitionTargets(from: LeadStatus): LeadStatus[] {
+  return LEAD_PIPELINE.filter((s) => canTransition(from, s));
+}
