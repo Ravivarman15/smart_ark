@@ -12,3 +12,8 @@ export {
   payrollAuditService,
   type PayrollAuditActor,
 } from "./payrollAudit.service";
+export { payrollApprovalService } from "./payrollApproval.service";
+export {
+  payrollEmailService,
+  type PayslipEmailResult,
+} from "./payrollEmail.service";

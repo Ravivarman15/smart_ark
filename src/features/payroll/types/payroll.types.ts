@@ -168,6 +168,14 @@ export interface PayrollRun {
   approvedByName?: string;
   approvedAt?: string;
   paidAt?: string;
+  // ── Approval-lock (set when the run is approved in the Approval Center) ──
+  locked: boolean;
+  lockedAt?: string;
+  lockedBy?: string;
+  lockedByName?: string;
+  unlockReason?: string;
+  emailsSentCount?: number;
+  payslipsGeneratedCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -179,6 +187,26 @@ export interface BreakdownLine {
   ruleId?: string;
   label: string;
   type: RuleType;
+  amount: number;
+}
+
+/** A named one-time adjustment Management adds in the Approval Center. */
+export type AdjustmentCategory =
+  | "festival_bonus"
+  | "performance_incentive"
+  | "referral_incentive"
+  | "travel_reimbursement"
+  | "food_reimbursement"
+  | "medical_reimbursement"
+  | "internet_reimbursement"
+  | "late_deduction"
+  | "leave_deduction"
+  | "other";
+
+export interface AdjustmentLine {
+  category: AdjustmentCategory;
+  label: string;
+  kind: "earning" | "deduction";
   amount: number;
 }
 
@@ -205,6 +233,17 @@ export interface PayrollItem {
   deductions: number;
   penalties: number;
   netSalary: number;
+  // ── Named one-time components (Approval Center). Default 0 on legacy rows. ──
+  bonus: number;
+  reimbursements: number;
+  loanDeduction: number;
+  pf: number;
+  esi: number;
+  tax: number;
+  otherDeductions: number;
+  manualAdjustment: number;
+  adjustments?: AdjustmentLine[];
+  remarks?: string;
   status: PayrollItemStatus;
   paymentMethod?: string;
   paidAt?: string;
@@ -349,4 +388,97 @@ export interface PayrollCalcResult {
   penalties: number;
   netSalary: number;
   breakdown: BreakdownLine[];
+}
+
+// ── Approval Center ──────────────────────────────────────────────────────────
+
+/** The editable one-time components Management may adjust before approval. */
+export interface ItemComponentPatch {
+  incentives?: number;
+  allowances?: number;
+  bonus?: number;
+  reimbursements?: number;
+  loanDeduction?: number;
+  deductions?: number;
+  penalties?: number;
+  pf?: number;
+  esi?: number;
+  tax?: number;
+  otherDeductions?: number;
+  manualAdjustment?: number;
+  adjustments?: AdjustmentLine[];
+  remarks?: string;
+}
+
+/** Per-field salary change history row (append-only — never overwritten). */
+export interface PayrollItemHistory {
+  id: string;
+  itemId: string;
+  runId?: string;
+  staffId?: string;
+  field: string;
+  oldValue?: string;
+  newValue?: string;
+  reason?: string;
+  actorId?: string;
+  actorName?: string;
+  createdAt: string;
+}
+
+export type AnomalyType =
+  | "increase_gt_20"
+  | "decrease_gt_20"
+  | "negative_salary"
+  | "bonus_gt_salary"
+  | "duplicate_employee"
+  | "missing_attendance"
+  | "missing_bank"
+  | "missing_pan"
+  | "missing_aadhaar";
+
+export interface AnomalyFlag {
+  type: AnomalyType;
+  severity: "warning" | "critical";
+  label: string;
+  detail?: string;
+}
+
+/** One enriched row in the Approval data grid (item + profile + comparisons). */
+export interface ApprovalGridRow extends PayrollItem {
+  employeeCode: string;
+  photoUrl?: string;
+  designation?: string;
+  workingDays: number;
+  leaveDays: number;
+  previousNet: number;
+  difference: number;
+  differencePct: number;
+  anomalies: AnomalyFlag[];
+}
+
+/** Optional identity-completeness flags fed to the anomaly detector. When a
+ *  column does not exist in the schema these stay `undefined` (never flagged). */
+export interface IdentityPresence {
+  hasBank?: boolean;
+  hasPan?: boolean;
+  hasAadhaar?: boolean;
+}
+
+export interface ApprovalSummary {
+  employees: number;
+  totalPayroll: number;
+  totalBonuses: number;
+  totalDeductions: number;
+  averageSalary: number;
+  highestSalary: number;
+  lowestSalary: number;
+}
+
+/** Powers the monthly "payroll pending" dashboard alert. */
+export interface PendingPayrollAlert {
+  run: PayrollRun;
+  monthLabel: string;
+  staffCount: number;
+  estimatedTotal: number;
+  lastApprovalDate?: string;
 }

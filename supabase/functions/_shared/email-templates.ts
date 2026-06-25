@@ -158,6 +158,18 @@ export interface GenericNoticeParams {
   cta?: { label: string; url: string };
 }
 
+export interface SalarySlipParams {
+  employeeName: string;
+  /** e.g. "June 2026". */
+  month: string;
+  /** Pre-formatted net salary, e.g. "₹25,950". */
+  netSalary: string;
+  /** Pay-period label, e.g. "01 Jun 2026 – 30 Jun 2026". */
+  periodLabel: string;
+  /** Deep link to the employee's own My Salary page (their slip only). */
+  downloadUrl: string;
+}
+
 export interface RenderedEmail {
   subject: string;
   html: string;
@@ -309,16 +321,72 @@ const renderGenericNotice = (
   };
 };
 
+// ── Template: salary-slip ───────────────────────────────────────────────────
+// Sent to EACH employee after Management approves the monthly payroll. The email
+// itself reveals only the recipient's own figures; the full itemised PDF is
+// downloaded in-app via the secure CTA (each user can only see their own slip).
+const renderSalarySlip = (p: SalarySlipParams, b: Branding): RenderedEmail => {
+  const subject = `Salary Slip - ${p.month}`;
+  const bodyHtml = `
+    <h1 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Your salary slip for ${esc(p.month)}</h1>
+    <p style="margin:0 0 12px;">Hi ${esc(p.employeeName)},</p>
+    <p style="margin:0 0 16px;">Your salary for <strong>${esc(p.month)}</strong> has been approved and processed. Here is your summary:</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 16px;margin:8px 0 4px;">
+      ${credentialRow("Pay period", p.periodLabel)}
+      <tr>
+        <td style="padding:10px 0;color:#64748b;font-size:13px;width:140px;">Net salary</td>
+        <td style="padding:10px 0;color:#0f172a;font-size:18px;font-weight:800;">${esc(p.netSalary)}</td>
+      </tr>
+    </table>
+    ${ctaButton("Download Payslip", p.downloadUrl, b.accentColor)}
+    <p style="margin:8px 0;color:#64748b;font-size:13px;">
+      Click the button above to view and download your detailed payslip (PDF) in the ${esc(b.productName)} app.
+    </p>
+    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:12px 16px;margin:20px 0;color:#065f46;font-size:13px;">
+      This is a confidential document intended only for ${esc(p.employeeName)}. If you believe you received this in error, please contact us.
+    </div>
+    <p style="margin:16px 0 0;color:#64748b;font-size:13px;">
+      Questions about your pay? Contact us at
+      <a href="mailto:${esc(b.supportEmail)}" style="color:${b.accentColor};">${esc(b.supportEmail)}</a>.
+    </p>`;
+  const text = [
+    `Salary Slip - ${p.month}`,
+    ``,
+    `Hi ${p.employeeName},`,
+    `Your salary for ${p.month} has been approved and processed.`,
+    ``,
+    `Pay period: ${p.periodLabel}`,
+    `Net salary: ${p.netSalary}`,
+    ``,
+    `Download your detailed payslip: ${p.downloadUrl}`,
+    ``,
+    `This is a confidential document intended only for you.`,
+    `Need help? ${b.supportEmail}`,
+    `© ${new Date().getFullYear()} ${b.orgName}`,
+  ].join("\n");
+  return {
+    subject,
+    text,
+    html: baseLayout({
+      branding: b,
+      preheader: `Your salary slip for ${p.month} — net ${p.netSalary}.`,
+      bodyHtml,
+    }),
+  };
+};
+
 // ── Registry dispatcher ─────────────────────────────────────────────────────
 export type EmailTemplateId =
   | "staff-welcome"
   | "staff-password-reset"
-  | "generic-notice";
+  | "generic-notice"
+  | "salary-slip";
 
 export const KNOWN_TEMPLATES: EmailTemplateId[] = [
   "staff-welcome",
   "staff-password-reset",
   "generic-notice",
+  "salary-slip",
 ];
 
 /**
@@ -338,6 +406,8 @@ export const renderEmail = (
       return renderPasswordReset(params as unknown as PasswordResetParams, branding);
     case "generic-notice":
       return renderGenericNotice(params as unknown as GenericNoticeParams, branding);
+    case "salary-slip":
+      return renderSalarySlip(params as unknown as SalarySlipParams, branding);
     default:
       throw new Error(`Unknown email template: ${templateId}`);
   }

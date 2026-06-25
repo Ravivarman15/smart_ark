@@ -54,6 +54,9 @@ class PayrollAuditService extends BaseService {
     newValue?: string;
     reason?: string;
     actor?: PayrollAuditActor;
+    /** Enterprise audit context — captured for approve / lock / unlock / edit. */
+    ipAddress?: string;
+    userAgent?: string;
   }): Promise<void> {
     try {
       await this.db.from("payroll_audit" as never).insert({
@@ -66,6 +69,8 @@ class PayrollAuditService extends BaseService {
         reason: args.reason ?? null,
         actor_id: args.actor?.actorId ?? null,
         actor_name: args.actor?.actorName ?? null,
+        ip_address: args.ipAddress ?? null,
+        user_agent: args.userAgent ?? null,
       } as never);
     } catch {
       /* audit is best-effort */

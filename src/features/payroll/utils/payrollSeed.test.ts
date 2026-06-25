@@ -222,7 +222,8 @@ describe("payroll seed — lifecycle & duplicate guards", () => {
     id: over.id ?? "run", title: over.title ?? "Run", periodType: "monthly",
     periodStart: over.periodStart ?? "2026-01-01", periodEnd: over.periodEnd ?? "2026-01-31",
     status: over.status ?? "pending", staffCount: 0, totalGross: 0, totalOvertime: 0,
-    totalIncentive: 0, totalDeductions: 0, totalNet: 0, createdAt: "", updatedAt: "",
+    totalIncentive: 0, totalDeductions: 0, totalNet: 0, locked: over.locked ?? false,
+    createdAt: "", updatedAt: "",
   });
 
   it("detects overlapping periods", () => {

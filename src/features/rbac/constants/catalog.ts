@@ -330,6 +330,7 @@ export const MODULE_CATALOG: ModuleDef[] = [
     defaultRoles: mgmtAdmin,
     submodules: [
       { id: "payroll.dashboard",   label: "Payroll Dashboard", route: "/admin/payroll/dashboard",          legacyAction: "payroll.dashboard" },
+      { id: "payroll.approval",    label: "Approval Center",   route: "/admin/payroll/approval",           legacyAction: "payroll.approve" },
       { id: "payroll.role_rates",  label: "Role Wise Salary",  route: "/admin/payroll/config/role-rates",  legacyAction: "payroll.salary_configure" },
       { id: "payroll.staff_rates", label: "Staff Wise Salary", route: "/admin/payroll/config/staff-rates", legacyAction: "payroll.salary_configure" },
       { id: "payroll.shifts",      label: "Shift Assignment",  route: "/admin/payroll/config/shifts",      legacyAction: "payroll.salary_configure" },

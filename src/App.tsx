@@ -182,6 +182,7 @@ const FinManageIncomePage = lazy(() => import("./features/finance/pages/ManageIn
 
 // Payroll module pages (feature-based — src/features/payroll)
 const PayDashboard = lazy(() => import("./features/payroll/pages/PayrollDashboardPage"));
+const PayApproval = lazy(() => import("./features/payroll/pages/PayrollApprovalCenterPage"));
 const PayRoleRates = lazy(() => import("./features/payroll/pages/RoleRatesPage"));
 const PayStaffRates = lazy(() => import("./features/payroll/pages/StaffRatesPage"));
 const PayShifts = lazy(() => import("./features/payroll/pages/ShiftsPage"));
@@ -357,6 +358,7 @@ const attendanceRoutes = () => (
 const payrollRoutes = () => (
   <>
     <Route path="payroll/dashboard" element={<PayDashboard />} />
+    <Route path="payroll/approval" element={<PayApproval />} />
     <Route path="payroll/config/role-rates" element={<PayRoleRates />} />
     <Route path="payroll/config/staff-rates" element={<PayStaffRates />} />
     <Route path="payroll/config/shifts" element={<PayShifts />} />

@@ -397,5 +397,12 @@ export const queryKeys = {
       [...queryKeys.payroll.all, "audit", entity, id ?? "all"] as const,
     settings: () => [...queryKeys.payroll.all, "settings"] as const,
     lookups: (kind: string) => [...queryKeys.payroll.all, "lookups", kind] as const,
+    approvalGrid: (runId: string) =>
+      [...queryKeys.payroll.all, "approval-grid", runId] as const,
+    approvalSummary: (runId: string) =>
+      [...queryKeys.payroll.all, "approval-summary", runId] as const,
+    pendingMonthly: () => [...queryKeys.payroll.all, "pending-monthly"] as const,
+    itemHistory: (itemId: string) =>
+      [...queryKeys.payroll.all, "item-history", itemId] as const,
   },
 } as const;

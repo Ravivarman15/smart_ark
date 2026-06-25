@@ -512,6 +512,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     roles: all,
     items: [
       ...sub("payroll.dashboard",   "Payroll Dashboard",   payrollPaths("/dashboard"),            adminMgmt, { action: "payroll.dashboard" }),
+      ...sub("payroll.approval",    "Approval Center",     payrollPaths("/approval"),             adminMgmt, { action: "payroll.approve" }),
       ...sub("payroll.role_rates",  "Role Wise Salary",    payrollPaths("/config/role-rates"),    adminMgmt, { action: "payroll.salary_configure" }),
       ...sub("payroll.staff_rates", "Staff Wise Salary",   payrollPaths("/config/staff-rates"),   adminMgmt, { action: "payroll.salary_configure" }),
       ...sub("payroll.shifts",      "Shift Assignment",    payrollPaths("/config/shifts"),        adminMgmt, { action: "payroll.salary_configure" }),

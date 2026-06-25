@@ -62,6 +62,35 @@ class PayrollNotifyService extends BaseService {
     return { ...base, sent: res.success, message: res.message };
   }
 
+  /** Notify a staff member their salary for the period has been approved. */
+  async notifySalaryApproved(args: {
+    staffId: string;
+    period: string;
+    netSalary: string;
+  }): Promise<NotifyResult> {
+    const contact = await this.resolveContact(args.staffId);
+    const base: NotifyResult = {
+      staffId: args.staffId,
+      staffName: contact?.name,
+      channel: "whatsapp",
+      sent: false,
+      message: "No mobile number on file",
+    };
+    if (!contact?.mobile) return base;
+    const text =
+      `Dear ${contact.name ?? "Team Member"},\n\n` +
+      `Your salary for ${args.period} has been approved.\n\n` +
+      `Net Salary: ${args.netSalary}\n\n` +
+      `Your payslip is now available in the ARK app.\n\nARK Learning Arena`;
+    const res = await sendWhatsApp({
+      campaignName: CAMPAIGNS.BROADCAST,
+      destination: contact.mobile,
+      recipientName: contact.name ?? "Staff",
+      templateParams: [text],
+    });
+    return { ...base, sent: res.success, message: res.message };
+  }
+
   /** Notify a staff member their payslip / salary is ready. */
   async notifyPayslip(args: {
     staffId: string;

@@ -200,6 +200,8 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("payroll.create",           "Generate payroll run",       "create",  "payroll.processing",  "payroll.create"),
   A("payroll.view",             "View payroll run register",  "export",  "payroll.processing"),
   A("payroll.approve",          "Approve payroll run",        "approve", "payroll.processing",  "payroll.approve"),
+  A("payroll.lock",             "Lock payroll (Approval)",    "approve", "payroll.approval",    "payroll.approve"),
+  A("payroll.unlock",           "Unlock approved payroll",    "override","payroll.approval",    "payroll.approve"),
   A("payroll.process",          "Process salary payments",    "approve", "payroll.processing",  "payroll.process"),
   A("payroll.hold",             "Hold / resume payroll run",  "override","payroll.processing"),
   A("payroll.edit",             "Edit payroll run",           "edit",    "payroll.processing"),

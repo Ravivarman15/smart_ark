@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardGrid } from "@/features/dashboard";
+import { PayrollPendingAlertGate } from "@/features/payroll/components/PayrollPendingAlertGate";
 
 /**
  * Management Dashboard — modern SaaS layout backed by the dashboard feature.
@@ -29,6 +30,8 @@ const ManagementDashboard = () => {
           <p className="text-sm text-muted-foreground">{today}</p>
         </div>
       </header>
+
+      <PayrollPendingAlertGate />
 
       <DashboardGrid />
     </div>
