@@ -1,14 +1,22 @@
 import { BaseService } from "@/shared/services";
 import { emailService } from "@/features/staff/services/email.service";
 import { payrollRunService } from "./payrollRun.service";
+import { generatePayslipPdfBlob } from "../utils/payslipPdf";
 import { formatINR } from "../utils/payrollCalc";
+import type { PayrollItem, PayrollRun } from "../types/payroll.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Payslip email automation — after Management approves a run, each employee is
-// emailed THEIR OWN branded salary slip (net amount + a secure in-app download
-// link). Routes through the shared `send-email` edge function (Brevo) via the
-// existing emailService gateway, so the API key stays server-side and only the
-// registered `salary-slip` template can be rendered.
+// emailed THEIR OWN branded salary slip. The "Download Payslip" button is a
+// DIRECT link to that employee's PDF: at send time the slip is rendered to a
+// PDF, uploaded to the `payslips` storage bucket, and the public download URL is
+// embedded in the email so clicking it starts the download (no login / no app
+// redirect). If PDF generation or upload fails we fall back to the in-app My
+// Salary link so the email is still useful.
+//
+// Routes through the shared `send-email` edge function (Brevo) via the existing
+// emailService gateway, so the API key stays server-side and only the registered
+// `salary-slip` template can be rendered.
 //
 // Entirely best-effort and per-recipient: one missing email never blocks the
 // approval or the other sends. Returns a result row per employee so the UI can
@@ -31,11 +39,39 @@ interface ProfileContact {
 const ROLE_PATHS = ["management", "admin", "coordinator", "teacher"];
 
 class PayrollEmailService extends BaseService {
-  /** Deep link to the recipient's OWN My Salary page (their slip only). */
+  /** Deep link to the recipient's OWN My Salary page — the fallback link. */
   private mySalaryUrl(role?: string): string {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const seg = role && ROLE_PATHS.includes(role) ? role : "teacher";
     return `${origin}/${seg}/payroll/my-salary`;
+  }
+
+  /**
+   * Render the employee's payslip to a PDF, upload it to the `payslips` bucket
+   * and return a forced-download public URL. Returns null on any failure so the
+   * caller can fall back to the in-app link. The object path is two random UUIDs
+   * (run id / item id) so the link is unguessable.
+   */
+  private async uploadPayslipPdf(
+    item: PayrollItem,
+    run: PayrollRun,
+    month: string,
+  ): Promise<string | null> {
+    try {
+      const blob = await generatePayslipPdfBlob(item, run);
+      const path = `${run.id}/${item.id}.pdf`;
+      const up = await this.db.storage
+        .from("payslips")
+        .upload(path, blob, { contentType: "application/pdf", upsert: true });
+      if (up.error) return null;
+      const fileName = `Payslip-${month.replace(/\s+/g, "-")}.pdf`;
+      const { data } = this.db.storage
+        .from("payslips")
+        .getPublicUrl(path, { download: fileName });
+      return data?.publicUrl ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private async contactsFor(staffIds: string[]): Promise<Map<string, ProfileContact>> {
@@ -78,6 +114,8 @@ class PayrollEmailService extends BaseService {
         continue;
       }
       try {
+        // Direct PDF download link (falls back to the in-app page on failure).
+        const pdfUrl = await this.uploadPayslipPdf(item, detail, month);
         const res = await emailService.sendTemplateEmail({
           templateId: "salary-slip",
           to: { email: contact.email, name: item.staffName },
@@ -86,7 +124,7 @@ class PayrollEmailService extends BaseService {
             month,
             netSalary: formatINR(item.netSalary),
             periodLabel,
-            downloadUrl: this.mySalaryUrl(contact.role),
+            downloadUrl: pdfUrl ?? this.mySalaryUrl(contact.role),
           },
         });
         results.push({ ...base, status: res.status, error: res.error });

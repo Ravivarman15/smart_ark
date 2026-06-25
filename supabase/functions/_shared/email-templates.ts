@@ -340,7 +340,7 @@ const renderSalarySlip = (p: SalarySlipParams, b: Branding): RenderedEmail => {
     </table>
     ${ctaButton("Download Payslip", p.downloadUrl, b.accentColor)}
     <p style="margin:8px 0;color:#64748b;font-size:13px;">
-      Click the button above to view and download your detailed payslip (PDF) in the ${esc(b.productName)} app.
+      Click the button above to download your detailed payslip (PDF).
     </p>
     <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:12px 16px;margin:20px 0;color:#065f46;font-size:13px;">
       This is a confidential document intended only for ${esc(p.employeeName)}. If you believe you received this in error, please contact us.

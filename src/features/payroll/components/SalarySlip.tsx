@@ -137,7 +137,7 @@ const SectionTitle = ({ children }: { children: string }) => (
   </div>
 );
 
-const SlipBody = ({
+export const SlipBody = ({
   item,
   run,
   innerRef,
