@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/core/permissions/usePermissions";
 import { usePendingMonthlyPayroll } from "../hooks/usePayrollApproval";
@@ -14,6 +15,7 @@ export const PayrollPendingAlertGate = () => {
   const { hasRole } = usePermissions();
   const canSee = hasRole(["management", "admin"]);
   const { data: alert } = usePendingMonthlyPayroll(canSee);
+  const [dismissed, setDismissed] = useState(false);
 
   if (!canSee || !alert) return null;
 
@@ -23,7 +25,12 @@ export const PayrollPendingAlertGate = () => {
   return (
     <>
       <PayrollPendingCard alert={alert} reviewPath={reviewPath} />
-      <PayrollPendingAlertDialog alert={alert} reviewPath={reviewPath} open />
+      <PayrollPendingAlertDialog
+        alert={alert}
+        reviewPath={reviewPath}
+        open={!dismissed}
+        onClose={() => setDismissed(true)}
+      />
     </>
   );
 };

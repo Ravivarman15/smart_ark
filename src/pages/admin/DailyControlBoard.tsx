@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppData, isNearCampus } from "@/contexts/AppDataContext";
 import { useAuth } from "@/contexts/AuthContext";

@@ -1,14 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { Wallet } from "lucide-react";
+import { Wallet, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatINR } from "../utils/payrollCalc";
 import type { PendingPayrollAlert } from "../types/payroll.types";
 
-// HIGH-PRIORITY, NON-DISMISSABLE monthly popup. It cannot be closed by clicking
-// outside, pressing Escape, or an X (the default close button is hidden) — the
-// only way out is "Review Payroll", which takes Management to the Approval
-// Center. It reappears on the dashboard until the run is approved + locked.
+// HIGH-PRIORITY monthly popup. It cannot be dismissed by clicking outside or
+// pressing Escape — the primary action is "Review Payroll", which takes
+// Management to the Approval Center. A close (X) button lets the approver
+// dismiss the popup for now; the persistent dashboard card stays, and the popup
+// reappears next session until the run is approved + locked.
 
 const fmtDate = (iso?: string) =>
   iso
@@ -26,20 +27,31 @@ export const PayrollPendingAlertDialog = ({
   alert,
   reviewPath,
   open,
+  onClose,
 }: {
   alert: PendingPayrollAlert;
   reviewPath: string;
   open: boolean;
+  onClose?: () => void;
 }) => {
   const navigate = useNavigate();
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose?.(); }}>
       <DialogContent
         className="max-w-md [&>button]:hidden"
         onEscapeKeyDown={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
+        <button
+          type="button"
+          onClick={() => onClose?.()}
+          aria-label="Close"
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </button>
         <div className="space-y-4 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
             <Wallet className="h-7 w-7" />
