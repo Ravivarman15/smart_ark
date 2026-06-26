@@ -100,6 +100,25 @@ export const useApproveAndLock = () => {
   });
 };
 
+/**
+ * Re-send every employee their payslip for an ALREADY-approved/paid run, without
+ * touching the run's status, lock, or Finance posting. Independent of the
+ * approval flow — used to recover a lost payslip email (or to test the email +
+ * PDF pipeline). Best-effort per recipient, same as the approval-time send.
+ */
+export const useResendPayslips = () => {
+  const qc = useQueryClient();
+  return useMutation<PayslipEmailResult[], Error, { runId: string; month: string }>({
+    mutationFn: async ({ runId, month }) => {
+      const emails = await payrollEmailService.sendApprovedPayslips(runId, month);
+      const sent = emails.filter((e) => e.status === "sent").length;
+      await payrollApprovalService.recordEmailsSent(runId, sent);
+      return emails;
+    },
+    onSuccess: () => invalidateAll(qc),
+  });
+};
+
 export const useUnlockPayroll = () => {
   const qc = useQueryClient();
   const actor = useActor();
