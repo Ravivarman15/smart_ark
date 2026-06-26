@@ -52,7 +52,13 @@
       "PowerShell(npx vitest run src/features/payroll 2>&1 | Select-Object -Last 25)",
       "PowerShell(npx vitest run src/features/payroll src/features/rbac/utils/registryAudit.test.ts 2>&1 | Select-Object -Last 30)",
       "PowerShell($out = npx tsc --noEmit -p tsconfig.app.json 2>&1 | Out-String; $m = $out -split \"`n\" | Where-Object { $_ -match \"payroll|App\\\\.tsx|actionCatalog|SalaryProcessing|payrollLifecycle|usePayrollRuns|useCanDo\" }; if \\($m\\) { $m } else { \"NO ERRORS IN TOUCHED FILES\" })",
-      "PowerShell($out = npx tsc --noEmit -p tsconfig.app.json 2>&1 | Out-String; $m = $out -split \"`n\" | Where-Object { $_ -match \"on_hold|PayrollRunStatus|PayrollRun\\\\b\" }; if \\($m\\) { $m } else { \"NO on_hold / PayrollRunStatus EXHAUSTIVENESS ERRORS\" })"
+      "PowerShell($out = npx tsc --noEmit -p tsconfig.app.json 2>&1 | Out-String; $m = $out -split \"`n\" | Where-Object { $_ -match \"on_hold|PayrollRunStatus|PayrollRun\\\\b\" }; if \\($m\\) { $m } else { \"NO on_hold / PayrollRunStatus EXHAUSTIVENESS ERRORS\" })",
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep -nA12 \"KNOWN_TEMPLATES\" supabase/functions/_shared/email-templates.ts)",
+      "Bash(grep -nA15 \"communication:\" src/core/constants/queryKeys.ts)",
+      "Bash(grep -nA20 '\"generic-notice\"' supabase/functions/_shared/email-templates.ts)",
+      "Bash(grep -nA8 \"interface GenericNoticeParams\" supabase/functions/_shared/email-templates.ts)",
+      "Bash(grep -nA8 \"const sub = \" src/core/navigation/menu.config.ts)"
     ]
   }
 }

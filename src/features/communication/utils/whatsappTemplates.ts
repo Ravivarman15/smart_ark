@@ -231,6 +231,71 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       buttons: [{ type: "url", label: "Join Class", value: "{{meeting_link}}" }],
     }
   ),
+  // ── Added for the unified Communication Center (spec: Supported Templates) ──
+  // These complete the 25-template catalogue. Lead-domain templates
+  // (inquiry/lead/demo/admission) remain owned by the Lead CRM registry
+  // (leadWhatsappTemplates.ts) and are intentionally NOT duplicated here.
+  def(
+    "attendance_present",
+    "attendance",
+    "Attendance — present",
+    "Hi {{parent_name}}, {{student_name}} was marked PRESENT for {{batch_name}} on {{date}}. Thank you."
+  ),
+  def(
+    "holiday_notice",
+    "announcement",
+    "Holiday notice",
+    "Dear {{recipient_name}}, {{branch_name}} will remain closed on {{holiday_date}} for {{holiday_name}}. Regular schedule resumes on {{resume_date}}."
+  ),
+  def(
+    "salary_slip",
+    "staff",
+    "Salary slip",
+    "Hi {{staff_name}}, your salary slip for {{salary_month}} is ready. Net Salary: {{net_salary}}. Download your payslip below.",
+    {
+      buttons: [{ type: "url", label: "Download Payslip", value: "{{download_url}}" }],
+      media: { type: "pdf", url: "{{download_url}}" },
+    }
+  ),
+  def(
+    "payroll_approved",
+    "staff",
+    "Payroll approved",
+    "Hi {{staff_name}}, payroll for {{salary_month}} has been approved. Net Salary: {{net_salary}} will be credited to your account on {{pay_date}}."
+  ),
+  def(
+    "task_assigned",
+    "general",
+    "Task assigned",
+    "Hi {{staff_name}}, a new task '{{task_name}}' has been assigned to you by {{assigned_by}}. Due: {{due_date}}.",
+    {
+      buttons: [{ type: "url", label: "View Task", value: "{{task_url}}" }],
+    }
+  ),
+  def(
+    "task_reminder",
+    "general",
+    "Task reminder",
+    "Reminder: task '{{task_name}}' is due on {{due_date}}. Current status: {{status}}. Please update or complete it.",
+    {
+      buttons: [{ type: "url", label: "Open Task", value: "{{task_url}}" }],
+    }
+  ),
+  def(
+    "certificate_ready",
+    "general",
+    "Certificate ready",
+    "Hi {{recipient_name}}, the {{certificate_name}} for {{student_name}} is ready. You can download it using the link below.",
+    {
+      buttons: [{ type: "url", label: "Download Certificate", value: "{{certificate_url}}" }],
+    }
+  ),
+  def(
+    "class_cancelled",
+    "announcement",
+    "Class cancelled",
+    "Notice: the {{subject_name}} class scheduled for {{class_date}} at {{class_time}} has been CANCELLED. A reschedule will be communicated shortly. — Team {{branch_name}}"
+  ),
 ];
 
 export const BUILTIN_TEMPLATES_BY_KEY: Record<string, BuiltinTemplate> =

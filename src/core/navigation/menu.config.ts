@@ -466,6 +466,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("whatsapp.send_absent",         "Send Today Absent Attendance SMS",{ admin: "/admin/communication/send-absent-attendance",   management: "/management/communication/send-absent-attendance" },   adminMgmt),
       ...sub("whatsapp.send_birthday",       "Send Student Birthday SMS",       { admin: "/admin/communication/send-birthday",            management: "/management/communication/send-birthday" },            adminMgmt),
       ...sub("whatsapp.credential_health",   "Credential Health",               { admin: "/admin/communication/credential-health",        management: "/management/communication/credential-health" },        adminMgmt),
+      ...sub("whatsapp.deployment_manager",  "Deployment Manager",              { admin: "/admin/communication/deployment-manager",       management: "/management/communication/deployment-manager" },       adminMgmt),
     ],
   },
 

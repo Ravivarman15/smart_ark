@@ -169,6 +169,7 @@ const CommSendFeeDueReminder = lazy(() => import("./features/communication/pages
 const CommSendAbsent = lazy(() => import("./features/communication/pages/SendAbsentAttendancePage"));
 const CommSendBirthday = lazy(() => import("./features/communication/pages/SendBirthdayPage"));
 const CommCredentialHealth = lazy(() => import("./features/communication/pages/CredentialHealthPage"));
+const CommDeployment = lazy(() => import("./features/communication/pages/CommunicationDeploymentPage"));
 
 // Finance module pages (feature-based — src/features/finance)
 const FinAddExpenseTypePage = lazy(() => import("./features/finance/pages/AddExpenseTypePage"));
@@ -508,6 +509,7 @@ const AppRoutes: React.FC = () => (
         <Route path="communication/send-absent-attendance" element={<CommSendAbsent />} />
         <Route path="communication/send-birthday" element={<CommSendBirthday />} />
         <Route path="communication/credential-health" element={<CommCredentialHealth />} />
+        <Route path="communication/deployment-manager" element={<CommDeployment />} />
         {/* Authentication module routes — feature-based */}
         <Route path="authentication/account-health" element={<AuthAccountHealth />} />
         {/* Reports & Analytics routes */}
@@ -639,6 +641,7 @@ const AppRoutes: React.FC = () => (
         <Route path="communication/send-absent-attendance" element={<CommSendAbsent />} />
         <Route path="communication/send-birthday" element={<CommSendBirthday />} />
         <Route path="communication/credential-health" element={<CommCredentialHealth />} />
+        <Route path="communication/deployment-manager" element={<CommDeployment />} />
         {/* Authentication module routes — feature-based, management-owned */}
         <Route path="authentication/account-health" element={<AuthAccountHealth />} />
         {/* Reports & Analytics routes — management-owned, full access */}

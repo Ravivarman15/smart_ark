@@ -306,6 +306,52 @@ class AiSensyService extends BaseService {
       return { dispatched: false, reason: (e as Error).message };
     }
   }
+
+  /**
+   * LIVE PROVIDER PROBE — invokes the send-aisensy edge function in its TEST
+   * MODE (the `debug` block). Posts ONE real message to AiSensy and returns the
+   * raw provider HTTP status + body WITHOUT touching message_queue. This is the
+   * "Test WhatsApp / Test AiSensy" health check. Reuses the same edge function;
+   * no duplicate provider logic on the client.
+   */
+  async debugSend(probe: {
+    campaignName: string;
+    destination: string;
+    templateParams?: string[];
+    userName?: string;
+  }): Promise<{
+    ok: boolean;
+    responseStatus?: number;
+    responseBody?: string;
+    error?: string;
+  }> {
+    try {
+      const fn = (
+        this.db as unknown as {
+          functions?: {
+            invoke: (
+              name: string,
+              opts?: { body?: unknown }
+            ) => Promise<{
+              data?: { responseStatus?: number; responseBody?: string } | null;
+              error?: { message?: string } | null;
+            }>;
+          };
+        }
+      ).functions;
+      if (!fn) return { ok: false, error: "Edge runtime unavailable in this client." };
+      const res = await fn.invoke("send-aisensy", { body: { debug: probe } });
+      if (res?.error) return { ok: false, error: String(res.error.message ?? res.error) };
+      const status = res?.data?.responseStatus;
+      return {
+        ok: typeof status === "number" && status >= 200 && status < 300,
+        responseStatus: status,
+        responseBody: res?.data?.responseBody,
+      };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
 }
 
 export const aisensyService = new AiSensyService();

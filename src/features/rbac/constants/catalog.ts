@@ -292,6 +292,7 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "whatsapp.send_absent",        label: "Send Today Absent Attendance SMS" },
       { id: "whatsapp.send_birthday",      label: "Send Student Birthday SMS" },
       { id: "whatsapp.credential_health",  label: "Credential Health" },
+      { id: "whatsapp.deployment_manager", label: "Deployment Manager" },
     ],
   },
   {

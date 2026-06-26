@@ -346,6 +346,7 @@ export const queryKeys = {
     recipientCandidates: (kind: string, filter?: Record<string, unknown>) =>
       [...queryKeys.communication.all, "candidates", kind, filter ?? {}] as const,
     credentialHealth: () => [...queryKeys.communication.all, "credential-health"] as const,
+    systemHealth: () => [...queryKeys.communication.all, "system-health"] as const,
   },
   authAccounts: {
     all: ["auth-accounts"] as const,
