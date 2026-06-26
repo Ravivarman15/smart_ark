@@ -11,7 +11,6 @@ import {
   Gift,
   MinusCircle,
   TrendingUp,
-  Loader2,
   Mail,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,13 +35,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { usePrompt, useConfirm } from "@/components/ui/confirm-dialog";
+import { usePrompt } from "@/components/ui/confirm-dialog";
 import { usePermissions } from "@/core/permissions/usePermissions";
 import {
   PayrollPageShell,
   PayrollKpiCard,
   PayrollStatusBadge,
   SalarySlipDialog,
+  ResendPayslipsDialog,
 } from "../components";
 import { ApprovalDataGrid } from "../components/ApprovalDataGrid";
 import { PayrollItemEditDrawer } from "../components/PayrollItemEditDrawer";
@@ -53,7 +53,6 @@ import {
   useApprovalSummary,
   usePendingMonthlyPayroll,
   useUnlockPayroll,
-  useResendPayslips,
 } from "../hooks/usePayrollApproval";
 import { formatINR } from "../utils/payrollCalc";
 import {
@@ -71,14 +70,6 @@ import type { ApprovalGridRow } from "../types/payroll.types";
 
 const ALL = "all";
 
-// Human month label for the payslip email (matches ApprovalSummaryDialog).
-const monthOf = (run: { periodStart: string; title: string }): string => {
-  const d = new Date(`${run.periodStart}T00:00:00`);
-  return Number.isNaN(d.getTime())
-    ? run.title
-    : d.toLocaleString("en-IN", { month: "long", year: "numeric" });
-};
-
 const REPORTS: { id: string; label: string; build: (r: ApprovalGridRow[]) => ReportRow[] }[] = [
   { id: "register", label: "Payroll Register", build: buildRegisterRows },
   { id: "bank", label: "Bank Transfer", build: buildBankTransferRows },
@@ -92,7 +83,6 @@ const PayrollApprovalCenterPage = () => {
   const [params, setParams] = useSearchParams();
   const { canDoAction } = usePermissions();
   const prompt = usePrompt();
-  const confirm = useConfirm();
 
   const { data: runs = [] } = usePayrollRuns();
   const { data: pending } = usePendingMonthlyPayroll();
@@ -106,7 +96,6 @@ const PayrollApprovalCenterPage = () => {
   const { data: rows = [] } = useApprovalGrid(runId);
   const { data: summary } = useApprovalSummary(runId);
   const unlock = useUnlockPayroll();
-  const resend = useResendPayslips();
 
   const [search, setSearch] = useState("");
   const [dept, setDept] = useState(ALL);
@@ -115,6 +104,7 @@ const PayrollApprovalCenterPage = () => {
   const [editRow, setEditRow] = useState<ApprovalGridRow | null>(null);
   const [slipRow, setSlipRow] = useState<ApprovalGridRow | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [resendOpen, setResendOpen] = useState(false);
 
   const departments = useMemo(
     () => [...new Set(rows.map((r) => r.department).filter(Boolean))] as string[],
@@ -166,24 +156,6 @@ const PayrollApprovalCenterPage = () => {
     try {
       await unlock.mutateAsync({ runId, reason });
       toast.success("Payroll unlocked.");
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  };
-
-  const onResend = async () => {
-    if (!runId || !run) return;
-    const month = monthOf(run);
-    const ok = await confirm({
-      title: "Resend payslips",
-      description: `Email every employee in this run their salary slip for ${month} again. This re-sends the email + PDF only — it does not change the run's status, lock, or Finance posting.`,
-      confirmText: "Resend",
-    });
-    if (!ok) return;
-    try {
-      const emails = await resend.mutateAsync({ runId, month });
-      const sent = emails.filter((e) => e.status === "sent").length;
-      toast.success(`${sent}/${emails.length} payslip email(s) sent.`);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -335,15 +307,10 @@ const PayrollApprovalCenterPage = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={onResend}
-                  disabled={resend.isPending}
+                  onClick={() => setResendOpen(true)}
+                  disabled={rows.length === 0}
                 >
-                  {resend.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mail className="mr-2 h-4 w-4" />
-                  )}
-                  Resend payslips
+                  <Mail className="mr-2 h-4 w-4" /> Resend payslips
                 </Button>
               )}
               {canApprove && !locked && (
@@ -381,6 +348,13 @@ const PayrollApprovalCenterPage = () => {
             anomalyCount={anomalyCount}
             open={reviewOpen}
             onOpenChange={setReviewOpen}
+          />
+
+          <ResendPayslipsDialog
+            run={run}
+            rows={rows}
+            open={resendOpen}
+            onOpenChange={setResendOpen}
           />
         </>
       )}

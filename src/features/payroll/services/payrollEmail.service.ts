@@ -91,17 +91,24 @@ class PayrollEmailService extends BaseService {
     return map;
   }
 
-  /** Email every employee in the run their own payslip. `month` e.g. "June 2026". */
+  /**
+   * Email employees in the run their own payslip. `month` e.g. "June 2026".
+   * Pass `staffIds` to restrict the send to a subset (e.g. resending to selected
+   * employees); omit it to email everyone in the run.
+   */
   async sendApprovedPayslips(
     runId: string,
     month: string,
+    staffIds?: string[],
   ): Promise<PayslipEmailResult[]> {
     const detail = await payrollRunService.getDetail(runId);
-    const contacts = await this.contactsFor(detail.items.map((i) => i.staffId));
+    const only = staffIds && staffIds.length > 0 ? new Set(staffIds) : null;
+    const items = only ? detail.items.filter((i) => only.has(i.staffId)) : detail.items;
+    const contacts = await this.contactsFor(items.map((i) => i.staffId));
     const periodLabel = `${detail.periodStart} – ${detail.periodEnd}`;
     const results: PayslipEmailResult[] = [];
 
-    for (const item of detail.items) {
+    for (const item of items) {
       const contact = contacts.get(item.staffId);
       const base: PayslipEmailResult = {
         staffId: item.staffId,

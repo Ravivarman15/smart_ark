@@ -108,11 +108,19 @@ export const useApproveAndLock = () => {
  */
 export const useResendPayslips = () => {
   const qc = useQueryClient();
-  return useMutation<PayslipEmailResult[], Error, { runId: string; month: string }>({
-    mutationFn: async ({ runId, month }) => {
-      const emails = await payrollEmailService.sendApprovedPayslips(runId, month);
-      const sent = emails.filter((e) => e.status === "sent").length;
-      await payrollApprovalService.recordEmailsSent(runId, sent);
+  return useMutation<
+    PayslipEmailResult[],
+    Error,
+    { runId: string; month: string; staffIds?: string[] }
+  >({
+    mutationFn: async ({ runId, month, staffIds }) => {
+      const emails = await payrollEmailService.sendApprovedPayslips(runId, month, staffIds);
+      // Only overwrite the run-level "emails sent" count for a full resend;
+      // a partial (selected-employee) resend shouldn't clobber that figure.
+      if (!staffIds || staffIds.length === 0) {
+        const sent = emails.filter((e) => e.status === "sent").length;
+        await payrollApprovalService.recordEmailsSent(runId, sent);
+      }
       return emails;
     },
     onSuccess: () => invalidateAll(qc),

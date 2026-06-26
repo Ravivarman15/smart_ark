@@ -6,6 +6,7 @@ export { AnomalyBadges } from "./AnomalyBadges";
 export { ApprovalDataGrid } from "./ApprovalDataGrid";
 export { PayrollItemEditDrawer } from "./PayrollItemEditDrawer";
 export { ApprovalSummaryDialog } from "./ApprovalSummaryDialog";
+export { ResendPayslipsDialog } from "./ResendPayslipsDialog";
 export { PayrollPendingCard } from "./PayrollPendingCard";
 export { PayrollPendingAlertDialog } from "./PayrollPendingAlertDialog";
 export { PayrollPendingAlertGate } from "./PayrollPendingAlertGate";
