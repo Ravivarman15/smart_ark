@@ -6,7 +6,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { useMemo, useState } from "react";
-import { Loader2, Send, Save, ShieldCheck, Activity, ListChecks } from "lucide-react";
+import { Loader2, Send, Save, ShieldCheck, Activity, ListChecks, CheckCircle2, Zap } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,8 @@ import { MessageComposer } from "./MessageComposer";
 import { RecipientPicker } from "./RecipientPicker";
 import { CampaignAnalyticsCard } from "./CampaignAnalyticsCard";
 import { QueueTable } from "./QueueTable";
+import { BulkSendDashboard } from "./BulkSendDashboard";
+import { buildAutomatedBatch } from "../utils/commsAutomation";
 import { useCommsAnalytics } from "../hooks/useCommsAnalytics";
 import { useCommsQueue, useRetryQueueMessage, useCancelQueueMessage, useEnqueueMessages } from "../hooks/useCommsQueue";
 import {
@@ -52,6 +54,12 @@ export interface SendCampaignPanelProps {
   perRecipientDefaults?: (c: RecipientCandidate) => Record<string, string | number | undefined>;
   branchName?: string;
   filterFields?: Array<"batch" | "campus" | "standard" | "role" | "segment" | "search" | "dateRange">;
+  /**
+   * Automated mode — zero manual variable entry. Variables are auto-resolved
+   * from ERP data via perRecipientDefaults; the operator only confirms
+   * "N recipients → Send". Defaults to false (full manual composer).
+   */
+  automated?: boolean;
 }
 
 const summariseCount = (rows: number, selected: number) =>
@@ -70,6 +78,7 @@ export const SendCampaignPanel = ({
   perRecipientDefaults,
   branchName,
   filterFields = ["batch", "campus", "standard", "search"],
+  automated = false,
 }: SendCampaignPanelProps) => {
   const { user } = useAuth();
   const [templateKey, setTemplateKey] = useState<string | undefined>(defaultTemplateKey);
@@ -99,6 +108,38 @@ export const SendCampaignPanel = ({
     () => candidates.filter((c) => selected.has(c.id)),
     [candidates, selected]
   );
+
+  // Automated mode: target ALL candidates by default; if the operator picks
+  // specific recipients, target only those (the "all / selected" pattern).
+  const effectiveRecipients = useMemo(
+    () => (automated && selected.size === 0 ? candidates : selectedCandidates),
+    [automated, selected, candidates, selectedCandidates]
+  );
+
+  const [lastResult, setLastResult] = useState<{ queued: number; skipped: number; invalid: number } | null>(null);
+
+  const automatedBatch = useMemo(() => {
+    if (!automated || !effectiveTemplate) return null;
+    return buildAutomatedBatch({
+      template: effectiveTemplate,
+      candidates: effectiveRecipients,
+      resolve: perRecipientDefaults,
+      branchName,
+      audienceKind,
+      scheduledAt: scheduledAt || undefined,
+      createdBy: user?.profileId,
+    });
+  }, [automated, effectiveTemplate, effectiveRecipients, perRecipientDefaults, branchName, audienceKind, scheduledAt, user?.profileId]);
+
+  const sendAutomated = async () => {
+    if (!automatedBatch || automatedBatch.requests.length === 0) return;
+    const res = await enqueue.mutateAsync(automatedBatch.requests);
+    setLastResult({ queued: res.queued, skipped: res.skipped, invalid: res.invalid.length });
+    setSelected(new Set());
+  };
+
+  // Realistic preview: the first valid recipient's auto-resolved variables.
+  const previewVariables = automatedBatch?.requests[0]?.rendered.variables ?? {};
 
   const buildEnqueueRequests = () => {
     if (!effectiveTemplate) return [];
@@ -187,7 +228,7 @@ export const SendCampaignPanel = ({
       {pageDescription && (
         <p className="text-sm text-muted-foreground -mt-2">{pageDescription}</p>
       )}
-      <CommsKpiRow tiles={kpis} cols={4} />
+      {!automated && <CommsKpiRow tiles={kpis} cols={4} />}
 
       <Tabs defaultValue="compose">
         <TabsList>
@@ -197,9 +238,24 @@ export const SendCampaignPanel = ({
         </TabsList>
 
         <TabsContent value="compose" className="space-y-4 pt-4">
+          {automated && automatedBatch && (
+            <BulkSendDashboard
+              summary={automatedBatch.summary}
+              lastResult={lastResult}
+              queue={queue}
+              loading={loadingCandidates}
+            />
+          )}
+
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Audience</CardTitle></CardHeader>
             <CardContent className="space-y-3">
+              {automated && (
+                <p className="text-xs text-muted-foreground">
+                  All {candidates.length.toLocaleString()} recipients are targeted automatically.
+                  Pick specific people below only if you want to send to a subset.
+                </p>
+              )}
               <AudienceFilterBar
                 value={audienceFilter}
                 onChange={onAudienceFilterChange}
@@ -221,47 +277,86 @@ export const SendCampaignPanel = ({
               setTemplateKey(k);
               setTemplate(t ?? null);
             }}
-            variables={variables}
+            variables={automated ? previewVariables : variables}
             onVariablesChange={setVariables}
             branchName={branchName}
             schedulingEnabled
             scheduledAt={scheduledAt}
             onScheduleChange={setScheduledAt}
+            readOnly={automated}
           />
 
-          <Card>
-            <CardContent className="p-4 flex flex-wrap items-end gap-4">
-              <div className="min-w-[260px] flex-1">
-                <Label className="text-xs">Campaign name (for audit)</Label>
-                <Input
-                  value={campaignName}
-                  onChange={(e) => setCampaignName(e.target.value)}
-                  placeholder={`${audienceKind} broadcast`}
-                />
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {summariseCount(candidates.length, selected.size)}
-              </div>
-              <Separator orientation="vertical" className="h-8 mx-2" />
-              <ProtectedButton
-                action="comms.campaign.create"
-                variant="outline"
-                onClick={saveDraft}
-                disabled={!templateKey || selected.size === 0 || createCampaign.isPending}
-              >
-                {createCampaign.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                Save as campaign & launch
-              </ProtectedButton>
-              <ProtectedButton
-                action={`whatsapp.send_${audienceKind}`}
-                onClick={sendNow}
-                disabled={!templateKey || selected.size === 0 || enqueue.isPending}
-              >
-                {enqueue.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                Send to selected
-              </ProtectedButton>
-            </CardContent>
-          </Card>
+          {automated ? (
+            <Card>
+              <CardContent className="p-4 flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-[220px] text-sm">
+                  {automatedBatch && automatedBatch.summary.valid > 0 ? (
+                    <span>
+                      <span className="font-semibold">{automatedBatch.summary.valid.toLocaleString()}</span>{" "}
+                      recipient{automatedBatch.summary.valid === 1 ? "" : "s"} will receive this message.
+                      {automatedBatch.summary.skipped > 0 && (
+                        <span className="text-muted-foreground">
+                          {" "}{automatedBatch.summary.skipped.toLocaleString()} skipped (no phone / missing data).
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      No sendable recipients — everyone is missing a valid phone or required data.
+                    </span>
+                  )}
+                  {lastResult && (
+                    <span className="ml-1 inline-flex items-center gap-1 text-emerald-700">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Done — queued {lastResult.queued.toLocaleString()}.
+                    </span>
+                  )}
+                </div>
+                <ProtectedButton
+                  action={`whatsapp.send_${audienceKind}`}
+                  onClick={sendAutomated}
+                  disabled={!templateKey || !automatedBatch || automatedBatch.requests.length === 0 || enqueue.isPending}
+                >
+                  {enqueue.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                  Send to {automatedBatch?.summary.valid.toLocaleString() ?? 0} recipient
+                  {automatedBatch?.summary.valid === 1 ? "" : "s"}
+                </ProtectedButton>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-4 flex flex-wrap items-end gap-4">
+                <div className="min-w-[260px] flex-1">
+                  <Label className="text-xs">Campaign name (for audit)</Label>
+                  <Input
+                    value={campaignName}
+                    onChange={(e) => setCampaignName(e.target.value)}
+                    placeholder={`${audienceKind} broadcast`}
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {summariseCount(candidates.length, selected.size)}
+                </div>
+                <Separator orientation="vertical" className="h-8 mx-2" />
+                <ProtectedButton
+                  action="comms.campaign.create"
+                  variant="outline"
+                  onClick={saveDraft}
+                  disabled={!templateKey || selected.size === 0 || createCampaign.isPending}
+                >
+                  {createCampaign.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save as campaign & launch
+                </ProtectedButton>
+                <ProtectedButton
+                  action={`whatsapp.send_${audienceKind}`}
+                  onClick={sendNow}
+                  disabled={!templateKey || selected.size === 0 || enqueue.isPending}
+                >
+                  {enqueue.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                  Send to selected
+                </ProtectedButton>
+              </CardContent>
+            </Card>
+          )}
 
           <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
             <ShieldCheck className="w-3 h-3" /> AiSensy keys stay server-side. The browser only writes to the message queue — the edge function dispatches.

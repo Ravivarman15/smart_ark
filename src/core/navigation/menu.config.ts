@@ -251,7 +251,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: everyoneExceptTeacher,
     items: [
-      ...sub("student.import",            "Students Import",            studentPaths("/import"),           adminMgmt),
+      ...sub("student.import",            "Students Import",            studentPaths("/import"),           adminCoordMgmt),
       ...sub("student.add",               "Add Student Registration",   studentPaths("/registration"),     adminCoordMgmt),
       ...sub("student.manage",            "Manage Student",             studentPaths(""),                  everyoneExceptTeacher),
       ...sub("student.assign_batch",      "Assign Class / Batch",       studentPaths("/assign-batch"),     adminMgmt),
@@ -467,6 +467,8 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("whatsapp.send_birthday",       "Send Student Birthday SMS",       { admin: "/admin/communication/send-birthday",            management: "/management/communication/send-birthday" },            adminMgmt),
       ...sub("whatsapp.credential_health",   "Credential Health",               { admin: "/admin/communication/credential-health",        management: "/management/communication/credential-health" },        adminMgmt),
       ...sub("whatsapp.deployment_manager",  "Deployment Manager",              { admin: "/admin/communication/deployment-manager",       management: "/management/communication/deployment-manager" },       adminMgmt),
+      ...sub("whatsapp.automation_settings", "Communication Automation",        { admin: "/admin/communication/automation",               management: "/management/communication/automation" },               adminMgmt),
+      ...sub("whatsapp.communication_timeline", "Communication Timeline",       { admin: "/admin/communication/timeline",                 management: "/management/communication/timeline" },                 adminMgmt),
     ],
   },
 

@@ -6,6 +6,7 @@ import {
   payrollEmailService,
   type PayslipEmailResult,
 } from "../services";
+import { commsDispatcherService, commsRecipientsService } from "@/features/communication/services";
 import type { ItemComponentPatch } from "../types/payroll.types";
 
 // Query + mutation hooks for the Payroll Approval Center. Reads enrich the
@@ -93,6 +94,41 @@ export const useApproveAndLock = () => {
         await payrollApprovalService.recordEmailsSent(runId, sent);
       } catch {
         /* email automation is best-effort */
+      }
+
+      // Event automation — WhatsApp the staff their approval notice. Gated by
+      // the Automation Settings (payroll_approved); inert until enabled AND the
+      // automation migration is applied. Best-effort: never un-approves payroll.
+      try {
+        const [grid, staff] = await Promise.all([
+          payrollApprovalService.getApprovalGrid(runId),
+          commsRecipientsService.staff(),
+        ]);
+        const phoneById = new Map(staff.map((s) => [s.id, s.phone]));
+        const payDate = new Date().toLocaleDateString("en-IN");
+        const recipients = grid.map((r) => ({
+          id: r.staffId,
+          kind: "staff" as const,
+          name: r.staffName ?? "",
+          phone: phoneById.get(r.staffId),
+          meta: {
+            net_salary: `₹${Number(r.netSalary).toLocaleString("en-IN")}`,
+            salary_month: month,
+            pay_date: payDate,
+          },
+        }));
+        await commsDispatcherService.dispatch("payroll_approved", {
+          recipients,
+          resolve: (c) => ({
+            staff_name: c.name,
+            salary_month: String(c.meta?.salary_month ?? month),
+            net_salary: String(c.meta?.net_salary ?? ""),
+            pay_date: String(c.meta?.pay_date ?? ""),
+          }),
+          actorId: actor.id,
+        });
+      } catch {
+        /* event automation is best-effort */
       }
       return { staffCount, totalNet, emails };
     },

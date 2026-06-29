@@ -18,6 +18,7 @@ import { useUpdateStudent } from "../hooks/useUpdateStudent";
 import {
   useAcademicYearOptions,
   useBatchOptions,
+  useCampusOptions,
   useCourseTypeOptions,
   useStandardOptions,
 } from "../hooks/useStudentLookups";
@@ -27,6 +28,10 @@ import { BLOOD_GROUPS, GENDER_OPTIONS, GUARDIAN_RELATIONS } from "../utils/const
 import type { StudentWriteInput } from "../types/student.types";
 
 const NONE = "__none__";
+
+// Common classification options (examples) — the input still accepts any value.
+const GROUP_OPTIONS = ["Science", "Commerce", "Arts", "Vocational"];
+const BOARD_OPTIONS = ["State Board", "CBSE", "ICSE", "IGCSE", "IB"];
 
 interface FormState {
   name: string;
@@ -43,6 +48,9 @@ interface FormState {
   batchId: string;
   courseTypeId: string;
   academicYearId: string;
+  campusId: string;
+  groupName: string;
+  category: string;
   parentName: string;
   parentContact: string;
   parentContact2: string;
@@ -68,6 +76,9 @@ const blank: FormState = {
   batchId: NONE,
   courseTypeId: NONE,
   academicYearId: NONE,
+  campusId: NONE,
+  groupName: "",
+  category: "",
   parentName: "",
   parentContact: "",
   parentContact2: "",
@@ -97,6 +108,7 @@ const StudentRegistrationPage = () => {
   const { data: batches = [] } = useBatchOptions();
   const { data: courseTypes = [] } = useCourseTypeOptions();
   const { data: years = [] } = useAcademicYearOptions();
+  const { data: campuses = [] } = useCampusOptions();
   const createMut = useCreateStudent();
   const updateMut = useUpdateStudent();
 
@@ -120,6 +132,9 @@ const StudentRegistrationPage = () => {
       batchId: existing.batchId ?? NONE,
       courseTypeId: existing.courseTypeId ?? NONE,
       academicYearId: existing.academicYearId ?? NONE,
+      campusId: existing.campusId ?? NONE,
+      groupName: existing.groupName ?? "",
+      category: existing.category ?? "",
       parentName: existing.parentName ?? "",
       parentContact: existing.parentContact ?? "",
       parentContact2: existing.parentContact2 ?? "",
@@ -154,6 +169,9 @@ const StudentRegistrationPage = () => {
       batchId: unwrap(form.batchId),
       courseTypeId: unwrap(form.courseTypeId),
       academicYearId: unwrap(form.academicYearId),
+      campusId: unwrap(form.campusId),
+      groupName: form.groupName,
+      category: form.category,
       parentName: form.parentName,
       parentContact: form.parentContact,
       parentContact2: form.parentContact2,
@@ -358,6 +376,51 @@ const StudentRegistrationPage = () => {
               {years.map((y) => (
                 <SelectItem key={y.id} value={y.id}>
                   {y.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Campus" error={errors.campusId}>
+          <Select value={form.campusId} onValueChange={(v) => set({ campusId: v })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Unassigned</SelectItem>
+              {campuses.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Group" hint="e.g. Science / Commerce" error={errors.groupName}>
+          <Select value={form.groupName || NONE} onValueChange={(v) => set({ groupName: v === NONE ? "" : v })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Not specified</SelectItem>
+              {GROUP_OPTIONS.map((g) => (
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Category / Board" hint="e.g. State Board / CBSE / ICSE" error={errors.category}>
+          <Select value={form.category || NONE} onValueChange={(v) => set({ category: v === NONE ? "" : v })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Not specified</SelectItem>
+              {BOARD_OPTIONS.map((b) => (
+                <SelectItem key={b} value={b}>
+                  {b}
                 </SelectItem>
               ))}
             </SelectContent>

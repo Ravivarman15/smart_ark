@@ -25,6 +25,7 @@ const SendFeeStatusPage = () => {
         candidates={data}
         loadingCandidates={isLoading}
         filterFields={["search"]}
+        automated
         perRecipientDefaults={(c) => ({
           student_name: c.name,
           parent_name: c.meta?.parent_name ?? c.name,

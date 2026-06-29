@@ -8,5 +8,7 @@ export { AudienceFilterBar } from "./AudienceFilterBar";
 export { MessageComposer } from "./MessageComposer";
 export { CampaignAnalyticsCard } from "./CampaignAnalyticsCard";
 export { QueueTable } from "./QueueTable";
+export { BulkSendDashboard } from "./BulkSendDashboard";
+export { CommunicationTimeline } from "./CommunicationTimeline";
 export { SendCampaignPanel, type SendCampaignPanelProps } from "./SendCampaignPanel";
 export { CredentialSendPanel, type CredentialSendPanelProps } from "./CredentialSendPanel";

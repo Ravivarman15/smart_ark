@@ -12,3 +12,6 @@ export {
   type HealthTestResult,
   type TemplateUsageRow,
 } from "./commsHealth.service";
+export { commsAutomationSettingsService } from "./commsAutomationSettings.service";
+export { commsDispatcherService, type DispatchContext } from "./commsDispatcher.service";
+export { commsTimelineService } from "./commsTimeline.service";

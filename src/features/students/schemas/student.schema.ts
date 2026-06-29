@@ -37,6 +37,9 @@ export const registrationSchema = z.object({
   batchId: z.string().uuid().optional().or(z.literal("")),
   courseTypeId: z.string().uuid().optional().or(z.literal("")),
   academicYearId: z.string().uuid().optional().or(z.literal("")),
+  campusId: z.string().uuid().optional().or(z.literal("")),
+  groupName: z.string().trim().max(60).optional().or(z.literal("")),
+  category: z.string().trim().max(60).optional().or(z.literal("")),
 
   // parent
   parentName: z.string().trim().max(120).optional().or(z.literal("")),

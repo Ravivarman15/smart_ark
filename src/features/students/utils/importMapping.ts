@@ -15,6 +15,22 @@ import {
   normalizeHeader,
   STUDENT_HEADER_LOOKUP,
 } from "./constants";
+import {
+  buildExistingIndex,
+  classify,
+  emptyDuplicateIndex as emptyEngineIndex,
+  findBestMatch,
+  groupFamilies,
+  indexAdd,
+  isValidMobile,
+  suggestedActionFor,
+  type DuplicateAction,
+  type DuplicateIndex,
+  type IdentityFields,
+} from "./duplicateEngine";
+
+export type { DuplicateIndex, DuplicateAction } from "./duplicateEngine";
+import { cleanFieldValue, cleanText } from "./dataCleaning";
 
 // ── Raw academic refs (the name strings pulled from the CSV) ──────────────────
 export interface AcademicRefInput {
@@ -49,7 +65,9 @@ export interface ImportLookups {
   years: AcademicYear[];
 }
 
-export type ImportRowStatus = "valid" | "duplicate" | "error";
+// "possible_duplicate" = enough identity overlap to warrant review, but not a
+// confirmed match — the row still imports unless the operator skips it.
+export type ImportRowStatus = "valid" | "possible_duplicate" | "duplicate" | "error";
 
 export interface ImportRowPreview {
   rowNumber: number;
@@ -65,6 +83,23 @@ export interface ImportRowPreview {
   resolved: ResolvedAcademic;
   raw: AcademicRefInput;
   dedup: DedupKeys;
+  // ── Weighted duplicate-engine output ──
+  /** 0–100 confidence this row matches an existing/earlier student. */
+  confidence: number;
+  /** Identity fields that agreed with the matched student. */
+  matchedFields: string[];
+  /** Matched existing student id (for Merge / Update Existing actions). */
+  existingId?: string;
+  /** Family this row belongs to (shared parent mobile / name+address). */
+  familyId?: string;
+  /** Default action the UI proposes for a flagged row. */
+  suggestedAction: DuplicateAction;
+  /** A mobile was supplied but is malformed. */
+  invalidMobile: boolean;
+  /** Key identity/contact fields are missing (incomplete record). */
+  missingData: boolean;
+  /** Field-level validation notes (missing class/admission/year, bad dob/email…). */
+  validation: string[];
 }
 
 // ── Matching ──────────────────────────────────────────────────────────────────
@@ -167,39 +202,13 @@ export function resolveAcademic(
   return out;
 }
 
-// ── Date normalisation ────────────────────────────────────────────────────────
-// Institution sheets mix ISO and day-first formats. Normalise to YYYY-MM-DD so
-// the `date` columns accept them. Ambiguous d/m vs m/d is resolved day-first
-// (Indian-export convention), auto-swapping when the day field is clearly > 12.
-function normalizeDate(value: string): string {
-  const v = value.trim();
-  if (!v) return v;
-  const iso = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) {
-    const [, y, m, d] = iso;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-  const parts = v.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
-  if (parts) {
-    let day = Number(parts[1]);
-    let month = Number(parts[2]);
-    let year = Number(parts[3]);
-    if (month > 12 && day <= 12) [day, month] = [month, day]; // m/d fallback
-    if (year < 100) year += year < 50 ? 2000 : 1900;
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-  return v; // leave anything else untouched
-}
-
-const DATE_FIELDS: (keyof StudentWriteInput)[] = [
-  "dateOfBirth",
-  "dateOfJoining",
-  "courseExpiryDate",
-];
-
 // ── Duplicate detection ─────────────────────────────────────────────────────────
+// The weighted, family-aware engine lives in `duplicateEngine.ts`. This layer
+// only adapts students / import rows into the engine's IdentityFields. A mobile
+// number is NEVER a stand-alone duplicate key here — siblings sharing a parent
+// mobile score 10 (a family signal) and import as distinct students.
+//
+// DedupKeys is retained ONLY as a thin carrier for the error-report CSV columns.
 export interface DedupKeys {
   biometricId?: string;
   enrolmentNo?: string;
@@ -209,64 +218,47 @@ export interface DedupKeys {
   email?: string;
 }
 
-export type DuplicateIndex = Record<keyof DedupKeys, Set<string>>;
+/** Adapt an existing student into the engine's identity shape. */
+export function studentToIdentity(st: Student): IdentityFields {
+  return {
+    studentId: st.biometricId,
+    admissionNo: st.enrolmentNo,
+    grNo: st.grNo,
+    rollNumber: st.rollNumber,
+    name: st.name,
+    dob: st.dateOfBirth,
+    fatherName: st.parentName,
+    motherName: st.motherName,
+    parentMobile: st.parentContact || st.studentContact || st.motherContact,
+    parentEmail: st.parentEmail || st.studentEmail,
+    className: st.batch || st.standardName,
+    address: st.address,
+  };
+}
 
-const DEDUP_LABELS: Record<keyof DedupKeys, string> = {
-  biometricId: "Biometric Id",
-  enrolmentNo: "Enrolment No",
-  grNo: "GR No",
-  rollNumber: "Roll No",
-  mobile: "Mobile",
-  email: "Email",
-};
+/** Adapt a parsed import row into the engine's identity shape. */
+export function recordToIdentity(rec: ImportRecord): IdentityFields {
+  const st = rec.student;
+  return {
+    studentId: st.biometricId,
+    admissionNo: st.enrolmentNo,
+    grNo: st.grNo,
+    rollNumber: st.rollNumber,
+    name: st.name,
+    dob: st.dateOfBirth,
+    fatherName: st.parentName,
+    motherName: st.motherName,
+    parentMobile: st.parentContact || st.studentContact || st.motherContact,
+    parentEmail: st.parentEmail || st.studentEmail,
+    className: rec.academic.batchName || rec.academic.standardName,
+    academicYear: rec.academic.academicYearName,
+    address: st.address,
+  };
+}
 
-const dk = (v?: string): string => (v ?? "").trim().toLowerCase();
-
-export const emptyDuplicateIndex = (): DuplicateIndex => ({
-  biometricId: new Set(),
-  enrolmentNo: new Set(),
-  grNo: new Set(),
-  rollNumber: new Set(),
-  mobile: new Set(),
-  email: new Set(),
-});
-
-/** Index existing students by every dedup key so a row can be matched O(1). */
+/** Build a weighted lookup index over existing students. */
 export function buildDuplicateIndex(students: Student[]): DuplicateIndex {
-  const idx = emptyDuplicateIndex();
-  for (const s of students) {
-    if (s.biometricId) idx.biometricId.add(dk(s.biometricId));
-    if (s.enrolmentNo) idx.enrolmentNo.add(dk(s.enrolmentNo));
-    if (s.grNo) idx.grNo.add(dk(s.grNo));
-    if (s.rollNumber) idx.rollNumber.add(dk(s.rollNumber));
-    const mob = s.studentContact || s.parentContact;
-    if (mob) idx.mobile.add(dk(mob));
-    const em = s.studentEmail || s.parentEmail;
-    if (em) idx.email.add(dk(em));
-  }
-  return idx;
-}
-
-/** First dedup key that collides with an existing student or a prior file row. */
-function findDuplicate(
-  keys: DedupKeys,
-  existing: DuplicateIndex,
-  seen: DuplicateIndex
-): string | null {
-  for (const k of Object.keys(DEDUP_LABELS) as (keyof DedupKeys)[]) {
-    const v = dk(keys[k]);
-    if (!v) continue;
-    if (existing[k].has(v)) return `${DEDUP_LABELS[k]} matches an existing student`;
-    if (seen[k].has(v)) return `Duplicate ${DEDUP_LABELS[k]} within this file`;
-  }
-  return null;
-}
-
-function recordSeen(keys: DedupKeys, seen: DuplicateIndex): void {
-  for (const k of Object.keys(DEDUP_LABELS) as (keyof DedupKeys)[]) {
-    const v = dk(keys[k]);
-    if (v) seen[k].add(v);
-  }
+  return buildExistingIndex(students.map((st) => ({ id: st.id, identity: studentToIdentity(st) })));
 }
 
 // ── Validation (soft) ────────────────────────────────────────────────────────
@@ -282,12 +274,46 @@ function rowWarnings(student: StudentWriteInput): string[] {
   return w;
 }
 
+/** A cleaned date is valid only if it is a real YYYY-MM-DD calendar date. */
+const isValidDate = (v: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime());
+};
+const dkv = (x?: string): string => (x ?? "").trim().toLowerCase();
+
 // ── Column detection ─────────────────────────────────────────────────────────
 export interface DetectedMapping {
   sourceHeader: string;
   field: string | null;
   kind: "student" | "academic" | "unmapped";
 }
+
+/** Selectable targets for the manual column-mapping override UI. */
+export const OVERRIDE_TARGETS: { value: string; label: string }[] = [
+  { value: "name", label: "Student Name" },
+  { value: "rollNumber", label: "Roll Number" },
+  { value: "enrolmentNo", label: "Admission / Enrolment No" },
+  { value: "grNo", label: "GR No" },
+  { value: "biometricId", label: "Student ID (Biometric)" },
+  { value: "gender", label: "Gender" },
+  { value: "dateOfBirth", label: "Date of Birth" },
+  { value: "parentName", label: "Father / Parent Name" },
+  { value: "parentContact", label: "Parent Mobile" },
+  { value: "parentEmail", label: "Parent Email" },
+  { value: "motherName", label: "Mother Name" },
+  { value: "motherContact", label: "Mother Mobile" },
+  { value: "guardianName", label: "Guardian Name" },
+  { value: "guardianContact", label: "Guardian Mobile" },
+  { value: "studentContact", label: "Student Mobile" },
+  { value: "studentEmail", label: "Student Email" },
+  { value: "address", label: "Address" },
+  { value: "standardName", label: "Standard (academic)" },
+  { value: "batchName", label: "Class / Batch (academic)" },
+  { value: "courseTypeName", label: "Course Type (academic)" },
+  { value: "academicYearName", label: "Academic Year (academic)" },
+  { value: "", label: "— Ignore column —" },
+];
 
 /** Report how each source header was auto-detected (drives the UI panel). */
 export function detectColumnMappings(headers: string[]): DetectedMapping[] {
@@ -390,15 +416,46 @@ export interface ImportRecord {
   dedup: DedupKeys;
 }
 
+/** Academic-ref field keys — used to route a manual override to the right bag. */
+const ACADEMIC_FIELDS = new Set<string>([
+  "standardName",
+  "batchName",
+  "courseTypeName",
+  "academicYearName",
+]);
+
+/**
+ * Manual column-mapping override: normalised-header → target field key (a
+ * student field or academic ref field), or "" to ignore the column. When a
+ * header has an override it wins over auto-detection.
+ */
+export type ColumnOverrides = Record<string, string>;
+
 /**
  * Map a parsed sheet (header row + data rows) into student write inputs, raw
  * academic refs and dedup keys — using alias-based, normalised header matching.
  * The first non-empty column that maps to a field wins (so "Father Mobile" and
- * "Contact No" don't clobber each other). Unknown columns are ignored.
+ * "Contact No" don't clobber each other). Unknown columns are ignored. A manual
+ * `overrides` map (by normalised header) takes precedence over auto-detection.
  */
-export function rowsToImportRecords(rows: string[][]): ImportRecord[] {
+export function rowsToImportRecords(
+  rows: string[][],
+  overrides?: ColumnOverrides
+): ImportRecord[] {
   if (rows.length < 2) return [];
   const normHeaders = rows[0].map((h) => normalizeHeader((h ?? "").toString()));
+  const resolveField = (nh: string): { field: string; academic: boolean } | null => {
+    if (overrides && Object.prototype.hasOwnProperty.call(overrides, nh)) {
+      const ov = overrides[nh];
+      if (!ov) return null; // explicitly ignored
+      return { field: ov, academic: ACADEMIC_FIELDS.has(ov) };
+    }
+    const sf = STUDENT_HEADER_LOOKUP[nh];
+    if (sf) return { field: sf, academic: false };
+    const af = ACADEMIC_HEADER_LOOKUP[nh];
+    if (af) return { field: af, academic: true };
+    return null;
+  };
   return rows.slice(1).map((cells) => {
     const student: Record<string, string> = {};
     const academic: AcademicRefInput = {};
@@ -406,12 +463,16 @@ export function rowsToImportRecords(rows: string[][]): ImportRecord[] {
       if (!nh) return;
       const value = (cells[idx] ?? "").toString().trim();
       if (!value) return;
-      const sf = STUDENT_HEADER_LOOKUP[nh];
-      if (sf && !student[sf]) {
-        student[sf] = DATE_FIELDS.includes(sf) ? normalizeDate(value) : value;
+      const target = resolveField(nh);
+      if (!target) return;
+      // Clean every cell as it is mapped: phones → digits, names → Title Case,
+      // dates → YYYY-MM-DD, stray whitespace collapsed.
+      if (target.academic) {
+        const af = target.field as keyof AcademicRefInput;
+        if (!academic[af]) academic[af] = cleanText(value);
+      } else if (!student[target.field]) {
+        student[target.field] = cleanFieldValue(target.field, value);
       }
-      const af = ACADEMIC_HEADER_LOOKUP[nh];
-      if (af && !academic[af]) academic[af] = value;
     });
     const dedup: DedupKeys = {
       biometricId: student.biometricId,
@@ -442,8 +503,22 @@ export function buildImportPreview(
   lookups: ImportLookups,
   existing: DuplicateIndex
 ): ImportRowPreview[] {
-  const seen = emptyDuplicateIndex();
+  // Identities + family grouping are computed up-front over the whole file so
+  // siblings (shared parent mobile) land in one family and are NEVER flagged as
+  // duplicates of each other.
+  const identities = records.map(recordToIdentity);
+  const { familyByRow } = groupFamilies(identities);
+  // In-file "seen" index — grows as we walk rows, so a later row can match an
+  // earlier row in the same file (a genuine re-listing), but a row never matches
+  // itself.
+  const seen = emptyEngineIndex();
+  // In-file duplicate-key sets for field-level validation notes.
+  const seenAdmission = new Set<string>();
+  const seenStudentId = new Set<string>();
+  const seenRoll = new Set<string>();
+
   return records.map((rec, i) => {
+    const identity = identities[i];
     const name = (rec.student.name ?? "").trim();
     const resolved = resolveAcademic(rec.academic, lookups);
     // Unresolved academic refs + bad mobile/email are all soft warnings: they
@@ -451,20 +526,75 @@ export function buildImportPreview(
     const warnings = [...resolved.warnings, ...rowWarnings(rec.student)];
     const missingAcademic = resolved.warnings.length > 0;
     const messages: string[] = [];
+
+    const mob = rec.student.parentContact || rec.student.studentContact;
+    const invalidMobile = !!mob && !isValidMobile(mob);
+    const missingData = !isValidMobile(identity.parentMobile) || !identity.className;
+
     let status: ImportRowStatus = "valid";
+    let confidence = 0;
+    let matchedFields: string[] = [];
+    let existingId: string | undefined;
 
     // Only a missing student name is a hard error.
     if (!name) {
       status = "error";
       messages.push("Missing student name");
     } else {
-      const dup = findDuplicate(rec.dedup, existing, seen);
-      if (dup) {
-        status = "duplicate";
-        messages.push(dup);
+      // Score against existing students AND earlier rows in this file; the
+      // stronger match wins. The engine guarantees mobile/email/name alone can
+      // never reach the duplicate band.
+      const existingMatch = findBestMatch(identity, existing);
+      const inFileMatch = findBestMatch(identity, seen);
+      const winner =
+        existingMatch.score >= inFileMatch.score ? existingMatch : inFileMatch;
+      const fromExisting = winner === existingMatch;
+
+      confidence = winner.score;
+      matchedFields = winner.matchedFields;
+      // The engine's "new" band maps to the importer's "valid" status.
+      const band = classify(winner.score);
+      status = band === "new" ? "valid" : band;
+      if (status !== "valid") {
+        existingId = fromExisting ? winner.existingId : undefined;
+        const where = fromExisting ? "an existing student" : "an earlier row in this file";
+        const verb = status === "duplicate" ? "Matches" : "Possible match with";
+        messages.push(
+          `${verb} ${where} (${winner.score}%${
+            matchedFields.length ? ` — ${matchedFields.join(", ")}` : ""
+          })`
+        );
       }
     }
-    recordSeen(rec.dedup, seen);
+    // ── Field-level validation (warnings — never block except missing name) ──
+    const validation: string[] = [];
+    const admKey = dkv(identity.admissionNo);
+    const grKey = dkv(identity.grNo);
+    const sidKey = dkv(identity.studentId);
+    const rollKey = dkv(identity.rollNumber);
+    if (name) {
+      if (!identity.className) validation.push("Missing class");
+      if (!admKey && !grKey) validation.push("Missing admission number");
+      if (!isValidMobile(identity.parentMobile)) validation.push("Missing/invalid parent mobile");
+      const dobV = rec.student.dateOfBirth;
+      if (dobV && !isValidDate(dobV)) validation.push("Invalid date of birth");
+      const emailV = rec.student.parentEmail || rec.student.studentEmail;
+      if (emailV && !EMAIL_RE.test(emailV)) validation.push("Invalid email");
+      if (mob && !isValidMobile(mob)) validation.push("Invalid phone");
+      if (!resolved.academicYearId) validation.push("Missing academic year");
+      if (admKey && (existing.byAdmission.has(admKey) || seenAdmission.has(admKey)))
+        validation.push("Duplicate admission number");
+      if (sidKey && (existing.byStudentId.has(sidKey) || seenStudentId.has(sidKey)))
+        validation.push("Duplicate student id");
+      if (rollKey && (existing.byRoll.has(rollKey) || seenRoll.has(rollKey)))
+        validation.push("Duplicate roll number");
+    }
+    if (admKey) seenAdmission.add(admKey);
+    if (sidKey) seenStudentId.add(sidKey);
+    if (rollKey) seenRoll.add(rollKey);
+
+    // Record this row so subsequent rows can match it (in-file dedup).
+    indexAdd(seen, identity);
 
     const student: StudentWriteInput = {
       ...rec.student,
@@ -485,9 +615,72 @@ export function buildImportPreview(
       resolved,
       raw: rec.academic,
       dedup: rec.dedup,
+      confidence,
+      matchedFields,
+      existingId,
+      familyId: familyByRow.get(i),
+      suggestedAction: suggestedActionFor(status === "error" ? "new" : status),
+      invalidMobile,
+      missingData,
+      validation,
     };
   });
 }
+
+// ── Family + preview analytics ────────────────────────────────────────────────
+export interface FamilyDashboard {
+  familiesCreated: number;
+  parents: number;
+  children: number;
+  singleChildFamilies: number;
+  multiChildFamilies: number;
+  largestFamily: number;
+  sharingMobile: number;
+  sharingAddress: number;
+  sharingParentName: number;
+}
+
+const countShared = (rows: ImportRowPreview[], pick: (r: ImportRowPreview) => string): number => {
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const k = pick(r);
+    if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  let n = 0;
+  for (const r of rows) {
+    const k = pick(r);
+    if (k && (counts.get(k) ?? 0) > 1) n += 1;
+  }
+  return n;
+};
+
+/** Summarise the family structure of an import preview for the dashboard. */
+export function buildFamilyDashboard(rows: ImportRowPreview[]): FamilyDashboard {
+  const importable = rows.filter((r) => r.status !== "error");
+  const sizes = new Map<string, number>();
+  for (const r of importable) if (r.familyId) sizes.set(r.familyId, (sizes.get(r.familyId) ?? 0) + 1);
+  const sizeValues = [...sizes.values()];
+  return {
+    familiesCreated: sizes.size,
+    parents: sizes.size,
+    children: importable.filter((r) => r.familyId).length,
+    singleChildFamilies: sizeValues.filter((n) => n === 1).length,
+    multiChildFamilies: sizeValues.filter((n) => n > 1).length,
+    largestFamily: sizeValues.reduce((m, n) => Math.max(m, n), 0),
+    sharingMobile: countShared(importable, (r) =>
+      normMobileKey(r.student.parentContact || r.student.studentContact)
+    ),
+    sharingAddress: countShared(importable, (r) => (r.student.address ?? "").trim().toLowerCase()),
+    sharingParentName: countShared(importable, (r) =>
+      (r.student.parentName ?? r.student.motherName ?? "").trim().toLowerCase()
+    ),
+  };
+}
+
+const normMobileKey = (v?: string): string => {
+  const d = (v ?? "").replace(/\D/g, "");
+  return d.length >= 7 ? (d.length > 10 ? d.slice(-10) : d) : "";
+};
 
 // ── Distribution analytics ─────────────────────────────────────────────────────
 export interface DistributionEntry {

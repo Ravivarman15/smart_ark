@@ -9,3 +9,5 @@ export { default as SendFeeStatusPage } from "./SendFeeStatusPage";
 export { default as SendFeeDueReminderPage } from "./SendFeeDueReminderPage";
 export { default as SendAbsentAttendancePage } from "./SendAbsentAttendancePage";
 export { default as SendBirthdayPage } from "./SendBirthdayPage";
+export { default as AutomationSettingsPage } from "./AutomationSettingsPage";
+export { default as CommunicationTimelinePage } from "./CommunicationTimelinePage";

@@ -217,7 +217,7 @@ export interface QueueMessage {
 }
 
 // ── Audit ───────────────────────────────────────────────────────────────────
-export type CommsAuditEntity = "template" | "campaign" | "recipient" | "queue" | "webhook" | "lead";
+export type CommsAuditEntity = "template" | "campaign" | "recipient" | "queue" | "webhook" | "lead" | "automation";
 
 export type CommsAuditAction =
   | "create"
@@ -314,4 +314,55 @@ export interface RecipientCandidate {
   phone?: string;
   email?: string;
   meta?: Record<string, string | number | undefined>;
+}
+
+// ── Event-driven automation (Phase 2) ───────────────────────────────────────
+export type AutomationChannel = "whatsapp" | "email" | "both";
+export type AutomationTiming = "immediate" | "scheduled";
+export type AutomationEventKind = "event" | "scheduled";
+
+/** A configurable business event that can auto-notify. */
+export interface AutomationSetting {
+  eventKey: string;
+  enabled: boolean;
+  channel: AutomationChannel;
+  timing: AutomationTiming;
+  templateKey?: string;
+  /** HH:MM — messages computed inside [quietStart, quietEnd) are deferred. */
+  quietStart?: string;
+  quietEnd?: string;
+  priority: number;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export type AutomationSettingUpsert = Omit<AutomationSetting, "updatedAt">;
+
+/** Outcome of a single dispatch — never throws on bad recipients. */
+export interface AutomationDispatchResult {
+  eventKey: string;
+  skipped: boolean;
+  reason?: string;
+  queued: number;
+  emailed: number;
+  invalid: number;
+  duplicates: number;
+}
+
+// ── Communication timeline (per recipient) ──────────────────────────────────
+export interface TimelineEntry {
+  id: string;
+  createdAt: string;
+  channel: string;
+  template: string;
+  provider: string;
+  context?: string;
+  status: string;
+  sentAt?: string;
+  deliveredAt?: string;
+  readAt?: string;
+  retryCount: number;
+  lastError?: string;
+  recipientName?: string;
+  recipientPhone?: string;
 }

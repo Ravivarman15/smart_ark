@@ -124,6 +124,8 @@ export interface StudentWriteInput {
   university?: string;
   courseExpiryDate?: string;
   notes?: string;
+  /** Tags a row with the import batch that created it — enables rollback. */
+  importBatchId?: string;
 }
 
 export type CreateStudentInput = StudentWriteInput;
@@ -345,12 +347,32 @@ export interface ImportBatch {
   id: string;
   fileName?: string;
   totalRows: number;
-  successRows: number;
+  successRows: number; // imported (created)
   errorRows: number;
+  updatedRows?: number;
+  skippedRows?: number;
+  warningRows?: number;
+  families?: number;
+  durationMs?: number;
+  status?: string; // 'completed' | 'cancelled' | 'rolled_back'
+  rolledBackAt?: string;
   importedBy?: string;
   createdAt?: string;
   /** Columns the schema was missing during this run (migration not fully applied). */
   droppedColumns?: string[];
+}
+
+/** Cooperative pause / cancel control threaded into a long commit. */
+export interface ImportControl {
+  isPaused: () => boolean;
+  isCancelled: () => boolean;
+}
+
+/** Run-level stats the page computes from the preview, stored with the batch. */
+export interface ImportRunStats {
+  skipped?: number;
+  warnings?: number;
+  families?: number;
 }
 
 // ── Lookups (for form pickers) ───────────────────────────────────────────────

@@ -198,8 +198,11 @@ export const normalizeHeader = (h: string): string =>
 /** Student-field name → accepted header aliases (written human-readable; the
  *  lookup normalises them). Order matters only for documentation. */
 export const STUDENT_FIELD_ALIASES: Partial<Record<keyof StudentWriteInput, string[]>> = {
-  name: ["name", "student name", "full name", "student full name"],
-  rollNumber: ["roll", "roll no", "roll number", "rollno"],
+  name: [
+    "name", "student name", "full name", "student full name", "candidate name",
+    "student", "name of student", "name of the student", "studentname",
+  ],
+  rollNumber: ["roll", "roll no", "roll number", "rollno", "class roll no", "class roll number"],
   gender: ["gender", "sex"],
   bloodGroup: ["blood group"],
   dateOfBirth: ["birth date", "date of birth", "dob", "birthdate"],
@@ -227,6 +230,9 @@ export const STUDENT_FIELD_ALIASES: Partial<Record<keyof StudentWriteInput, stri
   enrolmentNo: [
     "enrolment no", "enrollment no", "enrolment number", "enrollment number",
     "enrolment", "enrollment", "enroll no",
+    // Admission / registration numbers are the same institutional identity.
+    "admission no", "admission number", "admission", "adm no", "admno",
+    "reg no", "reg number", "registration no", "registration number", "regno",
   ],
   grNo: ["gr no", "gr number", "grno", "general register no"],
   username: ["user name", "username", "login id", "login name"],

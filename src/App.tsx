@@ -170,6 +170,8 @@ const CommSendAbsent = lazy(() => import("./features/communication/pages/SendAbs
 const CommSendBirthday = lazy(() => import("./features/communication/pages/SendBirthdayPage"));
 const CommCredentialHealth = lazy(() => import("./features/communication/pages/CredentialHealthPage"));
 const CommDeployment = lazy(() => import("./features/communication/pages/CommunicationDeploymentPage"));
+const CommAutomation = lazy(() => import("./features/communication/pages/AutomationSettingsPage"));
+const CommTimeline = lazy(() => import("./features/communication/pages/CommunicationTimelinePage"));
 
 // Finance module pages (feature-based — src/features/finance)
 const FinAddExpenseTypePage = lazy(() => import("./features/finance/pages/AddExpenseTypePage"));
@@ -510,6 +512,8 @@ const AppRoutes: React.FC = () => (
         <Route path="communication/send-birthday" element={<CommSendBirthday />} />
         <Route path="communication/credential-health" element={<CommCredentialHealth />} />
         <Route path="communication/deployment-manager" element={<CommDeployment />} />
+        <Route path="communication/automation" element={<CommAutomation />} />
+        <Route path="communication/timeline" element={<CommTimeline />} />
         {/* Authentication module routes — feature-based */}
         <Route path="authentication/account-health" element={<AuthAccountHealth />} />
         {/* Reports & Analytics routes */}
@@ -642,6 +646,8 @@ const AppRoutes: React.FC = () => (
         <Route path="communication/send-birthday" element={<CommSendBirthday />} />
         <Route path="communication/credential-health" element={<CommCredentialHealth />} />
         <Route path="communication/deployment-manager" element={<CommDeployment />} />
+        <Route path="communication/automation" element={<CommAutomation />} />
+        <Route path="communication/timeline" element={<CommTimeline />} />
         {/* Authentication module routes — feature-based, management-owned */}
         <Route path="authentication/account-health" element={<AuthAccountHealth />} />
         {/* Reports & Analytics routes — management-owned, full access */}

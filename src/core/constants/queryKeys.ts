@@ -347,6 +347,9 @@ export const queryKeys = {
       [...queryKeys.communication.all, "candidates", kind, filter ?? {}] as const,
     credentialHealth: () => [...queryKeys.communication.all, "credential-health"] as const,
     systemHealth: () => [...queryKeys.communication.all, "system-health"] as const,
+    automationSettings: () => [...queryKeys.communication.all, "automation-settings"] as const,
+    timeline: (target: Record<string, unknown>) =>
+      [...queryKeys.communication.all, "timeline", target] as const,
   },
   authAccounts: {
     all: ["auth-accounts"] as const,

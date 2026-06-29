@@ -7,3 +7,5 @@ export * from "./useRecipientCandidates";
 export * from "./useCommsLookups";
 export * from "./useCredentials";
 export * from "./useCommsHealth";
+export * from "./useAutomationSettings";
+export * from "./useCommsTimeline";

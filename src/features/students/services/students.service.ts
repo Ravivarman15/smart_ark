@@ -191,6 +191,7 @@ const toDb = (input: Partial<StudentWriteInput>): Record<string, unknown> => {
   set("university", input.university);
   set("course_expiry_date", input.courseExpiryDate);
   set("notes", input.notes);
+  set("import_batch_id", input.importBatchId);
   return out;
 };
 
@@ -320,6 +321,21 @@ class StudentsService extends BaseService {
       .update({ batch_id: batchId } as never)
       .eq("id", studentId);
     if (error) throw AppError.fromSupabase(error, "students.assignBatch");
+  }
+
+  /**
+   * Hard-delete every student created by one import batch — the rollback path.
+   * Scoped strictly to `import_batch_id`, so manually created students (NULL
+   * batch id) and students from other imports are never touched. Returns the
+   * number of rows removed.
+   */
+  async deleteByBatch(batchId: string): Promise<number> {
+    const res = await this.db
+      .from("students")
+      .delete({ count: "exact" })
+      .eq("import_batch_id", batchId);
+    if (res.error) throw AppError.fromSupabase(res.error, "students.deleteByBatch");
+    return res.count ?? 0;
   }
 
   /** Soft-delete: flip is_active false. */
