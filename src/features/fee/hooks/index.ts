@@ -29,3 +29,5 @@ export {
 } from "./useFeeRefunds";
 
 export { useFeeAnalytics, useFeeReminderOutbox } from "./useFeeAnalytics";
+
+export { useEligibleStudents, useAssignFeeStructure } from "./useFeeAssignment";

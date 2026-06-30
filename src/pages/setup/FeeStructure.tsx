@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useAppData } from "@/contexts/AppDataContext";
-import { Plus, Pencil, Trash2, Percent, Info, History } from "lucide-react";
+import { Plus, Pencil, Trash2, Percent, Info, History, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { useCanDo } from "@/features/rbac";
 import {
+  AssignFeeDialog,
   RevisionHistoryDialog,
   computeBreakdown,
   formatINR,
@@ -90,6 +91,7 @@ const FeeStructurePage: React.FC = () => {
   const [form, setForm] = useState<FormState>(blankForm);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [historyOf, setHistoryOf] = useState<FeeStructure | null>(null);
+  const [assignOf, setAssignOf] = useState<FeeStructure | null>(null);
 
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -303,6 +305,20 @@ const FeeStructurePage: React.FC = () => {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="h-7 gap-1.5 text-xs border-accent/40 text-accent hover:bg-accent/10"
+                          disabled={!canDo("fee.edit")}
+                          title={
+                            canDo("fee.edit")
+                              ? "Generate fee records for students"
+                              : "You do not have permission to assign fees"
+                          }
+                          onClick={() => setAssignOf(s)}
+                        >
+                          <Users className="w-3 h-3" /> Assign
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="h-7 gap-1.5 text-xs"
                           onClick={() => setHistoryOf(s)}
                         >
@@ -365,6 +381,13 @@ const FeeStructurePage: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Assign structure to students */}
+      <AssignFeeDialog
+        structure={assignOf}
+        standards={standards}
+        onOpenChange={(open) => !open && setAssignOf(null)}
+      />
 
       {/* Revision history */}
       <RevisionHistoryDialog

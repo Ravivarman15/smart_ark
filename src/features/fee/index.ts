@@ -76,11 +76,15 @@ export {
   feeReminderService,
   feeAnalyticsService,
   feeLookupsService,
+  feeAssignmentService,
   type FeeReminderKind,
   type QueuedFeeMessage,
   type QueueResult,
   type LookupOption,
   type TaxOption,
+  type EligibleStudent,
+  type AssignFeeStructureInput,
+  type AssignResult,
 } from "./services";
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
@@ -107,6 +111,8 @@ export {
   useRejectRefund,
   useFeeAnalytics,
   useFeeReminderOutbox,
+  useEligibleStudents,
+  useAssignFeeStructure,
 } from "./hooks";
 
 // ── Components ───────────────────────────────────────────────────────────────
@@ -115,4 +121,5 @@ export {
   RefundDialog,
   RevisionHistoryDialog,
   FeeAnalyticsPanel,
+  AssignFeeDialog,
 } from "./components";

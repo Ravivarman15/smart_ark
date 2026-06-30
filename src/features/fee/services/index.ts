@@ -14,3 +14,9 @@ export {
   type LookupOption,
   type TaxOption,
 } from "./feeLookups.service";
+export {
+  feeAssignmentService,
+  type EligibleStudent,
+  type AssignFeeStructureInput,
+  type AssignResult,
+} from "./feeAssignment.service";
