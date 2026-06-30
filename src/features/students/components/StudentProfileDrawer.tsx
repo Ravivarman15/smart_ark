@@ -3,6 +3,8 @@ import {
   CalendarCheck,
   CreditCard,
   Download,
+  FileSpreadsheet,
+  FileText,
   GraduationCap,
   IdCard,
   Loader2,
@@ -10,20 +12,24 @@ import {
   Pencil,
   Phone,
   Printer,
-  QrCode,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { FeeReceiptDialog, type ReceiptData } from "@/features/fee";
 import { RiskBadge, StatusBadge } from "./RiskBadge";
 import { StudentAvatar } from "./StudentAvatar";
+import { StudentPerformancePanel, StudentFeesPanel } from "./StudentInsightsPanels";
 import { useStudentRecordSummary } from "../hooks/useStudentRecordSummary";
-import { downloadStudentRecord } from "../services/studentExport.service";
+import { useStudentInsights, type ReceiptRow } from "../hooks/useStudentInsights";
+import { generateStudent360, type Report360Format } from "../services/student360.service";
 import { formatDate, formatDateTime } from "../utils/helpers";
 import type { Student } from "../types/student.types";
 
@@ -80,7 +86,13 @@ export const StudentProfileDrawer = ({
   canDownload = true,
 }: Props) => {
   const [showId, setShowId] = useState(false);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [reporting, setReporting] = useState<Report360Format | null>(null);
   const { data: summary, isLoading: summaryLoading } = useStudentRecordSummary(
+    student?.id,
+    open,
+  );
+  const { data: insights, isLoading: insightsLoading } = useStudentInsights(
     student?.id,
     open,
   );
@@ -88,13 +100,38 @@ export const StudentProfileDrawer = ({
   if (!student) return null;
   const s = student;
 
+  const viewReceipt = (r: ReceiptRow) =>
+    setReceipt({
+      receiptNo: r.receiptNo ?? "—",
+      studentName: s.name,
+      batchName: s.batch,
+      amount: r.amount,
+      paymentMethod: r.method,
+      date: r.date,
+      amountReceivedToDate: insights?.fee?.received,
+      amountPending: insights?.fee?.pending,
+      notes: r.notes,
+    });
+
   const callNumber = phoneDigits(s.parentContact || s.studentContact);
   const waNumber = phoneDigits(s.parentContact || s.studentContact);
   const attendance = summary?.attendance;
   const fee = summary?.fee;
 
-  const handleDownload = (format: "pdf" | "xlsx") =>
-    void downloadStudentRecord(s, summary ?? {}, format);
+  // Student 360° report — gathers every section asynchronously, never blocks UI.
+  const runReport = async (format: Report360Format) => {
+    if (reporting) return;
+    setReporting(format);
+    const toastId = toast.loading("Generating Student 360° report…");
+    try {
+      await generateStudent360(s, format);
+      toast.success("Student 360° report ready", { id: toastId });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Report failed", { id: toastId });
+    } finally {
+      setReporting(null);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -231,6 +268,26 @@ export const StudentProfileDrawer = ({
             </div>
           )}
 
+          <Tabs defaultValue="profile" className="w-full">
+            <TabsList className="grid grid-cols-3 w-full">
+              <TabsTrigger value="profile">Profile</TabsTrigger>
+              <TabsTrigger value="performance">Performance</TabsTrigger>
+              <TabsTrigger value="fees">Fees</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="performance" className="mt-4">
+              <StudentPerformancePanel insights={insights} loading={insightsLoading} />
+            </TabsContent>
+
+            <TabsContent value="fees" className="mt-4">
+              <StudentFeesPanel
+                fee={insights?.fee}
+                loading={insightsLoading}
+                onView={viewReceipt}
+              />
+            </TabsContent>
+
+            <TabsContent value="profile" className="mt-4 space-y-4">
           <Section title="Personal Information">
             <InfoRow label="Gender" value={s.gender} />
             <InfoRow label="Date of Birth" value={s.dateOfBirth ? formatDate(s.dateOfBirth) : ""} />
@@ -342,7 +399,12 @@ export const StudentProfileDrawer = ({
               </p>
             </div>
           </Section>
+            </TabsContent>
+          </Tabs>
         </div>
+
+        {/* Receipt viewer (print / download inside) */}
+        <FeeReceiptDialog receipt={receipt} onOpenChange={(o) => !o && setReceipt(null)} />
 
         {/* ── Sticky footer actions ───────────────────────────────────── */}
         <div className="sticky bottom-0 z-10 bg-background border-t border-border/50 px-5 py-3 flex flex-wrap items-center justify-end gap-2">
@@ -357,22 +419,36 @@ export const StudentProfileDrawer = ({
                 size="sm"
                 variant="outline"
                 className="h-8 gap-1.5"
-                onClick={() => handleDownload("pdf")}
+                disabled={!!reporting}
+                onClick={() => runReport("print")}
               >
-                <Printer className="w-3.5 h-3.5" /> Print
+                {reporting === "print" ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Printer className="w-3.5 h-3.5" />
+                )}{" "}
+                Print
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="h-8 gap-1.5">
-                    <Download className="w-3.5 h-3.5" /> Download Record
+                  <Button size="sm" className="h-8 gap-1.5" disabled={!!reporting}>
+                    {reporting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}{" "}
+                    360° Report
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleDownload("pdf")}>
-                    <Printer className="w-3.5 h-3.5 mr-2" /> PDF
+                  <DropdownMenuItem onClick={() => runReport("pdf")}>
+                    <FileText className="w-3.5 h-3.5 mr-2" /> PDF (A4)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleDownload("xlsx")}>
-                    <QrCode className="w-3.5 h-3.5 mr-2" /> Excel (.xlsx)
+                  <DropdownMenuItem onClick={() => runReport("xlsx")}>
+                    <FileSpreadsheet className="w-3.5 h-3.5 mr-2" /> Excel (.xlsx)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => runReport("print")}>
+                    <Printer className="w-3.5 h-3.5 mr-2" /> Print
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

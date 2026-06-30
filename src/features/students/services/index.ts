@@ -8,3 +8,9 @@ export { feedbackService } from "./feedback.service";
 export { communicationService } from "./communication.service";
 export { appAccessService } from "./appAccess.service";
 export { importService } from "./import.service";
+export {
+  generateStudent360,
+  gatherStudent360,
+  type Report360Format,
+  type Student360Data,
+} from "./student360.service";

@@ -7,6 +7,11 @@
 export type StudentRisk = "safe" | "watch" | "critical";
 export type RetestStatus = "none" | "pending" | "allocated" | "completed";
 
+/** Channels the Communication module may use for a student/parent. */
+export type CommunicationPreference = "WHATSAPP" | "EMAIL" | "SMS" | "BOTH" | "NONE";
+/** Student lifecycle status (is_active kept in sync for backward compatibility). */
+export type StudentStatus = "ACTIVE" | "INACTIVE" | "LEFT" | "TRANSFERRED" | "ALUMNI";
+
 // ── Core student ─────────────────────────────────────────────────────────────
 export interface Student {
   id: string;
@@ -73,6 +78,21 @@ export interface Student {
   university?: string;
   courseExpiryDate?: string;
 
+  // shared profile foundation (20260630 migration) — reusable across modules
+  section?: string;
+  transportRequired?: boolean;
+  transportRouteId?: string;
+  hostelRequired?: boolean;
+  hostelRoomId?: string;
+  medicalConditions?: string;
+  allergies?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+  emergencyContactRelation?: string;
+  communicationPreference?: CommunicationPreference;
+  parentPreferredLanguage?: string;
+  studentStatus?: StudentStatus;
+
   appAccessEnabled?: boolean;
   notes?: string;
   createdAt?: string;
@@ -124,6 +144,22 @@ export interface StudentWriteInput {
   university?: string;
   courseExpiryDate?: string;
   notes?: string;
+
+  // shared profile foundation (20260630 migration)
+  section?: string;
+  transportRequired?: boolean;
+  transportRouteId?: string;
+  hostelRequired?: boolean;
+  hostelRoomId?: string;
+  medicalConditions?: string;
+  allergies?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+  emergencyContactRelation?: string;
+  communicationPreference?: CommunicationPreference;
+  parentPreferredLanguage?: string;
+  studentStatus?: StudentStatus;
+
   /** Tags a row with the import batch that created it — enables rollback. */
   importBatchId?: string;
 }

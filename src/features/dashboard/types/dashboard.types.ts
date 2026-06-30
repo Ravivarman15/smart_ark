@@ -119,7 +119,8 @@ export type WidgetId =
   | "card.feeDue"
   | "card.profitLoss"
   | "card.inquiryAnalytics"
-  | "card.pendingApprovals";
+  | "card.pendingApprovals"
+  | "card.studentProfileHealth";
 
 export type WidgetSize = "sm" | "md" | "lg" | "xl";
 

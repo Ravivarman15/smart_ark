@@ -52,6 +52,25 @@ export const registrationSchema = z.object({
   guardianRelation: z.string().trim().max(60).optional().or(z.literal("")),
   guardianContact: phone.optional().or(z.literal("")),
 
+  // shared profile foundation (20260630)
+  section: z.string().trim().max(40).optional().or(z.literal("")),
+  transportRequired: z.boolean().optional(),
+  hostelRequired: z.boolean().optional(),
+  medicalConditions: z.string().trim().max(500).optional().or(z.literal("")),
+  allergies: z.string().trim().max(300).optional().or(z.literal("")),
+  emergencyContactName: z.string().trim().max(120).optional().or(z.literal("")),
+  emergencyContactNumber: phone.optional().or(z.literal("")),
+  emergencyContactRelation: z.string().trim().max(60).optional().or(z.literal("")),
+  communicationPreference: z
+    .enum(["WHATSAPP", "EMAIL", "SMS", "BOTH", "NONE"])
+    .optional()
+    .or(z.literal("")),
+  parentPreferredLanguage: z.string().trim().max(60).optional().or(z.literal("")),
+  studentStatus: z
+    .enum(["ACTIVE", "INACTIVE", "LEFT", "TRANSFERRED", "ALUMNI"])
+    .optional()
+    .or(z.literal("")),
+
   notes: z.string().trim().max(500).optional().or(z.literal("")),
 });
 export type RegistrationValues = z.infer<typeof registrationSchema>;

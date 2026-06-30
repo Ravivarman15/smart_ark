@@ -24,6 +24,9 @@ export interface DataHealth {
   missingRoll: number;
   missingBloodGroup: number;
   missingAddress: number;
+  missingEmergencyContact: number;
+  missingCommunicationPreference: number;
+  missingSection: number;
   duplicateParentRecords: number;
   withoutBatch: number;
   withoutAcademicYear: number;
@@ -40,6 +43,10 @@ export function rowHealthIssues(r: ImportRowPreview): string[] {
   if (!s.rollNumber) issues.push("Missing roll number");
   if (!s.bloodGroup) issues.push("Missing blood group");
   if (!s.address) issues.push("Missing address");
+  if (!s.emergencyContactNumber && !s.emergencyContactName)
+    issues.push("Missing emergency contact");
+  if (!s.communicationPreference) issues.push("Missing communication preference");
+  if (!s.section) issues.push("Missing section");
   if (!r.resolved.batchId && !s.batchId) issues.push("Without batch");
   if (!r.resolved.academicYearId) issues.push("Without academic year");
   return issues;
@@ -69,6 +76,11 @@ export function buildDataHealth(rows: ImportRowPreview[]): DataHealth {
     missingRoll: count((r) => !r.student.rollNumber),
     missingBloodGroup: count((r) => !r.student.bloodGroup),
     missingAddress: count((r) => !r.student.address),
+    missingEmergencyContact: count(
+      (r) => !r.student.emergencyContactNumber && !r.student.emergencyContactName
+    ),
+    missingCommunicationPreference: count((r) => !r.student.communicationPreference),
+    missingSection: count((r) => !r.student.section),
     duplicateParentRecords,
     withoutBatch: count((r) => !r.resolved.batchId && !r.student.batchId),
     withoutAcademicYear: count((r) => !r.resolved.academicYearId),

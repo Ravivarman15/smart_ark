@@ -438,6 +438,55 @@ export type ColumnOverrides = Record<string, string>;
  * "Contact No" don't clobber each other). Unknown columns are ignored. A manual
  * `overrides` map (by normalised header) takes precedence over auto-detection.
  */
+/** Parse a yes/no-ish cell to a boolean, or undefined when not clearly either. */
+function parseBoolean(v: unknown): boolean | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.trim().toLowerCase();
+  if (!s) return undefined;
+  if (/^(yes|y|true|1|required|needed|need|✓|present)$/.test(s)) return true;
+  if (/^(no|n|false|0|not required|none|na|n\/a)$/.test(s)) return false;
+  return undefined;
+}
+
+// Keys are alpha-only (matching `norm` below): "Whats App" → "whatsapp".
+const COMM_PREF_MAP: Record<string, string> = {
+  whatsapp: "WHATSAPP", wa: "WHATSAPP",
+  email: "EMAIL", mail: "EMAIL", emailid: "EMAIL",
+  sms: "SMS", text: "SMS", textmessage: "SMS",
+  both: "BOTH", all: "BOTH", whatsappandemail: "BOTH",
+  none: "NONE", no: "NONE", donotcontact: "NONE", optout: "NONE",
+};
+
+const STATUS_MAP: Record<string, string> = {
+  active: "ACTIVE", current: "ACTIVE", enrolled: "ACTIVE",
+  inactive: "INACTIVE", dropped: "INACTIVE",
+  left: "LEFT", withdrawn: "LEFT",
+  transferred: "TRANSFERRED", transfer: "TRANSFERRED", tc: "TRANSFERRED",
+  alumni: "ALUMNI", passedout: "ALUMNI", graduated: "ALUMNI",
+};
+
+/** Normalise the foundation profile fields (booleans + enums) in place. */
+function coerceProfileFields(student: Record<string, unknown>): void {
+  for (const key of ["transportRequired", "hostelRequired"] as const) {
+    if (student[key] !== undefined) {
+      const b = parseBoolean(student[key]);
+      if (b === undefined) delete student[key];
+      else student[key] = b;
+    }
+  }
+  const norm = (v: unknown) => String(v ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  if (student.communicationPreference !== undefined) {
+    const mapped = COMM_PREF_MAP[norm(student.communicationPreference)];
+    if (mapped) student.communicationPreference = mapped;
+    else delete student.communicationPreference;
+  }
+  if (student.studentStatus !== undefined) {
+    const mapped = STATUS_MAP[norm(student.studentStatus)];
+    if (mapped) student.studentStatus = mapped;
+    else delete student.studentStatus;
+  }
+}
+
 export function rowsToImportRecords(
   rows: string[][],
   overrides?: ColumnOverrides
@@ -457,7 +506,7 @@ export function rowsToImportRecords(
     return null;
   };
   return rows.slice(1).map((cells) => {
-    const student: Record<string, string> = {};
+    const student: Record<string, unknown> = {};
     const academic: AcademicRefInput = {};
     normHeaders.forEach((nh, idx) => {
       if (!nh) return;
@@ -474,13 +523,15 @@ export function rowsToImportRecords(
         student[target.field] = cleanFieldValue(target.field, value);
       }
     });
+    coerceProfileFields(student);
+    const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
     const dedup: DedupKeys = {
-      biometricId: student.biometricId,
-      enrolmentNo: student.enrolmentNo,
-      grNo: student.grNo,
-      rollNumber: student.rollNumber,
-      mobile: student.studentContact || student.parentContact,
-      email: student.studentEmail || student.parentEmail,
+      biometricId: str(student.biometricId),
+      enrolmentNo: str(student.enrolmentNo),
+      grNo: str(student.grNo),
+      rollNumber: str(student.rollNumber),
+      mobile: str(student.studentContact) || str(student.parentContact),
+      email: str(student.studentEmail) || str(student.parentEmail),
     };
     return { student: student as unknown as StudentWriteInput, academic, dedup };
   });

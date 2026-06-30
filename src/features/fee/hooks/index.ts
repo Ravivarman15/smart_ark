@@ -30,4 +30,9 @@ export {
 
 export { useFeeAnalytics, useFeeReminderOutbox } from "./useFeeAnalytics";
 
-export { useEligibleStudents, useAssignFeeStructure } from "./useFeeAssignment";
+export {
+  useEligibleStudents,
+  useAssignFeeStructure,
+  useClassAssignmentPlan,
+  useAutoAssignByClass,
+} from "./useFeeAssignment";

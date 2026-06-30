@@ -67,6 +67,19 @@ type StudentRow = {
   school_college: string | null;
   university: string | null;
   course_expiry_date: string | null;
+  section: string | null;
+  transport_required: boolean | null;
+  transport_route_id: string | null;
+  hostel_required: boolean | null;
+  hostel_room_id: string | null;
+  medical_conditions: string | null;
+  allergies: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_number: string | null;
+  emergency_contact_relation: string | null;
+  communication_preference: string | null;
+  parent_preferred_language: string | null;
+  student_status: string | null;
   app_access_enabled: boolean | null;
   notes: string | null;
   created_at: string | null;
@@ -140,6 +153,19 @@ const toDomain = (r: StudentRow): Student => ({
   schoolCollege: r.school_college ?? undefined,
   university: r.university ?? undefined,
   courseExpiryDate: r.course_expiry_date ?? undefined,
+  section: r.section ?? undefined,
+  transportRequired: r.transport_required ?? undefined,
+  transportRouteId: r.transport_route_id ?? undefined,
+  hostelRequired: r.hostel_required ?? undefined,
+  hostelRoomId: r.hostel_room_id ?? undefined,
+  medicalConditions: r.medical_conditions ?? undefined,
+  allergies: r.allergies ?? undefined,
+  emergencyContactName: r.emergency_contact_name ?? undefined,
+  emergencyContactNumber: r.emergency_contact_number ?? undefined,
+  emergencyContactRelation: r.emergency_contact_relation ?? undefined,
+  communicationPreference: (r.communication_preference as Student["communicationPreference"]) ?? undefined,
+  parentPreferredLanguage: r.parent_preferred_language ?? undefined,
+  studentStatus: (r.student_status as Student["studentStatus"]) ?? undefined,
   appAccessEnabled: r.app_access_enabled ?? false,
   notes: r.notes ?? undefined,
   createdAt: r.created_at ?? undefined,
@@ -190,6 +216,19 @@ const toDb = (input: Partial<StudentWriteInput>): Record<string, unknown> => {
   set("school_college", input.schoolCollege);
   set("university", input.university);
   set("course_expiry_date", input.courseExpiryDate);
+  set("section", input.section);
+  if (input.transportRequired !== undefined) out.transport_required = input.transportRequired;
+  set("transport_route_id", input.transportRouteId);
+  if (input.hostelRequired !== undefined) out.hostel_required = input.hostelRequired;
+  set("hostel_room_id", input.hostelRoomId);
+  set("medical_conditions", input.medicalConditions);
+  set("allergies", input.allergies);
+  set("emergency_contact_name", input.emergencyContactName);
+  set("emergency_contact_number", input.emergencyContactNumber);
+  set("emergency_contact_relation", input.emergencyContactRelation);
+  set("communication_preference", input.communicationPreference);
+  set("parent_preferred_language", input.parentPreferredLanguage);
+  set("student_status", input.studentStatus);
   set("notes", input.notes);
   set("import_batch_id", input.importBatchId);
   return out;

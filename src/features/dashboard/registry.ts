@@ -82,6 +82,7 @@ export const WIDGET_REGISTRY: Record<WidgetId, WidgetEntry> = {
   "card.profitLoss":        E("card.profitLoss",        "Profit / Loss",      lazyWidget(() => import("./widgets/ProfitLossCard"),          "ProfitLossCard"),          { roles: MGMT, size: "md" }),
   "card.inquiryAnalytics":  E("card.inquiryAnalytics",  "Enquiry Funnel",     lazyWidget(() => import("./widgets/InquiryAnalyticsCard"),    "InquiryAnalyticsCard"),    { roles: ["management", "admin", "coordinator"], action: "enquiry.manage", size: "md" }),
   "card.pendingApprovals":  E("card.pendingApprovals",  "Pending Approvals",  lazyWidget(() => import("./widgets/PendingApprovalCard"),     "PendingApprovalCard"),     { roles: MGMT_ADMIN, size: "md" }),
+  "card.studentProfileHealth": E("card.studentProfileHealth", "Student Profile Health", lazyWidget(() => import("./widgets/StudentProfileHealthCard"), "StudentProfileHealthCard"), { roles: ["management", "admin", "coordinator"], size: "md" }),
 };
 
 // ── Default per-role layouts ──────────────────────────────────────────────────
@@ -112,6 +113,7 @@ export const DEFAULT_LAYOUTS: Record<Role | "default", { widgetId: WidgetId; ord
     "card.studentAttendance",
     "card.attendance",
     "card.inquiryAnalytics",
+    "card.studentProfileHealth",
   ]),
   admin: ord([
     "kpi.totalStudents",
@@ -125,6 +127,7 @@ export const DEFAULT_LAYOUTS: Record<Role | "default", { widgetId: WidgetId; ord
     "card.feeDue",
     "card.pendingApprovals",
     "card.inquiryAnalytics",
+    "card.studentProfileHealth",
   ]),
   coordinator: ord([
     "kpi.todayEnquiries",

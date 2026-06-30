@@ -49,6 +49,38 @@ export interface AssignResult {
   skipped: number;
 }
 
+/** A fee structure as a candidate for a class, with the figures copied on assign. */
+export interface ClassPlanStructure {
+  id: string;
+  name: string;
+  totalAmount: number;
+  seatConfirmationAmount: number;
+  firstPaymentAmount: number;
+  installmentCount: number;
+}
+
+/** One class (standard) that has fee-less students + the structure(s) available. */
+export interface ClassPlanRow {
+  standardId: string;
+  standardName: string;
+  /** Active students in this class that still need a fee record. */
+  studentCount: number;
+  /** Fee structures defined for this class (0, 1, or many → ambiguous). */
+  structures: ClassPlanStructure[];
+}
+
+export interface ClassAssignmentPlan {
+  rows: ClassPlanRow[];
+  /** Fee-less students with no class set (cannot be matched by class). */
+  studentsWithoutClass: number;
+}
+
+/** One resolved class → chosen structure decision from the preview UI. */
+export interface ClassAssignmentChoice {
+  standardId: string;
+  structure: ClassPlanStructure;
+}
+
 const isRelationError = (err: { message?: string } | null | undefined) => {
   const m = (err?.message ?? "").toLowerCase();
   return m.includes("relationship") || m.includes("column") || m.includes("schema cache");
@@ -59,40 +91,108 @@ class FeeAssignmentService extends BaseService {
    * Active students eligible for assignment, optionally narrowed to one
    * standard. Each row carries `hasFee` so the UI can pre-skip students who
    * already have a ledger.
+   *
+   * Fetches EVERY active student (paginated — never truncated by a server-side
+   * row cap), and resolves each student's class from `standard_id` OR, when that
+   * is empty, from their batch's standard. This is why imported students whose
+   * class label never matched a Setup standard still classify by class. The
+   * `standardId` filter is applied in memory against that effective standard.
    */
   async eligibleStudents(params: { standardId?: string } = {}): Promise<EligibleStudent[]> {
-    const RICH = "id, name, standard_id, batch_id, batches(name), standards(name)";
-    const BASE = "id, name, standard_id, batch_id";
+    const rows = await this.fetchActiveStudents();
+    const batchStd = await this.batchStandards();
 
-    const run = (select: string) => {
-      let q = this.db.from("students").select(select).eq("is_active", true);
-      if (params.standardId) q = q.eq("standard_id", params.standardId);
-      return q.order("name", { ascending: true });
-    };
+    const ids = rows.map((r) => r.id);
+    const withFee = await this.studentsWithFee(ids);
 
-    let res = await run(RICH);
-    if (res.error && isRelationError(res.error)) res = await run(BASE);
-    const rows = this.guardList(res, "students") as unknown as Array<{
+    const all = rows.map((r) => {
+      const viaBatch = r.batch_id ? batchStd.get(r.batch_id) : undefined;
+      return {
+        id: r.id,
+        name: r.name ?? "—",
+        standardId: r.standard_id ?? viaBatch?.standardId,
+        standardName: joinName(r.standards ?? null) ?? viaBatch?.standardName,
+        batchId: r.batch_id ?? undefined,
+        batchName: joinName(r.batches ?? null),
+        hasFee: withFee.has(r.id),
+      } satisfies EligibleStudent;
+    });
+
+    return params.standardId
+      ? all.filter((s) => s.standardId === params.standardId)
+      : all;
+  }
+
+  /** Every active student (paginated, RICH→BASE select fallback). */
+  private async fetchActiveStudents(): Promise<
+    Array<{
       id: string;
       name: string | null;
       standard_id: string | null;
       batch_id: string | null;
       batches?: Join;
       standards?: Join;
-    }>;
+    }>
+  > {
+    const RICH = "id, name, standard_id, batch_id, batches(name), standards(name)";
+    const BASE = "id, name, standard_id, batch_id";
+    const PAGE = 1000;
+    type Row = {
+      id: string;
+      name: string | null;
+      standard_id: string | null;
+      batch_id: string | null;
+      batches?: Join;
+      standards?: Join;
+    };
 
-    const ids = rows.map((r) => r.id);
-    const withFee = await this.studentsWithFee(ids);
+    const out: Row[] = [];
+    let select = RICH;
+    for (let from = 0; ; from += PAGE) {
+      let res = await this.db
+        .from("students")
+        .select(select)
+        .eq("is_active", true)
+        .order("name", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (res.error && isRelationError(res.error) && select === RICH) {
+        // Embedded relationship/column unavailable — drop to base columns and retry.
+        select = BASE;
+        res = await this.db
+          .from("students")
+          .select(select)
+          .eq("is_active", true)
+          .order("name", { ascending: true })
+          .range(from, from + PAGE - 1);
+      }
+      const page = this.guardList(res, "students") as unknown as Row[];
+      out.push(...page);
+      if (page.length < PAGE) break; // last page reached
+    }
+    return out;
+  }
 
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name ?? "—",
-      standardId: r.standard_id ?? undefined,
-      standardName: joinName(r.standards ?? null),
-      batchId: r.batch_id ?? undefined,
-      batchName: joinName(r.batches ?? null),
-      hasFee: withFee.has(r.id),
-    }));
+  /** batchId → its standard (id + name), for class fallback. Best-effort. */
+  private async batchStandards(): Promise<
+    Map<string, { standardId?: string; standardName?: string }>
+  > {
+    const out = new Map<string, { standardId?: string; standardName?: string }>();
+    let res = await this.db.from("batches").select("id, standard_id, standards(name)");
+    if (res.error && isRelationError(res.error)) {
+      res = await this.db.from("batches").select("id, standard_id");
+    }
+    if (res.error) return out; // batches table unreadable — fallback simply unused
+    for (const b of (res.data ?? []) as Array<{
+      id: string;
+      standard_id: string | null;
+      standards?: Join;
+    }>) {
+      out.set(b.id, {
+        standardId: b.standard_id ?? undefined,
+        standardName: joinName(b.standards ?? null),
+      });
+    }
+    return out;
   }
 
   /** Set of student ids (within `ids`) that already have a fee record. */
@@ -153,6 +253,123 @@ class FeeAssignmentService extends BaseService {
     if (error) throw AppError.fromSupabase(error, "fee assignment");
 
     return { created: toCreate.length, skipped };
+  }
+
+  /**
+   * Build the auto-assign-by-class plan: for every fee-less active student,
+   * group by their class (standard) and attach the fee structure(s) defined for
+   * that class. A class with exactly one structure auto-resolves; a class with
+   * several is "ambiguous" (the UI lets the operator pick); a class with none is
+   * reported with an empty `structures` list. Students with no class are counted
+   * separately (they can only be assigned manually).
+   */
+  async classAssignmentPlan(): Promise<ClassAssignmentPlan> {
+    const eligible = await this.eligibleStudents();
+    const needFee = eligible.filter((s) => !s.hasFee);
+    const studentsWithoutClass = needFee.filter((s) => !s.standardId).length;
+
+    const structuresByStd = await this.activeStructuresByStandard();
+
+    const groups = new Map<string, { name: string; count: number }>();
+    for (const s of needFee) {
+      if (!s.standardId) continue;
+      const g = groups.get(s.standardId);
+      if (g) g.count += 1;
+      else groups.set(s.standardId, { name: s.standardName ?? "—", count: 1 });
+    }
+
+    const rows: ClassPlanRow[] = [...groups.entries()]
+      .map(([standardId, g]) => ({
+        standardId,
+        standardName: g.name,
+        studentCount: g.count,
+        structures: structuresByStd.get(standardId) ?? [],
+      }))
+      .sort((a, b) => a.standardName.localeCompare(b.standardName));
+
+    return { rows, studentsWithoutClass };
+  }
+
+  /**
+   * Auto-assign: for each class→structure choice, create `student_fees` rows for
+   * every fee-less active student in that class. Reuses the same skip-existing
+   * upsert as `assignStructure`. Returns the combined created / skipped totals.
+   */
+  async autoAssignByClass(input: {
+    choices: ClassAssignmentChoice[];
+    createdBy?: string | null;
+  }): Promise<AssignResult> {
+    if (input.choices.length === 0) return { created: 0, skipped: 0 };
+
+    // Resolve eligible student ids per chosen class (fresh read — authoritative).
+    const perClass = await Promise.all(
+      input.choices.map(async (c) => {
+        const students = await this.eligibleStudents({ standardId: c.standardId });
+        return {
+          choice: c,
+          ids: students.filter((s) => !s.hasFee).map((s) => s.id),
+        };
+      })
+    );
+
+    let created = 0;
+    let skipped = 0;
+    for (const { choice, ids } of perClass) {
+      if (ids.length === 0) continue;
+      const res = await this.assignStructure({
+        structureId: choice.structure.id,
+        studentIds: ids,
+        totalAmount: choice.structure.totalAmount,
+        seatConfirmationAmount: choice.structure.seatConfirmationAmount,
+        firstPaymentAmount: choice.structure.firstPaymentAmount,
+        installmentCount: choice.structure.installmentCount,
+        createdBy: input.createdBy,
+      });
+      created += res.created;
+      skipped += res.skipped;
+    }
+    return { created, skipped };
+  }
+
+  /** standardId → active fee structures defined for that class. */
+  private async activeStructuresByStandard(): Promise<Map<string, ClassPlanStructure[]>> {
+    const cols =
+      "id, name, standard_id, total_amount, seat_confirmation_amount, " +
+      "first_payment_amount, installment_count, is_active";
+    let res = await this.db.from("fee_structures").select(cols);
+    if (res.error && isRelationError(res.error)) {
+      res = await this.db
+        .from("fee_structures")
+        .select("id, name, standard_id, total_amount, installment_count");
+    }
+    if (res.error) throw AppError.fromSupabase(res.error, "fee_structures");
+
+    const out = new Map<string, ClassPlanStructure[]>();
+    for (const r of (res.data ?? []) as Array<{
+      id: string;
+      name: string | null;
+      standard_id: string | null;
+      total_amount: number | string | null;
+      seat_confirmation_amount?: number | string | null;
+      first_payment_amount?: number | string | null;
+      installment_count: number | null;
+      is_active?: boolean | null;
+    }>) {
+      if (!r.standard_id) continue;
+      if (r.is_active === false) continue;
+      const s: ClassPlanStructure = {
+        id: r.id,
+        name: r.name ?? "—",
+        totalAmount: Number(r.total_amount) || 0,
+        seatConfirmationAmount: Number(r.seat_confirmation_amount) || 0,
+        firstPaymentAmount: Number(r.first_payment_amount) || 0,
+        installmentCount: Number(r.installment_count) || 2,
+      };
+      const list = out.get(r.standard_id);
+      if (list) list.push(s);
+      else out.set(r.standard_id, [s]);
+    }
+    return out;
   }
 
   /** student id → display name + batch name, for the denormalised fee columns. */

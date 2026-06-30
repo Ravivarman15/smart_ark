@@ -77,6 +77,8 @@ const FIELD_CLEANERS: Record<string, Cleaner> = {
   dateOfBirth: cleanDate,
   dateOfJoining: cleanDate,
   courseExpiryDate: cleanDate,
+  emergencyContactName: cleanName,
+  emergencyContactNumber: cleanPhone,
 };
 
 /** Clean a raw cell for a given student field. */

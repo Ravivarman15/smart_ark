@@ -85,6 +85,10 @@ export {
   type EligibleStudent,
   type AssignFeeStructureInput,
   type AssignResult,
+  type ClassPlanStructure,
+  type ClassPlanRow,
+  type ClassAssignmentPlan,
+  type ClassAssignmentChoice,
 } from "./services";
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
@@ -113,6 +117,8 @@ export {
   useFeeReminderOutbox,
   useEligibleStudents,
   useAssignFeeStructure,
+  useClassAssignmentPlan,
+  useAutoAssignByClass,
 } from "./hooks";
 
 // ── Components ───────────────────────────────────────────────────────────────
@@ -122,4 +128,5 @@ export {
   RevisionHistoryDialog,
   FeeAnalyticsPanel,
   AssignFeeDialog,
+  AutoAssignFeesDialog,
 } from "./components";

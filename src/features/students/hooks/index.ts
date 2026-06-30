@@ -61,3 +61,6 @@ export { useAppAccess, useSaveAppAccess } from "./useAppAccess";
 
 // Import
 export { useImportHistory, useCommitImport } from "./useStudentImport";
+
+// Profile health (dashboard + data health)
+export { useStudentProfileHealth } from "./useStudentProfileHealth";

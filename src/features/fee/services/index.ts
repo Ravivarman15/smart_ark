@@ -19,4 +19,8 @@ export {
   type EligibleStudent,
   type AssignFeeStructureInput,
   type AssignResult,
+  type ClassPlanStructure,
+  type ClassPlanRow,
+  type ClassAssignmentPlan,
+  type ClassAssignmentChoice,
 } from "./feeAssignment.service";

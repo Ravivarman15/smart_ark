@@ -54,6 +54,10 @@ export const GENDER_OPTIONS = ["Male", "Female", "Other"];
 
 export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
+// Shared profile foundation picklists (20260630).
+export const COMMUNICATION_PREFERENCES = ["WHATSAPP", "EMAIL", "SMS", "BOTH", "NONE"] as const;
+export const STUDENT_STATUSES = ["ACTIVE", "INACTIVE", "LEFT", "TRANSFERRED", "ALUMNI"] as const;
+
 export const GUARDIAN_RELATIONS = [
   "Father",
   "Mother",
@@ -243,13 +247,25 @@ export const STUDENT_FIELD_ALIASES: Partial<Record<keyof StudentWriteInput, stri
   schoolCollege: ["school college", "school / college", "school", "college", "previous school"],
   university: ["university", "board", "university board"],
   courseExpiryDate: ["course expiry date", "expiry date", "course expiry", "course end date"],
+  // ── Shared profile foundation (20260630) ──
+  section: ["section", "div", "division", "class section"],
+  transportRequired: ["transport", "transport required", "needs transport", "transport needed", "bus"],
+  hostelRequired: ["hostel", "hostel required", "needs hostel", "hosteller", "boarding", "residential"],
+  medicalConditions: ["medical", "medical conditions", "medical notes", "health notes", "health conditions"],
+  allergies: ["allergy", "allergies", "known allergies"],
+  emergencyContactName: ["emergency contact name", "emergency name", "emergency contact"],
+  emergencyContactNumber: ["emergency contact number", "emergency number", "emergency mobile", "emergency phone", "emergency contact no"],
+  emergencyContactRelation: ["emergency contact relation", "emergency relation", "emergency relationship"],
+  communicationPreference: ["communication preference", "comm preference", "preferred channel", "contact preference", "notification preference"],
+  parentPreferredLanguage: ["preferred language", "parent language", "language", "communication language"],
+  studentStatus: ["student status", "status", "enrolment status", "lifecycle status"],
 };
 
 /** Academic-reference field → accepted header aliases (resolved to ids via
  *  `resolveAcademic` against live Setup data). */
 export const ACADEMIC_FIELD_ALIASES: Record<AcademicRefField, string[]> = {
   standardName: ["standard", "standard name", "std", "grade"],
-  batchName: ["class batch", "class / batch", "batch", "batch name", "class", "section", "division"],
+  batchName: ["class batch", "class / batch", "batch", "batch name", "class"],
   courseTypeName: ["course type", "course", "stream", "course type name"],
   academicYearName: ["academic year", "academic year name", "year", "session", "ay"],
 };

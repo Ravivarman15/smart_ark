@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useAppData } from "@/contexts/AppDataContext";
-import { Plus, Pencil, Trash2, Percent, Info, History, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Percent, Info, History, Users, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useCanDo } from "@/features/rbac";
 import {
   AssignFeeDialog,
+  AutoAssignFeesDialog,
   RevisionHistoryDialog,
   computeBreakdown,
   formatINR,
@@ -92,6 +93,7 @@ const FeeStructurePage: React.FC = () => {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [historyOf, setHistoryOf] = useState<FeeStructure | null>(null);
   const [assignOf, setAssignOf] = useState<FeeStructure | null>(null);
+  const [autoAssignOpen, setAutoAssignOpen] = useState(false);
 
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -227,18 +229,33 @@ const FeeStructurePage: React.FC = () => {
             Fee templates with installment plans, used at student admission.
           </p>
         </div>
-        <Button
-          onClick={openAdd}
-          className="gap-2"
-          disabled={!canDo("fee.structure.create")}
-          title={
-            canDo("fee.structure.create")
-              ? undefined
-              : "You do not have permission to create fee structures"
-          }
-        >
-          <Plus className="w-4 h-4" /> Create Fee Structure
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setAutoAssignOpen(true)}
+            className="gap-2 border-accent/40 text-accent hover:bg-accent/10"
+            disabled={!canDo("fee.edit")}
+            title={
+              canDo("fee.edit")
+                ? "Match every student to the fee structure for their class"
+                : "You do not have permission to assign fees"
+            }
+          >
+            <Wand2 className="w-4 h-4" /> Auto-Assign by Class
+          </Button>
+          <Button
+            onClick={openAdd}
+            className="gap-2"
+            disabled={!canDo("fee.structure.create")}
+            title={
+              canDo("fee.structure.create")
+                ? undefined
+                : "You do not have permission to create fee structures"
+            }
+          >
+            <Plus className="w-4 h-4" /> Create Fee Structure
+          </Button>
+        </div>
       </div>
 
       <div className="glass-card p-0 overflow-hidden">
@@ -388,6 +405,9 @@ const FeeStructurePage: React.FC = () => {
         standards={standards}
         onOpenChange={(open) => !open && setAssignOf(null)}
       />
+
+      {/* Auto-assign fees by class */}
+      <AutoAssignFeesDialog open={autoAssignOpen} onOpenChange={setAutoAssignOpen} />
 
       {/* Revision history */}
       <RevisionHistoryDialog

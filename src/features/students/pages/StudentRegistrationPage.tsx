@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { FormField } from "../components";
 import { useStudent } from "../hooks/useStudent";
 import { useCreateStudent } from "../hooks/useCreateStudent";
@@ -24,7 +25,13 @@ import {
 } from "../hooks/useStudentLookups";
 import { registrationSchema } from "../schemas/student.schema";
 import { validate } from "../utils/helpers";
-import { BLOOD_GROUPS, GENDER_OPTIONS, GUARDIAN_RELATIONS } from "../utils/constants";
+import {
+  BLOOD_GROUPS,
+  COMMUNICATION_PREFERENCES,
+  GENDER_OPTIONS,
+  GUARDIAN_RELATIONS,
+  STUDENT_STATUSES,
+} from "../utils/constants";
 import type { StudentWriteInput } from "../types/student.types";
 
 const NONE = "__none__";
@@ -58,6 +65,17 @@ interface FormState {
   guardianName: string;
   guardianRelation: string;
   guardianContact: string;
+  section: string;
+  studentStatus: string;
+  communicationPreference: string;
+  parentPreferredLanguage: string;
+  transportRequired: boolean;
+  hostelRequired: boolean;
+  emergencyContactName: string;
+  emergencyContactNumber: string;
+  emergencyContactRelation: string;
+  medicalConditions: string;
+  allergies: string;
   notes: string;
 }
 
@@ -86,6 +104,17 @@ const blank: FormState = {
   guardianName: "",
   guardianRelation: NONE,
   guardianContact: "",
+  section: "",
+  studentStatus: NONE,
+  communicationPreference: NONE,
+  parentPreferredLanguage: "",
+  transportRequired: false,
+  hostelRequired: false,
+  emergencyContactName: "",
+  emergencyContactNumber: "",
+  emergencyContactRelation: "",
+  medicalConditions: "",
+  allergies: "",
   notes: "",
 };
 
@@ -142,6 +171,17 @@ const StudentRegistrationPage = () => {
       guardianName: existing.guardianName ?? "",
       guardianRelation: existing.guardianRelation ?? NONE,
       guardianContact: existing.guardianContact ?? "",
+      section: existing.section ?? "",
+      studentStatus: existing.studentStatus ?? NONE,
+      communicationPreference: existing.communicationPreference ?? NONE,
+      parentPreferredLanguage: existing.parentPreferredLanguage ?? "",
+      transportRequired: existing.transportRequired ?? false,
+      hostelRequired: existing.hostelRequired ?? false,
+      emergencyContactName: existing.emergencyContactName ?? "",
+      emergencyContactNumber: existing.emergencyContactNumber ?? "",
+      emergencyContactRelation: existing.emergencyContactRelation ?? "",
+      medicalConditions: existing.medicalConditions ?? "",
+      allergies: existing.allergies ?? "",
       notes: existing.notes ?? "",
     });
   }, [existing]);
@@ -179,6 +219,17 @@ const StudentRegistrationPage = () => {
       guardianName: form.guardianName,
       guardianRelation: unwrap(form.guardianRelation),
       guardianContact: form.guardianContact,
+      section: form.section,
+      studentStatus: unwrap(form.studentStatus),
+      communicationPreference: unwrap(form.communicationPreference),
+      parentPreferredLanguage: form.parentPreferredLanguage,
+      transportRequired: form.transportRequired,
+      hostelRequired: form.hostelRequired,
+      emergencyContactName: form.emergencyContactName,
+      emergencyContactNumber: form.emergencyContactNumber,
+      emergencyContactRelation: form.emergencyContactRelation,
+      medicalConditions: form.medicalConditions,
+      allergies: form.allergies,
       notes: form.notes,
     };
     const result = validate(registrationSchema, candidate);
@@ -485,6 +536,103 @@ const StudentRegistrationPage = () => {
             value={form.guardianContact}
             onChange={(e) => set({ guardianContact: e.target.value })}
           />
+        </FormField>
+      </Section>
+
+      <Section title="Logistics, Health & Communication">
+        <FormField label="Section" hint="e.g. A / B" error={errors.section}>
+          <Input value={form.section} onChange={(e) => set({ section: e.target.value })} />
+        </FormField>
+        <FormField label="Student status">
+          <Select
+            value={form.studentStatus}
+            onValueChange={(v) => set({ studentStatus: v })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Active (default)</SelectItem>
+              {STUDENT_STATUSES.map((st) => (
+                <SelectItem key={st} value={st}>
+                  {st.charAt(0) + st.slice(1).toLowerCase()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Communication preference">
+          <Select
+            value={form.communicationPreference}
+            onValueChange={(v) => set({ communicationPreference: v })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Not set</SelectItem>
+              {COMMUNICATION_PREFERENCES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c === "BOTH" ? "Both (WhatsApp + Email)" : c.charAt(0) + c.slice(1).toLowerCase()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Parent preferred language" error={errors.parentPreferredLanguage}>
+          <Input
+            value={form.parentPreferredLanguage}
+            onChange={(e) => set({ parentPreferredLanguage: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Transport required">
+          <div className="flex items-center gap-2 h-9">
+            <Switch
+              checked={form.transportRequired}
+              onCheckedChange={(v) => set({ transportRequired: v })}
+            />
+            <span className="text-sm text-muted-foreground">
+              {form.transportRequired ? "Yes — appears in transport queue" : "No"}
+            </span>
+          </div>
+        </FormField>
+        <FormField label="Hostel required">
+          <div className="flex items-center gap-2 h-9">
+            <Switch
+              checked={form.hostelRequired}
+              onCheckedChange={(v) => set({ hostelRequired: v })}
+            />
+            <span className="text-sm text-muted-foreground">
+              {form.hostelRequired ? "Yes — appears in hostel queue" : "No"}
+            </span>
+          </div>
+        </FormField>
+        <FormField label="Emergency contact name" error={errors.emergencyContactName}>
+          <Input
+            value={form.emergencyContactName}
+            onChange={(e) => set({ emergencyContactName: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Emergency contact number" error={errors.emergencyContactNumber}>
+          <Input
+            value={form.emergencyContactNumber}
+            onChange={(e) => set({ emergencyContactNumber: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Emergency contact relation" error={errors.emergencyContactRelation}>
+          <Input
+            value={form.emergencyContactRelation}
+            onChange={(e) => set({ emergencyContactRelation: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Medical conditions" error={errors.medicalConditions}>
+          <Input
+            value={form.medicalConditions}
+            onChange={(e) => set({ medicalConditions: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Allergies" error={errors.allergies}>
+          <Input value={form.allergies} onChange={(e) => set({ allergies: e.target.value })} />
         </FormField>
       </Section>
 
