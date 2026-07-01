@@ -237,11 +237,11 @@ const FeeStructurePage: React.FC = () => {
             disabled={!canDo("fee.edit")}
             title={
               canDo("fee.edit")
-                ? "Match every student to the fee structure for their class"
+                ? "Match every student to a fee structure for their batch"
                 : "You do not have permission to assign fees"
             }
           >
-            <Wand2 className="w-4 h-4" /> Auto-Assign by Class
+            <Wand2 className="w-4 h-4" /> Auto-Assign by Batch
           </Button>
           <Button
             onClick={openAdd}

@@ -85,10 +85,10 @@ export {
   type EligibleStudent,
   type AssignFeeStructureInput,
   type AssignResult,
-  type ClassPlanStructure,
-  type ClassPlanRow,
-  type ClassAssignmentPlan,
-  type ClassAssignmentChoice,
+  type PlanStructure,
+  type BatchPlanRow,
+  type BatchAssignmentPlan,
+  type BatchAssignmentChoice,
 } from "./services";
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
@@ -117,8 +117,8 @@ export {
   useFeeReminderOutbox,
   useEligibleStudents,
   useAssignFeeStructure,
-  useClassAssignmentPlan,
-  useAutoAssignByClass,
+  useBatchAssignmentPlan,
+  useAutoAssignByBatch,
 } from "./hooks";
 
 // ── Components ───────────────────────────────────────────────────────────────

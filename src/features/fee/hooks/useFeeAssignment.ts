@@ -5,7 +5,7 @@ import { queryKeys } from "@/core/constants/queryKeys";
 import {
   feeAssignmentService,
   type AssignFeeStructureInput,
-  type ClassAssignmentChoice,
+  type BatchAssignmentChoice,
 } from "../services/feeAssignment.service";
 
 // Hooks for assigning a fee structure to students (generates student_fees rows).
@@ -24,11 +24,11 @@ export const useEligibleStudents = (
     enabled,
   });
 
-/** Per-class plan for auto-assigning fees by the student's standard. */
-export const useClassAssignmentPlan = (enabled: boolean) =>
+/** Per-batch plan for auto-assigning fees by the student's batch. */
+export const useBatchAssignmentPlan = (enabled: boolean) =>
   useQuery({
-    queryKey: [...queryKeys.fees.all, "class-assignment-plan"] as const,
-    queryFn: () => feeAssignmentService.classAssignmentPlan(),
+    queryKey: [...queryKeys.fees.all, "batch-assignment-plan"] as const,
+    queryFn: () => feeAssignmentService.batchAssignmentPlan(),
     enabled,
   });
 
@@ -59,13 +59,13 @@ export const useAssignFeeStructure = () => {
   });
 };
 
-/** Auto-assign fees to every fee-less student by their class (one click). */
-export const useAutoAssignByClass = () => {
+/** Auto-assign fees to every fee-less student by their batch (one click). */
+export const useAutoAssignByBatch = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: (choices: ClassAssignmentChoice[]) =>
-      feeAssignmentService.autoAssignByClass({ choices, createdBy: user?.profileId }),
+    mutationFn: (choices: BatchAssignmentChoice[]) =>
+      feeAssignmentService.autoAssignByBatch({ choices, createdBy: user?.profileId }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: queryKeys.fees.all });
       if (res.created === 0) {
@@ -76,7 +76,7 @@ export const useAutoAssignByClass = () => {
         );
       } else {
         toast.success(
-          `${res.created} fee record${res.created === 1 ? "" : "s"} created by class` +
+          `${res.created} fee record${res.created === 1 ? "" : "s"} created by batch` +
             (res.skipped ? ` · ${res.skipped} already had one` : "")
         );
       }

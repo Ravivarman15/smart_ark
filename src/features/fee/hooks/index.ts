@@ -33,6 +33,6 @@ export { useFeeAnalytics, useFeeReminderOutbox } from "./useFeeAnalytics";
 export {
   useEligibleStudents,
   useAssignFeeStructure,
-  useClassAssignmentPlan,
-  useAutoAssignByClass,
+  useBatchAssignmentPlan,
+  useAutoAssignByBatch,
 } from "./useFeeAssignment";

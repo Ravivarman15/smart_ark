@@ -49,8 +49,8 @@ export interface AssignResult {
   skipped: number;
 }
 
-/** A fee structure as a candidate for a class, with the figures copied on assign. */
-export interface ClassPlanStructure {
+/** A fee structure as a candidate for a batch, with the figures copied on assign. */
+export interface PlanStructure {
   id: string;
   name: string;
   totalAmount: number;
@@ -59,26 +59,29 @@ export interface ClassPlanStructure {
   installmentCount: number;
 }
 
-/** One class (standard) that has fee-less students + the structure(s) available. */
-export interface ClassPlanRow {
-  standardId: string;
-  standardName: string;
-  /** Active students in this class that still need a fee record. */
+/** One batch that has fee-less students + the structure(s) available for it. */
+export interface BatchPlanRow {
+  batchId: string;
+  batchName: string;
+  /** The batch's class (standard), used to source candidate structures. */
+  standardId?: string;
+  standardName?: string;
+  /** Active students in this batch that still need a fee record. */
   studentCount: number;
-  /** Fee structures defined for this class (0, 1, or many → ambiguous). */
-  structures: ClassPlanStructure[];
+  /** Fee structures defined for the batch's class (0, 1, or many → ambiguous). */
+  structures: PlanStructure[];
 }
 
-export interface ClassAssignmentPlan {
-  rows: ClassPlanRow[];
-  /** Fee-less students with no class set (cannot be matched by class). */
-  studentsWithoutClass: number;
+export interface BatchAssignmentPlan {
+  rows: BatchPlanRow[];
+  /** Fee-less students with no batch set (cannot be matched by batch). */
+  studentsWithoutBatch: number;
 }
 
-/** One resolved class → chosen structure decision from the preview UI. */
-export interface ClassAssignmentChoice {
-  standardId: string;
-  structure: ClassPlanStructure;
+/** One resolved batch → chosen structure decision from the preview UI. */
+export interface BatchAssignmentChoice {
+  batchId: string;
+  structure: PlanStructure;
 }
 
 const isRelationError = (err: { message?: string } | null | undefined) => {
@@ -256,65 +259,76 @@ class FeeAssignmentService extends BaseService {
   }
 
   /**
-   * Build the auto-assign-by-class plan: for every fee-less active student,
-   * group by their class (standard) and attach the fee structure(s) defined for
-   * that class. A class with exactly one structure auto-resolves; a class with
-   * several is "ambiguous" (the UI lets the operator pick); a class with none is
-   * reported with an empty `structures` list. Students with no class are counted
-   * separately (they can only be assigned manually).
+   * Build the auto-assign-by-batch plan: for every fee-less active student,
+   * group by their batch and attach the fee structure(s) defined for the batch's
+   * class (standard). A batch whose class has exactly one structure auto-resolves;
+   * a class with several is "ambiguous" (the UI lets the operator pick per batch);
+   * a batch whose class has none is reported with an empty `structures` list.
+   * Students with no batch are counted separately (assign them manually).
    */
-  async classAssignmentPlan(): Promise<ClassAssignmentPlan> {
+  async batchAssignmentPlan(): Promise<BatchAssignmentPlan> {
     const eligible = await this.eligibleStudents();
     const needFee = eligible.filter((s) => !s.hasFee);
-    const studentsWithoutClass = needFee.filter((s) => !s.standardId).length;
+    const studentsWithoutBatch = needFee.filter((s) => !s.batchId).length;
 
     const structuresByStd = await this.activeStructuresByStandard();
 
-    const groups = new Map<string, { name: string; count: number }>();
+    const groups = new Map<
+      string,
+      { name: string; standardId?: string; standardName?: string; count: number }
+    >();
     for (const s of needFee) {
-      if (!s.standardId) continue;
-      const g = groups.get(s.standardId);
+      if (!s.batchId) continue;
+      const g = groups.get(s.batchId);
       if (g) g.count += 1;
-      else groups.set(s.standardId, { name: s.standardName ?? "—", count: 1 });
+      else
+        groups.set(s.batchId, {
+          name: s.batchName ?? "—",
+          standardId: s.standardId,
+          standardName: s.standardName,
+          count: 1,
+        });
     }
 
-    const rows: ClassPlanRow[] = [...groups.entries()]
-      .map(([standardId, g]) => ({
-        standardId,
-        standardName: g.name,
+    const rows: BatchPlanRow[] = [...groups.entries()]
+      .map(([batchId, g]) => ({
+        batchId,
+        batchName: g.name,
+        standardId: g.standardId,
+        standardName: g.standardName,
         studentCount: g.count,
-        structures: structuresByStd.get(standardId) ?? [],
+        structures: g.standardId ? structuresByStd.get(g.standardId) ?? [] : [],
       }))
-      .sort((a, b) => a.standardName.localeCompare(b.standardName));
+      .sort((a, b) => a.batchName.localeCompare(b.batchName));
 
-    return { rows, studentsWithoutClass };
+    return { rows, studentsWithoutBatch };
   }
 
   /**
-   * Auto-assign: for each class→structure choice, create `student_fees` rows for
-   * every fee-less active student in that class. Reuses the same skip-existing
+   * Auto-assign: for each batch→structure choice, create `student_fees` rows for
+   * every fee-less active student in that batch. Reuses the same skip-existing
    * upsert as `assignStructure`. Returns the combined created / skipped totals.
    */
-  async autoAssignByClass(input: {
-    choices: ClassAssignmentChoice[];
+  async autoAssignByBatch(input: {
+    choices: BatchAssignmentChoice[];
     createdBy?: string | null;
   }): Promise<AssignResult> {
     if (input.choices.length === 0) return { created: 0, skipped: 0 };
 
-    // Resolve eligible student ids per chosen class (fresh read — authoritative).
-    const perClass = await Promise.all(
-      input.choices.map(async (c) => {
-        const students = await this.eligibleStudents({ standardId: c.standardId });
-        return {
-          choice: c,
-          ids: students.filter((s) => !s.hasFee).map((s) => s.id),
-        };
-      })
-    );
+    // Fresh read of every fee-less student, grouped by batch (authoritative).
+    const eligible = await this.eligibleStudents();
+    const idsByBatch = new Map<string, string[]>();
+    for (const s of eligible) {
+      if (s.hasFee || !s.batchId) continue;
+      const list = idsByBatch.get(s.batchId);
+      if (list) list.push(s.id);
+      else idsByBatch.set(s.batchId, [s.id]);
+    }
 
     let created = 0;
     let skipped = 0;
-    for (const { choice, ids } of perClass) {
+    for (const choice of input.choices) {
+      const ids = idsByBatch.get(choice.batchId) ?? [];
       if (ids.length === 0) continue;
       const res = await this.assignStructure({
         structureId: choice.structure.id,
@@ -332,7 +346,7 @@ class FeeAssignmentService extends BaseService {
   }
 
   /** standardId → active fee structures defined for that class. */
-  private async activeStructuresByStandard(): Promise<Map<string, ClassPlanStructure[]>> {
+  private async activeStructuresByStandard(): Promise<Map<string, PlanStructure[]>> {
     const cols =
       "id, name, standard_id, total_amount, seat_confirmation_amount, " +
       "first_payment_amount, installment_count, is_active";
@@ -344,7 +358,7 @@ class FeeAssignmentService extends BaseService {
     }
     if (res.error) throw AppError.fromSupabase(res.error, "fee_structures");
 
-    const out = new Map<string, ClassPlanStructure[]>();
+    const out = new Map<string, PlanStructure[]>();
     for (const r of (res.data ?? []) as Array<{
       id: string;
       name: string | null;
@@ -357,7 +371,7 @@ class FeeAssignmentService extends BaseService {
     }>) {
       if (!r.standard_id) continue;
       if (r.is_active === false) continue;
-      const s: ClassPlanStructure = {
+      const s: PlanStructure = {
         id: r.id,
         name: r.name ?? "—",
         totalAmount: Number(r.total_amount) || 0,
