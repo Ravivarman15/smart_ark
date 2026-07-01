@@ -38,7 +38,8 @@ export const AutoAssignFeesDialog = ({ open, onOpenChange }: Props) => {
       const next = { ...prev };
       for (const row of plan.rows) {
         if (row.structures.length > 0 && !next[row.batchId]) {
-          next[row.batchId] = row.structures[0].id;
+          // Default to the course-type match for the batch, not just the first.
+          next[row.batchId] = row.defaultStructureId ?? row.structures[0].id;
         }
       }
       return next;

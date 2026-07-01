@@ -27,6 +27,8 @@ export interface EligibleStudent {
   name: string;
   standardId?: string;
   standardName?: string;
+  /** Course type (e.g. "2 Subjects") — picks the right structure within a class. */
+  courseTypeId?: string;
   batchId?: string;
   batchName?: string;
   /** True when the student already has a fee record (will be skipped). */
@@ -53,6 +55,8 @@ export interface AssignResult {
 export interface PlanStructure {
   id: string;
   name: string;
+  /** Course type this structure is for — disambiguates classes with several. */
+  courseTypeId?: string;
   totalAmount: number;
   seatConfirmationAmount: number;
   firstPaymentAmount: number;
@@ -70,6 +74,13 @@ export interface BatchPlanRow {
   studentCount: number;
   /** Fee structures defined for the batch's class (0, 1, or many → ambiguous). */
   structures: PlanStructure[];
+  /**
+   * Best structure for this batch, chosen by matching the students' course type
+   * to the structure's course type (so a "2 Subjects" batch defaults to the
+   * "2 Subjects" fee, not just the first structure of the class). Undefined when
+   * the class has no structure.
+   */
+  defaultStructureId?: string;
 }
 
 export interface BatchAssignmentPlan {
@@ -115,6 +126,7 @@ class FeeAssignmentService extends BaseService {
         name: r.name ?? "—",
         standardId: r.standard_id ?? viaBatch?.standardId,
         standardName: joinName(r.standards ?? null) ?? viaBatch?.standardName,
+        courseTypeId: r.course_type_id ?? undefined,
         batchId: r.batch_id ?? undefined,
         batchName: joinName(r.batches ?? null),
         hasFee: withFee.has(r.id),
@@ -132,18 +144,21 @@ class FeeAssignmentService extends BaseService {
       id: string;
       name: string | null;
       standard_id: string | null;
+      course_type_id: string | null;
       batch_id: string | null;
       batches?: Join;
       standards?: Join;
     }>
   > {
-    const RICH = "id, name, standard_id, batch_id, batches(name), standards(name)";
-    const BASE = "id, name, standard_id, batch_id";
+    const RICH =
+      "id, name, standard_id, course_type_id, batch_id, batches(name), standards(name)";
+    const BASE = "id, name, standard_id, course_type_id, batch_id";
     const PAGE = 1000;
     type Row = {
       id: string;
       name: string | null;
       standard_id: string | null;
+      course_type_id: string | null;
       batch_id: string | null;
       batches?: Join;
       standards?: Join;
@@ -271,43 +286,50 @@ class FeeAssignmentService extends BaseService {
     const needFee = eligible.filter((s) => !s.hasFee);
     const studentsWithoutBatch = needFee.filter((s) => !s.batchId).length;
 
-    const structuresByStd = await this.activeStructuresByStandard();
+    const { byStandard } = await this.loadStructures();
 
     const groups = new Map<
       string,
-      { name: string; standardId?: string; standardName?: string; count: number }
+      { name: string; standardId?: string; standardName?: string; students: EligibleStudent[] }
     >();
     for (const s of needFee) {
       if (!s.batchId) continue;
       const g = groups.get(s.batchId);
-      if (g) g.count += 1;
+      if (g) g.students.push(s);
       else
         groups.set(s.batchId, {
           name: s.batchName ?? "—",
           standardId: s.standardId,
           standardName: s.standardName,
-          count: 1,
+          students: [s],
         });
     }
 
     const rows: BatchPlanRow[] = [...groups.entries()]
-      .map(([batchId, g]) => ({
-        batchId,
-        batchName: g.name,
-        standardId: g.standardId,
-        standardName: g.standardName,
-        studentCount: g.count,
-        structures: g.standardId ? structuresByStd.get(g.standardId) ?? [] : [],
-      }))
+      .map(([batchId, g]) => {
+        const structures = g.standardId ? byStandard.get(g.standardId) ?? [] : [];
+        return {
+          batchId,
+          batchName: g.name,
+          standardId: g.standardId,
+          standardName: g.standardName,
+          studentCount: g.students.length,
+          structures,
+          defaultStructureId: this.pickBatchDefault(g.students, structures),
+        };
+      })
       .sort((a, b) => a.batchName.localeCompare(b.batchName));
 
     return { rows, studentsWithoutBatch };
   }
 
   /**
-   * Auto-assign: for each batch→structure choice, create `student_fees` rows for
-   * every fee-less active student in that batch. Reuses the same skip-existing
-   * upsert as `assignStructure`. Returns the combined created / skipped totals.
+   * Auto-assign: for each batch, create `student_fees` rows for every fee-less
+   * student in it. Each student is matched to the structure for THEIR course type
+   * within the class (so a "2 Subjects" student gets the 2-Subjects fee even when
+   * the class also has a 3-Subjects structure); students whose course type has no
+   * dedicated structure fall back to the operator's chosen structure for the batch.
+   * Reuses the skip-existing upsert of `assignStructure`.
    */
   async autoAssignByBatch(input: {
     choices: BatchAssignmentChoice[];
@@ -317,52 +339,102 @@ class FeeAssignmentService extends BaseService {
 
     // Fresh read of every fee-less student, grouped by batch (authoritative).
     const eligible = await this.eligibleStudents();
-    const idsByBatch = new Map<string, string[]>();
+    const { byStandard } = await this.loadStructures();
+
+    const byBatch = new Map<string, EligibleStudent[]>();
     for (const s of eligible) {
       if (s.hasFee || !s.batchId) continue;
-      const list = idsByBatch.get(s.batchId);
-      if (list) list.push(s.id);
-      else idsByBatch.set(s.batchId, [s.id]);
+      const list = byBatch.get(s.batchId);
+      if (list) list.push(s);
+      else byBatch.set(s.batchId, [s]);
     }
 
     let created = 0;
     let skipped = 0;
     for (const choice of input.choices) {
-      const ids = idsByBatch.get(choice.batchId) ?? [];
-      if (ids.length === 0) continue;
-      const res = await this.assignStructure({
-        structureId: choice.structure.id,
-        studentIds: ids,
-        totalAmount: choice.structure.totalAmount,
-        seatConfirmationAmount: choice.structure.seatConfirmationAmount,
-        firstPaymentAmount: choice.structure.firstPaymentAmount,
-        installmentCount: choice.structure.installmentCount,
-        createdBy: input.createdBy,
-      });
-      created += res.created;
-      skipped += res.skipped;
+      const students = byBatch.get(choice.batchId) ?? [];
+      if (students.length === 0) continue;
+
+      // Split the batch by the structure each student should actually get.
+      const targets = new Map<string, { structure: PlanStructure; ids: string[] }>();
+      for (const s of students) {
+        const classStructures = s.standardId ? byStandard.get(s.standardId) ?? [] : [];
+        const structure = this.matchByCourseType(classStructures, s.courseTypeId) ?? choice.structure;
+        const t = targets.get(structure.id);
+        if (t) t.ids.push(s.id);
+        else targets.set(structure.id, { structure, ids: [s.id] });
+      }
+
+      for (const { structure, ids } of targets.values()) {
+        const res = await this.assignStructure({
+          structureId: structure.id,
+          studentIds: ids,
+          totalAmount: structure.totalAmount,
+          seatConfirmationAmount: structure.seatConfirmationAmount,
+          firstPaymentAmount: structure.firstPaymentAmount,
+          installmentCount: structure.installmentCount,
+          createdBy: input.createdBy,
+        });
+        created += res.created;
+        skipped += res.skipped;
+      }
     }
     return { created, skipped };
   }
 
-  /** standardId → active fee structures defined for that class. */
-  private async activeStructuresByStandard(): Promise<Map<string, PlanStructure[]>> {
+  /** The class structure whose course type matches the student, if any. */
+  private matchByCourseType(
+    classStructures: PlanStructure[],
+    courseTypeId?: string
+  ): PlanStructure | undefined {
+    if (!courseTypeId) return undefined;
+    return classStructures.find((s) => s.courseTypeId === courseTypeId);
+  }
+
+  /**
+   * Default structure for a batch: the one whose course type matches the most
+   * students in the batch. Falls back to the class's first structure when no
+   * course type lines up (or the class has just one structure).
+   */
+  private pickBatchDefault(
+    students: EligibleStudent[],
+    structures: PlanStructure[]
+  ): string | undefined {
+    if (structures.length === 0) return undefined;
+    if (structures.length === 1) return structures[0].id;
+
+    const tally = new Map<string, number>();
+    for (const s of students) {
+      if (!s.courseTypeId) continue;
+      tally.set(s.courseTypeId, (tally.get(s.courseTypeId) ?? 0) + 1);
+    }
+    const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]);
+    for (const [courseTypeId] of ranked) {
+      const match = structures.find((s) => s.courseTypeId === courseTypeId);
+      if (match) return match.id;
+    }
+    return structures[0].id;
+  }
+
+  /** Active fee structures indexed by class (standard), carrying course type. */
+  private async loadStructures(): Promise<{ byStandard: Map<string, PlanStructure[]> }> {
     const cols =
-      "id, name, standard_id, total_amount, seat_confirmation_amount, " +
+      "id, name, standard_id, course_type_id, total_amount, seat_confirmation_amount, " +
       "first_payment_amount, installment_count, is_active";
     let res = await this.db.from("fee_structures").select(cols);
     if (res.error && isRelationError(res.error)) {
       res = await this.db
         .from("fee_structures")
-        .select("id, name, standard_id, total_amount, installment_count");
+        .select("id, name, standard_id, course_type_id, total_amount, installment_count");
     }
     if (res.error) throw AppError.fromSupabase(res.error, "fee_structures");
 
-    const out = new Map<string, PlanStructure[]>();
+    const byStandard = new Map<string, PlanStructure[]>();
     for (const r of (res.data ?? []) as Array<{
       id: string;
       name: string | null;
       standard_id: string | null;
+      course_type_id?: string | null;
       total_amount: number | string | null;
       seat_confirmation_amount?: number | string | null;
       first_payment_amount?: number | string | null;
@@ -374,16 +446,17 @@ class FeeAssignmentService extends BaseService {
       const s: PlanStructure = {
         id: r.id,
         name: r.name ?? "—",
+        courseTypeId: r.course_type_id ?? undefined,
         totalAmount: Number(r.total_amount) || 0,
         seatConfirmationAmount: Number(r.seat_confirmation_amount) || 0,
         firstPaymentAmount: Number(r.first_payment_amount) || 0,
         installmentCount: Number(r.installment_count) || 2,
       };
-      const list = out.get(r.standard_id);
+      const list = byStandard.get(r.standard_id);
       if (list) list.push(s);
-      else out.set(r.standard_id, [s]);
+      else byStandard.set(r.standard_id, [s]);
     }
-    return out;
+    return { byStandard };
   }
 
   /** student id → display name + batch name, for the denormalised fee columns. */
