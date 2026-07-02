@@ -49,6 +49,7 @@ export {
 export { mcqQuestionService, type QuestionOwner } from "./mcqQuestion.service";
 export { mcqPaperService } from "./mcqPaper.service";
 export { mcqImportService } from "./mcqImport.service";
+export { paperImportService, type PaperImportResult } from "./paperImport.service";
 export { mcqAnalyticsService } from "./mcqAnalytics.service";
 export { mcqAuditService } from "./mcqAudit.service";
 

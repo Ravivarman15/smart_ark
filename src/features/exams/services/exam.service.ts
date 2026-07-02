@@ -1,4 +1,9 @@
-import { BaseService, AppError } from "@/shared/services";
+import {
+  BaseService,
+  AppError,
+  safeInsertWithColumnFallback,
+  safeUpdateWithColumnFallback,
+} from "@/shared/services";
 import type {
   Exam,
   ExamInput,
@@ -196,12 +201,16 @@ class ExamService extends BaseService {
       ...toDb({ mode: "manual", status: "scheduled", ...input }),
       created_by: createdBy ?? null,
     };
-    const res = await this.db
-      .from("exams")
-      .insert(payload as never)
-      .select(SELECT)
-      .single();
-    return toDomain(this.guard(res, "exam") as unknown as ExamRow);
+    // Column-fallback: if the enterprise-session migration isn't applied yet, the
+    // write drops only the genuinely-missing columns (academic_year_id, term,
+    // month, faculty_*) and still creates the exam — never a hard failure.
+    const res = await safeInsertWithColumnFallback<ExamRow>(this.db, "exams", payload, {
+      returning: SELECT,
+      maybeSingle: true,
+      label: "exams.create",
+    });
+    if (res.error || !res.data) throw AppError.fromSupabase(res.error, "exam");
+    return toDomain(res.data);
   }
 
   async update(id: string, input: Partial<ExamInput>): Promise<void> {
@@ -209,11 +218,11 @@ class ExamService extends BaseService {
     this.assertEditable(row, "editing");
     const payload = toDb(input);
     if (Object.keys(payload).length === 0) return;
-    const { error } = await this.db
-      .from("exams")
-      .update(payload as never)
-      .eq("id", id);
-    if (error) throw AppError.fromSupabase(error, "exam");
+    // Same column-fallback safety net for edits on a partially-migrated schema.
+    const res = await safeUpdateWithColumnFallback(this.db, "exams", payload, { id }, {
+      label: "exams.update",
+    });
+    if (res.error) throw AppError.fromSupabase(res.error, "exam");
   }
 
   async reschedule(id: string, input: RescheduleInput): Promise<void> {

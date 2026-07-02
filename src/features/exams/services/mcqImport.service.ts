@@ -311,24 +311,19 @@ class McqImportService extends BaseService {
     return { total: rows.length, valid, invalid, duplicates, rows };
   }
 
-  /**
-   * Insert the importable rows. `includeDuplicates` lets the reviewer override
-   * duplicate suppression. Returns the number of questions created.
-   */
-  async commit(
+  /** Build the DB payload for the importable rows (shared by commit paths). */
+  private buildPayload(
     report: BulkImportReport,
-    owner: QuestionOwner = {},
-    includeDuplicates = false,
-  ): Promise<number> {
+    owner: QuestionOwner,
+    includeDuplicates: boolean,
+  ): Record<string, unknown>[] {
     const importable = report.rows.filter(
       (r) =>
         r.errors.length === 0 &&
         r.question &&
         (includeDuplicates || !r.isDuplicate),
     );
-    if (importable.length === 0) return 0;
-
-    const payload = importable.map((r) => {
+    return importable.map((r) => {
       const q = r.question!;
       return {
         question_text: q.questionText,
@@ -352,12 +347,43 @@ class McqImportService extends BaseService {
         created_by: owner.ownerId ?? null,
       };
     });
+  }
 
+  /**
+   * Insert the importable rows. `includeDuplicates` lets the reviewer override
+   * duplicate suppression. Returns the number of questions created.
+   */
+  async commit(
+    report: BulkImportReport,
+    owner: QuestionOwner = {},
+    includeDuplicates = false,
+  ): Promise<number> {
+    const payload = this.buildPayload(report, owner, includeDuplicates);
+    if (payload.length === 0) return 0;
     const { error } = await this.db
       .from("mcq_questions")
       .insert(payload as never);
     if (error) throw AppError.fromSupabase(error, "question import");
     return payload.length;
+  }
+
+  /**
+   * Same as commit() but returns the created question IDs, in file order — used
+   * by the Question Paper Import to attach the fresh questions to a new paper.
+   */
+  async commitReturningIds(
+    report: BulkImportReport,
+    owner: QuestionOwner = {},
+    includeDuplicates = false,
+  ): Promise<string[]> {
+    const payload = this.buildPayload(report, owner, includeDuplicates);
+    if (payload.length === 0) return [];
+    const { data, error } = await this.db
+      .from("mcq_questions")
+      .insert(payload as never)
+      .select("id");
+    if (error) throw AppError.fromSupabase(error, "question import");
+    return ((data ?? []) as { id: string }[]).map((r) => r.id);
   }
 }
 

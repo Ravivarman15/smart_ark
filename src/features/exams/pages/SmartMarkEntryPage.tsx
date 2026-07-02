@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Loader2, Upload } from "lucide-react";
+import { Check, Loader2, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   useBatchRoster,
+  useCreateExam,
   useExamLookups,
   useExamResults,
   useExams,
@@ -14,11 +15,15 @@ import { assignRanks, scoreResult } from "../utils";
 import { GradeBadge } from "../components/GradeBadge";
 import {
   EXAM_MONTHS,
+  EXAM_TYPES,
   TERMS,
   monthLabel,
   type AttendanceStatus,
   type Exam,
+  type ExamMonth,
+  type ExamType,
   type MarksEntryRow,
+  type Term,
 } from "../types/exam.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,6 +59,8 @@ const SmartMarkEntryPage = () => {
   const standards = lookups?.standards ?? [];
   const subjects = lookups?.subjects ?? [];
   const batches = lookups?.batches ?? [];
+  const nameOf = (list: { id: string; name: string }[], id: string) =>
+    list.find((x) => x.id === id)?.name;
 
   // Cascade filters.
   const [yearId, setYearId] = useState("");
@@ -94,6 +101,68 @@ const SmartMarkEntryPage = () => {
   );
   const { data: results = [] } = useExamResults(exam?.id ?? null);
   const saveMarks = useSaveMarks();
+  const createExam = useCreateExam();
+
+  // ── Quick-create an exam inline, so marks can be entered even when no exam
+  // was created first. Pre-fills from the cascade selections above. ───────────
+  const [createOpen, setCreateOpen] = useState(false);
+  const [cTitle, setCTitle] = useState("");
+  const [cType, setCType] = useState<ExamType>("unit_test");
+  const [cTotal, setCTotal] = useState("100");
+  const [cPass, setCPass] = useState("35");
+  const [cDate, setCDate] = useState("");
+
+  const canQuickCreate = !!standardId && !!batchId && !!subjectId;
+
+  const quickCreate = async () => {
+    if (!canQuickCreate) {
+      toast.error("Pick a class, section and subject first.");
+      return;
+    }
+    const total = Number(cTotal);
+    const pass = Number(cPass);
+    if (Number.isNaN(total) || total <= 0) {
+      toast.error("Total marks must be a positive number.");
+      return;
+    }
+    if (Number.isNaN(pass) || pass < 0 || pass > total) {
+      toast.error("Pass marks must be between 0 and the total.");
+      return;
+    }
+    const subjectName = nameOf(subjects, subjectId);
+    const title =
+      cTitle.trim() ||
+      `${subjectName ?? "Exam"}${month ? ` – ${monthLabel(month)}` : ""}`;
+    try {
+      const created = await createExam.mutateAsync({
+        title,
+        examType: cType,
+        mode: "manual",
+        academicYearId: yearId || null,
+        academicYearName: yearId ? nameOf(academicYears, yearId) ?? null : null,
+        term: (term as Term) || null,
+        month: (month as ExamMonth) || null,
+        standardId,
+        standardName: nameOf(standards, standardId) ?? null,
+        batchId,
+        batchName: nameOf(batches, batchId) ?? null,
+        subjectId,
+        subjectName: subjectName ?? null,
+        totalMarks: total,
+        passMarks: pass,
+        durationMinutes: 60,
+        examDate: cDate || null,
+        status: "scheduled",
+      });
+      setExamId(created.id);
+      setCreateOpen(false);
+      setCTitle("");
+      setCDate("");
+      toast.success("Exam created — enter marks below.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create exam");
+    }
+  };
 
   const [entries, setEntries] = useState<Record<string, RowState>>({});
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -293,23 +362,104 @@ const SmartMarkEntryPage = () => {
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
-        <select
-          className={`${selectCls} col-span-2`}
-          value={examId}
-          onChange={(e) => setExamId(e.target.value)}
-        >
-          <option value="">
-            {exams.length ? `Select exam (${exams.length})` : "No exams match"}
-          </option>
-          {exams.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.title}
-              {e.subjectName ? ` · ${e.subjectName}` : ""}
-              {e.month ? ` · ${monthLabel(e.month)}` : ""}
+        <div className="col-span-2 flex gap-2">
+          <select
+            className={`${selectCls} flex-1`}
+            value={examId}
+            onChange={(e) => setExamId(e.target.value)}
+          >
+            <option value="">
+              {exams.length ? `Select exam (${exams.length})` : "No exams match"}
             </option>
-          ))}
-        </select>
+            {exams.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.title}
+                {e.subjectName ? ` · ${e.subjectName}` : ""}
+                {e.month ? ` · ${monthLabel(e.month)}` : ""}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-1.5 shrink-0"
+            onClick={() => setCreateOpen((v) => !v)}
+          >
+            <Plus className="w-4 h-4" /> New exam
+          </Button>
+        </div>
       </section>
+
+      {/* Inline quick-create — enter marks even when no exam was created yet. */}
+      {createOpen && (
+        <section className="rounded-lg border border-primary/40 bg-primary/5 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-foreground">
+              Create an exam for this class
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {nameOf(standards, standardId) ?? "No class"}
+              {batchId ? ` / ${nameOf(batches, batchId)}` : ""}
+              {subjectId ? ` · ${nameOf(subjects, subjectId)}` : ""}
+              {month ? ` · ${monthLabel(month)}` : ""}
+            </span>
+          </div>
+          {!canQuickCreate && (
+            <p className="text-xs text-amber-600">
+              Select a class, section and subject above to create an exam.
+            </p>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <Input
+              className="md:col-span-2"
+              placeholder="Exam title (auto if blank)"
+              value={cTitle}
+              onChange={(e) => setCTitle(e.target.value)}
+            />
+            <select
+              className={selectCls}
+              value={cType}
+              onChange={(e) => setCType(e.target.value as ExamType)}
+            >
+              {EXAM_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              placeholder="Total marks"
+              value={cTotal}
+              onChange={(e) => setCTotal(e.target.value)}
+            />
+            <Input
+              type="number"
+              placeholder="Pass marks"
+              value={cPass}
+              onChange={(e) => setCPass(e.target.value)}
+            />
+            <Input
+              type="date"
+              className="md:col-span-2"
+              value={cDate}
+              onChange={(e) => setCDate(e.target.value)}
+            />
+            <div className="md:col-span-3 flex items-center justify-end">
+              <Button
+                onClick={() => void quickCreate()}
+                disabled={!canQuickCreate || createExam.isPending}
+                className="gap-1.5"
+              >
+                {createExam.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                Create &amp; enter marks
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Grid */}
       {!exam ? (

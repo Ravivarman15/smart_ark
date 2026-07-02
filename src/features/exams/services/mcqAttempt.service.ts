@@ -488,6 +488,22 @@ class McqAttemptService extends BaseService {
     const rows = this.guardList(res, "mcq_attempts") as unknown as AttemptRow[];
     return rows.map(toAttempt);
   }
+
+  /**
+   * Closed (scored) attempts across many exams in ONE query — the cross-exam
+   * feed for the Examination Dashboard / analytics so MCQ exams fold into the
+   * same figures as manual ones. Degrades to [] if the table is unavailable.
+   */
+  async listClosedForExams(examIds: string[]): Promise<McqAttempt[]> {
+    if (examIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from("mcq_attempts")
+      .select("*")
+      .in("exam_id", examIds)
+      .in("status", ["submitted", "auto_submitted"]);
+    if (error) return [];
+    return ((data as unknown as AttemptRow[]) ?? []).map(toAttempt);
+  }
 }
 
 export const mcqAttemptService = new McqAttemptService();

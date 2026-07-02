@@ -1,4 +1,9 @@
-import { BaseService, AppError } from "@/shared/services";
+import {
+  BaseService,
+  AppError,
+  isMissingColumnError,
+  extractMissingColumn,
+} from "@/shared/services";
 import { assignRanks } from "../utils/grading";
 import { examService } from "./exam.service";
 import type {
@@ -133,10 +138,24 @@ class ExamResultsService extends BaseService {
       };
     });
 
-    const { error } = await this.db
-      .from("exam_results")
-      .upsert(payload as never, { onConflict: "exam_id,student_id" });
-    if (error) throw AppError.fromSupabase(error, "exam results");
+    // Column-fallback for upsert: if the enterprise-session migration isn't
+    // applied yet, drop only the genuinely-missing column (attendance_status)
+    // and retry, so marks still save on a partially-migrated schema.
+    let current: Record<string, unknown>[] = payload;
+    const dropped = new Set<string>();
+    for (let attempt = 0; attempt <= payload.length && attempt <= 5; attempt++) {
+      const { error } = await this.db
+        .from("exam_results")
+        .upsert(current as never, { onConflict: "exam_id,student_id" });
+      if (!error) return;
+      const col = isMissingColumnError(error) ? extractMissingColumn(error) : undefined;
+      if (!col || dropped.has(col)) throw AppError.fromSupabase(error, "exam results");
+      dropped.add(col);
+      current = current.map((r) => {
+        const { [col]: _drop, ...rest } = r;
+        return rest;
+      });
+    }
   }
 }
 
