@@ -11,6 +11,39 @@ export {
   type BatchOption,
   type StudentOption,
 } from "./examLookups.service";
+export {
+  resultSheetService,
+  type ResultSheet,
+  type ResultSheetRow,
+  type ResultSheetParams,
+  type ResultSheetFormat,
+} from "./resultSheet.service";
+export {
+  reportCardService,
+  type ReportCard,
+  type ReportCardParams,
+  type ReportCardFormat,
+} from "./reportCard.service";
+export {
+  examInsightsService,
+  type InsightsFilters,
+  type ExamAnalyticsBundle,
+  type DashboardCards,
+  type AiInsightsBundle,
+} from "./examInsights.service";
+export {
+  examRegistersService,
+  REGISTER_TYPES,
+  type RegisterType,
+  type RegisterResult,
+} from "./examRegisters.service";
+export {
+  markImportService,
+  type MarkImportPreview,
+  type MarkPreviewRow,
+  type MarkImportResult,
+  type MarkRowStatus,
+} from "./markImport.service";
 
 // ── MCQ Paper ────────────────────────────────────────────────────────────────
 export { mcqQuestionService, type QuestionOwner } from "./mcqQuestion.service";

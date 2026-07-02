@@ -247,6 +247,13 @@ export const MODULE_CATALOG: ModuleDef[] = [
     submodules: [
       { id: "exam.create_manual",   label: "Create Manual Exam" },
       { id: "exam.manage_manual",   label: "Manage Manual Exam" },
+      { id: "exam.smart_entry",     label: "Smart Mark Entry" },
+      { id: "exam.monthly_sheets",  label: "Monthly Result Sheets" },
+      { id: "exam.report_card",     label: "Student Report Card" },
+      { id: "exam.dashboard",       label: "Examination Dashboard" },
+      { id: "exam.analytics",       label: "Exam Analytics" },
+      { id: "exam.registers",       label: "Exam Reports & Registers" },
+      { id: "exam.import_marks",    label: "Import Marks" },
       { id: "exam.create_mcq_paper", label: "Create MCQ Paper" },
       { id: "exam.manage_mcq_paper", label: "Manage MCQ Paper" },
       { id: "exam.create_mcq_exam", label: "Create MCQ Exam" },

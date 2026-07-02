@@ -23,12 +23,18 @@ type ExamRow = {
   title: string;
   exam_type: string;
   mode: string;
+  academic_year_id: string | null;
+  academic_year_name: string | null;
+  term: string | null;
+  month: string | null;
   standard_id: string | null;
   standard_name: string | null;
   batch_id: string | null;
   batch_name: string | null;
   subject_id: string | null;
   subject_name: string | null;
+  faculty_id: string | null;
+  faculty_name: string | null;
   total_marks: number | null;
   pass_marks: number | null;
   duration_minutes: number | null;
@@ -66,12 +72,18 @@ const toDomain = (r: ExamRow): Exam => ({
   title: r.title,
   examType: (r.exam_type as Exam["examType"]) ?? "unit_test",
   mode: (r.mode as Exam["mode"]) ?? "manual",
+  academicYearId: r.academic_year_id ?? undefined,
+  academicYearName: r.academic_year_name ?? undefined,
+  term: (r.term as Exam["term"]) ?? undefined,
+  month: (r.month as Exam["month"]) ?? undefined,
   standardId: r.standard_id ?? undefined,
   standardName: r.standard_name ?? undefined,
   batchId: r.batch_id ?? undefined,
   batchName: r.batch_name ?? undefined,
   subjectId: r.subject_id ?? undefined,
   subjectName: r.subject_name ?? undefined,
+  facultyId: r.faculty_id ?? undefined,
+  facultyName: r.faculty_name ?? undefined,
   totalMarks: Number(r.total_marks ?? 0),
   passMarks: Number(r.pass_marks ?? 0),
   durationMinutes: Number(r.duration_minutes ?? 60),
@@ -95,12 +107,18 @@ const toDb = (i: Partial<ExamInput>): Record<string, unknown> => {
   if (i.title !== undefined) out.title = i.title;
   if (i.examType !== undefined) out.exam_type = i.examType;
   if (i.mode !== undefined) out.mode = i.mode;
+  if (i.academicYearId !== undefined) out.academic_year_id = i.academicYearId ?? null;
+  if (i.academicYearName !== undefined) out.academic_year_name = i.academicYearName ?? null;
+  if (i.term !== undefined) out.term = i.term ?? null;
+  if (i.month !== undefined) out.month = i.month ?? null;
   if (i.standardId !== undefined) out.standard_id = i.standardId ?? null;
   if (i.standardName !== undefined) out.standard_name = i.standardName ?? null;
   if (i.batchId !== undefined) out.batch_id = i.batchId ?? null;
   if (i.batchName !== undefined) out.batch_name = i.batchName ?? null;
   if (i.subjectId !== undefined) out.subject_id = i.subjectId ?? null;
   if (i.subjectName !== undefined) out.subject_name = i.subjectName ?? null;
+  if (i.facultyId !== undefined) out.faculty_id = i.facultyId ?? null;
+  if (i.facultyName !== undefined) out.faculty_name = i.facultyName ?? null;
   if (i.totalMarks !== undefined) out.total_marks = i.totalMarks;
   if (i.passMarks !== undefined) out.pass_marks = i.passMarks;
   if (i.durationMinutes !== undefined)
@@ -120,6 +138,12 @@ interface ListParams {
   /** Restrict to one exam mode — the Manual pages pass "manual". */
   mode?: Exam["mode"];
   status?: ExamStatus;
+  academicYearId?: string;
+  term?: string;
+  month?: string;
+  standardId?: string;
+  batchId?: string;
+  subjectId?: string;
 }
 
 class ExamService extends BaseService {
@@ -128,6 +152,12 @@ class ExamService extends BaseService {
     let q = this.db.from("exams").select(SELECT);
     if (params.mode) q = q.eq("mode", params.mode);
     if (params.status) q = q.eq("status", params.status);
+    if (params.academicYearId) q = q.eq("academic_year_id", params.academicYearId);
+    if (params.term) q = q.eq("term", params.term);
+    if (params.month) q = q.eq("month", params.month);
+    if (params.standardId) q = q.eq("standard_id", params.standardId);
+    if (params.batchId) q = q.eq("batch_id", params.batchId);
+    if (params.subjectId) q = q.eq("subject_id", params.subjectId);
     const res = await q
       .order("exam_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });

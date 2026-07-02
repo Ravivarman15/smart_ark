@@ -10,7 +10,13 @@ import { useCanDo } from "@/features/rbac";
 import { examFormSchema, type ExamFormValues } from "../schemas/exam.schema";
 import { useCreateExam, useExam, useExamLookups, useUpdateExam } from "../hooks";
 import { DEFAULT_GRADE_SCHEME } from "../utils";
-import { EXAM_TYPES, type ExamAttachment, type ExamInput } from "../types/exam.types";
+import {
+  EXAM_TYPES,
+  TERMS,
+  EXAM_MONTHS,
+  type ExamAttachment,
+  type ExamInput,
+} from "../types/exam.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create / Edit Manual Exam. One page serves both — an :id param switches it
@@ -35,6 +41,8 @@ const CreateManualExamPage = () => {
   const standards = lookups?.standards ?? [];
   const subjects = lookups?.subjects ?? [];
   const batches = lookups?.batches ?? [];
+  const academicYears = lookups?.academicYears ?? [];
+  const faculty = lookups?.faculty ?? [];
 
   const [attachments, setAttachments] = useState<ExamAttachment[]>([]);
   const [attName, setAttName] = useState("");
@@ -45,6 +53,8 @@ const CreateManualExamPage = () => {
     defaultValues: {
       title: "",
       examType: "unit_test",
+      term: undefined,
+      month: undefined,
       totalMarks: 100,
       passMarks: 35,
       durationMinutes: 60,
@@ -56,15 +66,27 @@ const CreateManualExamPage = () => {
     },
   });
 
+  // Watching the month keeps the term in lock-step (a month belongs to one term).
+  const watchedMonth = form.watch("month");
+  useEffect(() => {
+    if (!watchedMonth) return;
+    const m = EXAM_MONTHS.find((x) => x.value === watchedMonth);
+    if (m) form.setValue("term", m.term);
+  }, [watchedMonth, form]);
+
   // Prefill in edit mode once the exam loads.
   useEffect(() => {
     if (!existing) return;
     form.reset({
       title: existing.title,
       examType: existing.examType,
+      academicYearId: existing.academicYearId,
+      term: existing.term,
+      month: existing.month,
       standardId: existing.standardId,
       batchId: existing.batchId,
       subjectId: existing.subjectId,
+      facultyId: existing.facultyId,
       totalMarks: existing.totalMarks,
       passMarks: existing.passMarks,
       durationMinutes: existing.durationMinutes,
@@ -91,12 +113,19 @@ const CreateManualExamPage = () => {
       title: values.title,
       examType: values.examType,
       mode: "manual",
+      academicYearId: values.academicYearId ?? null,
+      academicYearName:
+        academicYears.find((y) => y.id === values.academicYearId)?.name ?? null,
+      term: values.term ?? null,
+      month: values.month ?? null,
       standardId: values.standardId ?? null,
       standardName: standards.find((s) => s.id === values.standardId)?.name ?? null,
       batchId: values.batchId ?? null,
       batchName: batches.find((b) => b.id === values.batchId)?.name ?? null,
       subjectId: values.subjectId ?? null,
       subjectName: subjects.find((s) => s.id === values.subjectId)?.name ?? null,
+      facultyId: values.facultyId ?? null,
+      facultyName: faculty.find((f) => f.id === values.facultyId)?.name ?? null,
       totalMarks: values.totalMarks,
       passMarks: values.passMarks,
       durationMinutes: values.durationMinutes,
@@ -149,6 +178,45 @@ const CreateManualExamPage = () => {
       </header>
 
       <form onSubmit={onSubmit} className="space-y-5">
+        {/* Session hierarchy: Academic Year → Term → Month */}
+        <section className="rounded-lg border border-border/60 bg-card/60 p-4 space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Examination Session
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label="Academic Year">
+              <Select {...form.register("academicYearId")}>
+                <option value="">— Select year —</option>
+                {academicYears.map((y) => (
+                  <option key={y.id} value={y.id}>
+                    {y.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Month">
+              <Select {...form.register("month")}>
+                <option value="">— Select month —</option>
+                {EXAM_MONTHS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Term">
+              <Select {...form.register("term")}>
+                <option value="">— Select term —</option>
+                {TERMS.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        </section>
+
         {/* Basics */}
         <section className="rounded-lg border border-border/60 bg-card/60 p-4 space-y-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -187,12 +255,22 @@ const CreateManualExamPage = () => {
                 ))}
               </Select>
             </Field>
-            <Field label="Batch">
+            <Field label="Section / Batch">
               <Select {...form.register("batchId")}>
                 <option value="">— Select batch —</option>
                 {batches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Faculty">
+              <Select {...form.register("facultyId")}>
+                <option value="">— Select faculty —</option>
+                {faculty.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
                   </option>
                 ))}
               </Select>

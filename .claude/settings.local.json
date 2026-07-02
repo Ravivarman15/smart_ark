@@ -58,7 +58,8 @@
       "Bash(grep -nA15 \"communication:\" src/core/constants/queryKeys.ts)",
       "Bash(grep -nA20 '\"generic-notice\"' supabase/functions/_shared/email-templates.ts)",
       "Bash(grep -nA8 \"interface GenericNoticeParams\" supabase/functions/_shared/email-templates.ts)",
-      "Bash(grep -nA8 \"const sub = \" src/core/navigation/menu.config.ts)"
+      "Bash(grep -nA8 \"const sub = \" src/core/navigation/menu.config.ts)",
+      "Bash(xargs grep -l \"catalog\\\\|MODULE_CATALOG\\\\|menuRegistry\")"
     ]
   }
 }

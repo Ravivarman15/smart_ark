@@ -36,6 +36,12 @@ const FeeStructurePage = lazy(() => import("@/pages/setup/FeeStructure"));
 // Exam module
 const ManageManualExamPage = lazy(() => import("@/features/exams/pages/ManageManualExamPage"));
 const CreateManualExamPage = lazy(() => import("@/features/exams/pages/CreateManualExamPage"));
+const SmartMarkEntryPage = lazy(() => import("@/features/exams/pages/SmartMarkEntryPage"));
+const MonthlyResultSheetsPage = lazy(() => import("@/features/exams/pages/MonthlyResultSheetsPage"));
+const ExamManagementDashboardPage = lazy(() => import("@/features/exams/pages/ExamManagementDashboardPage"));
+const ExamAnalyticsDashboardPage = lazy(() => import("@/features/exams/pages/ExamAnalyticsDashboardPage"));
+const ExamRegistersPage = lazy(() => import("@/features/exams/pages/ExamRegistersPage"));
+const ImportMarksPage = lazy(() => import("@/features/exams/pages/ImportMarksPage"));
 const ManageMcqPaperPage = lazy(() => import("@/features/exams/pages/ManageMcqPaperPage"));
 const CreateMcqPaperPage = lazy(() => import("@/features/exams/pages/CreateMcqPaperPage"));
 const ManageMcqExamPage = lazy(() => import("@/features/exams/pages/ManageMcqExamPage"));
@@ -289,6 +295,48 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     path: "exams/manual/:id/edit",
     element: <CreateManualExamPage />,
     label: "Edit Manual Exam",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/smart-entry",
+    element: <SmartMarkEntryPage />,
+    submodule: "exam.smart_entry",
+    label: "Smart Mark Entry",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/monthly-sheets",
+    element: <MonthlyResultSheetsPage />,
+    submodule: "exam.monthly_sheets",
+    label: "Monthly Result Sheets",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/import-marks",
+    element: <ImportMarksPage />,
+    submodule: "exam.import_marks",
+    label: "Import Marks",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/dashboard",
+    element: <ExamManagementDashboardPage />,
+    submodule: "exam.dashboard",
+    label: "Examination Dashboard",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/analytics",
+    element: <ExamAnalyticsDashboardPage />,
+    submodule: "exam.analytics",
+    label: "Exam Analytics",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/registers",
+    element: <ExamRegistersPage />,
+    submodule: "exam.registers",
+    label: "Reports & Registers",
     layouts: ["coordinator", "teacher"],
   },
   {

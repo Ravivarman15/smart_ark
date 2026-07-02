@@ -15,11 +15,30 @@ export const examFormSchema = z
       "final",
       "practical",
       "assignment",
+      "weekly_test",
+      "monthly_test",
+      "mock_test",
+      "neet_test",
+      "jee_test",
+      "revision_test",
       "other",
     ]),
+    academicYearId: optionalId,
+    term: z
+      .enum(["term_1", "term_2", "term_3"])
+      .optional()
+      .or(z.literal("").transform(() => undefined)),
+    month: z
+      .enum([
+        "april", "may", "june", "july", "august", "september",
+        "october", "november", "december", "january", "february", "march",
+      ])
+      .optional()
+      .or(z.literal("").transform(() => undefined)),
     standardId: optionalId,
     batchId: optionalId,
     subjectId: optionalId,
+    facultyId: optionalId,
     totalMarks: z.coerce
       .number({ invalid_type_error: "Enter total marks" })
       .positive("Total marks must be greater than 0"),

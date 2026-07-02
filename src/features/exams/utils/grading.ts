@@ -142,6 +142,26 @@ export const assignRanks = (
   return scored;
 };
 
+/** Median of a numeric list (0 when empty). Pure — used by exam stats. */
+export const median = (nums: number[]): number => {
+  if (nums.length === 0) return 0;
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 === 0 ? round2((s[mid - 1] + s[mid]) / 2) : round2(s[mid]);
+};
+
+/** Arithmetic mean (0 when empty). */
+export const mean = (nums: number[]): number =>
+  nums.length === 0 ? 0 : round2(nums.reduce((s, n) => s + n, 0) / nums.length);
+
+/** Population standard deviation (0 when empty). Pure — used by analytics. */
+export const stdDev = (nums: number[]): number => {
+  if (nums.length === 0) return 0;
+  const m = nums.reduce((s, n) => s + n, 0) / nums.length;
+  const variance = nums.reduce((s, n) => s + (n - m) ** 2, 0) / nums.length;
+  return round2(Math.sqrt(variance));
+};
+
 /** Exam-level aggregates over an already-scored result set. */
 export const computeStats = (scored: ScoredResult[]): ExamStats => {
   const appearedRows = scored.filter((r) => !r.isAbsent && r.marks != null);
@@ -157,6 +177,21 @@ export const computeStats = (scored: ScoredResult[]): ExamStats => {
     (a, b) => (b.marks ?? 0) - (a.marks ?? 0),
   )[0];
 
+  // Division bands over percentage (present + passed only for 1st/2nd/3rd; a
+  // failed student sits in none). Distinction ≥ 75, First 60–74.99, Second
+  // 50–59.99, Third pass-threshold–49.99.
+  let distinction = 0;
+  let firstClass = 0;
+  let secondClass = 0;
+  let thirdClass = 0;
+  for (const r of appearedRows) {
+    if (!r.passed) continue;
+    if (r.percentage >= 75) distinction += 1;
+    else if (r.percentage >= 60) firstClass += 1;
+    else if (r.percentage >= 50) secondClass += 1;
+    else thirdClass += 1;
+  }
+
   return {
     totalStudents: scored.length,
     appeared,
@@ -168,7 +203,12 @@ export const computeStats = (scored: ScoredResult[]): ExamStats => {
     averagePercentage: appeared > 0 ? round2(pctSum / appeared) : 0,
     highestMarks: marksList.length > 0 ? Math.max(...marksList) : 0,
     lowestMarks: marksList.length > 0 ? Math.min(...marksList) : 0,
+    medianMarks: median(marksList),
     topperName: topper?.studentName,
+    distinction,
+    firstClass,
+    secondClass,
+    thirdClass,
   };
 };
 

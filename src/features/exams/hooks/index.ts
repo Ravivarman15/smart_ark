@@ -21,6 +21,11 @@ export {
   useExamOverview,
   useExamAudit,
 } from "./useExamAnalytics";
+export {
+  useExamAnalyticsBundle,
+  useExamDashboard,
+  useExamAiInsights,
+} from "./useExamInsights";
 
 // ── MCQ Paper ────────────────────────────────────────────────────────────────
 export {

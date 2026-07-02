@@ -391,6 +391,12 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     items: [
       ...sub("exam.create_manual",    "Create Manual Exam",  examPaths("/manual/create"),       adminMgmtTeacher, { action: "exam.create" }),
       ...sub("exam.manage_manual",    "Manage Manual Exam",  examPaths("/manual"),              all),
+      ...sub("exam.smart_entry",      "Smart Mark Entry",    examPaths("/smart-entry"),         adminMgmtTeacher, { action: "exam.marks_entry" }),
+      ...sub("exam.import_marks",     "Import Marks",        examPaths("/import-marks"),        adminMgmtTeacher, { action: "exam.import_marks" }),
+      ...sub("exam.monthly_sheets",   "Monthly Result Sheets", examPaths("/monthly-sheets"),    all),
+      ...sub("exam.dashboard",        "Examination Dashboard", examPaths("/dashboard"),         all),
+      ...sub("exam.analytics",        "Exam Analytics",      examPaths("/analytics"),           all),
+      ...sub("exam.registers",        "Reports & Registers", examPaths("/registers"),           adminMgmt, { action: "exam.registers_export" }),
       ...sub("exam.create_mcq_paper", "Create MCQ Paper",    examPaths("/mcq-papers/create"),   adminMgmtTeacher, { action: "exam.mcq.paper_create" }),
       ...sub("exam.manage_mcq_paper", "Manage MCQ Paper",    examPaths("/mcq-papers"),          all),
       ...sub("exam.create_mcq_exam",  "Create MCQ Exam",     examPaths("/mcq-exams/create"),    adminMgmtTeacher, { action: "exam.mcq.create" }),

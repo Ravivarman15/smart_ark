@@ -153,7 +153,7 @@ const ManageManualExamPage = () => {
     label: string,
   ) => {
     try {
-      await resultsMut.mutateAsync({ id: e.id, status });
+      await resultsMut.mutateAsync({ id: e.id, status, exam: e });
       toast.success(label);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Action failed");

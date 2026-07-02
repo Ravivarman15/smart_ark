@@ -2,16 +2,48 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  commsDispatcherService,
+  commsRecipientsService,
+} from "@/features/communication";
+import {
   examAuditService,
   examResultsService,
   examService,
 } from "../services";
 import type {
+  Exam,
   ExamInput,
   ExamStatus,
   MarksEntryRow,
   RescheduleInput,
 } from "../types/exam.types";
+
+// Fire the results-published notification through the EXISTING comms engine
+// (the exam_published event is already registered). Best-effort: recipient
+// resolution or a disabled event never breaks the publish action.
+const notifyResultsPublished = async (exam: Exam, actorId?: string) => {
+  try {
+    if (!exam.batchId) return;
+    const recipients = await commsRecipientsService.students({
+      batchIds: [exam.batchId],
+    });
+    if (recipients.length === 0) return;
+    await commsDispatcherService.dispatch("exam_published", {
+      recipients,
+      actorId,
+      contextType: `exam_published:${exam.id}`,
+      resolve: (c) => ({
+        student_name: c.name,
+        parent_name: c.meta?.parent_name ?? c.name,
+        exam_name: exam.title,
+        subject_name: exam.subjectName ?? "",
+        batch_name: c.meta?.batch_name ?? exam.batchName ?? "",
+      }),
+    });
+  } catch {
+    /* best-effort — never throw into the publish mutation */
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exam mutations. Every mutation writes an audit trail entry on success
@@ -108,6 +140,8 @@ export const useSetResultsStatus = () => {
     mutationFn: (args: {
       id: string;
       status: "pending" | "published" | "locked";
+      /** Passed by the caller so publishing can notify parents (Phase 9). */
+      exam?: Exam;
     }) => examService.setResultsStatus(args.id, args.status),
     onSuccess: (_d, args) => {
       const event =
@@ -117,6 +151,10 @@ export const useSetResultsStatus = () => {
             ? "locked"
             : "unpublished";
       examAuditService.log(args.id, event, `Results ${event}`, actor);
+      // On publish, dispatch the results-published notification (reused engine).
+      if (args.status === "published" && args.exam) {
+        void notifyResultsPublished(args.exam, actor.actorId);
+      }
       invalidate(qc);
     },
   });

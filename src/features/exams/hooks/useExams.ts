@@ -5,10 +5,21 @@ import type { ExamMode, ExamStatus } from "../types/exam.types";
 
 // Query hooks for exam definitions.
 
+export interface ExamListParams {
+  mode?: ExamMode;
+  status?: ExamStatus;
+  academicYearId?: string;
+  term?: string;
+  month?: string;
+  standardId?: string;
+  batchId?: string;
+  subjectId?: string;
+}
+
 /** List exams. The Manual pages pass `{ mode: "manual" }`. */
-export const useExams = (params?: { mode?: ExamMode; status?: ExamStatus }) =>
+export const useExams = (params?: ExamListParams) =>
   useQuery({
-    queryKey: queryKeys.exams.list(params),
+    queryKey: queryKeys.exams.list(params as Record<string, unknown> | undefined),
     queryFn: () => examService.list(params),
   });
 

@@ -203,6 +203,12 @@ const AuthAccountHealth = lazy(() => import("./features/auth-accounts/pages/Acco
 // Exam module pages (feature-based — src/features/exams)
 const ManageManualExamPage = lazy(() => import("./features/exams/pages/ManageManualExamPage"));
 const CreateManualExamPage = lazy(() => import("./features/exams/pages/CreateManualExamPage"));
+const SmartMarkEntryPage = lazy(() => import("./features/exams/pages/SmartMarkEntryPage"));
+const MonthlyResultSheetsPage = lazy(() => import("./features/exams/pages/MonthlyResultSheetsPage"));
+const ExamManagementDashboardPage = lazy(() => import("./features/exams/pages/ExamManagementDashboardPage"));
+const ExamAnalyticsDashboardPage = lazy(() => import("./features/exams/pages/ExamAnalyticsDashboardPage"));
+const ExamRegistersPage = lazy(() => import("./features/exams/pages/ExamRegistersPage"));
+const ImportMarksPage = lazy(() => import("./features/exams/pages/ImportMarksPage"));
 const ManageMcqPaperPage = lazy(() => import("./features/exams/pages/ManageMcqPaperPage"));
 const CreateMcqPaperPage = lazy(() => import("./features/exams/pages/CreateMcqPaperPage"));
 const ManageMcqExamPage = lazy(() => import("./features/exams/pages/ManageMcqExamPage"));
@@ -482,6 +488,12 @@ const AppRoutes: React.FC = () => (
         <Route path="exams/manual" element={<ManageManualExamPage />} />
         <Route path="exams/manual/create" element={<CreateManualExamPage />} />
         <Route path="exams/manual/:id/edit" element={<CreateManualExamPage />} />
+        <Route path="exams/smart-entry" element={<SmartMarkEntryPage />} />
+        <Route path="exams/import-marks" element={<ImportMarksPage />} />
+        <Route path="exams/monthly-sheets" element={<MonthlyResultSheetsPage />} />
+        <Route path="exams/dashboard" element={<ExamManagementDashboardPage />} />
+        <Route path="exams/analytics" element={<ExamAnalyticsDashboardPage />} />
+        <Route path="exams/registers" element={<ExamRegistersPage />} />
         <Route path="exams/mcq-papers" element={<ManageMcqPaperPage />} />
         <Route path="exams/mcq-papers/create" element={<CreateMcqPaperPage />} />
         <Route path="exams/mcq-papers/:id/edit" element={<CreateMcqPaperPage />} />
@@ -616,6 +628,12 @@ const AppRoutes: React.FC = () => (
         <Route path="exams/manual" element={<ManageManualExamPage />} />
         <Route path="exams/manual/create" element={<CreateManualExamPage />} />
         <Route path="exams/manual/:id/edit" element={<CreateManualExamPage />} />
+        <Route path="exams/smart-entry" element={<SmartMarkEntryPage />} />
+        <Route path="exams/import-marks" element={<ImportMarksPage />} />
+        <Route path="exams/monthly-sheets" element={<MonthlyResultSheetsPage />} />
+        <Route path="exams/dashboard" element={<ExamManagementDashboardPage />} />
+        <Route path="exams/analytics" element={<ExamAnalyticsDashboardPage />} />
+        <Route path="exams/registers" element={<ExamRegistersPage />} />
         <Route path="exams/mcq-papers" element={<ManageMcqPaperPage />} />
         <Route path="exams/mcq-papers/create" element={<CreateMcqPaperPage />} />
         <Route path="exams/mcq-papers/:id/edit" element={<CreateMcqPaperPage />} />

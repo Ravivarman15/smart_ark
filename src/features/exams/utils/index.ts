@@ -10,6 +10,9 @@ export {
   assignRanks,
   computeStats,
   gradeDistribution,
+  median,
+  mean,
+  stdDev,
   validateScheme,
   type ScoreInput,
   type ScoreOutput,
@@ -33,6 +36,28 @@ export {
   normalizeQuestionText,
   selectQuestionsForGeneration,
 } from "./mcqScoring";
+
+export {
+  schoolStats,
+  groupComparison,
+  monthTrend,
+  gradeSpread,
+  rankDistribution,
+  studentAggregates,
+  topStudents,
+  bottomStudents,
+  mostImproved,
+  performanceDrops,
+  riskStudents,
+  scholarshipCandidates,
+  heatMap,
+  type ScoredRow,
+  type SchoolStats,
+  type ComparisonRow,
+  type RankBucket,
+  type StudentAggregate,
+  type HeatMap,
+} from "./analytics";
 
 export {
   canManagePaper,

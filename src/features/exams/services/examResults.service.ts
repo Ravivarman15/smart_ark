@@ -1,7 +1,22 @@
 import { BaseService, AppError } from "@/shared/services";
 import { assignRanks } from "../utils/grading";
 import { examService } from "./exam.service";
-import type { ExamResult, MarksEntryRow } from "../types/exam.types";
+import type {
+  AttendanceStatus,
+  ExamResult,
+  MarksEntryRow,
+} from "../types/exam.types";
+
+/** Normalise a raw status; any non-present value implies absent for grading. */
+const normAttendance = (
+  status: string | null | undefined,
+  isAbsent: boolean,
+): AttendanceStatus => {
+  if (status === "medical" || status === "malpractice" || status === "absent")
+    return status;
+  if (status === "present") return "present";
+  return isAbsent ? "absent" : "present";
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exam results service — marks entry + bulk upload.
@@ -20,6 +35,7 @@ type ResultRow = {
   student_name: string | null;
   marks: number | null;
   is_absent: boolean | null;
+  attendance_status: string | null;
   grade: string | null;
   rank: number | null;
   remarks: string | null;
@@ -34,6 +50,7 @@ const toDomain = (r: ResultRow): ExamResult => ({
   studentName: r.student_name ?? undefined,
   marks: r.marks == null ? null : Number(r.marks),
   isAbsent: !!r.is_absent,
+  attendanceStatus: normAttendance(r.attendance_status, !!r.is_absent),
   grade: r.grade ?? undefined,
   rank: r.rank ?? undefined,
   remarks: r.remarks ?? undefined,
@@ -69,31 +86,52 @@ class ExamResultsService extends BaseService {
       );
     }
 
+    // Resolve each row's attendance status; anything other than "present" is
+    // treated as not-appeared for grading (no marks, no rank).
+    const statusOf = (r: MarksEntryRow): AttendanceStatus =>
+      normAttendance(r.attendanceStatus, r.isAbsent);
+
     // Run every row through the grading layer (grade + dense rank).
-    const asResults: ExamResult[] = rows.map((r) => ({
-      id: "",
-      examId,
-      studentId: r.studentId,
-      studentName: r.studentName,
-      marks: r.isAbsent ? null : r.marks,
-      isAbsent: r.isAbsent,
-      remarks: r.remarks,
-    }));
+    const asResults: ExamResult[] = rows.map((r) => {
+      const status = statusOf(r);
+      const notPresent = status !== "present";
+      return {
+        id: "",
+        examId,
+        studentId: r.studentId,
+        studentName: r.studentName,
+        marks: notPresent ? null : r.marks,
+        isAbsent: notPresent,
+        attendanceStatus: status,
+        remarks: r.remarks,
+      };
+    });
     const scored = assignRanks(exam, asResults);
+    const statusById = new Map(rows.map((r) => [r.studentId, statusOf(r)]));
 
     const now = new Date().toISOString();
-    const payload = scored.map((r) => ({
-      exam_id: examId,
-      student_id: r.studentId,
-      student_name: r.studentName ?? null,
-      marks: r.marks,
-      is_absent: r.isAbsent,
-      grade: r.isAbsent ? "AB" : r.grade ?? null,
-      rank: r.rank ?? null,
-      remarks: r.remarks ?? null,
-      entered_by: enteredBy ?? null,
-      entered_at: now,
-    }));
+    const payload = scored.map((r) => {
+      const status = statusById.get(r.studentId) ?? "present";
+      return {
+        exam_id: examId,
+        student_id: r.studentId,
+        student_name: r.studentName ?? null,
+        marks: r.marks,
+        is_absent: r.isAbsent,
+        attendance_status: status,
+        grade: r.isAbsent
+          ? status === "malpractice"
+            ? "MP"
+            : status === "medical"
+              ? "ML"
+              : "AB"
+          : r.grade ?? null,
+        rank: r.rank ?? null,
+        remarks: r.remarks ?? null,
+        entered_by: enteredBy ?? null,
+        entered_at: now,
+      };
+    });
 
     const { error } = await this.db
       .from("exam_results")
