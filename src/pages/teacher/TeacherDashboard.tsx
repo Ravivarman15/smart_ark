@@ -348,6 +348,38 @@ const TeacherDashboard: React.FC = () => {
     return { total: totalStudents, present: presentCount, absent: absentCount };
   }, [teacherInfo?.students, presentCount, absentCount]);
 
+  // ── Live class performance (derived from real marks entries) ────────
+  // Powers the Home tab tiles so the numbers reflect actual recorded data
+  // instead of static placeholders. Recomputes whenever marks change.
+  const classPerformance = useMemo(() => {
+    if (teacherMarksEntries.length === 0) {
+      return { classAverage: null as number | null, atRisk: 0, lastEntryDate: null as string | null };
+    }
+    // Average % across all recorded entries.
+    const pctSum = teacherMarksEntries.reduce(
+      (acc, e) => acc + (e.totalMarks > 0 ? (e.marks / e.totalMarks) * 100 : 0), 0,
+    );
+    const classAverage = Math.round(pctSum / teacherMarksEntries.length);
+
+    // At-risk = students whose average across their entries is below 40%.
+    const perStudent = new Map<string, { sum: number; count: number }>();
+    teacherMarksEntries.forEach((e) => {
+      const cur = perStudent.get(e.studentName) || { sum: 0, count: 0 };
+      cur.sum += e.totalMarks > 0 ? (e.marks / e.totalMarks) * 100 : 0;
+      cur.count += 1;
+      perStudent.set(e.studentName, cur);
+    });
+    let atRisk = 0;
+    perStudent.forEach((v) => { if (v.sum / v.count < 40) atRisk += 1; });
+
+    const lastEntryDate = teacherMarksEntries
+      .map((e) => e.date)
+      .sort()
+      .at(-1) || null;
+
+    return { classAverage, atRisk, lastEntryDate };
+  }, [teacherMarksEntries]);
+
   // ── Render ────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -418,6 +450,7 @@ const TeacherDashboard: React.FC = () => {
           pendingTasks={pendingTasks} submitted={submitted} teacherInfo={teacherInfo}
           tasks={tasks} teacherId={teacherId} markTaskComplete={markTaskComplete}
           attendanceStats={attendanceStats} teacherMarksEntries={teacherMarksEntries}
+          classPerformance={classPerformance}
         />}
         {activeTab === "attendance" && <AttendanceTab
           teacherInfo={teacherInfo} attendanceMap={attendanceMap} submitted={submitted} submittingAttendance={submittingAttendance}
@@ -495,12 +528,13 @@ interface HomeTabProps {
   tasks: Task[];
   teacherId: string;
   markTaskComplete: (taskId: string, teacherId: string) => void;
-  attendanceStats: { present: number; absent: number };
+  attendanceStats: { total: number; present: number; absent: number };
   teacherMarksEntries: MarksEntry[];
+  classPerformance: { classAverage: number | null; atRisk: number; lastEntryDate: string | null };
 }
 const HomeTab: React.FC<HomeTabProps> = ({
   todayCheckin, handleCheckin, checkinLoading, handleCheckout, checkoutLoading, pendingTasks, submitted, teacherInfo,
-  tasks, teacherId, markTaskComplete, attendanceStats, teacherMarksEntries,
+  tasks, teacherId, markTaskComplete, attendanceStats, teacherMarksEntries, classPerformance,
 }) => (
   <div className="p-4 space-y-5 max-w-2xl mx-auto animate-in fade-in duration-300">
     {/* Check-in Card */}
@@ -618,7 +652,7 @@ const HomeTab: React.FC<HomeTabProps> = ({
         {[
           { label: "Check-in", value: todayCheckin ? (todayCheckin.status === "pending" ? "Pending Approval" : todayCheckin.time) : "Not Checked In", done: !!todayCheckin && todayCheckin.status !== "pending", icon: MapPin },
           { label: "Pending Tasks", value: `${pendingTasks}`, done: pendingTasks === 0, icon: ClipboardList },
-          { label: "Attendance", value: submitted ? "Submitted" : "Pending", done: submitted, icon: Users2 },
+          { label: "Attendance", value: submitted ? `${attendanceStats.present}/${attendanceStats.total} Present` : "Pending", done: submitted, icon: Users2 },
           { label: "My Class", value: teacherInfo?.className || "—", done: true, icon: BookOpen },
         ].map((item, i) => (
           <div key={i} className={item.done ? "state-card-success" : "state-card-warning"}>
@@ -638,28 +672,48 @@ const HomeTab: React.FC<HomeTabProps> = ({
       </div>
     </section>
 
-    {/* Quick Stats */}
-    {teacherInfo?.students && teacherInfo.students.length > 0 && (
-      <section>
-        <h2 className="section-heading">
-          <TrendingUp className="w-4 h-4 text-accent" /> Quick Stats
-        </h2>
-        <div className="grid grid-cols-3 gap-2">
+    {/* Quick Stats — all values are live-derived from real data */}
+    <section>
+      <h2 className="section-heading">
+        <TrendingUp className="w-4 h-4 text-accent" /> Class Snapshot
+      </h2>
+      {teacherInfo?.students && teacherInfo.students.length > 0 ? (
+        <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl bg-card/60 border border-border p-3 text-center">
             <p className="text-2xl font-bold text-foreground">{attendanceStats.total}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Students</p>
           </div>
           <div className="rounded-xl bg-card/60 border border-border p-3 text-center">
-            <p className="text-2xl font-bold text-ark-success">{teacherMarksEntries.length}</p>
+            <p className={`text-2xl font-bold ${
+              classPerformance.classAverage === null ? "text-muted-foreground"
+                : classPerformance.classAverage >= 60 ? "text-ark-success"
+                : classPerformance.classAverage >= 40 ? "text-ark-warning" : "text-ark-danger"
+            }`}>
+              {classPerformance.classAverage === null ? "—" : `${classPerformance.classAverage}%`}
+            </p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Class Avg</p>
+          </div>
+          <div className="rounded-xl bg-card/60 border border-border p-3 text-center">
+            <p className="text-2xl font-bold text-accent">{teacherMarksEntries.length}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Tests Recorded</p>
           </div>
           <div className="rounded-xl bg-card/60 border border-border p-3 text-center">
-            <p className="text-2xl font-bold text-accent">{pendingTasks}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Tasks Pending</p>
+            <p className={`text-2xl font-bold ${classPerformance.atRisk > 0 ? "text-ark-danger" : "text-ark-success"}`}>
+              {classPerformance.atRisk}
+            </p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">At-Risk</p>
           </div>
         </div>
-      </section>
-    )}
+      ) : (
+        <div className="rounded-xl border border-dashed border-border p-6 text-center">
+          <Users2 className="w-7 h-7 text-muted-foreground/60 mx-auto mb-2" />
+          <p className="text-sm font-medium text-foreground">No students linked yet</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Add students from the Attendance tab, or ask an admin to assign your class/batch.
+          </p>
+        </div>
+      )}
+    </section>
 
     {/* Tasks */}
     <section>
@@ -907,6 +961,18 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
             </div>
           )}
 
+          {/* Empty state — teacher has a class record but no students linked yet */}
+          {teacherInfo.students.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
+              <Users2 className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground">No students in your class yet</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                Tap <span className="text-accent font-semibold">Add Student</span> above to add them,
+                or ask an admin to assign your batch. Added students are saved to the database and appear here instantly.
+              </p>
+            </div>
+          )}
+
           {/* Student List */}
           <div className="space-y-4">
             {Object.entries(teacherInfo.studentsByBatch || { "My Class": filteredStudents }).map(([batchName, batchStudents]) => {
@@ -957,8 +1023,8 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
             })}
           </div>
 
-          {/* Action Buttons */}
-          {!submitted ? (
+          {/* Action Buttons — nothing to submit until there are students */}
+          {teacherInfo.students.length === 0 ? null : !submitted ? (
             <button onClick={handleSubmitAttendance} className="btn-primary" disabled={submittingAttendance}>
               {submittingAttendance ? "Submitting..." : "Submit Attendance"}
             </button>

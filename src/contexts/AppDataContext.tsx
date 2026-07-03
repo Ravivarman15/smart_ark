@@ -1557,6 +1557,12 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     if (data) {
       // ── Insert into teacher_students junction table (UUID-based link) ──────
+      // This link is what makes the student appear on the teacher dashboard.
+      // The student list is DERIVED from teacher_students on every refresh, so
+      // if this insert fails the student row exists in the DB but is INVISIBLE
+      // to the teacher (it silently vanishes on the next reload). That must be
+      // treated as a hard failure — otherwise we accumulate orphaned students
+      // and the teacher sees "added" toasts for students that never show up.
       const { error: jErr } = await (supabase as any).from("teacher_students").insert({
         teacher_id: teacherId,
         student_id: data.id,
@@ -1564,8 +1570,15 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         assigned_by: teacherId,
       });
       if (jErr && !jErr.message?.includes("duplicate")) {
-        // Non-fatal: log but don't block the UI — refreshData will re-derive the list
-        console.warn("[addStudentToTeacher] junction insert:", jErr.message);
+        // Roll back the orphaned student row so we don't leave an unlinked
+        // student behind that no one can see or manage.
+        await (supabase as any).from("students").delete().eq("id", data.id);
+        const hint = /relation .* does not exist|could not find the table/i.test(jErr.message || "")
+          ? "The teacher_students table is missing — the 20260421 migration hasn't been applied to this database."
+          : /row-level security|permission/i.test(jErr.message || "")
+            ? "You don't have permission to link students. Ask an admin to assign your class."
+            : jErr.message;
+        throw new Error(`Could not link ${studentName} to your class. ${hint}`);
       }
 
       // Optimistic local update so the teacher sees the student immediately
