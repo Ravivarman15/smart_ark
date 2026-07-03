@@ -1144,10 +1144,20 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     if (res.error) {
       console.error("[submitAttendance] failed:", res.error);
+      // Re-submitting attendance for a day already saved takes the UPSERT's
+      // ON CONFLICT DO UPDATE path. If the student_attendance UPDATE policy is
+      // missing, Postgres raises a 42501 "row-level security policy (USING
+      // expression)" error only on the SECOND submit. Surface an actionable
+      // hint instead of the raw DB string.
+      const isRlsUpdateDenied =
+        res.error.code === "42501" ||
+        /row-level security policy/i.test(res.error.message ?? "");
       throw new Error(
         isSchemaMiss(res.error)
           ? "Attendance schema update required. Run the latest migration and reload the schema cache."
-          : `Failed to save attendance: ${res.error.message}`,
+          : isRlsUpdateDenied
+            ? "Can't update already-saved attendance — the database is missing the student_attendance UPDATE policy. Apply migration 20260703_student_attendance_update_policy.sql."
+            : `Failed to save attendance: ${res.error.message}`,
       );
     }
     setAttendance(prev => ({ ...prev, [teacherId]: { ...(prev[teacherId] || {}), [date]: record } }));

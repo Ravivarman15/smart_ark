@@ -118,6 +118,7 @@ const EnquiryManagement = lazy(() => import("@/pages/shared/EnquiryManagement"))
 const FeesAdmission = lazy(() => import("@/pages/admin/FeesAdmission"));
 const FeeManagement = lazy(() => import("@/pages/shared/FeeManagement"));
 const ManageStaff = lazy(() => import("@/pages/shared/ManageStaff"));
+const ManageActionRights = lazy(() => import("@/features/rbac/pages/ManageActionRights"));
 const TimetableView = lazy(() => import("@/pages/shared/TimetableView"));
 
 // Communication module
@@ -272,6 +273,15 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     element: <FeeStructurePage />,
     submodule: "fee.manage_structure",
     label: "Manage Fee Structure",
+  },
+  // Add-variant aliases the same page (the structure list has a "+ New"
+  // action). Without this row a `fee.create_structure` grant resolves to
+  // coming-soon even though the page is mounted natively for admin/management.
+  {
+    path: "setup/fee-structures",
+    element: <FeeStructurePage />,
+    submodule: "fee.create_structure",
+    label: "Create Fee Structure",
   },
 
   // ── Exam (coordinator + teacher layouts) ────────────────────────────────
@@ -564,6 +574,18 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     submodule: "staff.create",
     label: "Create Staff",
     layouts: ["coordinator", "teacher"],
+  },
+  // Staff action-rights matrix. Management mounts this natively at
+  // /management/action-rights (App.tsx); coordinator/teacher get a real page
+  // via renderSharedRoutes here instead of coming-soon. Admin is intentionally
+  // excluded — it has no native action-rights mount, so claiming "route OK"
+  // for it would be false. (Admin manages rights through the Role Center.)
+  {
+    path: "action-rights",
+    element: <ManageActionRights />,
+    submodule: "staff.action_rights",
+    label: "Manage Staff Action Rights",
+    layouts: ["management", "coordinator", "teacher"],
   },
 
   // ── Timetable (shared view; admin/mgmt/coord have explicit mounts) ───

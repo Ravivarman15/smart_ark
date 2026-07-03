@@ -63,7 +63,8 @@
       "Bash(node \"C:/Users/arrav/AppData/Local/Temp/claude/C--Users-arrav-Pictures-smart-ark-main/f925a6e3-dd49-40eb-80ee-56cd3d85c0b1/scratchpad/probe.mjs\")",
       "Bash(node \"C:/Users/arrav/AppData/Local/Temp/claude/C--Users-arrav-Pictures-smart-ark-main/f925a6e3-dd49-40eb-80ee-56cd3d85c0b1/scratchpad/probe2.mjs\")",
       "Bash(node \"C:/Users/arrav/AppData/Local/Temp/claude/C--Users-arrav-Pictures-smart-ark-main/f925a6e3-dd49-40eb-80ee-56cd3d85c0b1/scratchpad/probe3.mjs\")",
-      "Bash(grep -iA0 -E \"policy|select|all\")"
+      "Bash(grep -iA0 -E \"policy|select|all\")",
+      "Bash(echo \"TSC_EXIT: $?\")"
     ]
   }
 }
