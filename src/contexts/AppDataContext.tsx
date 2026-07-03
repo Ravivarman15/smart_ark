@@ -1521,7 +1521,12 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addStudentToTeacher = useCallback(async (teacherId: string, studentName: string) => {
     const teacher = teachers.find(t => t.id === teacherId);
-    if (!teacher) return;
+    // Silently returning here would let the UI show a false "added" toast for a
+    // student that was never saved. Fail loudly so the teacher knows something
+    // is off (e.g. their teacher profile isn't loaded / linked yet).
+    if (!teacher) {
+      throw new Error("Your teacher profile isn't loaded yet. Please reload and try again.");
+    }
 
     const primaryBatchName = teacher.classes?.[0] || teacher.className?.split(",")[0].trim();
     const matchBatch = primaryBatchName ? batches.find(b => b.name === primaryBatchName) : null;

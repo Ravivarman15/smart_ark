@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/core/theme";
 import { RoleSidebar } from "@/shared/layouts";
 import { useNavigation } from "@/core/navigation";
 import { resolveIcon } from "@/shared/icons";
+import StudentPerformanceDrawer from "./StudentPerformanceDrawer";
 import {
   LogOut, CheckCircle2, BookOpen, Clock, FileText, MapPin,
   ClipboardList, Users2, Calendar, CheckSquare, Square,
@@ -458,6 +459,7 @@ const TeacherDashboard: React.FC = () => {
           setSubmitted={setSubmitted} setAttendanceMap={setAttendanceMap} today={today}
           presentCount={presentCount} absentCount={absentCount}
           teacherId={teacherId} addStudentToTeacher={addStudentToTeacher}
+          students={students} marksEntries={teacherMarksEntries}
           setAttendanceMapEntry={(name: string, status: AttendanceStatus) =>
             setAttendanceMap(prev => ({ ...prev, [name]: status }))
           }
@@ -784,13 +786,17 @@ interface AttendanceTabProps {
   teacherId: string;
   addStudentToTeacher: (teacherId: string, name: string) => Promise<void>;
   setAttendanceMapEntry?: (name: string, status: AttendanceStatus) => void;
+  students: StudentInfo[];
+  marksEntries: MarksEntry[];
 }
 const AttendanceTab: React.FC<AttendanceTabProps> = ({
   teacherInfo, attendanceMap, submitted, submittingAttendance, handleAttendanceToggle, handleSubmitAttendance,
   setSubmitted, setAttendanceMap, today, presentCount, absentCount,
-  teacherId, addStudentToTeacher, setAttendanceMapEntry,
+  teacherId, addStudentToTeacher, setAttendanceMapEntry, students, marksEntries,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
+  // Student selected for the performance drill-down drawer.
+  const [drawerStudent, setDrawerStudent] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newStudentName, setNewStudentName] = useState("");
   const [addError, setAddError] = useState("");
@@ -1004,6 +1010,14 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
                           <p className="text-sm font-medium text-foreground">{student}</p>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Drill-down — stopPropagation so it doesn't toggle attendance */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDrawerStudent(student); }}
+                            title="View performance"
+                            className="p-1.5 rounded-lg hover:bg-accent/10 text-muted-foreground hover:text-accent transition-colors"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </button>
                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
                             isPresent ? "bg-ark-success/15 text-ark-success" : "bg-ark-danger/15 text-ark-danger"
                           }`}>
@@ -1038,6 +1052,16 @@ const AttendanceTab: React.FC<AttendanceTabProps> = ({
             </button>
           )}
         </>
+      )}
+
+      {/* Per-student performance drill-down */}
+      {drawerStudent && (
+        <StudentPerformanceDrawer
+          studentName={drawerStudent}
+          student={students.find((s) => s.name === drawerStudent)}
+          marks={marksEntries.filter((e) => e.studentName === drawerStudent)}
+          onClose={() => setDrawerStudent(null)}
+        />
       )}
     </div>
   );

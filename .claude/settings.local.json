@@ -59,7 +59,11 @@
       "Bash(grep -nA20 '\"generic-notice\"' supabase/functions/_shared/email-templates.ts)",
       "Bash(grep -nA8 \"interface GenericNoticeParams\" supabase/functions/_shared/email-templates.ts)",
       "Bash(grep -nA8 \"const sub = \" src/core/navigation/menu.config.ts)",
-      "Bash(xargs grep -l \"catalog\\\\|MODULE_CATALOG\\\\|menuRegistry\")"
+      "Bash(xargs grep -l \"catalog\\\\|MODULE_CATALOG\\\\|menuRegistry\")",
+      "Bash(node \"C:/Users/arrav/AppData/Local/Temp/claude/C--Users-arrav-Pictures-smart-ark-main/f925a6e3-dd49-40eb-80ee-56cd3d85c0b1/scratchpad/probe.mjs\")",
+      "Bash(node \"C:/Users/arrav/AppData/Local/Temp/claude/C--Users-arrav-Pictures-smart-ark-main/f925a6e3-dd49-40eb-80ee-56cd3d85c0b1/scratchpad/probe2.mjs\")",
+      "Bash(node \"C:/Users/arrav/AppData/Local/Temp/claude/C--Users-arrav-Pictures-smart-ark-main/f925a6e3-dd49-40eb-80ee-56cd3d85c0b1/scratchpad/probe3.mjs\")",
+      "Bash(grep -iA0 -E \"policy|select|all\")"
     ]
   }
 }
