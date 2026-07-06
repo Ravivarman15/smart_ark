@@ -72,6 +72,7 @@ import {
 } from "../hooks/useStudentLookups";
 import { useStudentFilterPresets } from "../hooks/useStudentFilterPresets";
 import { studentsService } from "../services/students.service";
+import { openReportWindow, closeReportWindow } from "@/lib/reportWindow";
 import {
   exportStudents,
   type ExportFormat,
@@ -182,6 +183,10 @@ const ManageStudentsPage = () => {
 
   // ── export ───────────────────────────────────────────────────────────────--
   const exportScope = async (scope: "all" | "filtered" | "selected", format: ExportFormat) => {
+    // PDF opens a print window — open it synchronously in the click so the popup
+    // blocker allows it even after the async fetch below. CSV / Excel download files.
+    const win = format === "pdf" ? openReportWindow() : null;
+    if (format === "pdf" && !win) return; // popup blocked — toast already shown
     try {
       let rows: Student[];
       if (scope === "all") {
@@ -197,16 +202,23 @@ const ManageStudentsPage = () => {
         rows = filtered;
       }
       if (rows.length === 0) {
+        closeReportWindow(win);
         toast.warning("No students to export for that selection.");
         return;
       }
-      await exportStudents(rows, format, {
-        fileName: "students",
-        title: "Students",
-        subtitle: `${scope[0].toUpperCase()}${scope.slice(1)} export`,
-      });
+      await exportStudents(
+        rows,
+        format,
+        {
+          fileName: "students",
+          title: "Students",
+          subtitle: `${scope[0].toUpperCase()}${scope.slice(1)} export`,
+        },
+        win,
+      );
       toast.success(`Exported ${rows.length} students (${format.toUpperCase()})`);
     } catch (e) {
+      closeReportWindow(win);
       toast.error(e instanceof Error ? e.message : "Export failed");
     }
   };

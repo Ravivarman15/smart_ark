@@ -61,6 +61,19 @@ export const gradeFor = (pct: number, scheme?: GradeBand[]): string => {
   return bands[bands.length - 1]?.grade ?? "—";
 };
 
+/**
+ * The lowest percentage that still counts as a pass under a grading scheme.
+ * The lowest band is treated as the fail band, so the pass floor is the minPct
+ * of the second-lowest band (35% under the institute default). Cross-exam
+ * summaries that have percentages but no single pass mark use this instead of a
+ * hard-coded number, so the threshold follows the configured scheme.
+ */
+export const passFloorPercent = (scheme?: GradeBand[]): number => {
+  const bands = schemeFor(scheme);
+  if (bands.length < 2) return 0;
+  return bands[bands.length - 2].minPct;
+};
+
 /** Did the student pass? Absentees never pass. */
 export const isPass = (
   marks: number | null | undefined,

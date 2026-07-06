@@ -2,14 +2,22 @@ import { forwardRef, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, Paperclip, Plus, Save, X } from "lucide-react";
+import { ArrowLeft, Loader2, Paperclip, Plus, Save, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useCanDo } from "@/features/rbac";
 import { examFormSchema, type ExamFormValues } from "../schemas/exam.schema";
-import { useCreateExam, useExam, useExamLookups, useUpdateExam } from "../hooks";
+import {
+  useCreateExam,
+  useExam,
+  useExamLookups,
+  useGradeSchemes,
+  useUpdateExam,
+} from "../hooks";
 import { DEFAULT_GRADE_SCHEME } from "../utils";
+import { GradeSchemeManagerDialog } from "../components/GradeSchemeManagerDialog";
+import type { GradeBand } from "../types/exam.types";
 import {
   EXAM_TYPES,
   TERMS,
@@ -35,8 +43,15 @@ const CreateManualExamPage = () => {
 
   const { data: lookups } = useExamLookups();
   const { data: existing } = useExam(id ?? null);
+  const { data: gradeSchemes = [] } = useGradeSchemes();
   const createMut = useCreateExam();
   const updateMut = useUpdateExam();
+
+  // Grading scheme picker. "" = institute default (stored as an empty scheme).
+  const [schemeId, setSchemeId] = useState<string>("");
+  const [schemeMgrOpen, setSchemeMgrOpen] = useState(false);
+  const selectedScheme = gradeSchemes.find((s) => s.id === schemeId);
+  const previewBands: GradeBand[] = selectedScheme?.bands ?? DEFAULT_GRADE_SCHEME;
 
   const standards = lookups?.standards ?? [];
   const subjects = lookups?.subjects ?? [];
@@ -99,6 +114,21 @@ const CreateManualExamPage = () => {
     setAttachments(existing.attachments ?? []);
   }, [existing, form]);
 
+  // In edit mode, preselect the grading scheme whose bands match what the exam
+  // stored. An empty stored scheme = institute default ("").
+  useEffect(() => {
+    if (!existing) return;
+    const stored = existing.gradingScheme ?? [];
+    if (stored.length === 0) {
+      setSchemeId("");
+      return;
+    }
+    const match = gradeSchemes.find(
+      (s) => JSON.stringify(s.bands) === JSON.stringify(stored),
+    );
+    setSchemeId(match?.id ?? "");
+  }, [existing, gradeSchemes]);
+
   const permitted = isEdit ? canDo("exam.edit") : canDo("exam.create");
 
   const addAttachment = () => {
@@ -135,7 +165,9 @@ const CreateManualExamPage = () => {
       endTime: values.endTime || null,
       hall: values.hall || null,
       attachments,
-      gradingScheme: [], // empty → institute default scheme
+      // Copy the chosen scheme's bands so later edits to the scheme never
+      // rewrite this exam's grades. Empty → institute default scheme.
+      gradingScheme: selectedScheme ? selectedScheme.bands : [],
     };
     try {
       if (isEdit && id) {
@@ -321,12 +353,33 @@ const CreateManualExamPage = () => {
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
             />
           </Field>
-          <div className="rounded-md bg-muted/30 border border-border/50 p-3">
-            <p className="text-xs font-medium text-foreground mb-1.5">
-              Grading scheme — institute default
-            </p>
+          <div className="rounded-md bg-muted/30 border border-border/50 p-3 space-y-2.5">
+            <div className="flex items-end gap-2">
+              <Field label="Grading scheme">
+                <Select value={schemeId} onChange={(e) => setSchemeId(e.target.value)}>
+                  <option value="">Institute default (built-in)</option>
+                  {gradeSchemes
+                    .filter((s) => !(s.isDefault && JSON.stringify(s.bands) === JSON.stringify(DEFAULT_GRADE_SCHEME)))
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.isDefault ? " (default)" : ""}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 shrink-0 mb-0.5"
+                onClick={() => setSchemeMgrOpen(true)}
+              >
+                <Settings2 className="w-3.5 h-3.5" /> Manage schemes
+              </Button>
+            </div>
             <div className="flex flex-wrap gap-1.5">
-              {DEFAULT_GRADE_SCHEME.map((b) => (
+              {previewBands.map((b) => (
                 <span
                   key={b.grade}
                   className="text-[11px] px-1.5 py-0.5 rounded border border-border/60 bg-background"
@@ -408,6 +461,12 @@ const CreateManualExamPage = () => {
           </Button>
         </div>
       </form>
+
+      <GradeSchemeManagerDialog
+        open={schemeMgrOpen}
+        onOpenChange={setSchemeMgrOpen}
+        onSaved={(scheme) => setSchemeId(scheme.id)}
+      />
     </div>
   );
 };

@@ -6,6 +6,7 @@ export {
   percentageOf,
   gradeFor,
   isPass,
+  passFloorPercent,
   scoreResult,
   assignRanks,
   computeStats,

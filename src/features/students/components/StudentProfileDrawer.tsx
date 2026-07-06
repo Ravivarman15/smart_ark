@@ -30,6 +30,7 @@ import { StudentPerformancePanel, StudentFeesPanel } from "./StudentInsightsPane
 import { useStudentRecordSummary } from "../hooks/useStudentRecordSummary";
 import { useStudentInsights, type ReceiptRow } from "../hooks/useStudentInsights";
 import { generateStudent360, type Report360Format } from "../services/student360.service";
+import { openReportWindow, closeReportWindow } from "@/lib/reportWindow";
 import { formatDate, formatDateTime } from "../utils/helpers";
 import type { Student } from "../types/student.types";
 
@@ -121,12 +122,18 @@ export const StudentProfileDrawer = ({
   // Student 360° report — gathers every section asynchronously, never blocks UI.
   const runReport = async (format: Report360Format) => {
     if (reporting) return;
+    // For PDF / Print the report opens in a new window. It must be opened NOW,
+    // synchronously inside the click, or the popup blocker rejects it once the
+    // async data gathering below finishes. Excel downloads a file — no window.
+    const win = format === "xlsx" ? null : openReportWindow();
+    if (format !== "xlsx" && !win) return; // popup blocked — toast already shown
     setReporting(format);
     const toastId = toast.loading("Generating Student 360° report…");
     try {
-      await generateStudent360(s, format);
+      await generateStudent360(s, format, win);
       toast.success("Student 360° report ready", { id: toastId });
     } catch (err) {
+      closeReportWindow(win);
       toast.error(err instanceof Error ? err.message : "Report failed", { id: toastId });
     } finally {
       setReporting(null);

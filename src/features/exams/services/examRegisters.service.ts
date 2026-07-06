@@ -235,6 +235,7 @@ class ExamRegistersService extends BaseService {
     type: RegisterType,
     filters: InsightsFilters,
     format: "csv" | "xlsx" | "pdf" | "print",
+    win?: Window | null,
   ): Promise<RegisterResult> {
     const reg = await this.build(type, filters);
     const req = {
@@ -246,7 +247,7 @@ class ExamRegistersService extends BaseService {
     };
     if (format === "csv") exportCsv(req);
     else if (format === "xlsx") exportExcel(req);
-    else exportPdf(req); // pdf + print share the print dialog
+    else exportPdf(req, win); // pdf + print share the print dialog
     return reg;
   }
 }

@@ -107,6 +107,22 @@ export interface GradeBand {
   maxPct: number;
 }
 
+/** A named, reusable grading scheme staff can pick when creating an exam. */
+export interface GradingScheme {
+  id: string;
+  name: string;
+  bands: GradeBand[];
+  isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GradingSchemeInput {
+  name: string;
+  bands: GradeBand[];
+  isDefault?: boolean;
+}
+
 export interface ExamAttachment {
   name: string;
   url: string;

@@ -144,6 +144,7 @@ export const queryKeys = {
       [...queryKeys.exams.all, "analytics", scope] as const,
     audit: (examId: string) => [...queryKeys.exams.all, "audit", examId] as const,
     lookups: (kind: string) => [...queryKeys.exams.all, "lookups", kind] as const,
+    gradeSchemes: () => [...queryKeys.exams.all, "grade-schemes"] as const,
     results: (params?: Record<string, unknown>) =>
       [...queryKeys.exams.all, "results", params ?? {}] as const,
     retests: () => [...queryKeys.exams.all, "retests"] as const,

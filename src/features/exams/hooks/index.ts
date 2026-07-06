@@ -26,6 +26,12 @@ export {
   useExamDashboard,
   useExamAiInsights,
 } from "./useExamInsights";
+export {
+  useGradeSchemes,
+  useCreateGradeScheme,
+  useUpdateGradeScheme,
+  useDeleteGradeScheme,
+} from "./useGradeSchemes";
 
 // ── MCQ Paper ────────────────────────────────────────────────────────────────
 export {

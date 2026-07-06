@@ -31,6 +31,7 @@ import {
 } from "../utils/student360";
 import { barChartSvg, donutChartSvg, lineChartSvg } from "../utils/report360Charts";
 import { formatDate, formatDateTime } from "../utils/helpers";
+import { renderReportWindow } from "@/lib/reportWindow";
 import type { Student, StudentDocument } from "../types/student.types";
 
 export type Report360Format = "pdf" | "xlsx" | "print";
@@ -485,11 +486,8 @@ const buildReportHtml = (d: Student360Data): string => {
 </body></html>`;
 };
 
-const openReport = (d: Student360Data): void => {
-  const w = window.open("", "_blank", "noopener=yes,noreferrer=yes");
-  if (!w) return;
-  w.document.write(buildReportHtml(d));
-  w.document.close();
+const openReport = (d: Student360Data, win?: Window | null): void => {
+  renderReportWindow(buildReportHtml(d), win);
 };
 
 // ── Excel (multi-sheet) ────────────────────────────────────────────────────────
@@ -578,9 +576,10 @@ const exportExcel = async (d: Student360Data): Promise<void> => {
  */
 export const generateStudent360 = async (
   student: Student,
-  format: Report360Format
+  format: Report360Format,
+  win?: Window | null
 ): Promise<void> => {
   const data = await gatherStudent360(student);
   if (format === "xlsx") return exportExcel(data);
-  return openReport(data); // pdf + print share the print-ready window
+  return openReport(data, win); // pdf + print share the print-ready window
 };

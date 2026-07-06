@@ -17,6 +17,7 @@ import {
 } from "../hooks/useReportData";
 import { useReportPage, makeExport } from "./helpers";
 import { avg, percent } from "../utils/reportCalc";
+import { passFloorPercent } from "@/features/exams/utils";
 import type { ExportColumn } from "../types/reports.types";
 
 interface Row {
@@ -77,6 +78,9 @@ const StudentExamSummaryPage = () => {
     { header: "Grade", value: (r) => r.grade ?? "—" },
   ];
 
+  // Pass line follows the configured grading scheme instead of a hard-coded 35%.
+  const passFloor = passFloorPercent();
+
   const top10 = rows.slice(0, 10).map((r) => ({ label: r.studentName, value: r.avgPct }));
   const kpis = [
     { key: "stu", label: "Students with results", value: rows.length, tone: "default" as const },
@@ -84,7 +88,7 @@ const StudentExamSummaryPage = () => {
     {
       key: "pass",
       label: "Pass %",
-      value: `${percent(rows.filter((r) => r.avgPct >= 35).length, rows.length)}%`,
+      value: `${percent(rows.filter((r) => r.avgPct >= passFloor).length, rows.length)}%`,
       tone: "positive" as const,
     },
   ];

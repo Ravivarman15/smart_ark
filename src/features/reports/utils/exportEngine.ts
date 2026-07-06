@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { ExportRequest } from "../types/reports.types";
+import { renderReportWindow } from "@/lib/reportWindow";
 
 const csvEscape = (v: string | number): string => {
   const s = String(v ?? "");
@@ -83,9 +84,7 @@ export const exportExcel = <T>(req: ExportRequest<T>): void => {
 // ── Print / PDF ─────────────────────────────────────────────────────────────
 // Opens the browser print dialog with a stylesheet tuned for reports.
 // The user picks "Save as PDF" to get a PDF.
-export const exportPdf = <T>(req: ExportRequest<T>): void => {
-  const w = window.open("", "_blank", "noopener=yes,noreferrer=yes");
-  if (!w) return;
+export const exportPdf = <T>(req: ExportRequest<T>, win?: Window | null): void => {
   const head = req.columns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join("");
   const body = req.rows
     .map(
@@ -105,7 +104,7 @@ export const exportPdf = <T>(req: ExportRequest<T>): void => {
         `<span class="kpi-value">${escapeHtml(String(k.value))}</span></div>`,
     )
     .join("");
-  w.document.write(`<!doctype html>
+  const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(req.title)}</title>
 <style>
   body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;color:#0f172a;margin:24px}
@@ -127,8 +126,8 @@ export const exportPdf = <T>(req: ExportRequest<T>): void => {
   ${kpis ? `<div class="kpis">${kpis}</div>` : ""}
   <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
   <script>window.addEventListener('load',()=>{setTimeout(()=>window.print(),200)});</script>
-</body></html>`);
-  w.document.close();
+</body></html>`;
+  renderReportWindow(html, win);
 };
 
 // ── In-page print (the page is the report) ──────────────────────────────────

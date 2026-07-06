@@ -7,6 +7,8 @@
 // The page builds an ExportRequest (columns + rows + KPIs); no analytics logic
 // happens here — rows are already filtered/selected by the caller.
 
+import { renderReportWindow } from "@/lib/reportWindow";
+
 export interface ExportColumn<T> {
   header: string;
   value: (row: T) => string | number;
@@ -73,9 +75,7 @@ export const exportExcel = <T>(req: ExportRequest<T>): void => {
   triggerDownload(html, datedName(req.reportKey, "xls"), "application/vnd.ms-excel");
 };
 
-export const exportPdf = <T>(req: ExportRequest<T>): void => {
-  const w = window.open("", "_blank", "noopener=yes,noreferrer=yes");
-  if (!w) return;
+export const exportPdf = <T>(req: ExportRequest<T>, win?: Window | null): void => {
   const head = req.columns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join("");
   const body = req.rows
     .map(
@@ -88,7 +88,7 @@ export const exportPdf = <T>(req: ExportRequest<T>): void => {
   const kpis = (req.kpis ?? [])
     .map((k) => `<div class="kpi"><span class="l">${escapeHtml(k.label)}</span><span class="v">${escapeHtml(String(k.value))}</span></div>`)
     .join("");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(req.title)}</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(req.title)}</title>
 <style>
  body{font-family:ui-sans-serif,system-ui,Segoe UI,sans-serif;color:#0f172a;margin:24px}
  h1{font-size:18px;margin:0 0 4px}.sub{color:#64748b;font-size:12px;margin:0 0 16px}
@@ -104,8 +104,8 @@ export const exportPdf = <T>(req: ExportRequest<T>): void => {
  ${kpis ? `<div class="kpis">${kpis}</div>` : ""}
  <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
  <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),200))</script>
-</body></html>`);
-  w.document.close();
+</body></html>`;
+  renderReportWindow(html, win);
 };
 
 /** Dispatch by format — the one entry point the ExportMenu calls. */

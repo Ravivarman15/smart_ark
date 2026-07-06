@@ -1,4 +1,5 @@
 import { BaseService } from "@/shared/services";
+import { renderReportWindow } from "@/lib/reportWindow";
 import { buildAiSummary } from "@/features/students/utils/student360";
 import { gradeFor, round2 } from "../utils/grading";
 import { monthLabel, type ExamMonth } from "../types/exam.types";
@@ -259,11 +260,8 @@ class ReportCardService extends BaseService {
 </body></html>`;
   }
 
-  private openPrint(card: ReportCard): void {
-    const w = window.open("", "_blank", "noopener=yes,noreferrer=yes");
-    if (!w) return;
-    w.document.write(this.buildHtml(card));
-    w.document.close();
+  private openPrint(card: ReportCard, win?: Window | null): void {
+    renderReportWindow(this.buildHtml(card), win);
   }
 
   private async exportXlsx(card: ReportCard): Promise<void> {
@@ -293,10 +291,14 @@ class ReportCardService extends BaseService {
   }
 
   /** Build + deliver the report card in the requested format. */
-  async generate(params: ReportCardParams, format: ReportCardFormat): Promise<ReportCard> {
+  async generate(
+    params: ReportCardParams,
+    format: ReportCardFormat,
+    win?: Window | null,
+  ): Promise<ReportCard> {
     const card = await this.build(params);
     if (format === "xlsx") await this.exportXlsx(card);
-    else this.openPrint(card);
+    else this.openPrint(card, win);
     return card;
   }
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileSpreadsheet, FileText, IdCard, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { openReportWindow, closeReportWindow } from "@/lib/reportWindow";
 import { useExamLookups } from "../hooks";
 import { resultSheetService } from "../services";
 import { ReportCardDialog, type ReportCardDialogParams } from "../components/ReportCardDialog";
@@ -40,6 +41,11 @@ const MonthlyResultSheetsPage = () => {
       toast.error("Pick a class first");
       return;
     }
+    // PDF / Print need a window opened synchronously in the click (before the
+    // async build) so the popup blocker trusts it. CSV / Excel download files.
+    const needsWindow = format !== "csv" && format !== "xlsx";
+    const win = needsWindow ? openReportWindow() : null;
+    if (needsWindow && !win) return; // popup blocked — toast already shown
     setBusy(`${month}:${format}`);
     try {
       const sheet = await resultSheetService.generate(
@@ -51,9 +57,11 @@ const MonthlyResultSheetsPage = () => {
           academicYearName,
         },
         format,
+        win,
       );
       if (sheet.rows.length === 0) toast.message("No results recorded for this month yet.");
     } catch (err) {
+      closeReportWindow(win);
       toast.error(err instanceof Error ? err.message : "Failed to build the sheet");
     } finally {
       setBusy(null);

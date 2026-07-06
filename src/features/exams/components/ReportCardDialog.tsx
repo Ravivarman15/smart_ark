@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { openReportWindow, closeReportWindow } from "@/lib/reportWindow";
 import { reportCardService, resultSheetService } from "../services";
 import type { ResultSheetRow } from "../services";
 import { monthLabel, type ExamMonth } from "../types/exam.types";
@@ -49,10 +50,15 @@ export const ReportCardDialog = ({ params, onOpenChange }: Props) => {
 
   const generate = async (studentId: string, format: "print" | "xlsx") => {
     if (!params) return;
+    // Print opens a window — open it now, synchronously, so the popup blocker
+    // trusts it after the async build. Excel just downloads a file.
+    const win = format === "print" ? openReportWindow() : null;
+    if (format === "print" && !win) return; // popup blocked — toast already shown
     setBusyId(studentId + format);
     try {
-      await reportCardService.generate({ ...params, studentId }, format);
+      await reportCardService.generate({ ...params, studentId }, format, win);
     } catch (err) {
+      closeReportWindow(win);
       toast.error(err instanceof Error ? err.message : "Failed to generate report card");
     } finally {
       setBusyId(null);

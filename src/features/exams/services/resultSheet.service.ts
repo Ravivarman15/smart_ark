@@ -1,4 +1,5 @@
 import { BaseService } from "@/shared/services";
+import { renderReportWindow } from "@/lib/reportWindow";
 import { round2 } from "../utils/grading";
 import { monthLabel, type Exam, type ExamMonth } from "../types/exam.types";
 import { examService } from "./exam.service";
@@ -246,11 +247,8 @@ class ResultSheetService extends BaseService {
 </body></html>`;
   }
 
-  private openPrint(sheet: ResultSheet): void {
-    const w = window.open("", "_blank", "noopener=yes,noreferrer=yes");
-    if (!w) return;
-    w.document.write(this.buildHtml(sheet));
-    w.document.close();
+  private openPrint(sheet: ResultSheet, win?: Window | null): void {
+    renderReportWindow(this.buildHtml(sheet), win);
   }
 
   // ── XLSX ─────────────────────────────────────────────────────────────────────
@@ -283,7 +281,11 @@ class ResultSheetService extends BaseService {
   }
 
   /** Build + deliver the monthly sheet in the requested format. */
-  async generate(params: ResultSheetParams, format: ResultSheetFormat): Promise<ResultSheet> {
+  async generate(
+    params: ResultSheetParams,
+    format: ResultSheetFormat,
+    win?: Window | null,
+  ): Promise<ResultSheet> {
     const sheet = await this.build(params);
     if (format === "csv") {
       download(
@@ -294,7 +296,7 @@ class ResultSheetService extends BaseService {
     } else if (format === "xlsx") {
       await this.exportXlsx(sheet);
     } else {
-      this.openPrint(sheet); // pdf + print share the print window
+      this.openPrint(sheet, win); // pdf + print share the print window
     }
     return sheet;
   }

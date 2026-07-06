@@ -19,6 +19,7 @@
 
 import type { Student } from "../types/student.types";
 import { formatDate, formatDateTime } from "../utils/helpers";
+import { renderReportWindow } from "@/lib/reportWindow";
 
 export type ExportFormat = "csv" | "xlsx" | "pdf";
 
@@ -135,21 +136,20 @@ const exportBulkPdf = (
   cols: StudentExportColumn[],
   title: string,
   subtitle?: string,
+  win?: Window | null,
 ): void => {
   // The full column set is too wide to print legibly — use a focused subset.
   const printCols = cols.filter((c) =>
     ["Name", "Roll Number", "Standard", "Batch", "Father Mobile", "Status"].includes(c.header),
   );
   const used = printCols.length ? printCols : cols.slice(0, 6);
-  const w = window.open("", "_blank", "noopener=yes,noreferrer=yes");
-  if (!w) return;
   const head = used.map((c) => `<th>${escapeHtml(c.header)}</th>`).join("");
   const body = rows
     .map(
       (r) => `<tr>${used.map((c) => `<td>${escapeHtml(String(c.value(r)))}</td>`).join("")}</tr>`,
     )
     .join("");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
   body{font-family:ui-sans-serif,system-ui,Segoe UI,sans-serif;color:#0f172a;margin:24px}
   h1{font-size:18px;margin:0 0 4px} .sub{color:#64748b;font-size:12px;margin:0 0 16px}
@@ -161,8 +161,8 @@ const exportBulkPdf = (
   ${subtitle ? `<p class="sub">${escapeHtml(subtitle)} · ${rows.length} students</p>` : `<p class="sub">${rows.length} students</p>`}
   <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
   <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250))</script>
-</body></html>`);
-  w.document.close();
+</body></html>`;
+  renderReportWindow(html, win);
 };
 
 /** Single entry point for bulk export. Returns a promise (xlsx path is async). */
@@ -170,13 +170,14 @@ export const exportStudents = async (
   rows: Student[],
   format: ExportFormat,
   opts: BulkExportOptions = {},
+  win?: Window | null,
 ): Promise<void> => {
   const cols = opts.columns ?? STUDENT_EXPORT_COLUMNS;
   const name = opts.fileName ?? "students";
   const title = opts.title ?? "Students";
   if (format === "csv") return exportBulkCsv(rows, cols, name);
   if (format === "xlsx") return exportBulkXlsx(rows, cols, name, title);
-  return exportBulkPdf(rows, cols, title, opts.subtitle);
+  return exportBulkPdf(rows, cols, title, opts.subtitle, win);
 };
 
 // ── individual student record ─────────────────────────────────────────────────
@@ -286,9 +287,7 @@ const buildSections = (s: Student, sum: RecordSummaries): Section[] => {
   return sections;
 };
 
-const recordPdf = (s: Student, sections: Section[]): void => {
-  const w = window.open("", "_blank", "noopener=yes,noreferrer=yes");
-  if (!w) return;
+const recordPdf = (s: Student, sections: Section[], win?: Window | null): void => {
   const sectionsHtml = sections
     .map(
       (sec) =>
@@ -300,7 +299,7 @@ const recordPdf = (s: Student, sections: Section[]): void => {
           .join("")}</table></section>`,
     )
     .join("");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(s.name)} — Student Record</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(s.name)} — Student Record</title>
 <style>
   body{font-family:ui-sans-serif,system-ui,Segoe UI,sans-serif;color:#0f172a;margin:28px;max-width:760px}
   h1{font-size:20px;margin:0 0 2px} .sub{color:#64748b;font-size:12px;margin:0 0 20px}
@@ -314,8 +313,8 @@ const recordPdf = (s: Student, sections: Section[]): void => {
   <p class="sub">${escapeHtml(s.standardName || "")}${s.batch ? " · " + escapeHtml(s.batch) : ""}${s.rollNumber ? " · Roll #" + escapeHtml(s.rollNumber) : ""}</p>
   ${sectionsHtml}
   <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250))</script>
-</body></html>`);
-  w.document.close();
+</body></html>`;
+  renderReportWindow(html, win);
 };
 
 const recordXlsx = async (s: Student, sections: Section[]): Promise<void> => {
@@ -338,8 +337,9 @@ export const downloadStudentRecord = async (
   student: Student,
   summaries: RecordSummaries,
   format: "pdf" | "xlsx",
+  win?: Window | null,
 ): Promise<void> => {
   const sections = buildSections(student, summaries);
-  if (format === "pdf") return recordPdf(student, sections);
+  if (format === "pdf") return recordPdf(student, sections, win);
   return recordXlsx(student, sections);
 };

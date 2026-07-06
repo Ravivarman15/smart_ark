@@ -5,6 +5,7 @@ export { ExamStatusChip, ResultsStatusChip } from "./ExamStatusChip";
 export { GradeBadge } from "./GradeBadge";
 export { MarksEntryDialog } from "./MarksEntryDialog";
 export { ReportCardDialog, type ReportCardDialogParams } from "./ReportCardDialog";
+export { GradeSchemeManagerDialog } from "./GradeSchemeManagerDialog";
 export { ExamAnalyticsDialog } from "./ExamAnalyticsDialog";
 
 // ── MCQ Paper ────────────────────────────────────────────────────────────────

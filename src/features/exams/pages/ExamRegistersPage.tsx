@@ -3,6 +3,7 @@ import { Brain, FileSpreadsheet, FileText, Loader2, Printer } from "lucide-react
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { openReportWindow, closeReportWindow } from "@/lib/reportWindow";
 import { useExamLookups, useExamAiInsights } from "../hooks";
 import {
   examRegistersService,
@@ -45,11 +46,17 @@ const ExamRegistersPage = () => {
   }, [type, filters]);
 
   const download = async (format: "csv" | "xlsx" | "pdf" | "print") => {
+    // PDF / Print open a window — open it synchronously in the click so the
+    // popup blocker allows it after the async build. CSV / Excel download files.
+    const needsWindow = format === "pdf" || format === "print";
+    const win = needsWindow ? openReportWindow() : null;
+    if (needsWindow && !win) return; // popup blocked — toast already shown
     setBusy(format);
     try {
-      const reg = await examRegistersService.generate(type, filters, format);
+      const reg = await examRegistersService.generate(type, filters, format, win);
       if (reg.rows.length === 0) toast.message("No rows for this register / filter.");
     } catch (err) {
+      closeReportWindow(win);
       toast.error(err instanceof Error ? err.message : "Export failed");
     } finally {
       setBusy(null);

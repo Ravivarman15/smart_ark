@@ -11,6 +11,7 @@ export {
   type BatchOption,
   type StudentOption,
 } from "./examLookups.service";
+export { gradeSchemeService } from "./gradeScheme.service";
 export {
   resultSheetService,
   type ResultSheet,
