@@ -377,6 +377,7 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "reports.student_performance",  label: "Student Performance Report" },
       { id: "reports.expense",              label: "Expense Report" },
       { id: "reports.income",               label: "Income Report" },
+      { id: "reports.payroll_expense",      label: "Payroll Expense Register" },
       { id: "reports.profit_loss",          label: "Profit / Loss Report" },
       { id: "reports.staff_attendance",     label: "Staff Attendance Report" },
       { id: "reports.sms_status",           label: "SMS Status Report" },

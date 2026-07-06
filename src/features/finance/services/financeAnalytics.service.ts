@@ -3,6 +3,7 @@ import {
   budgetUtilization,
   cashflowSeries,
   categoryBreakdown,
+  financeSplits,
   isOverdue,
   profitLoss,
   round2,
@@ -12,9 +13,11 @@ import { financeTransactionService } from "./financeTransaction.service";
 import { financeBudgetService } from "./financeBudget.service";
 import type {
   BranchSpendItem,
+  CategoryBreakdownItem,
   DepartmentSpendItem,
   FinanceAnalytics,
   FinanceOverview,
+  FinanceTransaction,
   TaxSummaryItem,
 } from "../types/finance.types";
 
@@ -26,6 +29,41 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class FinanceAnalyticsService extends BaseService {
+  /** Sum of outstanding student-fee balances. Best-effort (0 if unavailable). */
+  private async outstandingFees(): Promise<number> {
+    const { data, error } = await this.db
+      .from("student_fees")
+      .select("amount_pending");
+    if (error) return 0;
+    return round2(
+      ((data as { amount_pending: number | string | null }[]) ?? []).reduce(
+        (s, r) => s + toAmount(r.amount_pending),
+        0,
+      ),
+    );
+  }
+
+  /** Salary expense (source='payroll') grouped by department, with % share. */
+  private salaryByDepartment(txns: FinanceTransaction[]): CategoryBreakdownItem[] {
+    const acc = new Map<string, number>();
+    for (const t of txns) {
+      if (t.type !== "expense" || t.source !== "payroll") continue;
+      if (t.status === "rejected" || t.status === "cancelled" || t.status === "draft") {
+        continue;
+      }
+      const name = t.department && t.department.trim() ? t.department : "Unspecified";
+      acc.set(name, (acc.get(name) ?? 0) + toAmount(t.amount));
+    }
+    const total = round2(Array.from(acc.values()).reduce((s, v) => s + v, 0));
+    return Array.from(acc.entries())
+      .map(([categoryName, amount]) => ({
+        categoryName,
+        amount: round2(amount),
+        share: total > 0 ? round2((amount / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
   async overview(): Promise<FinanceOverview> {
     const txns = await financeTransactionService.list();
     const pl = profitLoss(txns);
@@ -55,6 +93,9 @@ class FinanceAnalyticsService extends BaseService {
       .select("id");
     const vendorCount = ((vendorRows as { id: string }[]) ?? []).length;
 
+    const splits = financeSplits(txns);
+    const outstandingFees = await this.outstandingFees();
+
     return {
       totalIncome: pl.income,
       totalExpense: pl.expense,
@@ -66,6 +107,8 @@ class FinanceAnalyticsService extends BaseService {
       monthNet: monthPL.net,
       attachmentCount,
       vendorCount,
+      ...splits,
+      outstandingFees,
     };
   }
 
@@ -175,6 +218,9 @@ class FinanceAnalyticsService extends BaseService {
       .eq("is_active", true);
     const recurringCount = ((recurringRows as { id: string }[]) ?? []).length;
 
+    const splits = financeSplits(txns);
+    const outstandingFees = await this.outstandingFees();
+
     const overview: FinanceOverview = {
       totalIncome: pl.income,
       totalExpense: pl.expense,
@@ -188,7 +234,14 @@ class FinanceAnalyticsService extends BaseService {
       monthNet: monthPL.net,
       attachmentCount: txns.reduce((s, t) => s + (t.attachmentsCount ?? 0), 0),
       vendorCount: 0, // filled below if needed
+      ...splits,
+      outstandingFees,
     };
+
+    // Salary-specific breakdowns (source='payroll') — reuse the cashflow bucket
+    // engine (its `expense` field = salary/month) + a department grouping.
+    const payrollTxns = txns.filter((t) => t.source === "payroll");
+    const salaryByMonth = cashflowSeries(payrollTxns, 6);
 
     return {
       overview,
@@ -201,6 +254,8 @@ class FinanceAnalyticsService extends BaseService {
       taxSummary,
       recurringCount,
       recentTransactions: txns.slice(0, 10),
+      salaryByDepartment: this.salaryByDepartment(txns),
+      salaryByMonth,
     };
   }
 }

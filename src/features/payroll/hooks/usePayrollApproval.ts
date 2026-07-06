@@ -132,7 +132,14 @@ export const useApproveAndLock = () => {
       }
       return { staffCount, totalNet, emails };
     },
-    onSuccess: () => invalidateAll(qc),
+    // Approval posts one Expense per employee to Finance — refresh the finance,
+    // dashboard and reports trees too (other tabs via FinanceRealtimeProvider).
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.payroll.all });
+      qc.invalidateQueries({ queryKey: queryKeys.finance.all });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      qc.invalidateQueries({ queryKey: queryKeys.reports.all });
+    },
   });
 };
 

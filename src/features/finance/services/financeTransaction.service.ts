@@ -53,6 +53,7 @@ type Row = {
   notes: string | null;
   attachment_url: string | null;
   source: string | null;
+  source_id: string | null;
   linked_student_id: string | null;
   linked_student_fee_id: string | null;
   transaction_reference: string | null;
@@ -179,6 +180,7 @@ class FinanceTransactionService extends BaseService {
       notes: r.notes ?? undefined,
       attachmentUrl: r.attachment_url ?? undefined,
       source: r.source ?? undefined,
+      sourceId: r.source_id ?? undefined,
       linkedStudentId: r.linked_student_id ?? undefined,
       linkedStudentFeeId: r.linked_student_fee_id ?? undefined,
       transactionReference: r.transaction_reference ?? undefined,
@@ -355,6 +357,7 @@ class FinanceTransactionService extends BaseService {
         notes: input.notes ?? null,
         attachment_url: input.attachmentUrl ?? null,
         source: input.source ?? null,
+        source_id: input.sourceId ?? null,
         linked_student_id: input.linkedStudentId ?? null,
         linked_student_fee_id: input.linkedStudentFeeId ?? null,
         transaction_reference: input.transactionReference ?? null,
@@ -401,6 +404,7 @@ class FinanceTransactionService extends BaseService {
         notes: input.notes ?? null,
         attachment_url: input.attachmentUrl ?? null,
         source: input.source ?? null,
+        source_id: input.sourceId ?? null,
         linked_student_id: input.linkedStudentId ?? null,
         linked_student_fee_id: input.linkedStudentFeeId ?? null,
         transaction_reference: input.transactionReference ?? null,

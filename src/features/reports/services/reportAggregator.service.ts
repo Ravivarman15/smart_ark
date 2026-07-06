@@ -105,6 +105,59 @@ class ReportAggregatorService extends BaseService {
     };
   }
 
+  // Payroll Expense Register — the salary slice of expenses (source='payroll').
+  // Reuses financeTransactionService (net is READ, never recomputed) and the
+  // report calc helpers for the per-report stats (count/total/avg/high/low +
+  // growth + department breakdown).
+  async payrollExpenseReport(filters: ReportFilterValues): Promise<ReportBundle> {
+    const { financeTransactionService } = await import("@/features/finance/services");
+    const all = await safe(
+      financeTransactionService.list({
+        type: "expense",
+        from: filters.from,
+        to: filters.to,
+        branchId: filters.branchId,
+        status: filters.status as never,
+        search: filters.search,
+      }),
+      [] as Awaited<
+        ReturnType<
+          (typeof import("@/features/finance/services"))["financeTransactionService"]["list"]
+        >
+      >,
+    );
+    const txs = all.filter((t) => t.source === "payroll");
+    const amounts = txs.map((t) => t.amount);
+    const total = sum(amounts);
+    const count = txs.length;
+    const average = count > 0 ? round2(total / count) : 0;
+    const highest = count > 0 ? Math.max(...amounts) : 0;
+    const lowest = count > 0 ? Math.min(...amounts) : 0;
+    const byDept = bucketBy(
+      txs,
+      (t) => t.department ?? "Unspecified",
+      (t) => t.amount,
+    );
+    const monthly = groupMonthly(txs, (t) => t.date ?? t.createdAt, (t) => t.amount);
+    const growth = growthPct(
+      monthly[monthly.length - 1]?.value ?? 0,
+      monthly[monthly.length - 2]?.value ?? 0,
+    );
+    return {
+      rows: txs,
+      kpis: [
+        { key: "count", label: "Salary lines", value: formatNumber(count) },
+        { key: "total", label: "Total expense", value: formatINR(total), tone: "negative" },
+        { key: "avg", label: "Average", value: formatINR(average) },
+        { key: "high", label: "Highest", value: formatINR(highest) },
+        { key: "low", label: "Lowest", value: formatINR(lowest) },
+      ],
+      series: monthly,
+      breakdown: byDept.slice(0, 10).map((b) => ({ label: b.key, value: b.total })),
+      meta: { growth, topDepartment: byDept[0]?.key ?? "—" },
+    };
+  }
+
   async incomeReport(filters: ReportFilterValues): Promise<ReportBundle> {
     const txs = await safe(
       (

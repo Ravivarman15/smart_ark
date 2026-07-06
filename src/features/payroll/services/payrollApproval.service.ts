@@ -1,6 +1,8 @@
 import { BaseService, AppError } from "@/shared/services";
 import { payrollRunService } from "./payrollRun.service";
 import { payrollAuditService } from "./payrollAudit.service";
+import { payrollConfigService } from "./payrollConfig.service";
+import { payrollFinanceService } from "./payrollFinance.service";
 import { round2 } from "../utils/payrollCalc";
 import { recomputeNet, summariseApproval } from "../utils/payrollApprovalCalc";
 import { canApprove, periodsOverlap } from "../utils/payrollLifecycle";
@@ -459,6 +461,33 @@ class PayrollApprovalService extends BaseService {
       ipAddress: ctx.clientMeta?.ipAddress,
       userAgent: ctx.clientMeta?.userAgent,
     });
+
+    // Enterprise auto-sync — post each approved salary line to Finance as one
+    // Expense (idempotent, deduped by payroll_item id). Best-effort, exactly
+    // like the payslip email / WhatsApp fan-out: a finance failure never
+    // un-approves payroll.
+    try {
+      const settings = await payrollConfigService.getSettings();
+      if (settings.autoFinanceSync) {
+        const detail = await payrollRunService.getDetail(runId);
+        const { txnByItem } = await payrollFinanceService.syncRunItems(
+          detail.items,
+          {
+            runId: detail.id,
+            runTitle: detail.title,
+            periodStart: detail.periodStart,
+            periodEnd: detail.periodEnd,
+            categoryName: settings.salaryCategoryName,
+          },
+          { actorId: ctx.actor?.id, actorName: ctx.actor?.name },
+        );
+        for (const [itemId, txnId] of txnByItem) {
+          await this.items().update({ finance_txn_id: txnId } as never).eq("id", itemId);
+        }
+      }
+    } catch {
+      /* best-effort finance sync */
+    }
 
     return { staffCount, totalNet: Number(run.total_net ?? 0) };
   }

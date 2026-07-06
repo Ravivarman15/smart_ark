@@ -13,12 +13,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { ProtectedButton } from "@/features/rbac";
 import {
   ApprovalDialog,
   CategoryBreakdownChart,
   FinanceFiltersBar,
   FinanceKpiCard,
   FinancePageShell,
+  FinanceSummaryStrip,
+  ImportFeeCollectionDialog,
+  ImportStaffSalaryDialog,
   TransactionTable,
   TrendChart,
 } from "../components";
@@ -107,6 +111,8 @@ const ManageTransactionPage = ({ kind }: Props) => {
 
   const [filters, setFilters] = useState<FinanceFilters>({ type: kind });
   const [selected, setSelected] = useState<string[]>([]);
+  const [feeImportOpen, setFeeImportOpen] = useState(false);
+  const [salaryImportOpen, setSalaryImportOpen] = useState(false);
   const [approveTarget, setApproveTarget] =
     useState<{ txn: FinanceTransaction; mode: "approve" | "reject" } | null>(
       null,
@@ -218,12 +224,34 @@ const ManageTransactionPage = ({ kind }: Props) => {
         onClick: () => navigate(addPath),
       }}
       headerExtra={
-        <Button variant="outline" onClick={() => exportCsv(rows, kind)}>
-          <Download className="w-4 h-4 mr-1" /> Export
-        </Button>
+        <div className="flex items-center gap-2">
+          {isIncome && (
+            <ProtectedButton
+              action="finance.import.fee"
+              variant="default"
+              onClick={() => setFeeImportOpen(true)}
+            >
+              <Download className="w-4 h-4 mr-1" /> Import Student Fee Collection
+            </ProtectedButton>
+          )}
+          {!isIncome && (
+            <ProtectedButton
+              action="finance.import.salary"
+              variant="default"
+              onClick={() => setSalaryImportOpen(true)}
+            >
+              <Download className="w-4 h-4 mr-1" /> Import Staff Salary
+            </ProtectedButton>
+          )}
+          <Button variant="outline" onClick={() => exportCsv(rows, kind)}>
+            <Download className="w-4 h-4 mr-1" /> Export
+          </Button>
+        </div>
       }
     >
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <FinanceSummaryStrip />
+
+      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
         <FinanceKpiCard
           label={isIncome ? "Total Income" : "Total Expense"}
           value={formatINR(totals.gross)}
@@ -352,6 +380,20 @@ const ManageTransactionPage = ({ kind }: Props) => {
           }}
           txn={approveTarget.txn}
           mode={approveTarget.mode}
+        />
+      )}
+
+      {isIncome && (
+        <ImportFeeCollectionDialog
+          open={feeImportOpen}
+          onOpenChange={setFeeImportOpen}
+        />
+      )}
+
+      {!isIncome && (
+        <ImportStaffSalaryDialog
+          open={salaryImportOpen}
+          onOpenChange={setSalaryImportOpen}
         />
       )}
     </FinancePageShell>

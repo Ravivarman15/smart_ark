@@ -153,6 +153,8 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("expense.approve",       "Approve expense",           "approve", "expense.manage",       "expense.manage"),
   A("expense.export",        "Export expenses",           "export",  "expense.manage"),
   A("income.create",         "Add income",                "create",  "income.add"),
+  A("finance.import.fee",    "Import fee collection to Income", "create", "income.add"),
+  A("finance.import.salary", "Import salary to Expense",   "create",  "expense.add"),
   A("income.edit",           "Edit income",               "edit",    "income.manage"),
   A("income.delete",         "Delete income",             "delete",  "income.manage"),
   A("income.approve",        "Approve income",            "approve", "income.manage"),

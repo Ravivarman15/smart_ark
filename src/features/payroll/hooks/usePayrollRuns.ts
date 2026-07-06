@@ -20,6 +20,16 @@ const useActor = () => {
 const invalidate = (qc: ReturnType<typeof useQueryClient>) =>
   qc.invalidateQueries({ queryKey: queryKeys.payroll.all });
 
+// Payroll transitions that post/reverse Finance expenses also bust the finance,
+// dashboard and reports trees so the acting user's own views refresh instantly
+// (other tabs are covered by FinanceRealtimeProvider).
+const invalidateWithFinance = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: queryKeys.payroll.all });
+  qc.invalidateQueries({ queryKey: queryKeys.finance.all });
+  qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+  qc.invalidateQueries({ queryKey: queryKeys.reports.all });
+};
+
 export const usePayrollRuns = (filters: {
   status?: PayrollRunStatus;
   from?: string;
@@ -75,7 +85,7 @@ export const useApprovePayroll = () => {
         action: "approved",
         actor: { actorId: actor.id, actorName: actor.name },
       });
-      invalidate(qc);
+      invalidateWithFinance(qc);
     },
   });
 };
@@ -94,7 +104,7 @@ export const useProcessPayment = () => {
         detail: res.financeTxnId ? "Synced to Finance" : "Paid (no finance sync)",
         actor: { actorId: actor.id, actorName: actor.name },
       });
-      invalidate(qc);
+      invalidateWithFinance(qc);
     },
   });
 };
@@ -114,7 +124,7 @@ export const useSetRunStatus = () => {
         action: `status_${args.status}`,
         actor: { actorId: actor.id, actorName: actor.name },
       });
-      invalidate(qc);
+      invalidateWithFinance(qc);
     },
   });
 };
@@ -166,7 +176,7 @@ export const useDeletePayrollRun = () => {
         action: "deleted",
         actor: { actorId: actor.id, actorName: actor.name },
       });
-      invalidate(qc);
+      invalidateWithFinance(qc);
     },
   });
 };

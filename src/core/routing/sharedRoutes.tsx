@@ -165,6 +165,7 @@ const RptStudentExamSummary = lazy(() => import("@/features/reports/pages/Studen
 const RptStudentPerformance = lazy(() => import("@/features/reports/pages/StudentPerformanceReportPage"));
 const RptExpense = lazy(() => import("@/features/reports/pages/ExpenseReportPage"));
 const RptIncome = lazy(() => import("@/features/reports/pages/IncomeReportPage"));
+const RptPayrollExpense = lazy(() => import("@/features/reports/pages/PayrollExpenseRegisterPage"));
 const RptProfitLoss = lazy(() => import("@/features/reports/pages/ProfitLossReportPage"));
 const RptStaffAttendance = lazy(() => import("@/features/reports/pages/StaffAttendanceReportPage"));
 const RptSmsStatus = lazy(() => import("@/features/reports/pages/SmsStatusReportPage"));
@@ -768,6 +769,7 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
   { path: "reports/student-performance",  element: <RptStudentPerformance />,   submodule: "reports.student_performance",  label: "Student Performance Report",        layouts: ["coordinator", "teacher"] },
   { path: "reports/expense",              element: <RptExpense />,              submodule: "reports.expense",              label: "Expense Report",                    layouts: ["coordinator", "teacher"] },
   { path: "reports/income",               element: <RptIncome />,               submodule: "reports.income",               label: "Income Report",                     layouts: ["coordinator", "teacher"] },
+  { path: "reports/payroll-expense",      element: <RptPayrollExpense />,        submodule: "reports.payroll_expense",      label: "Payroll Expense Register",          layouts: ["coordinator", "teacher"] },
   { path: "reports/profit-loss",          element: <RptProfitLoss />,           submodule: "reports.profit_loss",          label: "Profit / Loss Report",              layouts: ["coordinator", "teacher"] },
   { path: "reports/staff-attendance",     element: <RptStaffAttendance />,      submodule: "reports.staff_attendance",     label: "Staff Attendance Report",           layouts: ["coordinator", "teacher"] },
   { path: "reports/sms-status",           element: <RptSmsStatus />,            submodule: "reports.sms_status",           label: "SMS Status Report",                 layouts: ["coordinator", "teacher"] },

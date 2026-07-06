@@ -1,106 +1,85 @@
-import { BaseService } from "@/shared/services";
+import {
+  financeSyncService,
+  type PayrollExpenseInput,
+} from "@/features/finance/services";
+import type { FinanceAuditActor } from "@/features/finance/services";
+import type { ImportResult } from "@/features/finance/types/financeImport.types";
+import type { PayrollItem } from "../types/payroll.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Finance integration — when a payroll run is paid, a single Salary expense
-// row is written into `expense_transactions` (the Finance module's table) so
-// the P&L, dashboard KPIs and expense reports stay synchronised.
+// Payroll ↔ Finance integration — ENTERPRISE per-employee sync.
 //
-// Best-effort + migration-safe: if the finance schema columns aren't present,
-// the insert silently degrades (the run still completes). Resolves / creates a
-// "Salary" expense category on demand.
+// Each approved/paid payroll item becomes ONE Expense row in Finance, keyed by
+// (source='payroll', source_id=payroll_item.id) — the permanent dedup key. This
+// thin adapter maps `PayrollItem` → the finance layer's neutral
+// `PayrollExpenseInput` and delegates ALL posting / dedup / reversal to
+// `financeSyncService` (the single idempotent poster). No finance table or calc
+// is touched here — reuse only.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class PayrollFinanceService extends BaseService {
-  /** Resolve (or create) the Salary expense category id. */
-  private async salaryCategoryId(name: string): Promise<string | null> {
-    try {
-      const { data } = await this.db
-        .from("expense_categories")
-        .select("id")
-        .eq("type", "expense")
-        .ilike("name", name)
-        .limit(1)
-        .maybeSingle();
-      if (data?.id) return String(data.id);
-      const ins = await this.db
-        .from("expense_categories")
-        .insert({ name, type: "expense" } as never)
-        .select("id")
-        .single();
-      return ins.data ? String((ins.data as { id: string }).id) : null;
-    } catch {
-      return null;
-    }
-  }
+export interface RunFinanceCtx {
+  runId: string;
+  runTitle?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  /** Salary expense category name (payroll_settings.salaryCategoryName). */
+  categoryName: string;
+  /** Overrides each item's own method (e.g. the pay-run method). */
+  paymentMethod?: string;
+}
 
+const monthLabel = (periodStart?: string, periodEnd?: string): string => {
+  const iso = periodEnd || periodStart;
+  if (!iso) return "";
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString("en-IN", { month: "long", year: "numeric" });
+};
+
+const toInput = (item: PayrollItem, ctx: RunFinanceCtx): PayrollExpenseInput => ({
+  itemId: item.id,
+  staffId: item.staffId,
+  staffName: item.staffName,
+  department: item.department,
+  designation: item.role,
+  netSalary: item.netSalary,
+  grossEarnings: item.grossEarnings,
+  allowances: item.allowances,
+  deductions: item.deductions,
+  status: item.status,
+  paymentMethod: ctx.paymentMethod ?? item.paymentMethod,
+  date: ctx.periodEnd || new Date().toISOString().slice(0, 10),
+  payrollMonth: monthLabel(ctx.periodStart, ctx.periodEnd),
+  runId: ctx.runId,
+  runTitle: ctx.runTitle,
+  categoryName: ctx.categoryName,
+});
+
+class PayrollFinanceService {
   /**
-   * Create a Salary expense for a paid payroll run. Returns the new
-   * transaction id (or null if finance sync was unavailable).
+   * Sync every positive-net item of a run to Finance (idempotent). Returns the
+   * per-item Finance txn ids so the caller can stamp `finance_txn_id`.
    */
-  async recordRunExpense(args: {
-    runId: string;
-    title: string;
-    amount: number;
-    date: string;
-    categoryName: string;
-    actorId?: string;
-    actorName?: string;
-  }): Promise<string | null> {
-    if (args.amount <= 0) return null;
-    const categoryId = await this.salaryCategoryId(args.categoryName);
-    try {
-      const res = await this.db
-        .from("expense_transactions")
-        .insert({
-          type: "expense",
-          title: args.title,
-          category: args.categoryName,
-          category_id: categoryId,
-          amount: args.amount,
-          tax_amount: 0,
-          net_amount: args.amount,
-          date: args.date,
-          description: `Payroll run ${args.title}`,
-          department: "Payroll",
-          status: "paid",
-          paid_at: new Date().toISOString(),
-          source: "payroll",
-          transaction_reference: `PAYROLL-${args.runId.slice(0, 8).toUpperCase()}`,
-          entered_by: args.actorId ?? null,
-          approved_by: args.actorId ?? null,
-          approved_by_name: args.actorName ?? null,
-          approved_at: new Date().toISOString(),
-        } as never)
-        .select("id")
-        .single();
-      if (res.error) {
-        // Legacy projection — minimal columns only.
-        const legacy = await this.db
-          .from("expense_transactions")
-          .insert({
-            category: args.categoryName,
-            amount: args.amount,
-            date: args.date,
-            description: `Payroll run ${args.title}`,
-            entered_by: args.actorId ?? null,
-          } as never)
-          .select("id")
-          .single();
-        return legacy.data ? String((legacy.data as { id: string }).id) : null;
-      }
-      return String((res.data as { id: string }).id);
-    } catch {
-      return null;
-    }
+  async syncRunItems(
+    items: PayrollItem[],
+    ctx: RunFinanceCtx,
+    actor?: FinanceAuditActor,
+  ): Promise<{ result: ImportResult; txnByItem: Map<string, string> }> {
+    const inputs = items
+      .filter((i) => i.netSalary > 0)
+      .map((i) => toInput(i, ctx));
+    return financeSyncService.syncPayrollItems(inputs, actor);
   }
 
-  /** Best-effort reversal when a paid run is cancelled. */
-  async removeRunExpense(txnId: string): Promise<void> {
-    try {
-      await this.db.from("expense_transactions").delete().eq("id", txnId);
-    } catch {
-      /* best-effort */
-    }
+  /** Mark the Finance expenses for these items as paid. */
+  async markRunItemsPaid(itemIds: string[]): Promise<void> {
+    await financeSyncService.markPayrollItemsPaid(itemIds);
+  }
+
+  /** Reverse (delete) the Finance expenses for these items. */
+  async removeRunItems(itemIds: string[]): Promise<void> {
+    await financeSyncService.removeBySourceIds("payroll", itemIds);
   }
 }
 

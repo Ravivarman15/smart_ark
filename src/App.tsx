@@ -148,6 +148,7 @@ const RptStudentExamSummary = lazy(() => import("./features/reports/pages/Studen
 const RptStudentPerformance = lazy(() => import("./features/reports/pages/StudentPerformanceReportPage"));
 const RptExpense = lazy(() => import("./features/reports/pages/ExpenseReportPage"));
 const RptIncome = lazy(() => import("./features/reports/pages/IncomeReportPage"));
+const RptPayrollExpense = lazy(() => import("./features/reports/pages/PayrollExpenseRegisterPage"));
 const RptProfitLoss = lazy(() => import("./features/reports/pages/ProfitLossReportPage"));
 const RptStaffAttendance = lazy(() => import("./features/reports/pages/StaffAttendanceReportPage"));
 const RptSmsStatus = lazy(() => import("./features/reports/pages/SmsStatusReportPage"));
@@ -547,6 +548,7 @@ const AppRoutes: React.FC = () => (
         <Route path="reports/student-performance" element={<RptStudentPerformance />} />
         <Route path="reports/expense" element={<RptExpense />} />
         <Route path="reports/income" element={<RptIncome />} />
+        <Route path="reports/payroll-expense" element={<RptPayrollExpense />} />
         <Route path="reports/profit-loss" element={<RptProfitLoss />} />
         <Route path="reports/staff-attendance" element={<RptStaffAttendance />} />
         <Route path="reports/sms-status" element={<RptSmsStatus />} />
@@ -687,6 +689,7 @@ const AppRoutes: React.FC = () => (
         <Route path="reports/student-performance" element={<RptStudentPerformance />} />
         <Route path="reports/expense" element={<RptExpense />} />
         <Route path="reports/income" element={<RptIncome />} />
+        <Route path="reports/payroll-expense" element={<RptPayrollExpense />} />
         <Route path="reports/profit-loss" element={<RptProfitLoss />} />
         <Route path="reports/staff-attendance" element={<RptStaffAttendance />} />
         <Route path="reports/sms-status" element={<RptSmsStatus />} />

@@ -22,6 +22,13 @@ export const useIncomeReport = (filters: ReportFilterValues) =>
     staleTime: 30_000,
   });
 
+export const usePayrollExpenseReport = (filters: ReportFilterValues) =>
+  useQuery({
+    queryKey: queryKeys.reports.data("payroll_expense", filters),
+    queryFn: () => reportAggregatorService.payrollExpenseReport(filters),
+    staleTime: 30_000,
+  });
+
 export const useProfitLossReport = () =>
   useQuery({
     queryKey: queryKeys.reports.data("profit_loss"),

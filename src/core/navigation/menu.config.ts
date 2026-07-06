@@ -568,6 +568,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("reports.student_performance",  "Student Performance Report",        { admin: "/admin/reports/student-performance",  management: "/management/reports/student-performance" },  adminMgmt),
       ...sub("reports.expense",              "Expense Report",                    { admin: "/admin/reports/expense",              management: "/management/reports/expense" },              adminMgmt),
       ...sub("reports.income",               "Income Report",                     { admin: "/admin/reports/income",               management: "/management/reports/income" },               adminMgmt),
+      ...sub("reports.payroll_expense",      "Payroll Expense Register",          { admin: "/admin/reports/payroll-expense",      management: "/management/reports/payroll-expense" },      adminMgmt),
       ...sub("reports.profit_loss",          "Profit / Loss Report",              { admin: "/admin/reports/profit-loss",          management: "/management/reports/profit-loss" },          adminMgmt),
       ...sub("reports.staff_attendance",     "Staff Attendance Report",           { admin: "/admin/reports/staff-attendance",     management: "/management/reports/staff-attendance" },     adminMgmt),
       ...sub("reports.sms_status",           "SMS Status Report",                 { admin: "/admin/reports/sms-status",           management: "/management/reports/sms-status" },           adminMgmt),

@@ -16,6 +16,14 @@ export {
 } from "./financeAudit.service";
 export { financeAnalyticsService } from "./financeAnalytics.service";
 export {
+  financeSyncService,
+  FEE_INCOME_CATEGORY,
+  SALARY_EXPENSE_CATEGORY,
+  type PayrollExpenseInput,
+} from "./financeSync.service";
+export { feeCollectionImportService } from "./feeCollectionImport.service";
+export { salaryImportService } from "./salaryImport.service";
+export {
   financeLookupsService,
   type LookupOption,
   type TaxOption,

@@ -429,11 +429,53 @@ class PayrollRunService extends BaseService {
       .eq("run_id", runId)
       .neq("status", "paid");
     if (itemRes.error) throw AppError.fromSupabase(itemRes.error, "payroll_items");
+
+    // Enterprise auto-sync — post each approved salary line to Finance as one
+    // Expense (idempotent, deduped by payroll_item id). Best-effort: a finance
+    // failure never un-approves payroll.
+    try {
+      const settings = await payrollConfigService.getSettings();
+      if (settings.autoFinanceSync) {
+        const detail = await this.getDetail(runId);
+        await this.syncItemsToFinance(detail, settings.salaryCategoryName, actor);
+      }
+    } catch {
+      /* best-effort finance sync */
+    }
   }
 
   /**
-   * Pay a run — stamps items paid, syncs a single Salary expense to Finance
-   * (when enabled), and stamps the finance txn id back onto every item.
+   * Post every item of a run to Finance (one Expense per employee) and stamp
+   * each item's `finance_txn_id`. Idempotent via financeSyncService — a second
+   * call skips already-posted lines. Returns the per-item txn id map.
+   */
+  private async syncItemsToFinance(
+    detail: PayrollRunDetail,
+    categoryName: string,
+    actor?: Actor,
+    paymentMethod?: string,
+  ): Promise<Map<string, string>> {
+    const { txnByItem } = await payrollFinanceService.syncRunItems(
+      detail.items,
+      {
+        runId: detail.id,
+        runTitle: detail.title,
+        periodStart: detail.periodStart,
+        periodEnd: detail.periodEnd,
+        categoryName,
+        paymentMethod,
+      },
+      { actorId: actor?.id, actorName: actor?.name },
+    );
+    for (const [itemId, txnId] of txnByItem) {
+      await this.items().update({ finance_txn_id: txnId } as never).eq("id", itemId);
+    }
+    return txnByItem;
+  }
+
+  /**
+   * Pay a run — stamps items paid and syncs ONE Salary expense per employee to
+   * Finance (when enabled, idempotent), stamping each item's finance_txn_id.
    */
   async pay(
     runId: string,
@@ -449,17 +491,22 @@ class PayrollRunService extends BaseService {
     const settings = await payrollConfigService.getSettings();
     const nowIso = new Date().toISOString();
 
+    // Enterprise per-employee finance sync — ensure every item has its Expense
+    // (idempotent; most were posted at approval time) and flip them to paid.
     let financeTxnId: string | null = null;
     if (settings.autoFinanceSync && detail.totalNet > 0) {
-      financeTxnId = await payrollFinanceService.recordRunExpense({
-        runId,
-        title: detail.title,
-        amount: detail.totalNet,
-        date: detail.periodEnd || new Date().toISOString().slice(0, 10),
-        categoryName: settings.salaryCategoryName,
-        actorId: actor?.id,
-        actorName: actor?.name,
-      });
+      try {
+        const txnByItem = await this.syncItemsToFinance(
+          detail,
+          settings.salaryCategoryName,
+          actor,
+          paymentMethod,
+        );
+        await payrollFinanceService.markRunItemsPaid(detail.items.map((i) => i.id));
+        financeTxnId = txnByItem.values().next().value ?? null;
+      } catch {
+        /* best-effort — a finance sync failure never blocks payment */
+      }
     }
 
     const itemRes = await this.items()
@@ -467,7 +514,6 @@ class PayrollRunService extends BaseService {
         status: "paid",
         paid_at: nowIso,
         payment_method: paymentMethod ?? null,
-        finance_txn_id: financeTxnId,
       } as never)
       .eq("run_id", runId);
     if (itemRes.error) throw AppError.fromSupabase(itemRes.error, "payroll_items");
@@ -494,9 +540,11 @@ class PayrollRunService extends BaseService {
    * The underlying delete is idempotent, but clearing the ids keeps state clean.
    */
   private async reverseFinance(detail: PayrollRunDetail): Promise<void> {
-    const txnId = detail.items.find((i) => i.financeTxnId)?.financeTxnId;
-    if (!txnId) return;
-    await payrollFinanceService.removeRunExpense(txnId);
+    const itemIds = detail.items.map((i) => i.id);
+    if (itemIds.length === 0) return;
+    // Delete every per-employee Expense posted for this run (keyed by item id),
+    // then clear the finance links so a later cancel/delete can't double-reverse.
+    await payrollFinanceService.removeRunItems(itemIds);
     await this.items()
       .update({ finance_txn_id: null } as never)
       .eq("run_id", detail.id)

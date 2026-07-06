@@ -139,6 +139,8 @@ export interface FinanceTransaction {
   attachmentUrl?: string;
   // income-only
   source?: string;
+  /** Primary key of the originating ERP record (fee_installments / payroll_items). */
+  sourceId?: string;
   linkedStudentId?: string;
   linkedStudentFeeId?: string;
   transactionReference?: string;
@@ -172,6 +174,7 @@ export interface FinanceTransactionInput {
   notes?: string | null;
   attachmentUrl?: string | null;
   source?: string | null;
+  sourceId?: string | null;
   linkedStudentId?: string | null;
   linkedStudentFeeId?: string | null;
   transactionReference?: string | null;
@@ -307,6 +310,17 @@ export interface FinanceOverview {
   monthNet: number;
   attachmentCount: number;
   vendorCount: number;
+  // ── Enterprise source splits (auto-sync tags) ──
+  todayIncome: number;
+  todayExpense: number;
+  /** Income where source='fee'. */
+  studentFeeIncome: number;
+  otherIncome: number;
+  /** Expense where source='payroll'. */
+  salaryExpense: number;
+  otherExpense: number;
+  /** Sum of student_fees.amount_pending (best-effort; 0 when unavailable). */
+  outstandingFees: number;
 }
 
 export interface MonthlyTrendPoint {
@@ -356,6 +370,10 @@ export interface FinanceAnalytics {
   taxSummary: TaxSummaryItem[];
   recurringCount: number;
   recentTransactions: FinanceTransaction[];
+  /** Salary expense (source='payroll') grouped by department. */
+  salaryByDepartment: CategoryBreakdownItem[];
+  /** Salary expense (source='payroll') per month (6-month cashflow buckets). */
+  salaryByMonth: MonthlyTrendPoint[];
 }
 
 export interface FinanceFilters {

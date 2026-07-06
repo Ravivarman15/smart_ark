@@ -125,6 +125,62 @@ export const profitLoss = (
   return { income, expense, net, margin };
 };
 
+// ── Source-tagged splits (fee / salary vs other) ─────────────────────────────
+export interface FinanceSplits {
+  studentFeeIncome: number;
+  otherIncome: number;
+  salaryExpense: number;
+  otherExpense: number;
+  todayIncome: number;
+  todayExpense: number;
+}
+
+/**
+ * Split classified transactions by their ERP `source` — the enterprise auto-sync
+ * tags (`fee` / `payroll`) let us separate student-fee income and salary expense
+ * from manually-entered "other" income/expense WITHOUT any extra query or table.
+ * Draft / rejected / cancelled rows are excluded (same rule as profitLoss).
+ */
+export const financeSplits = (
+  transactions: Pick<
+    FinanceTransaction,
+    "type" | "amount" | "status" | "source" | "date" | "createdAt"
+  >[],
+  today = new Date().toISOString().slice(0, 10),
+): FinanceSplits => {
+  const s: FinanceSplits = {
+    studentFeeIncome: 0,
+    otherIncome: 0,
+    salaryExpense: 0,
+    otherExpense: 0,
+    todayIncome: 0,
+    todayExpense: 0,
+  };
+  for (const t of transactions) {
+    if (t.status === "rejected" || t.status === "cancelled" || t.status === "draft") {
+      continue;
+    }
+    const amt = toAmount(t.amount);
+    if (t.type === "income") {
+      if (t.source === "fee") s.studentFeeIncome += amt;
+      else s.otherIncome += amt;
+      if ((t.date ?? t.createdAt ?? "").slice(0, 10) === today) s.todayIncome += amt;
+    } else {
+      if (t.source === "payroll") s.salaryExpense += amt;
+      else s.otherExpense += amt;
+      if ((t.date ?? t.createdAt ?? "").slice(0, 10) === today) s.todayExpense += amt;
+    }
+  }
+  return {
+    studentFeeIncome: round2(s.studentFeeIncome),
+    otherIncome: round2(s.otherIncome),
+    salaryExpense: round2(s.salaryExpense),
+    otherExpense: round2(s.otherExpense),
+    todayIncome: round2(s.todayIncome),
+    todayExpense: round2(s.todayExpense),
+  };
+};
+
 // ── Monthly cashflow buckets (12 months back from `endMonth`) ────────────────
 const monthKey = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
