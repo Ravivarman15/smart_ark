@@ -19,10 +19,18 @@ import { examResultsService } from "./examResults.service";
 // the same delivery pattern as the Student 360° report.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The month to build a sheet for, or "all" for a consolidated sheet of EVERY
+ * manual exam of the class (ignores the month + academic-year filters). "all"
+ * exists because many exams (unit/chapter tests) are created without a month,
+ * so they'd never appear under a specific-month sheet.
+ */
+export type SheetMonth = ExamMonth | "all";
+
 export interface ResultSheetParams {
   standardId: string;
   standardName?: string;
-  month: ExamMonth;
+  month: SheetMonth;
   academicYearId?: string;
   academicYearName?: string;
   /** Optional narrowing to one section/batch. */
@@ -81,6 +89,10 @@ const download = (filename: string, content: string, mime: string) => {
 /** Column label for an exam — subject preferred, else the exam title. */
 const examLabel = (e: Exam): string => e.subjectName || e.title;
 
+/** Human title for a sheet's month (or the consolidated "all" view). */
+const sheetMonthTitle = (m: SheetMonth): string =>
+  m === "all" ? "All Exams" : monthLabel(m);
+
 class ResultSheetService extends BaseService {
   /**
    * Build the consolidated sheet. Pulls every manual exam for the class in the
@@ -88,11 +100,15 @@ class ResultSheetService extends BaseService {
    * month total + dense rank across it.
    */
   async build(params: ResultSheetParams): Promise<ResultSheet> {
+    // "all" = a consolidated sheet of every manual exam of the class. Untagged
+    // exams (no month / no academic year) would otherwise never appear, so the
+    // month + year filters are dropped in this mode.
+    const allMode = params.month === "all";
     const exams = await examService.list({
       mode: "manual",
       standardId: params.standardId,
-      month: params.month,
-      academicYearId: params.academicYearId,
+      month: allMode ? undefined : params.month,
+      academicYearId: allMode ? undefined : params.academicYearId,
       batchId: params.batchId,
     });
 
@@ -195,7 +211,7 @@ class ResultSheetService extends BaseService {
 
   // ── Print-ready HTML (→ PDF) ────────────────────────────────────────────────
   private buildHtml(sheet: ResultSheet): string {
-    const title = `${sheet.params.standardName ?? "Class"} — ${monthLabel(sheet.params.month)} Result Sheet`;
+    const title = `${sheet.params.standardName ?? "Class"} — ${sheetMonthTitle(sheet.params.month)} Result Sheet`;
     const sub = [
       sheet.params.academicYearName,
       `${sheet.exams.length} exam(s)`,

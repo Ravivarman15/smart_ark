@@ -7,7 +7,7 @@ import { useExamLookups } from "../hooks";
 import { resultSheetService } from "../services";
 import { ReportCardDialog, type ReportCardDialogParams } from "../components/ReportCardDialog";
 import { EXAM_MONTHS, type ExamMonth } from "../types/exam.types";
-import type { ResultSheetFormat as SheetFormat } from "../services";
+import type { ResultSheetFormat as SheetFormat, SheetMonth } from "../services";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monthly Result Sheets (Phase 7). Management picks an Academic Year + Class,
@@ -36,7 +36,7 @@ const MonthlyResultSheetsPage = () => {
   const academicYearName = academicYears.find((y) => y.id === yearId)?.name;
   const ready = !!standardId;
 
-  const download = async (month: ExamMonth, format: SheetFormat) => {
+  const download = async (month: SheetMonth, format: SheetFormat) => {
     if (!standardId) {
       toast.error("Pick a class first");
       return;
@@ -100,6 +100,31 @@ const MonthlyResultSheetsPage = () => {
           Select a class to list downloadable monthly result sheets.
         </p>
       ) : (
+       <>
+        {/* Consolidated sheet — every exam of the class, month/year filters off.
+            Use this when exams aren't tagged with a month (unit/chapter tests). */}
+        <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-foreground">All Exams (consolidated)</p>
+              <p className="text-[11px] text-muted-foreground">
+                Every test for this class, regardless of month or academic year.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => download("all", "csv")} disabled={busy === "all:csv"}>
+              {busy === "all:csv" ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />} CSV
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => download("all", "xlsx")} disabled={busy === "all:xlsx"}>
+              {busy === "all:xlsx" ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileSpreadsheet className="w-3 h-3" />} Excel
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => download("all", "print")} disabled={busy === "all:print"}>
+              {busy === "all:print" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Printer className="w-3 h-3" />} PDF
+            </Button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {EXAM_MONTHS.map((m) => {
             const highlighted = HIGHLIGHT.includes(m.value);
@@ -148,6 +173,7 @@ const MonthlyResultSheetsPage = () => {
             );
           })}
         </div>
+       </>
       )}
 
       <ReportCardDialog params={cardParams} onOpenChange={() => setCardParams(null)} />

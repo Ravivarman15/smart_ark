@@ -64,7 +64,12 @@
       "Bash(node \"C:/Users/arrav/AppData/Local/Temp/claude/C--Users-arrav-Pictures-smart-ark-main/f925a6e3-dd49-40eb-80ee-56cd3d85c0b1/scratchpad/probe2.mjs\")",
       "Bash(node \"C:/Users/arrav/AppData/Local/Temp/claude/C--Users-arrav-Pictures-smart-ark-main/f925a6e3-dd49-40eb-80ee-56cd3d85c0b1/scratchpad/probe3.mjs\")",
       "Bash(grep -iA0 -E \"policy|select|all\")",
-      "Bash(echo \"TSC_EXIT: $?\")"
+      "Bash(echo \"TSC_EXIT: $?\")",
+      "Bash(node \"C:\\\\Users\\\\arrav\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-arrav-Pictures-smart-ark-main\\\\069f7608-ff61-44e9-9367-9392d55e97db\\\\scratchpad\\\\diag_sheet.mjs\")",
+      "Bash(cp \"C:\\\\Users\\\\arrav\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-arrav-Pictures-smart-ark-main\\\\069f7608-ff61-44e9-9367-9392d55e97db\\\\scratchpad\\\\diag_sheet.mjs\" ./_diag_sheet.mjs)",
+      "Bash(node ./_diag_sheet.mjs)",
+      "Bash(node ./_diag2.mjs)",
+      "Bash(grep -E \"_diag|\\\\.mjs$\")"
     ]
   }
 }

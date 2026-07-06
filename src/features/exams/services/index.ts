@@ -18,6 +18,7 @@ export {
   type ResultSheetRow,
   type ResultSheetParams,
   type ResultSheetFormat,
+  type SheetMonth,
 } from "./resultSheet.service";
 export {
   reportCardService,
