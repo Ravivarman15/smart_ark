@@ -93,6 +93,32 @@ const examLabel = (e: Exam): string => e.subjectName || e.title;
 const sheetMonthTitle = (m: SheetMonth): string =>
   m === "all" ? "All Exams" : monthLabel(m);
 
+/** Calendar-month index (0 = Jan) → the exam month key. */
+const CALENDAR_MONTHS: ExamMonth[] = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+/**
+ * The month an exam belongs to: its explicit `month` when set, otherwise
+ * derived from its exam date. Many exams (unit/chapter tests) are saved with a
+ * date but no month, so this lets them still fall into the right monthly sheet.
+ */
+const examMonthOf = (e: Exam): ExamMonth | null => {
+  if (e.month) return e.month;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(e.examDate ?? "");
+  if (!m) return null;
+  const idx = Number(m[2]) - 1;
+  return idx >= 0 && idx < 12 ? CALENDAR_MONTHS[idx] : null;
+};
+
+/** dd-mm-yyyy for the sheet (blank when the exam has no date). Parses the date
+ *  string directly so no timezone shift moves an exam into the wrong month. */
+const fmtExamDate = (iso?: string): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+};
+
 class ResultSheetService extends BaseService {
   /**
    * Build the consolidated sheet. Pulls every manual exam for the class in the
@@ -100,17 +126,27 @@ class ResultSheetService extends BaseService {
    * month total + dense rank across it.
    */
   async build(params: ResultSheetParams): Promise<ResultSheet> {
-    // "all" = a consolidated sheet of every manual exam of the class. Untagged
-    // exams (no month / no academic year) would otherwise never appear, so the
-    // month + year filters are dropped in this mode.
+    // Fetch every manual exam of the class, then filter in JS so a specific
+    // month can match either the exam's explicit `month` OR the month derived
+    // from its exam date. "all" = a consolidated sheet of every exam.
     const allMode = params.month === "all";
-    const exams = await examService.list({
+    const classExams = await examService.list({
       mode: "manual",
       standardId: params.standardId,
-      month: allMode ? undefined : params.month,
-      academicYearId: allMode ? undefined : params.academicYearId,
       batchId: params.batchId,
     });
+    const exams = allMode
+      ? classExams
+      : classExams.filter((e) => {
+          const monthOk = examMonthOf(e) === params.month;
+          // Untagged (null-year) exams belong to no year, so they always match;
+          // tagged exams must match the selected year when one is chosen.
+          const yearOk =
+            !params.academicYearId ||
+            !e.academicYearId ||
+            e.academicYearId === params.academicYearId;
+          return monthOk && yearOk;
+        });
 
     // Load results for every exam in parallel.
     const resultsByExam = await Promise.all(
@@ -188,7 +224,11 @@ class ResultSheetService extends BaseService {
     const header = [
       "Rank",
       "Student",
-      ...sheet.exams.flatMap((e) => [`${examLabel(e)} (Marks)`, `${examLabel(e)} (Grade)`]),
+      ...sheet.exams.flatMap((e) => {
+        const d = fmtExamDate(e.examDate);
+        const label = d ? `${examLabel(e)} [${d}]` : examLabel(e);
+        return [`${label} (Marks)`, `${label} (Grade)`];
+      }),
       "Total",
       "Max",
       "Percentage",
@@ -222,7 +262,12 @@ class ResultSheetService extends BaseService {
 
     const head =
       `<tr><th>Rank</th><th class="l">Student</th>` +
-      sheet.exams.map((e) => `<th>${esc(examLabel(e))}<br><small>/${e.totalMarks}</small></th>`).join("") +
+      sheet.exams
+        .map((e) => {
+          const d = fmtExamDate(e.examDate);
+          return `<th>${esc(examLabel(e))}<br><small>/${e.totalMarks}${d ? ` · ${d}` : ""}</small></th>`;
+        })
+        .join("") +
       `<th>Total</th><th>%</th><th>Att.</th></tr>`;
 
     const body = sheet.rows
@@ -274,7 +319,10 @@ class ResultSheetService extends BaseService {
     const header = [
       "Rank",
       "Student",
-      ...sheet.exams.map((e) => `${examLabel(e)} /${e.totalMarks}`),
+      ...sheet.exams.map((e) => {
+        const d = fmtExamDate(e.examDate);
+        return `${examLabel(e)} /${e.totalMarks}${d ? ` (${d})` : ""}`;
+      }),
       "Total",
       "Max",
       "%",

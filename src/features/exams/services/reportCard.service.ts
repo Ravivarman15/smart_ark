@@ -72,6 +72,10 @@ const esc = (s: unknown): string =>
   );
 const dash = (v?: string | number | null): string =>
   v === undefined || v === null || v === "" ? "—" : String(v);
+const fmtDate = (iso?: string): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+};
 const qrUrl = (text: string, size = 120) =>
   `https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encodeURIComponent(text)}`;
 
@@ -190,6 +194,7 @@ class ReportCardService extends BaseService {
       .map(
         (l) =>
           `<tr><td class="l">${esc(l.subject)}</td><td class="l"><small>${esc(l.examTitle)}</small></td>` +
+          `<td>${dash(fmtDate(l.date))}</td>` +
           `<td>${l.max}</td><td>${l.absent ? '<span class="ab">AB</span>' : esc(l.obtained)}</td>` +
           `<td>${l.percentage != null ? l.percentage + "%" : "—"}</td><td>${dash(l.grade)}</td></tr>`,
       )
@@ -236,8 +241,8 @@ class ReportCardService extends BaseService {
   </div>
 
   <table>
-    <thead><tr><th class="l">Subject</th><th class="l">Exam</th><th>Max</th><th>Obtained</th><th>%</th><th>Grade</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="6">No results for this month.</td></tr>`}</tbody>
+    <thead><tr><th class="l">Subject</th><th class="l">Exam</th><th>Date</th><th>Max</th><th>Obtained</th><th>%</th><th>Grade</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="7">No results for this month.</td></tr>`}</tbody>
   </table>
 
   <div class="summary">
@@ -270,10 +275,11 @@ class ReportCardService extends BaseService {
     const aoa: (string | number)[][] = [
       ["Report Card", `${card.student.name} — ${monthLabel(card.params.month)}`],
       [],
-      ["Subject", "Exam", "Max", "Obtained", "%", "Grade"],
+      ["Subject", "Exam", "Date", "Max", "Obtained", "%", "Grade"],
       ...card.subjects.map((l) => [
         l.subject,
         l.examTitle,
+        fmtDate(l.date),
         l.max,
         l.absent ? "AB" : l.obtained ?? "",
         l.percentage ?? "",
