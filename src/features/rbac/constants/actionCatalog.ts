@@ -118,6 +118,11 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("fee.discount",          "Apply discount",            "edit",    "fee.manage",           "fee.manage"),
   A("fee.discount.approve",  "Approve discount",          "approve", "fee.manage",           "fee.manage"),
   A("fee.export",            "Export fee report",         "export",  "fee.manage"),
+  // Fee Receipt Communication (Email + WhatsApp).
+  A("fee.comms.send",          "Send fee receipt",             "approve", "fee.communication"),
+  A("fee.comms.resend",        "Resend fee receipt (bulk)",    "approve", "fee.communication"),
+  A("fee.comms.update_email",  "Update missing contact info",  "edit",    "fee.communication"),
+  A("fee.comms.view_dashboard","View fee communication health","export",  "fee.communication"),
 
   // ── Exam ───────────────────────────────────────────────────────────────
   A("exam.create",           "Create manual exam",        "create",  "exam.create_manual"),

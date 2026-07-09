@@ -170,6 +170,25 @@ export interface SalarySlipParams {
   downloadUrl: string;
 }
 
+export interface FeeReceiptParams {
+  studentName: string;
+  admissionNo?: string;
+  className?: string;
+  section?: string;
+  receiptNo: string;
+  /** Pre-formatted collected amount, e.g. "₹5,000". */
+  amount: string;
+  paymentMethod: string;
+  /** Pre-formatted pending balance, e.g. "₹0". */
+  pendingBalance: string;
+  /** Collection date label, e.g. "09 Jul 2026". */
+  collectionDate: string;
+  /** Secure receipt download link (also attached as PDF). Optional. */
+  receiptUrl?: string;
+  /** Recipient name for the greeting (parent / guardian / student). */
+  recipientName?: string;
+}
+
 export interface RenderedEmail {
   subject: string;
   html: string;
@@ -375,18 +394,87 @@ const renderSalarySlip = (p: SalarySlipParams, b: Branding): RenderedEmail => {
   };
 };
 
+// ── Template: fee-receipt ───────────────────────────────────────────────────
+// Sent automatically after every successful fee collection. Branded receipt with
+// the full payment detail; the PDF receipt is attached to the email (and linked
+// via the secure download button when a signed URL is available).
+const renderFeeReceipt = (p: FeeReceiptParams, b: Branding): RenderedEmail => {
+  const subject = "ARK Learning Arena Fee Payment Receipt";
+  const detail = (label: string, value: string): string =>
+    `<tr>
+      <td style="padding:8px 0;color:#64748b;font-size:13px;width:160px;">${esc(label)}</td>
+      <td style="padding:8px 0;color:#0f172a;font-size:14px;font-weight:600;">${esc(value)}</td>
+    </tr>`;
+  const classLine = [p.className, p.section].filter(Boolean).join(" · ");
+  const bodyHtml = `
+    <h1 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Fee Payment Receipt</h1>
+    <p style="margin:0 0 12px;">Dear ${esc(p.recipientName || "Parent")}, thank you — we have received your fee payment for <strong>${esc(p.studentName)}</strong>. Your official receipt is below${p.receiptUrl ? " and attached as a PDF" : ""}.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 16px;margin:8px 0 4px;">
+      ${detail("Student", p.studentName)}
+      ${p.admissionNo ? detail("Admission No", p.admissionNo) : ""}
+      ${classLine ? detail("Class / Section", classLine) : ""}
+      ${detail("Receipt No", p.receiptNo)}
+      ${detail("Payment Method", p.paymentMethod)}
+      ${detail("Collection Date", p.collectionDate)}
+      <tr>
+        <td style="padding:12px 0 4px;color:#64748b;font-size:13px;">Amount Paid</td>
+        <td style="padding:12px 0 4px;color:#065f46;font-size:18px;font-weight:800;">${esc(p.amount)}</td>
+      </tr>
+      ${detail("Pending Balance", p.pendingBalance)}
+    </table>
+    ${p.receiptUrl ? ctaButton("Download Receipt (PDF)", p.receiptUrl, b.accentColor) : ""}
+    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:12px 16px;margin:20px 0;color:#065f46;font-size:13px;">
+      Thank you for your payment. This is a computer-generated receipt and does not require a signature.
+    </div>
+    <p style="margin:16px 0 0;color:#64748b;font-size:13px;">
+      Questions about this payment? Contact us at
+      <a href="mailto:${esc(b.supportEmail)}" style="color:${b.accentColor};">${esc(b.supportEmail)}</a>${b.supportPhone ? ` or ${esc(b.supportPhone)}` : ""}.
+    </p>`;
+  const text = [
+    `ARK Learning Arena — Fee Payment Receipt`,
+    ``,
+    `Dear ${p.recipientName || "Parent"}, we have received your fee payment for ${p.studentName}.`,
+    ``,
+    `Student: ${p.studentName}`,
+    p.admissionNo ? `Admission No: ${p.admissionNo}` : "",
+    classLine ? `Class / Section: ${classLine}` : "",
+    `Receipt No: ${p.receiptNo}`,
+    `Payment Method: ${p.paymentMethod}`,
+    `Collection Date: ${p.collectionDate}`,
+    `Amount Paid: ${p.amount}`,
+    `Pending Balance: ${p.pendingBalance}`,
+    p.receiptUrl ? `\nDownload receipt: ${p.receiptUrl}` : "",
+    ``,
+    `Thank you. Need help? ${b.supportEmail}`,
+    `© ${new Date().getFullYear()} ${b.orgName}`,
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+  return {
+    subject,
+    text,
+    html: baseLayout({
+      branding: b,
+      preheader: `Receipt ${p.receiptNo} — ${p.amount} received for ${p.studentName}.`,
+      bodyHtml,
+    }),
+  };
+};
+
 // ── Registry dispatcher ─────────────────────────────────────────────────────
 export type EmailTemplateId =
   | "staff-welcome"
   | "staff-password-reset"
   | "generic-notice"
-  | "salary-slip";
+  | "salary-slip"
+  | "fee-receipt";
 
 export const KNOWN_TEMPLATES: EmailTemplateId[] = [
   "staff-welcome",
   "staff-password-reset",
   "generic-notice",
   "salary-slip",
+  "fee-receipt",
 ];
 
 /**
@@ -408,6 +496,8 @@ export const renderEmail = (
       return renderGenericNotice(params as unknown as GenericNoticeParams, branding);
     case "salary-slip":
       return renderSalarySlip(params as unknown as SalarySlipParams, branding);
+    case "fee-receipt":
+      return renderFeeReceipt(params as unknown as FeeReceiptParams, branding);
     default:
       throw new Error(`Unknown email template: ${templateId}`);
   }

@@ -129,4 +129,5 @@ export {
   FeeAnalyticsPanel,
   AssignFeeDialog,
   AutoAssignFeesDialog,
+  StudentFeeCommsCard,
 } from "./components";

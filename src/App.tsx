@@ -57,6 +57,7 @@ const LeadAnalyticsPage = lazy(() => import("./features/leads/pages/LeadAnalytic
 const LeadWhatsappDashboardPage = lazy(() => import("./features/leads/pages/LeadWhatsappDashboardPage"));
 const PublicLeadFormPage = lazy(() => import("./features/leads/pages/PublicLeadFormPage"));
 const FeeManagement = lazy(() => import("./pages/shared/FeeManagement"));
+const FeeCommunicationCenter = lazy(() => import("./features/fee/pages/FeeCommunicationCenter"));
 const NotificationCenter = lazy(() => import("./pages/shared/NotificationCenter"));
 const ExpenseManagement = lazy(() => import("./pages/shared/ExpenseManagement"));
 const ManageStaff = lazy(() => import("./pages/shared/ManageStaff"));
@@ -466,6 +467,7 @@ const AppRoutes: React.FC = () => (
         {taskRoutes()}
         <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
+        <Route path="fees/communication" element={<FeeCommunicationCenter />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
         {leadRoutes({ management: true })}
         <Route path="reports" element={<Reports />} />
@@ -607,6 +609,7 @@ const AppRoutes: React.FC = () => (
         <Route path="finance" element={<FinancialView />} />
         <Route path="fees" element={<FeesAdmission />} />
         <Route path="fees-management" element={<FeeManagement />} />
+        <Route path="fees/communication" element={<FeeCommunicationCenter />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
         {leadRoutes({ management: true })}
         <Route path="compliance" element={<ComplianceViolations />} />

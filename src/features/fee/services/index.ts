@@ -10,6 +10,17 @@ export {
 } from "./feeReminder.service";
 export { feeAnalyticsService } from "./feeAnalytics.service";
 export {
+  feeReceiptDeliveryService,
+  type DeliverReceiptInput,
+  type DeliverReceiptResult,
+} from "./feeReceiptDelivery.service";
+export {
+  feeCommsService,
+  FEE_CONTEXTS,
+  type ReceiptRow,
+  type ReceiptFilters,
+} from "./feeComms.service";
+export {
   feeLookupsService,
   type LookupOption,
   type TaxOption,

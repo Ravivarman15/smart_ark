@@ -189,6 +189,22 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       buttons: [{ type: "url", label: "View Receipt", value: "{{receipt_url}}" }],
     }
   ),
+  // ── Enterprise Fee Receipt (AiSensy Utility template) ──────────────────────
+  // Dedicated 6-variable utility receipt sent automatically on every collection.
+  // {{receipt_url}} lives only in the button/media so it is NOT a required body
+  // variable — a missing signed link never blocks the text message. The AiSensy
+  // provider template name is `fee_receipt`; positional order is pinned in
+  // templateParams.ts (mirrored in send-aisensy). See docs/AISENSY_TEMPLATES.md.
+  def(
+    "fee_receipt",
+    "fee",
+    "Fee payment receipt",
+    "Dear {{parent_name}}, we have received a fee payment for {{student_name}} (Class {{class}}).\nReceipt No: {{receipt_no}}\nAmount Paid: ₹{{amount_paid}}\nPending Balance: ₹{{pending_balance}}\nThank you. — ARK Learning Arena",
+    {
+      buttons: [{ type: "url", label: "View Receipt", value: "{{receipt_url}}" }],
+      media: { type: "pdf", url: "{{receipt_url}}" },
+    }
+  ),
   def(
     "parent_credentials",
     "credentials",

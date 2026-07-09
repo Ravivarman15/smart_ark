@@ -5,3 +5,4 @@ export { RevisionHistoryDialog } from "./RevisionHistoryDialog";
 export { FeeAnalyticsPanel } from "./FeeAnalyticsPanel";
 export { AssignFeeDialog } from "./AssignFeeDialog";
 export { AutoAssignFeesDialog } from "./AutoAssignFeesDialog";
+export { StudentFeeCommsCard } from "./StudentFeeCommsCard";

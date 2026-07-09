@@ -292,6 +292,28 @@ const FeeManagement: React.FC = () => {
       toast.success(
         `${formatINR(res.amount)} collected — Receipt ${res.receiptNo}`,
       );
+      // Report exactly what happened to the receipt delivery (Email + WhatsApp),
+      // so a silent non-send is impossible.
+      const d = res.delivery;
+      if (d) {
+        const parts: string[] = [];
+        if (d.email === "sent") parts.push("Email sent ✓");
+        else if (d.email === "duplicate") parts.push("Email already sent");
+        else if (d.email === "failed") parts.push(`Email failed: ${d.emailError ?? "unknown"}`);
+        else if (d.email === "skipped" && d.emailError) parts.push(d.emailError);
+        if (d.whatsapp === "queued" || d.whatsapp === "sent")
+          parts.push(d.whatsappError ? `WhatsApp: ${d.whatsappError}` : "WhatsApp sent ✓");
+        else if (d.whatsapp === "duplicate") parts.push("WhatsApp already sent");
+        else if (d.whatsapp === "failed") parts.push(`WhatsApp failed: ${d.whatsappError ?? "unknown"}`);
+        else if (d.whatsapp === "skipped" && d.whatsappError) parts.push(d.whatsappError);
+        const hasError =
+          d.email === "failed" || d.whatsapp === "failed" || !!d.whatsappError || !!d.emailError;
+        if (parts.length > 0) {
+          (hasError ? toast.warning : toast.success)(`Receipt — ${parts.join(" · ")}`, {
+            duration: 7000,
+          });
+        }
+      }
       setReceipt({
         receiptNo: res.receiptNo,
         studentName: paymentTarget.studentName,

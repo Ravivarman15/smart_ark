@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FeeReceiptDialog, type ReceiptData } from "@/features/fee";
+import { FeeReceiptDialog, StudentFeeCommsCard, type ReceiptData } from "@/features/fee";
 import { RiskBadge, StatusBadge } from "./RiskBadge";
 import { StudentAvatar } from "./StudentAvatar";
 import { StudentPerformancePanel, StudentFeesPanel } from "./StudentInsightsPanels";
@@ -286,11 +286,15 @@ export const StudentProfileDrawer = ({
               <StudentPerformancePanel insights={insights} loading={insightsLoading} />
             </TabsContent>
 
-            <TabsContent value="fees" className="mt-4">
+            <TabsContent value="fees" className="mt-4 space-y-4">
               <StudentFeesPanel
                 fee={insights?.fee}
                 loading={insightsLoading}
                 onView={viewReceipt}
+              />
+              <StudentFeeCommsCard
+                studentId={s.id}
+                phone={s.parentContact || s.guardianContact || s.studentContact}
               />
             </TabsContent>
 

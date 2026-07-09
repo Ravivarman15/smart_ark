@@ -2,7 +2,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCanDo } from "@/features/rbac";
-import { studentFeeService, feeReminderService } from "../services";
+import {
+  studentFeeService,
+  feeReminderService,
+  feeReceiptDeliveryService,
+} from "../services";
 import type {
   CollectPaymentInput,
   ScheduleInstallmentsInput,
@@ -22,16 +26,38 @@ import type {
 const invalidateFees = (qc: ReturnType<typeof useQueryClient>) =>
   qc.invalidateQueries({ queryKey: queryKeys.fees.all });
 
-/** Collect a payment and return the receipt result. */
+/**
+ * Collect a payment and return the receipt result. On success, the branded fee
+ * receipt is auto-delivered to the parent over Email + WhatsApp via the existing
+ * communication engine — fire-and-forget, gated by the `fee_paid` automation
+ * toggle (default OFF), and never able to fail the collection itself. This one
+ * hook backs single, installment and bulk collection, so all three auto-notify.
+ */
 export const useCollectPayment = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: (input: Omit<CollectPaymentInput, "createdBy">) =>
-      studentFeeService.collectPayment({
+    mutationFn: async (input: Omit<CollectPaymentInput, "createdBy">) => {
+      const result = await studentFeeService.collectPayment({
         ...input,
         createdBy: user?.profileId,
-      }),
+      });
+      // Deliver the branded receipt IMMEDIATELY over Email + WhatsApp and await
+      // the outcome so the UI can confirm it (or show the exact reason it
+      // didn't). The service never throws — it always resolves a per-channel
+      // result — so a comms hiccup can never fail or roll back the collection.
+      const delivery = await feeReceiptDeliveryService.deliverReceipt({
+        studentFeeId: input.studentFeeId,
+        receiptNo: result.receiptNo,
+        amount: result.amount,
+        amountReceived: result.amountReceived,
+        amountPending: result.amountPending,
+        paymentMethod: input.method,
+        notes: input.notes,
+        actorId: user?.profileId,
+      });
+      return { ...result, delivery };
+    },
     onSuccess: () => invalidateFees(qc),
   });
 };

@@ -237,6 +237,10 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "fee.manage_structure", label: "Manage Fee Structure", route: "/admin/setup/fee-structures", legacyAction: "fee.structures" },
       { id: "fee.collection",       label: "Fee Collection",        route: "/admin/fees",                 legacyAction: "fee.collection" },
       { id: "fee.manage",           label: "Manage Fees",           route: "/admin/fees-management",      legacyAction: "fee.manage" },
+      // Fee Receipt Communication (auto email/WhatsApp receipts + health/resend).
+      // Dashboards/resend surfaces ship in Phase B; registered now so the grants
+      // are pre-configurable in Manage Staff Role.
+      { id: "fee.communication",    label: "Fee Communication" },
     ],
   },
   {

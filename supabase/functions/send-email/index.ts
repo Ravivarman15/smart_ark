@@ -36,6 +36,8 @@ interface SendEmailPayload {
   to: { email: string; name?: string };
   params: Record<string, unknown>;
   branch?: string;
+  /** Optional file attachments (e.g. the fee receipt PDF) — url or base64. */
+  attachment?: { name: string; url?: string; content?: string }[];
 }
 
 Deno.serve(async (req) => {
@@ -94,6 +96,7 @@ Deno.serve(async (req) => {
       htmlContent: mail.html,
       textContent: mail.text,
       tags: [body.templateId],
+      attachment: Array.isArray(body.attachment) ? body.attachment : undefined,
     });
 
     return jsonResponse(result.ok ? 200 : 502, {

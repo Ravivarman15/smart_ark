@@ -377,6 +377,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("fee.manage_structure", "Manage Fee Structure", { admin: "/admin/setup/fee-structures", management: "/management/setup/fee-structures" }, adminMgmt),
       ...sub("fee.collection",       "Fee Collection",       { admin: "/admin/fees",            management: "/management/fees" },            adminMgmt),
       ...sub("fee.manage",           "Manage Fees",          { admin: "/admin/fees-management", management: "/management/fees-management" }, adminMgmt),
+      ...sub("fee.communication",    "Fee Communication",    { admin: "/admin/fees/communication", management: "/management/fees/communication" }, adminMgmt),
     ],
   },
 

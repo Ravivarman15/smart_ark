@@ -43,7 +43,7 @@ export const AUTOMATION_EVENTS: AutomationEventMeta[] = [
   ev("attendance_absent",   "Student marked absent",   "Attendance", "Notify parents when a student is marked absent.",              "attendance_absent",      "whatsapp", "immediate", "event"),
   ev("attendance_present",  "Student marked present",  "Attendance", "Optional present-confirmation to parents.",                    "attendance_present",     "whatsapp", "immediate", "event"),
   ev("fee_due",             "Fee due reminder",        "Fees",       "Daily reminder to students with a pending balance.",            "fee_due_reminder",       "whatsapp", "scheduled", "scheduled"),
-  ev("fee_paid",            "Fee paid receipt",        "Fees",       "Send a receipt when a payment is collected.",                   "payment_received",       "both",     "immediate", "event"),
+  ev("fee_paid",            "Fee paid receipt",        "Fees",       "Auto-send a branded Email + WhatsApp receipt when a payment is collected.", "fee_receipt",       "both",     "immediate", "event"),
   ev("exam_published",      "Exam marks published",    "Exams",      "Send marks/grade to parents when results are published.",       "exam_result",            "whatsapp", "immediate", "event"),
   ev("exam_scheduled",      "Exam reminder",           "Exams",      "Remind students of an upcoming exam.",                          "exam_reminder",          "whatsapp", "scheduled", "scheduled"),
   ev("birthday_student",    "Student birthday",        "Birthday",   "Daily birthday wishes for students with a birthday today.",      "birthday_wish",          "whatsapp", "scheduled", "scheduled"),

@@ -84,3 +84,54 @@ export const printReceipt = (r: ReceiptData, orgName?: string): void => {
   win.focus();
   win.print();
 };
+
+/**
+ * Render the receipt to an A4 PDF Blob for emailing / archival. Reuses the SAME
+ * `receiptToHtml` markup the print + email paths use (single source of truth) —
+ * no second receipt design. Browser-only: rasterises the HTML with html2canvas
+ * and wraps it in jsPDF, exactly like the payroll payslip generator. Dynamic
+ * imports keep jsPDF/html2canvas out of the main bundle until a receipt is sent.
+ */
+export const receiptToPdfBlob = async (
+  r: ReceiptData,
+  orgName?: string,
+): Promise<Blob> => {
+  if (typeof document === "undefined") {
+    throw new Error("Receipt PDF generation requires a browser environment.");
+  }
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import("jspdf"),
+    import("html2canvas"),
+  ]);
+
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-99999px";
+  host.style.top = "0";
+  host.style.width = "420px";
+  host.style.background = "#ffffff";
+  // receiptToHtml is a full document; render its <body> content into the host.
+  const doc = new DOMParser().parseFromString(
+    receiptToHtml(r, orgName),
+    "text/html",
+  );
+  host.innerHTML = doc.body.innerHTML;
+  document.body.appendChild(host);
+
+  try {
+    const canvas = await html2canvas(host, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+    });
+    const pdf = new jsPDF({ unit: "pt", format: "a4" });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const margin = 28;
+    const w = pageW - margin * 2;
+    const h = (canvas.height * w) / canvas.width;
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, margin, w, h);
+    return pdf.output("blob");
+  } finally {
+    host.remove();
+  }
+};

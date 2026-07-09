@@ -70,6 +70,17 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "demo_date"),
     val(p, "demo_time"),
   ],
+  // Enterprise Fee Receipt utility template.
+  // {{1}} parent_name, {{2}} student_name, {{3}} class, {{4}} receipt_no,
+  // {{5}} amount_paid, {{6}} pending_balance
+  fee_receipt: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "class", "batch_name"),
+    val(p, "receipt_no"),
+    val(p, "amount_paid", "amount"),
+    val(p, "pending_balance", "amount_pending"),
+  ],
 };
 
 /** Templates that use ordered positional params (vs the single-body fallback). */

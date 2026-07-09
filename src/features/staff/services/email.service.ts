@@ -77,6 +77,8 @@ class EmailService extends BaseService {
     to: { email: string; name?: string };
     params: Record<string, unknown>;
     branch?: string;
+    /** Optional file attachments (e.g. fee receipt PDF) — url or base64 content. */
+    attachment?: { name: string; url?: string; content?: string }[];
   }): Promise<TemplateEmailResult> {
     const { data, error } = await this.db.functions.invoke("send-email", {
       body: args,

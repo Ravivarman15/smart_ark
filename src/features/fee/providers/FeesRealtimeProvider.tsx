@@ -50,6 +50,32 @@ export const FeesRealtimeProvider = ({ children }: { children: ReactNode }) => {
         (payload: Payload) => onChange(table, payload),
       );
     }
+
+    // Fee-receipt delivery lives in message_queue (Communication Center engine).
+    // Watch it too so the Fee Communication Center (health / delivery dashboard /
+    // bulk resend) updates live — but ONLY for fee contexts, so unrelated comms
+    // (leads, attendance, …) never churn the fee query tree.
+    const FEE_CTX = new Set([
+      "fee_receipt",
+      "fee_due",
+      "fee_overdue",
+      "fee_installment",
+    ]);
+    channel.on(
+      "postgres_changes" as never,
+      { event: "*", schema: "public", table: "message_queue" } as never,
+      (payload: Payload) => {
+        const row = (payload.new ?? payload.old ?? {}) as Record<string, unknown>;
+        if (!FEE_CTX.has(String(row.context_type ?? ""))) return;
+        qc.invalidateQueries({ queryKey: queryKeys.fees.comms("live") });
+        // comms keys live under the fees namespace — bust the branch.
+        qc.invalidateQueries({ queryKey: [...queryKeys.fees.all, "comms"] });
+        const studentId = (row.recipient_student_id as string | undefined) ?? undefined;
+        if (studentId) {
+          qc.invalidateQueries({ queryKey: queryKeys.fees.studentFee(studentId) });
+        }
+      },
+    );
     channel.subscribe();
 
     function onChange(table: string, payload: Payload) {

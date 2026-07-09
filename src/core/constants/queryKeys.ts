@@ -54,6 +54,7 @@ export const queryKeys = {
       [...queryKeys.fees.all, "refunds", params ?? {}] as const,
     analytics: (scope: string) => [...queryKeys.fees.all, "analytics", scope] as const,
     lookups: (kind: string) => [...queryKeys.fees.all, "lookups", kind] as const,
+    comms: (scope: string) => [...queryKeys.fees.all, "comms", scope] as const,
   },
   liveClasses: {
     all: ["live-classes"] as const,

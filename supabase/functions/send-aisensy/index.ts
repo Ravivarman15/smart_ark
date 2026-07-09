@@ -95,6 +95,17 @@ const TEMPLATE_PARAM_SPECS: Record<string, (p: Record<string, unknown>) => strin
     tVal(p, "demo_date"),
     tVal(p, "demo_time"),
   ],
+  // Enterprise Fee Receipt utility template.
+  // {{1}} parent_name, {{2}} student_name, {{3}} class, {{4}} receipt_no,
+  // {{5}} amount_paid, {{6}} pending_balance
+  fee_receipt: (p) => [
+    tVal(p, "parent_name"),
+    tVal(p, "student_name"),
+    tVal(p, "class", "batch_name"),
+    tVal(p, "receipt_no"),
+    tVal(p, "amount_paid", "amount"),
+    tVal(p, "pending_balance", "amount_pending"),
+  ],
 };
 const buildTemplateParams = (templateName: string, payload: Record<string, unknown>): string[] => {
   const spec = TEMPLATE_PARAM_SPECS[templateName];

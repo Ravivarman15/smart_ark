@@ -120,6 +120,7 @@ describe("buildTemplateParams", () => {
       "lead_demo_scheduled_v2",
       "lead_admission_completed_v2",
       "lead_demo_reminder_v2",
+      "fee_receipt",
     ]);
   });
 });

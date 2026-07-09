@@ -36,3 +36,13 @@ export {
   useBatchAssignmentPlan,
   useAutoAssignByBatch,
 } from "./useFeeAssignment";
+
+export {
+  useFeeContacts,
+  useFeeDelivery,
+  useFeeRecentFailures,
+  useFeeReceipts,
+  useResendReceipts,
+  useUpdateStudentContacts,
+  type ResendTarget,
+} from "./useFeeComms";

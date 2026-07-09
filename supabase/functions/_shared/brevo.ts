@@ -29,6 +29,16 @@ export interface BrevoRecipient {
   name?: string;
 }
 
+/**
+ * A file attachment for the email. Provide EITHER a publicly reachable `url`
+ * (Brevo fetches it) OR base64 `content` — plus a `name` with extension.
+ */
+export interface BrevoAttachment {
+  name: string;
+  url?: string;
+  content?: string;
+}
+
 export interface BrevoSendParams {
   to: BrevoRecipient[];
   subject: string;
@@ -38,6 +48,8 @@ export interface BrevoSendParams {
   tags?: string[];
   /** Optional reply-to override (defaults to the sender). */
   replyTo?: BrevoRecipient;
+  /** Optional file attachments (e.g. the fee receipt PDF). */
+  attachment?: BrevoAttachment[];
 }
 
 export type EmailDeliveryStatus = "sent" | "failed" | "skipped";
@@ -92,6 +104,10 @@ export const sendBrevoEmail = async (
         textContent: params.textContent,
         tags: params.tags,
         replyTo: params.replyTo,
+        attachment:
+          params.attachment && params.attachment.length > 0
+            ? params.attachment
+            : undefined,
       }),
     });
 
