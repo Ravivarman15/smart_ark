@@ -203,6 +203,47 @@ class FeeReceiptDeliveryService extends BaseService {
   }
 
   /**
+   * Send the receipt email. Tries the branded `fee-receipt` template first; if
+   * the DEPLOYED send-email function predates it ("Unknown templateId"), falls
+   * back to the always-present `generic-notice` so the receipt still delivers
+   * (details in the body + a Download CTA). Returns a plain ok/error.
+   */
+  private async sendReceiptEmail(
+    to: { email: string; name?: string },
+    branded: Record<string, unknown>,
+    fallback: Record<string, unknown>,
+    attachment?: { name: string; content: string }[],
+  ): Promise<{ ok: boolean; error?: string }> {
+    const interpret = (res: { status: string; error?: string }): { ok: boolean; error?: string } =>
+      res.status === "sent"
+        ? { ok: true }
+        : {
+            ok: false,
+            error:
+              res.error ??
+              (res.status === "skipped"
+                ? "Email service not configured — set BREVO_API_KEY + SENDER_EMAIL secrets."
+                : "Email rejected by the provider."),
+          };
+    try {
+      return interpret(
+        await emailService.sendTemplateEmail({ templateId: "fee-receipt", to, params: branded, attachment }),
+      );
+    } catch (e) {
+      const msg = (e as Error).message ?? "";
+      if (!/unknown template/i.test(msg)) return { ok: false, error: msg };
+      // Deployed send-email is older than the fee-receipt template — fall back.
+      try {
+        return interpret(
+          await emailService.sendTemplateEmail({ templateId: "generic-notice", to, params: fallback }),
+        );
+      } catch (e2) {
+        return { ok: false, error: (e2 as Error).message };
+      }
+    }
+  }
+
+  /**
    * Deliver the receipt for one collected payment over the configured channels.
    * Safe to call fire-and-forget from the collection hook.
    */
@@ -311,58 +352,50 @@ class FeeReceiptDeliveryService extends BaseService {
           result.email = "skipped";
           result.emailError = "No email address on file (parent / mother / student).";
         } else {
-          try {
-            const res = await emailService.sendTemplateEmail({
-              templateId: "fee-receipt",
-              to: { email, name: parentName },
-              params: {
-                studentName: fee.studentName ?? "",
-                admissionNo,
-                className,
-                section,
-                receiptNo: input.receiptNo,
-                amount: formatINR(input.amount),
-                paymentMethod: input.paymentMethod,
-                pendingBalance: formatINR(input.amountPending),
-                collectionDate: formatDate(date),
-                receiptUrl: signedUrl,
-                recipientName: parentName,
-              },
-              attachment: base64
-                ? [{ name: `Receipt-${input.receiptNo}.pdf`, content: base64 }]
-                : undefined,
-            });
-            const ok = res.status === "sent";
-            result.email = ok ? "sent" : "failed";
-            if (!ok) {
-              result.emailError =
-                res.error ??
-                (res.status === "skipped"
-                  ? "Email service not configured — set BREVO_API_KEY + SENDER_EMAIL secrets."
-                  : "Email rejected by the provider.");
-            }
-            await this.logEmail(
-              input.studentFeeId,
-              fee.studentId,
-              input.receiptNo,
-              parentName,
-              email,
-              ok ? "sent" : "failed",
-              res.error,
-            );
-          } catch (e) {
-            result.email = "failed";
-            result.emailError = (e as Error).message;
-            await this.logEmail(
-              input.studentFeeId,
-              fee.studentId,
-              input.receiptNo,
-              parentName,
-              email,
-              "failed",
-              (e as Error).message,
-            );
-          }
+          const branded = {
+            studentName: fee.studentName ?? "",
+            admissionNo,
+            className,
+            section,
+            receiptNo: input.receiptNo,
+            amount: formatINR(input.amount),
+            paymentMethod: input.paymentMethod,
+            pendingBalance: formatINR(input.amountPending),
+            collectionDate: formatDate(date),
+            receiptUrl: signedUrl,
+            recipientName: parentName,
+          };
+          const fallback = {
+            recipientName: parentName,
+            heading: "ARK Learning Arena Fee Payment Receipt",
+            paragraphs: [
+              `Dear ${parentName ?? "Parent"}, we have received your fee payment for ${fee.studentName ?? "your ward"}.`,
+              `Receipt No: ${input.receiptNo}`,
+              `Amount Paid: ${formatINR(input.amount)}`,
+              `Payment Method: ${input.paymentMethod}`,
+              `Pending Balance: ${formatINR(input.amountPending)}`,
+              `Collection Date: ${formatDate(date)}`,
+              "Thank you.",
+            ],
+            ...(signedUrl ? { cta: { label: "Download Receipt (PDF)", url: signedUrl } } : {}),
+          };
+          const out = await this.sendReceiptEmail(
+            { email, name: parentName },
+            branded,
+            fallback,
+            base64 ? [{ name: `Receipt-${input.receiptNo}.pdf`, content: base64 }] : undefined,
+          );
+          result.email = out.ok ? "sent" : "failed";
+          if (!out.ok) result.emailError = out.error;
+          await this.logEmail(
+            input.studentFeeId,
+            fee.studentId,
+            input.receiptNo,
+            parentName,
+            email,
+            out.ok ? "sent" : "failed",
+            out.error,
+          );
         }
       }
 
