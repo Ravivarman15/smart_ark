@@ -280,7 +280,7 @@ class FeeReceiptDeliveryService extends BaseService {
         {
           amount: input.amount,
           paymentMethod: input.paymentMethod,
-          paymentDate: date,
+          paymentDate: formatDate(date),
           receiptNo: input.receiptNo,
           notes: input.notes,
           amountReceived: input.amountReceived ?? 0,

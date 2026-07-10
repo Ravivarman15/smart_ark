@@ -85,41 +85,67 @@ export const printReceipt = (r: ReceiptData, orgName?: string): void => {
   win.print();
 };
 
+/** Resolve once every <img> under `root` (the ARK logo) has loaded, so the
+ * html2canvas raster isn't captured before the branding paints. */
+const waitForImages = (root: HTMLElement, timeoutMs = 4000): Promise<void> =>
+  new Promise((resolve) => {
+    const start = Date.now();
+    const tick = () => {
+      const slip = root.querySelector("#fee-receipt");
+      const imgs = Array.from(root.querySelectorAll("img"));
+      const ready = imgs.every((img) => img.complete && img.naturalWidth > 0);
+      if (slip && ready) resolve();
+      else if (Date.now() - start > timeoutMs) resolve();
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+
 /**
- * Render the receipt to an A4 PDF Blob for emailing / archival. Reuses the SAME
- * `receiptToHtml` markup the print + email paths use (single source of truth) —
- * no second receipt design. Browser-only: rasterises the HTML with html2canvas
- * and wraps it in jsPDF, exactly like the payroll payslip generator. Dynamic
- * imports keep jsPDF/html2canvas out of the main bundle until a receipt is sent.
+ * Render the receipt to an A4 PDF Blob for emailing / archival. Renders the SAME
+ * branded `ReceiptBody` the on-screen receipt dialog uses (ARK logo + navy/accent
+ * header, meta grid, amount band, signatory) — one receipt design, identical to
+ * the on-screen download and mirroring the payroll salary slip. Exactly the
+ * payslipPdf pattern: mount the component off-screen, wait for the logo, raster
+ * with html2canvas, wrap in jsPDF. Dynamic imports keep React-DOM / jsPDF /
+ * html2canvas / the dialog chunk out of the main bundle until a receipt is sent.
  */
 export const receiptToPdfBlob = async (
   r: ReceiptData,
-  orgName?: string,
+  _orgName?: string,
 ): Promise<Blob> => {
   if (typeof document === "undefined") {
     throw new Error("Receipt PDF generation requires a browser environment.");
   }
-  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+  const [
+    { createElement },
+    { createRoot },
+    { default: jsPDF },
+    { default: html2canvas },
+    { ReceiptBody },
+  ] = await Promise.all([
+    import("react"),
+    import("react-dom/client"),
     import("jspdf"),
     import("html2canvas"),
+    import("../components/FeeReceiptDialog"),
   ]);
 
   const host = document.createElement("div");
   host.style.position = "fixed";
   host.style.left = "-99999px";
   host.style.top = "0";
-  host.style.width = "420px";
+  host.style.width = "760px";
   host.style.background = "#ffffff";
-  // receiptToHtml is a full document; render its <body> content into the host.
-  const doc = new DOMParser().parseFromString(
-    receiptToHtml(r, orgName),
-    "text/html",
-  );
-  host.innerHTML = doc.body.innerHTML;
   document.body.appendChild(host);
 
+  const root = createRoot(host);
   try {
-    const canvas = await html2canvas(host, {
+    root.render(createElement(ReceiptBody, { receipt: r }));
+    await waitForImages(host);
+
+    const node = (host.querySelector("#fee-receipt") as HTMLElement) ?? host;
+    const canvas = await html2canvas(node, {
       scale: 2,
       backgroundColor: "#ffffff",
       useCORS: true,
@@ -132,6 +158,7 @@ export const receiptToPdfBlob = async (
     pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, margin, w, h);
     return pdf.output("blob");
   } finally {
+    root.unmount();
     host.remove();
   }
 };

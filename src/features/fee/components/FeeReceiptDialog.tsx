@@ -133,7 +133,10 @@ const SectionTitle = ({ children }: { children: string }) => (
   </div>
 );
 
-const ReceiptBody = ({
+// Exported so the headless PDF generator (`receiptToPdfBlob`) can render the
+// EXACT same branded markup off-screen — the emailed/attached receipt PDF is then
+// byte-identical to the on-screen receipt (one design, mirrors the payroll slip).
+export const ReceiptBody = ({
   receipt,
   innerRef,
 }: {
