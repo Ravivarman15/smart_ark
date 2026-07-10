@@ -232,10 +232,11 @@ class FeeReceiptDeliveryService extends BaseService {
     } catch (e) {
       const msg = (e as Error).message ?? "";
       if (!/unknown template/i.test(msg)) return { ok: false, error: msg };
-      // Deployed send-email is older than the fee-receipt template — fall back.
+      // Deployed send-email is older than the fee-receipt template — fall back to
+      // generic-notice but STILL attach the branded PDF so the receipt rides along.
       try {
         return interpret(
-          await emailService.sendTemplateEmail({ templateId: "generic-notice", to, params: fallback }),
+          await emailService.sendTemplateEmail({ templateId: "generic-notice", to, params: fallback, attachment }),
         );
       } catch (e2) {
         return { ok: false, error: (e2 as Error).message };
