@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   LogOut, Menu, X, Lock, CheckCircle2, Circle, Users2, FileText,
   ClipboardList, TrendingUp, Timer, AlertTriangle, MapPin, Loader2,
+  Layers, GraduationCap,
 } from "lucide-react";
 
 import { useTeacherWorkspace } from "./dashboard/useTeacherWorkspace";
@@ -28,14 +29,6 @@ import WorkspaceSection from "./dashboard/WorkspaceSection";
 // Every figure is derived from live context data in useTeacherWorkspace.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SECTIONS = [
-  { id: "attendance", label: "Attendance", icon: Users2 },
-  { id: "marks", label: "Marks", icon: FileText },
-  { id: "insights", label: "Insights", icon: TrendingUp },
-  { id: "tasks", label: "Tasks", icon: ClipboardList },
-  { id: "workspace", label: "Workspace", icon: Menu },
-];
-
 const greeting = (d: Date) => {
   const h = d.getHours();
   if (h < 12) return "Good morning";
@@ -45,7 +38,11 @@ const greeting = (d: Date) => {
 
 const TeacherDashboard: React.FC = () => {
   const ws = useTeacherWorkspace();
-  const { user, logout, teacherInfo, shift, daySteps, dayProgress, roster, pendingTasks, marksToday, presentCount, attendanceSubmitted, nowMs } = ws;
+  const {
+    user, logout, teacherInfo, shift, daySteps, dayProgress, hasClass,
+    roster, tasks, pendingTasks, marksToday, presentCount, attendanceSubmitted,
+    classInsights, nowMs,
+  } = ws;
   const confirm = useConfirm();
 
   const navGroups = useNavigation();
@@ -56,6 +53,21 @@ const TeacherDashboard: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const locked = !shift.checkedIn;
+
+  // A section only exists if it has something to say. A teacher with no class
+  // never sees an empty attendance/marks/insights shell.
+  const showAttendance = hasClass;
+  const showMarks = hasClass;
+  const showInsights = hasClass && classInsights.scored.length > 0;
+  const showTasks = tasks.length > 0;
+
+  const jumpLinks = [
+    showAttendance && { id: "attendance", label: "Attendance", icon: Users2 },
+    showMarks && { id: "marks", label: "Marks", icon: FileText },
+    showInsights && { id: "insights", label: "Insights", icon: TrendingUp },
+    showTasks && { id: "tasks", label: "Tasks", icon: ClipboardList },
+    { id: "workspace", label: "Workspace", icon: Layers },
+  ].filter(Boolean) as { id: string; label: string; icon: React.ElementType }[];
 
   // Leaving with an open shift loses the check-out record, so warn on unload.
   useEffect(() => {
@@ -99,16 +111,26 @@ const TeacherDashboard: React.FC = () => {
       ? <CheckCircle2 className="w-4 h-4 text-ark-success flex-shrink-0" />
       : <Circle className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />;
 
+  // Only KPIs that mean something for this teacher. A zeroed-out tile is worse
+  // than no tile.
   const kpis = [
-    { label: "Students", value: `${roster.length}`, tone: "text-foreground" },
-    {
+    hasClass && { label: "Students", value: `${roster.length}`, tone: "text-foreground" },
+    hasClass && {
       label: "Today present",
-      value: roster.length ? `${presentCount}/${roster.length}` : "—",
+      value: `${presentCount}/${roster.length}`,
       tone: attendanceSubmitted ? "text-ark-success" : "text-ark-warning",
     },
-    { label: "Marks today", value: `${marksToday.length}`, tone: marksToday.length ? "text-accent" : "text-muted-foreground" },
-    { label: "Open tasks", value: `${pendingTasks.length}`, tone: pendingTasks.length ? "text-ark-warning" : "text-ark-success" },
-  ];
+    hasClass && {
+      label: "Marks today",
+      value: `${marksToday.length}`,
+      tone: marksToday.length ? "text-accent" : "text-muted-foreground",
+    },
+    showTasks && {
+      label: "Open tasks",
+      value: `${pendingTasks.length}`,
+      tone: pendingTasks.length ? "text-ark-warning" : "text-ark-success",
+    },
+  ].filter(Boolean) as { label: string; value: string; tone: string }[];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -218,23 +240,25 @@ const TeacherDashboard: React.FC = () => {
             </div>
           </section>
 
-          {/* 3. KPIs */}
-          <section className="grid grid-cols-4 gap-2">
-            {kpis.map((k) => (
-              <div key={k.label} className="rounded-xl bg-card/60 border border-border p-3 text-center">
-                <p className={`text-xl font-bold tabular-nums ${k.tone}`}>{k.value}</p>
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5 leading-tight">
-                  {k.label}
-                </p>
-              </div>
-            ))}
-          </section>
+          {/* 3. KPIs — omitted entirely when there is nothing to count */}
+          {kpis.length > 0 && (
+            <section className={`grid gap-2 ${kpis.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+              {kpis.map((k) => (
+                <div key={k.label} className="rounded-xl bg-card/60 border border-border p-3 text-center">
+                  <p className={`text-xl font-bold tabular-nums ${k.tone}`}>{k.value}</p>
+                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5 leading-tight">
+                    {k.label}
+                  </p>
+                </div>
+              ))}
+            </section>
+          )}
 
-          {/* Jump rail — only useful once the workspace is unlocked */}
-          {!locked && (
+          {/* Jump rail — one chip per section that actually rendered */}
+          {!locked && jumpLinks.length > 1 && (
             <nav className="sticky top-[61px] z-30 -mx-4 px-4 py-2 bg-background/90 backdrop-blur-md">
               <div className="flex gap-1.5 overflow-x-auto scrollbar-thin">
-                {SECTIONS.map((s) => (
+                {jumpLinks.map((s) => (
                   <a
                     key={s.id}
                     href={`#${s.id}`}
@@ -272,10 +296,26 @@ const TeacherDashboard: React.FC = () => {
             </section>
           ) : (
             <>
-              <AttendanceSection ws={ws} />
-              <MarksSection ws={ws} />
-              <InsightsSection ws={ws} />
-              <TasksSection ws={ws} />
+              {/* No roster — one honest, actionable notice instead of four
+                  empty section shells. */}
+              {!hasClass && (
+                <section className="rounded-2xl bg-ark-warning/5 border border-ark-warning/25 p-5 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-ark-warning/10 border border-ark-warning/20 flex items-center justify-center mx-auto mb-3">
+                    <GraduationCap className="w-5 h-5 text-ark-warning" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">No class assigned to you</p>
+                  <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
+                    Attendance, marks and class insights appear here as soon as students are
+                    linked to you. Ask an admin to assign your batch — your check-in and
+                    check-out still work in the meantime.
+                  </p>
+                </section>
+              )}
+
+              {showAttendance && <AttendanceSection ws={ws} />}
+              {showMarks && <MarksSection ws={ws} />}
+              {showInsights && <InsightsSection ws={ws} />}
+              {showTasks && <TasksSection ws={ws} />}
               <WorkspaceSection ws={ws} modules={modules} />
             </>
           )}

@@ -39,14 +39,8 @@ const TasksSection: React.FC<Props> = ({ ws }) => {
         )}
       </h2>
 
-      {tasks.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-6 text-center">
-          <ClipboardList className="w-6 h-6 text-muted-foreground/60 mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground">No tasks assigned to you</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {tasks.slice(0, 6).map((task) => {
+      <div className="space-y-2">
+        {tasks.slice(0, 6).map((task) => {
             const done = task.statusByTeacher[teacherId] === "completed";
             const overdue = !done && task.dueDate < today;
             return (
@@ -91,10 +85,9 @@ const TasksSection: React.FC<Props> = ({ ws }) => {
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </section>
   );
 };

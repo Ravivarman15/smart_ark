@@ -82,7 +82,7 @@ const AttendanceSection: React.FC<Props> = ({ ws }) => {
       <div className="rounded-2xl bg-card/50 border border-border/60 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            {teacherInfo?.className || "No class assigned"} · {today}
+            {teacherInfo?.className || "My Class"} · {today}
           </p>
           <div className="flex gap-2">
             <span className="status-pill-success">{presentCount} present</span>
@@ -90,19 +90,8 @@ const AttendanceSection: React.FC<Props> = ({ ws }) => {
           </div>
         </div>
 
-        {roster.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-8 text-center">
-            <Users2 className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
-            <p className="text-sm font-medium text-foreground">No students linked to you yet</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-              Add them above, or ask an admin to assign your batch. Added students save to
-              the database and appear here instantly.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Bulk actions + search */}
-            <div className="flex gap-2">
+        {/* Bulk actions + search */}
+        <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
@@ -189,20 +178,18 @@ const AttendanceSection: React.FC<Props> = ({ ws }) => {
               })}
             </div>
 
-            {attendanceSubmitted ? (
-              <button onClick={reopenAttendance} className="btn-secondary">
-                Edit today's attendance
-              </button>
-            ) : (
-              <button
-                onClick={submitStudentAttendance}
-                disabled={submittingAttendance}
-                className="btn-primary"
-              >
-                {submittingAttendance ? "Submitting…" : `Submit attendance · ${presentCount}/${roster.length} present`}
-              </button>
-            )}
-          </>
+        {attendanceSubmitted ? (
+          <button onClick={reopenAttendance} className="btn-secondary">
+            Edit today's attendance
+          </button>
+        ) : (
+          <button
+            onClick={submitStudentAttendance}
+            disabled={submittingAttendance}
+            className="btn-primary"
+          >
+            {submittingAttendance ? "Submitting…" : `Submit attendance · ${presentCount}/${roster.length} present`}
+          </button>
         )}
       </div>
 

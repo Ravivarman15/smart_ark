@@ -276,43 +276,55 @@ export function useTeacherWorkspace() {
   );
 
   // ── Day compliance checklist ──────────────────────────────────────────────
-  const daySteps: DayStep[] = useMemo(() => [
-    {
+  // Only steps that actually apply to this teacher are listed — a teacher with
+  // no class never sees an "attendance" step they cannot complete.
+  const hasClass = roster.length > 0;
+  const daySteps: DayStep[] = useMemo(() => {
+    const steps: DayStep[] = [{
       key: "check-in",
       label: "Check in",
       done: checkedIn,
       required: true,
       hint: "Mandatory — location-verified punch that starts your shift",
-    },
-    {
-      key: "attendance",
-      label: "Mark class attendance",
-      done: attendanceSubmitted,
-      required: roster.length > 0,
-      hint: roster.length > 0 ? `${roster.length} students on your roster` : "No students linked yet",
-    },
-    {
-      key: "marks",
-      label: "Record today's marks",
-      done: marksToday.length > 0,
-      required: false,
-      hint: marksToday.length > 0 ? `${marksToday.length} recorded today` : "Optional — log any test you conducted",
-    },
-    {
-      key: "tasks",
-      label: "Clear assigned tasks",
-      done: pendingTasks.length === 0,
-      required: false,
-      hint: pendingTasks.length > 0 ? `${pendingTasks.length} still open` : "All tasks closed",
-    },
-    {
+    }];
+
+    if (hasClass) {
+      steps.push({
+        key: "attendance",
+        label: "Mark class attendance",
+        done: attendanceSubmitted,
+        required: true,
+        hint: `${roster.length} students on your roster`,
+      });
+      steps.push({
+        key: "marks",
+        label: "Record today's marks",
+        done: marksToday.length > 0,
+        required: false,
+        hint: marksToday.length > 0 ? `${marksToday.length} recorded today` : "Optional — log any test you conducted",
+      });
+    }
+
+    if (tasks.length > 0) {
+      steps.push({
+        key: "tasks",
+        label: "Clear assigned tasks",
+        done: pendingTasks.length === 0,
+        required: false,
+        hint: pendingTasks.length > 0 ? `${pendingTasks.length} still open` : "All tasks closed",
+      });
+    }
+
+    steps.push({
       key: "check-out",
       label: "Check out",
       done: checkedOut,
       required: true,
       hint: "Mandatory — closes your shift and logs your hours",
-    },
-  ], [checkedIn, attendanceSubmitted, roster.length, marksToday.length, pendingTasks.length, checkedOut]);
+    });
+
+    return steps;
+  }, [checkedIn, attendanceSubmitted, hasClass, roster.length, marksToday.length, tasks.length, pendingTasks.length, checkedOut]);
 
   const requiredSteps = daySteps.filter((s) => s.required);
   const dayProgress = requiredSteps.length === 0
@@ -322,6 +334,8 @@ export function useTeacherWorkspace() {
   return {
     user, logout, loading,
     teacherInfo, teacherId, today, roster, students,
+    /** No class/roster linked yet — the class-facing sections stay hidden. */
+    hasClass,
 
     shift: {
       record: todayCheckin,

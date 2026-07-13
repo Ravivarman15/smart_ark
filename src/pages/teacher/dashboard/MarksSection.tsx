@@ -154,9 +154,8 @@ const MarksSection: React.FC<Props> = ({ ws }) => {
               <input
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setSelected(""); }}
-                placeholder={roster.length ? "Search your class…" : "No students linked yet"}
-                disabled={roster.length === 0}
-                className="form-input pl-9 disabled:opacity-50"
+                placeholder="Search your class…"
+                className="form-input pl-9"
               />
             </div>
             {!selected && suggestions.length > 0 && (
@@ -231,7 +230,7 @@ const MarksSection: React.FC<Props> = ({ ws }) => {
             />
           </div>
 
-          <button onClick={handleSave} disabled={saving || roster.length === 0} className="btn-primary">
+          <button onClick={handleSave} disabled={saving} className="btn-primary">
             {saving
               ? <><div className="w-4 h-4 border-2 border-accent-foreground/30 border-t-accent-foreground rounded-full animate-spin" /> Saving…</>
               : <><Award className="w-4 h-4" /> Save marks</>}
@@ -239,13 +238,8 @@ const MarksSection: React.FC<Props> = ({ ws }) => {
         </div>
       )}
 
-      {/* Recent entries */}
-      {myMarks.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-6 text-center">
-          <FileText className="w-6 h-6 text-muted-foreground/60 mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground">No marks recorded yet</p>
-        </div>
-      ) : (
+      {/* Recent entries — nothing is rendered until there is something to show */}
+      {myMarks.length > 0 && (
         <div className="space-y-2">
           {myMarks.slice(0, 8).map((entry) => {
             const pct = entry.totalMarks > 0 ? Math.round((entry.marks / entry.totalMarks) * 100) : 0;
