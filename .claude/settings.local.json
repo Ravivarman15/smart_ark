@@ -72,7 +72,8 @@
       "Bash(grep -E \"_diag|\\\\.mjs$\")",
       "Bash(node ./_diag3.mjs)",
       "Bash(node ./_diag4.mjs)",
-      "Bash(rm -f ./_diag4.mjs)"
+      "Bash(rm -f ./_diag4.mjs)",
+      "Bash(grep -i \"pages/teacher\\\\|pages\\\\\\\\\\\\\\\\teacher\")"
     ]
   }
 }
