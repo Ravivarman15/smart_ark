@@ -213,6 +213,8 @@ const ExamRegistersPage = lazy(() => import("./features/exams/pages/ExamRegister
 const ImportMarksPage = lazy(() => import("./features/exams/pages/ImportMarksPage"));
 const ManageMcqPaperPage = lazy(() => import("./features/exams/pages/ManageMcqPaperPage"));
 const CreateMcqPaperPage = lazy(() => import("./features/exams/pages/CreateMcqPaperPage"));
+const ImportQuestionPaperPage = lazy(() => import("./features/exams/pages/ImportQuestionPaperPage"));
+const ReviewQuestionPaperPage = lazy(() => import("./features/exams/pages/ReviewQuestionPaperPage"));
 const ManageMcqExamPage = lazy(() => import("./features/exams/pages/ManageMcqExamPage"));
 const CreateMcqExamPage = lazy(() => import("./features/exams/pages/CreateMcqExamPage"));
 const McqExamMonitorPage = lazy(() => import("./features/exams/pages/McqExamMonitorPage"));
@@ -497,6 +499,8 @@ const AppRoutes: React.FC = () => (
         <Route path="exams/dashboard" element={<ExamManagementDashboardPage />} />
         <Route path="exams/analytics" element={<ExamAnalyticsDashboardPage />} />
         <Route path="exams/registers" element={<ExamRegistersPage />} />
+        <Route path="exams/paper-import" element={<ImportQuestionPaperPage />} />
+        <Route path="exams/paper-import/:id" element={<ReviewQuestionPaperPage />} />
         <Route path="exams/mcq-papers" element={<ManageMcqPaperPage />} />
         <Route path="exams/mcq-papers/create" element={<CreateMcqPaperPage />} />
         <Route path="exams/mcq-papers/:id/edit" element={<CreateMcqPaperPage />} />
@@ -639,6 +643,8 @@ const AppRoutes: React.FC = () => (
         <Route path="exams/dashboard" element={<ExamManagementDashboardPage />} />
         <Route path="exams/analytics" element={<ExamAnalyticsDashboardPage />} />
         <Route path="exams/registers" element={<ExamRegistersPage />} />
+        <Route path="exams/paper-import" element={<ImportQuestionPaperPage />} />
+        <Route path="exams/paper-import/:id" element={<ReviewQuestionPaperPage />} />
         <Route path="exams/mcq-papers" element={<ManageMcqPaperPage />} />
         <Route path="exams/mcq-papers/create" element={<CreateMcqPaperPage />} />
         <Route path="exams/mcq-papers/:id/edit" element={<CreateMcqPaperPage />} />

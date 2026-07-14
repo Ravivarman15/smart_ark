@@ -21,7 +21,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { commsTimelineService } from "@/features/communication/services";
 import type { TimelineEntry } from "@/features/communication/types/communication.types";
-import { fetchStudentInsights, type StudentInsights } from "../hooks/useStudentInsights";
+import {
+  fetchStudentInsights,
+  type ExamPoint,
+  type StudentInsights,
+} from "../hooks/useStudentInsights";
 import { documentsService } from "./documents.service";
 import {
   computeHealthScores,
@@ -105,7 +109,8 @@ const buildActivity = (s: Student, insights: StudentInsights): ActivityItem[] =>
   if (s.username) items.push({ date: s.createdAt, label: "Login created", detail: s.username });
   for (const r of insights.fee?.receipts ?? [])
     items.push({ date: r.date, label: "Fee payment", detail: `${inr(r.amount)} · ${r.method}${r.receiptNo ? " · " + r.receiptNo : ""}` });
-  for (const e of insights.exams)
+  // An exam with no marks entered yet isn't a result — it would read "null%".
+  for (const e of insights.exams.filter(hasExamResult))
     items.push({ date: e.date, label: "Exam result", detail: `${e.title} — ${e.absent ? "Absent" : e.percent + "%"}` });
   return items.sort((a, b) => (a.date ?? "") < (b.date ?? "") ? 1 : -1);
 };
@@ -173,11 +178,27 @@ const scoreBar = (label: string, val: number): string =>
   `<div class="scorebar"><div class="sb-top"><span>${esc(label)}</span><b>${val}%</b></div>` +
   `<div class="sb-track"><div class="sb-fill" style="width:${Math.min(100, val)}%;background:${val >= 75 ? "#16a34a" : val >= 50 ? "#d97706" : "#dc2626"}"></div></div></div>`;
 
+/**
+ * Is this exam row worth printing?
+ *
+ * A result row can exist before anyone has marked it (the exam was created and
+ * the student enrolled, but marks were never entered) — `marks` and `percent`
+ * are both null. Those rendered as "null/100" and "null%", which reads as a
+ * zero the student scored. Drop them.
+ *
+ * An ABSENT row is also null-marked, but that is a real, deliberate record — it
+ * prints as "Absent" and is kept.
+ */
+const hasExamResult = (e: ExamPoint): boolean =>
+  e.absent || e.marks !== null || e.percent !== null;
+
 const buildReportHtml = (d: Student360Data): string => {
   const s = d.student;
   const ins = d.insights;
   const att = ins.attendance;
   const fee = ins.fee;
+
+  const gradedExams = ins.exams.filter(hasExamResult);
 
   const trend = ins.exams
     .filter((e) => e.percent !== null)
@@ -267,7 +288,7 @@ const buildReportHtml = (d: Student360Data): string => {
   // Section 3 — Academic performance + charts
   const strong = ins.strong.map((x) => `${esc(x.subject)} (${x.avgPercent}%)`).join(", ") || "—";
   const weak = ins.weak.map((x) => `${esc(x.subject)} (${x.avgPercent}%)`).join(", ") || "—";
-  const examRows = ins.exams
+  const examRows = gradedExams
     .map(
       (e) =>
         `<tr><td>${esc(e.date ?? "")}</td><td>${esc(e.title)}</td><td>${esc(e.subject)}</td><td>${e.absent ? "Absent" : esc(e.marks) + "/" + esc(e.total)}</td><td>${e.absent ? "—" : e.percent + "%"}</td><td>${dash(e.grade)}</td></tr>`
@@ -524,7 +545,8 @@ const exportExcel = async (d: Student360Data): Promise<void> => {
 
   add("Performance", [
     ["Date", "Exam", "Subject", "Marks", "Total", "%", "Grade"],
-    ...ins.exams.map((e) => [
+    // Same rule as the printed report — an unmarked row is not a zero.
+    ...ins.exams.filter(hasExamResult).map((e) => [
       e.date ?? "",
       e.title,
       e.subject,
