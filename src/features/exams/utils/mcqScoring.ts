@@ -18,6 +18,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { round2 } from "./grading";
+import { isAutoEvaluable } from "../types/mcq.types";
 import type {
   AttemptScore,
   ChapterDistItem,
@@ -262,6 +263,16 @@ export const scoreAnswer = (
     attempted: false,
   };
 
+  // Subjective types (essay, long answer, diagram, programming…) cannot be
+  // machine-graded. They are NOT worth zero — they are worth nothing YET.
+  // Flag them for Smart Mark Entry instead of silently scoring 0, which would
+  // otherwise drag the student's percentage down for questions they answered.
+  if (!isAutoEvaluable(q.questionType)) {
+    base.attempted = !!response?.textValue?.trim();
+    base.pendingReview = true;
+    return base;
+  }
+
   if (q.questionType === "numerical") {
     const v = response?.numericValue;
     if (v == null || !Number.isFinite(v)) return base;
@@ -269,6 +280,25 @@ export const scoreAnswer = (
     const key = q.numericalAnswer;
     base.correct =
       !!key && Math.abs(v - key.value) <= Math.max(0, key.tolerance);
+  } else if (q.questionType === "fill_ups" || q.questionType === "one_word") {
+    // Text answers are matched against the key after the SAME normalisation
+    // used for duplicate detection — case, spacing and punctuation insensitive,
+    // so "New Delhi" and "new delhi." both match.
+    const typed = response?.textValue?.trim();
+    if (!typed) return base;
+    base.attempted = true;
+    const key = q.answerText?.trim();
+    base.correct =
+      !!key && normalizeQuestionText(typed) === normalizeQuestionText(key);
+  } else if (q.questionType === "match_following") {
+    // Scored all-or-nothing on the ordered right-hand column the student built.
+    const typed = response?.textValue?.trim();
+    const pairs = q.matchPairs ?? [];
+    if (!typed || pairs.length === 0) return base;
+    base.attempted = true;
+    const expected = pairs.map((p) => normalizeQuestionText(p.right)).join("|");
+    const given = typed.split("|").map((s) => normalizeQuestionText(s)).join("|");
+    base.correct = expected === given;
   } else {
     const picked = response?.selectedOptionIds ?? [];
     if (picked.length === 0) return base;
@@ -302,13 +332,19 @@ export const scoreAttempt = (
   );
   const totalAwarded = round2(answers.reduce((s, a) => s + a.awarded, 0));
   const totalMax = round2(answers.reduce((s, a) => s + a.maxMarks, 0));
+  const pending = answers.filter((a) => a.pendingReview);
+  const pendingMarks = round2(pending.reduce((s, a) => s + a.maxMarks, 0));
+
   return {
     totalAwarded,
     totalMax,
     percentage: totalMax > 0 ? round2((totalAwarded / totalMax) * 100) : 0,
     correctCount: answers.filter((a) => a.correct).length,
-    wrongCount: answers.filter((a) => a.attempted && !a.correct).length,
+    // A question waiting for a teacher is not a wrong answer.
+    wrongCount: answers.filter((a) => a.attempted && !a.correct && !a.pendingReview).length,
     unattemptedCount: answers.filter((a) => !a.attempted).length,
+    pendingMarks,
+    awaitingEvaluation: pending.length > 0,
     answers,
   };
 };
@@ -350,9 +386,43 @@ const orderByChapterWeight = (
 };
 
 /**
+ * Round-robin a bucket across the values of `keyOf`, so the picks spread evenly
+ * over Bloom levels / question types instead of taking six "remember" MCQs in a
+ * row just because that is the order the bank returned.
+ *
+ * This is a RE-ORDERING, not a filter: every question stays in the bucket, so a
+ * bank with only one Bloom level still fills the paper — it just can't spread.
+ * That is why balancing can never cause a shortfall.
+ */
+const roundRobinBy = <T>(bucket: T[], keyOf: (item: T) => string): T[] => {
+  const groups = new Map<string, T[]>();
+  for (const item of bucket) {
+    const k = keyOf(item);
+    const g = groups.get(k);
+    if (g) g.push(item);
+    else groups.set(k, [item]);
+  }
+  if (groups.size <= 1) return bucket;
+
+  const queues = [...groups.values()];
+  const out: T[] = [];
+  let i = 0;
+  while (out.length < bucket.length) {
+    const q = queues[i % queues.length];
+    if (q.length > 0) out.push(q.shift()!);
+    i += 1;
+    // Every queue drained on this pass ⇒ nothing left to take.
+    if (i % queues.length === 0 && queues.every((x) => x.length === 0)) break;
+  }
+  return out;
+};
+
+/**
  * Pick questions from a pool to satisfy generation rules — honours the
  * difficulty mix and chapter weightage, randomised, then tops up any shortfall
- * from the remaining pool. Pure: the service fetches the pool, this selects.
+ * from the remaining pool. Optionally spreads the picks across Bloom levels and
+ * question types (the AI blueprint). Pure: the service fetches the pool, this
+ * selects.
  */
 export const selectQuestionsForGeneration = (
   pool: McqQuestion[],
@@ -377,10 +447,19 @@ export const selectQuestionsForGeneration = (
   const selected: McqQuestion[] = [];
   const used = new Set<string>();
   (["easy", "medium", "hard"] as McqDifficulty[]).forEach((band) => {
-    const bucket = orderByChapterWeight(
+    let bucket = orderByChapterWeight(
       pool.filter((q) => q.difficulty === band && !used.has(q.id)),
       rules.chapterWeightage,
     );
+    // Blueprint balancing — spread across cognitive levels, then across question
+    // types. Types last so it wins the outer interleave, giving a paper that
+    // alternates MCQ / short / long rather than clumping by format.
+    if (rules.balanceBloom) {
+      bucket = roundRobinBy(bucket, (q) => q.bloomLevel ?? "unspecified");
+    }
+    if (rules.balanceTypes) {
+      bucket = roundRobinBy(bucket, (q) => q.questionType);
+    }
     for (const q of bucket) {
       if (selected.filter((s) => s.difficulty === band).length >= targets[band])
         break;

@@ -1,6 +1,9 @@
 import { BaseService, AppError } from "@/shared/services";
 import { normalizeQuestionText } from "../utils/mcqScoring";
+import { MCQ_QUESTION_TYPES } from "../types/mcq.types";
 import type {
+  BloomLevel,
+  MatchPair,
   McqDifficulty,
   McqOption,
   McqQuestion,
@@ -9,6 +12,7 @@ import type {
   McqQuestionType,
   NumericalAnswer,
   QuestionBankFilters,
+  SubQuestion,
 } from "../types/mcq.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,15 +49,26 @@ type QuestionRow = {
   owner_name: string | null;
   created_at: string;
   updated_at: string;
+  // AI-importer columns
+  bloom_level: string | null;
+  tags: string[] | null;
+  board: string | null;
+  standard_id: string | null;
+  answer_text: string | null;
+  match_pairs: MatchPair[] | null;
+  sub_questions: SubQuestion[] | null;
+  auto_evaluable: boolean | null;
+  text_hash: string | null;
+  source_import_id: string | null;
 };
 
+// Driven off the canonical list so a newly-supported type (the AI importer
+// added fill_ups, match_following, essay, …) is never silently coerced to
+// "single" on read.
+const KNOWN_TYPES = new Set<string>(MCQ_QUESTION_TYPES.map((t) => t.value));
+
 const normType = (t?: string | null): McqQuestionType =>
-  t === "multiple" ||
-  t === "true_false" ||
-  t === "assertion_reason" ||
-  t === "numerical"
-    ? t
-    : "single";
+  t && KNOWN_TYPES.has(t) ? (t as McqQuestionType) : "single";
 
 const normDifficulty = (d?: string | null): McqDifficulty =>
   d === "easy" || d === "hard" ? d : "medium";
@@ -85,6 +100,17 @@ const toDomain = (r: QuestionRow): McqQuestion => ({
   ownerName: r.owner_name ?? undefined,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
+  bloomLevel: (r.bloom_level as BloomLevel | null) ?? undefined,
+  tags: Array.isArray(r.tags) ? r.tags : [],
+  board: r.board ?? undefined,
+  standardId: r.standard_id ?? undefined,
+  answerText: r.answer_text ?? undefined,
+  matchPairs: Array.isArray(r.match_pairs) ? r.match_pairs : [],
+  subQuestions: Array.isArray(r.sub_questions) ? r.sub_questions : [],
+  // Older rows predate the column — default to auto-evaluable so existing
+  // MCQ papers keep grading exactly as they did.
+  autoEvaluable: r.auto_evaluable ?? true,
+  sourceImportId: r.source_import_id ?? undefined,
 });
 
 const toDb = (i: Partial<McqQuestionInput>): Record<string, unknown> => {
@@ -106,6 +132,17 @@ const toDb = (i: Partial<McqQuestionInput>): Record<string, unknown> => {
   if (i.hasFormula !== undefined) out.has_formula = i.hasFormula;
   if (i.status !== undefined) out.status = i.status;
   if (i.isGlobal !== undefined) out.is_global = i.isGlobal;
+  // AI-importer fields (20260714_question_paper_import.sql)
+  if (i.bloomLevel !== undefined) out.bloom_level = i.bloomLevel ?? null;
+  if (i.tags !== undefined) out.tags = i.tags;
+  if (i.board !== undefined) out.board = i.board ?? null;
+  if (i.standardId !== undefined) out.standard_id = i.standardId ?? null;
+  if (i.answerText !== undefined) out.answer_text = i.answerText ?? null;
+  if (i.matchPairs !== undefined) out.match_pairs = i.matchPairs;
+  if (i.subQuestions !== undefined) out.sub_questions = i.subQuestions;
+  if (i.autoEvaluable !== undefined) out.auto_evaluable = i.autoEvaluable;
+  if (i.textHash !== undefined) out.text_hash = i.textHash ?? null;
+  if (i.sourceImportId !== undefined) out.source_import_id = i.sourceImportId ?? null;
   return out;
 };
 
@@ -214,6 +251,34 @@ class McqQuestionService extends BaseService {
       .select("*")
       .single();
     return toDomain(this.guard(res, "mcq question") as unknown as QuestionRow);
+  }
+
+  /**
+   * Batch-create questions in one round trip, returning the new ids in the
+   * SAME order as the inputs. Used by the AI paper importer, which commits a
+   * whole paper at once — one insert instead of fifty.
+   *
+   * Supabase returns inserted rows in input order for a bulk insert, so the
+   * positional mapping the caller relies on is safe.
+   */
+  async createMany(
+    inputs: McqQuestionInput[],
+    owner: QuestionOwner = {},
+  ): Promise<string[]> {
+    if (inputs.length === 0) return [];
+    const payload = inputs.map((input) => ({
+      ...toDb({ status: "draft", ...input }),
+      owner_id: owner.ownerId ?? null,
+      owner_name: owner.ownerName ?? null,
+      campus_id: owner.campusId ?? null,
+      created_by: owner.ownerId ?? null,
+    }));
+    const { data, error } = await this.db
+      .from("mcq_questions")
+      .insert(payload as never)
+      .select("id");
+    if (error) throw AppError.fromSupabase(error, "mcq questions");
+    return ((data ?? []) as { id: string }[]).map((r) => r.id);
   }
 
   async update(id: string, input: Partial<McqQuestionInput>): Promise<void> {

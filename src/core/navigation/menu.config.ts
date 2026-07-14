@@ -398,6 +398,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("exam.dashboard",        "Examination Dashboard", examPaths("/dashboard"),         all),
       ...sub("exam.analytics",        "Exam Analytics",      examPaths("/analytics"),           all),
       ...sub("exam.registers",        "Reports & Registers", examPaths("/registers"),           adminMgmt, { action: "exam.registers_export" }),
+      ...sub("exam.paper_import",     "Question Paper Import", examPaths("/paper-import"),      adminMgmtTeacher, { action: "exam.paper.upload" }),
       ...sub("exam.create_mcq_paper", "Create MCQ Paper",    examPaths("/mcq-papers/create"),   adminMgmtTeacher, { action: "exam.mcq.paper_create" }),
       ...sub("exam.manage_mcq_paper", "Manage MCQ Paper",    examPaths("/mcq-papers"),          all),
       ...sub("exam.create_mcq_exam",  "Create MCQ Exam",     examPaths("/mcq-exams/create"),    adminMgmtTeacher, { action: "exam.mcq.create" }),

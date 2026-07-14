@@ -29,10 +29,14 @@ interface Props {
   onFinished: (attemptId: string) => void;
 }
 
+// A typed answer counts. Without the textValue arm, every fill-in-the-blank,
+// match and essay would show "Unanswered" in the palette and the pre-submit
+// warning, even after the student wrote a full page.
 const isAnswered = (d?: AnswerDraft): boolean =>
   !!d &&
   ((d.selectedOptionIds?.length ?? 0) > 0 ||
-    (d.numericValue != null && Number.isFinite(d.numericValue)));
+    (d.numericValue != null && Number.isFinite(d.numericValue)) ||
+    !!d.textValue?.replace(/\|/g, "").trim());
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ExamRunner — the full-screen student exam engine.
@@ -64,6 +68,7 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
         questionId: a.questionId,
         selectedOptionIds: a.selectedOptionIds ?? [],
         numericValue: a.numericValue ?? null,
+        textValue: a.textValue ?? null,
         markedForReview: a.markedForReview,
         timeSpentSeconds: a.timeSpentSeconds ?? 0,
       };
@@ -102,6 +107,7 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
         questionId: q.id,
         selectedOptionIds: [],
         numericValue: null,
+        textValue: null,
         markedForReview: false,
         timeSpentSeconds: 0,
       };
@@ -119,6 +125,7 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
         questionId,
         selectedOptionIds: [],
         numericValue: null,
+        textValue: null,
         markedForReview: false,
         timeSpentSeconds: 0,
       };
@@ -266,6 +273,7 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
     questionId: current?.id ?? "",
     selectedOptionIds: [],
     numericValue: null,
+    textValue: null,
     markedForReview: false,
     timeSpentSeconds: 0,
   };

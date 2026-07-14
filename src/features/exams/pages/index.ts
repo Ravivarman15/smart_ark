@@ -9,6 +9,8 @@ export { default as ExamRegistersPage } from "./ExamRegistersPage";
 export { default as ImportMarksPage } from "./ImportMarksPage";
 export { default as CreateMcqPaperPage } from "./CreateMcqPaperPage";
 export { default as ManageMcqPaperPage } from "./ManageMcqPaperPage";
+export { default as ImportQuestionPaperPage } from "./ImportQuestionPaperPage";
+export { default as ReviewQuestionPaperPage } from "./ReviewQuestionPaperPage";
 export { default as CreateMcqExamPage } from "./CreateMcqExamPage";
 export { default as ManageMcqExamPage } from "./ManageMcqExamPage";
 export { default as McqExamMonitorPage } from "./McqExamMonitorPage";

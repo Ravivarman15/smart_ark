@@ -258,6 +258,7 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "exam.analytics",       label: "Exam Analytics" },
       { id: "exam.registers",       label: "Exam Reports & Registers" },
       { id: "exam.import_marks",    label: "Import Marks" },
+      { id: "exam.paper_import",    label: "Question Paper Import" },
       { id: "exam.create_mcq_paper", label: "Create MCQ Paper" },
       { id: "exam.manage_mcq_paper", label: "Manage MCQ Paper" },
       { id: "exam.create_mcq_exam", label: "Create MCQ Exam" },

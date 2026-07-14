@@ -135,7 +135,12 @@ export interface McqAttempt {
   unattemptedCount?: number;
   rank?: number;
   percentile?: number;
+  /** undefined while `awaitingEvaluation` — pass/fail isn't decided yet. */
   isPass?: boolean;
+  /** Marks locked in subjective questions a teacher has not yet marked. */
+  pendingMarks?: number;
+  /** true ⇒ the score is provisional; Smart Mark Entry must finish the paper. */
+  awaitingEvaluation?: boolean;
   shuffleSeed: number;
   questionOrder: string[];
   flagsCount: number;
@@ -150,9 +155,16 @@ export interface McqAnswer {
   questionId: string;
   selectedOptionIds: string[];
   numericValue?: number | null;
+  /** Typed answer — fill_ups / one_word / match_following / subjective types. */
+  textValue?: string | null;
   isCorrect?: boolean;
   awarded: number;
   maxMarks: number;
+  /**
+   * true ⇒ subjective; awaiting a teacher in Smart Mark Entry. `awarded` is 0
+   * because it is unmarked, NOT because the student got it wrong.
+   */
+  pendingReview?: boolean;
   markedForReview: boolean;
   timeSpentSeconds: number;
   answeredAt?: string;
@@ -163,6 +175,12 @@ export interface AnswerDraft {
   questionId: string;
   selectedOptionIds: string[];
   numericValue?: number | null;
+  /**
+   * Typed answer — fill_ups / one_word and every teacher-graded type. For
+   * match_following it is the student's right-hand column, "|"-joined in the
+   * order of the left-hand items (the shape mcqScoring.scoreAnswer expects).
+   */
+  textValue?: string | null;
   markedForReview: boolean;
   timeSpentSeconds: number;
 }

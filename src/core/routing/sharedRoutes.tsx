@@ -44,6 +44,8 @@ const ExamRegistersPage = lazy(() => import("@/features/exams/pages/ExamRegister
 const ImportMarksPage = lazy(() => import("@/features/exams/pages/ImportMarksPage"));
 const ManageMcqPaperPage = lazy(() => import("@/features/exams/pages/ManageMcqPaperPage"));
 const CreateMcqPaperPage = lazy(() => import("@/features/exams/pages/CreateMcqPaperPage"));
+const ImportQuestionPaperPage = lazy(() => import("@/features/exams/pages/ImportQuestionPaperPage"));
+const ReviewQuestionPaperPage = lazy(() => import("@/features/exams/pages/ReviewQuestionPaperPage"));
 const ManageMcqExamPage = lazy(() => import("@/features/exams/pages/ManageMcqExamPage"));
 const CreateMcqExamPage = lazy(() => import("@/features/exams/pages/CreateMcqExamPage"));
 const McqExamMonitorPage = lazy(() => import("@/features/exams/pages/McqExamMonitorPage"));
@@ -348,6 +350,20 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     element: <ExamRegistersPage />,
     submodule: "exam.registers",
     label: "Reports & Registers",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/paper-import",
+    element: <ImportQuestionPaperPage />,
+    submodule: "exam.paper_import",
+    label: "Question Paper Import",
+    layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/paper-import/:id",
+    element: <ReviewQuestionPaperPage />,
+    submodule: "exam.paper_import",
+    label: "Review Extracted Questions",
     layouts: ["coordinator", "teacher"],
   },
   {

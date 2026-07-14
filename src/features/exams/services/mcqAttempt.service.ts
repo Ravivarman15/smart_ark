@@ -58,6 +58,8 @@ type AttemptRow = {
   rank: number | null;
   percentile: number | null;
   is_pass: boolean | null;
+  pending_marks: number | null;
+  awaiting_evaluation: boolean | null;
   shuffle_seed: number | null;
   question_order: string[] | null;
   flags_count: number | null;
@@ -71,9 +73,11 @@ type AnswerRow = {
   question_id: string;
   selected_option_ids: string[] | null;
   numeric_value: number | null;
+  text_value: string | null;
   is_correct: boolean | null;
   awarded: number | null;
   max_marks: number | null;
+  pending_review: boolean | null;
   marked_for_review: boolean | null;
   time_spent_seconds: number | null;
   answered_at: string | null;
@@ -107,6 +111,8 @@ const toAttempt = (r: AttemptRow): McqAttempt => ({
   rank: r.rank ?? undefined,
   percentile: r.percentile == null ? undefined : Number(r.percentile),
   isPass: r.is_pass ?? undefined,
+  pendingMarks: Number(r.pending_marks ?? 0),
+  awaitingEvaluation: r.awaiting_evaluation ?? false,
   shuffleSeed: Number(r.shuffle_seed ?? 0),
   questionOrder: Array.isArray(r.question_order) ? r.question_order : [],
   flagsCount: Number(r.flags_count ?? 0),
@@ -122,9 +128,11 @@ const toAnswer = (r: AnswerRow): McqAnswer => ({
     ? r.selected_option_ids
     : [],
   numericValue: r.numeric_value == null ? null : Number(r.numeric_value),
+  textValue: r.text_value ?? null,
   isCorrect: r.is_correct ?? undefined,
   awarded: Number(r.awarded ?? 0),
   maxMarks: Number(r.max_marks ?? 0),
+  pendingReview: r.pending_review ?? false,
   markedForReview: !!r.marked_for_review,
   timeSpentSeconds: Number(r.time_spent_seconds ?? 0),
   answeredAt: r.answered_at ?? undefined,
@@ -268,6 +276,7 @@ class McqAttemptService extends BaseService {
         question_id: d.questionId,
         selected_option_ids: d.selectedOptionIds,
         numeric_value: d.numericValue ?? null,
+        text_value: d.textValue ?? null,
         marked_for_review: d.markedForReview,
         time_spent_seconds: d.timeSpentSeconds,
         answered_at: now,
@@ -374,6 +383,7 @@ class McqAttemptService extends BaseService {
       questionId: a.questionId,
       selectedOptionIds: a.selectedOptionIds,
       numericValue: a.numericValue ?? null,
+      textValue: a.textValue ?? null,
     }));
     const overrides: Record<string, number | null | undefined> = {};
     for (const q of questions) overrides[q.id] = q.marksOverride;
@@ -397,6 +407,10 @@ class McqAttemptService extends BaseService {
             is_correct: s.correct,
             awarded: s.awarded,
             max_marks: s.maxMarks,
+            // Subjective answers carry 0 awarded ONLY because no teacher has
+            // marked them yet. The flag is what stops the result screen, the
+            // report card and the parent message treating that as a wrong answer.
+            pending_review: !!s.pendingReview,
           } as never)
           .eq("id", a.id);
       }),
@@ -405,7 +419,12 @@ class McqAttemptService extends BaseService {
     const status: AttemptStatus =
       kind === "submit" ? "submitted" : "auto_submitted";
     const accuracy = accuracyPct(result.correctCount, result.wrongCount);
-    const isPass = result.percentage >= exam.passPercentage;
+    // While subjective questions are unmarked the percentage is provisional, so
+    // pass/fail cannot be decided yet — claiming "fail" on an unmarked essay
+    // would be wrong. It is settled when Smart Mark Entry finishes the paper.
+    const isPass = result.awaitingEvaluation
+      ? null
+      : result.percentage >= exam.passPercentage;
 
     const updRes = await this.db
       .from("mcq_attempts")
@@ -424,6 +443,8 @@ class McqAttemptService extends BaseService {
         wrong_count: result.wrongCount,
         unattempted_count: result.unattemptedCount,
         is_pass: isPass,
+        pending_marks: result.pendingMarks,
+        awaiting_evaluation: result.awaitingEvaluation,
       } as never)
       .eq("id", attemptId)
       .select("*")

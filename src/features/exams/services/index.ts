@@ -62,3 +62,20 @@ export {
   mcqExamAnalyticsService,
   isResultReleased,
 } from "./mcqExamAnalytics.service";
+
+export {
+  questionPaperImportService,
+  hashQuestionText,
+  toQuestionInput,
+  LOW_CONFIDENCE,
+  type QuestionPaperImport,
+  type ExtractionRow,
+  type ExtractedQuestion,
+  type PaperMeta,
+} from "./questionPaperImport.service";
+export {
+  extractFileText,
+  classifyFile,
+  MAX_FILE_BYTES,
+  type PaperFileType,
+} from "./paperTextExtract.service";

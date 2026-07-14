@@ -1,6 +1,7 @@
 import { Bookmark, Sigma } from "lucide-react";
 import { DifficultyBadge, QuestionTypeBadge } from "./McqBadges";
-import type { PaperQuestionView } from "../types/mcq.types";
+import { isAutoEvaluable } from "../types/mcq.types";
+import type { McqQuestionType, PaperQuestionView } from "../types/mcq.types";
 import type { AnswerDraft } from "../types/mcqExam.types";
 
 interface Props {
@@ -13,10 +14,44 @@ interface Props {
 
 const letter = (i: number) => String.fromCharCode(65 + i);
 
+/** Types answered by typing prose into a textarea (all teacher-graded). */
+const LONG_FORM: McqQuestionType[] = [
+  "short_answer", "long_answer", "paragraph",
+  "case_study", "essay", "programming", "diagram",
+];
+
+/** Rows for the textarea, tuned to how much the question actually expects. */
+const ROWS: Partial<Record<McqQuestionType, number>> = {
+  short_answer: 3,
+  paragraph: 6,
+  long_answer: 8,
+  case_study: 8,
+  essay: 10,
+  programming: 10,
+  diagram: 4,
+};
+
+const PLACEHOLDER: Partial<Record<McqQuestionType, string>> = {
+  programming: "Write your program / algorithm here…",
+  diagram: "Describe your diagram, or write the labels in order.",
+  essay: "Write your essay here…",
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Single-question view for the live exam — distraction-free. Renders the stem
 // (image + formula-aware), the answer input matched to the question type, and
 // the mark-for-review toggle. Option order is already frozen by the runner.
+//
+// EVERY question type the importer can produce is answerable here. That is not
+// cosmetic: mcqScoring reads `textValue`, so a type with no input would be
+// submitted empty and scored 0 no matter what the student knew.
+//   • option types ....... single / multiple / true_false / assertion_reason
+//   • numerical .......... number box (tolerance applied by the grader)
+//   • fill_ups/one_word .. one-line text, matched against the key
+//   • match_following .... a select per left item; stored as the right-hand
+//                          column, "|"-joined in left order (scoreAnswer's shape)
+//   • long-form .......... textarea; flagged for teacher evaluation, never
+//                          auto-scored to 0
 // ─────────────────────────────────────────────────────────────────────────────
 export const ExamQuestionView = ({
   question,
@@ -25,9 +60,17 @@ export const ExamQuestionView = ({
   draft,
   onChange,
 }: Props) => {
-  const isMultiple = question.questionType === "multiple";
-  const isNumerical = question.questionType === "numerical";
+  const type = question.questionType;
+  const isMultiple = type === "multiple";
+  const isNumerical = type === "numerical";
+  const isShortText = type === "fill_ups" || type === "one_word";
+  const isMatch = type === "match_following";
+  const isLongForm = LONG_FORM.includes(type);
+  const hasOptions = question.options.length > 0;
+  const teacherGraded = !isAutoEvaluable(type);
+
   const selected = draft.selectedOptionIds ?? [];
+  const pairs = question.matchPairs ?? [];
 
   const pick = (optionId: string) => {
     if (isMultiple) {
@@ -40,6 +83,22 @@ export const ExamQuestionView = ({
       onChange({ selectedOptionIds: [optionId] });
     }
   };
+
+  // Match-the-following: the student's answer is the right-hand column in the
+  // order of the left-hand items. Kept as a "|"-joined string so it round-trips
+  // through the same `textValue` column as every other typed answer.
+  const matchAnswers = (draft.textValue ?? "").split("|");
+  const setMatch = (rowIndex: number, value: string) => {
+    const next = pairs.map((_, i) => matchAnswers[i] ?? "");
+    next[rowIndex] = value;
+    onChange({ textValue: next.join("|") });
+  };
+
+  // The right-hand column, shuffled deterministically by question id so every
+  // student sees the same set but not in the answer order.
+  const choices = [...pairs.map((p) => p.right)].sort((a, b) =>
+    (a + question.id).localeCompare(b + question.id),
+  );
 
   return (
     <div className="space-y-5">
@@ -100,7 +159,7 @@ export const ExamQuestionView = ({
         )}
       </div>
 
-      {/* Answer input */}
+      {/* ── Answer input, matched to the question type ── */}
       {isNumerical ? (
         <div className="max-w-xs">
           <label className="text-xs font-medium text-muted-foreground">
@@ -120,7 +179,67 @@ export const ExamQuestionView = ({
             className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
           />
         </div>
-      ) : (
+      ) : isShortText ? (
+        <div className="max-w-md">
+          <label className="text-xs font-medium text-muted-foreground">
+            {type === "fill_ups" ? "Fill in the blank" : "Your answer"}
+          </label>
+          <input
+            type="text"
+            value={draft.textValue ?? ""}
+            onChange={(e) => onChange({ textValue: e.target.value })}
+            placeholder="Type your answer"
+            className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Spelling and capitalisation are not marked strictly.
+          </p>
+        </div>
+      ) : isMatch ? (
+        <div className="space-y-2">
+          {pairs.map((p, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-md border border-border flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                {letter(i)}
+              </span>
+              <span className="flex-1 text-sm text-foreground">{p.left}</span>
+              <select
+                value={matchAnswers[i] ?? ""}
+                onChange={(e) => setMatch(i, e.target.value)}
+                className="w-52 bg-background border border-border rounded-lg px-2 py-2 text-sm"
+              >
+                <option value="">— select —</option>
+                {choices.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+          {pairs.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              This question has no match pairs configured — tell your invigilator.
+            </p>
+          )}
+        </div>
+      ) : isLongForm || (!hasOptions && teacherGraded) ? (
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">
+            Your answer
+          </label>
+          <textarea
+            rows={ROWS[type] ?? 6}
+            value={draft.textValue ?? ""}
+            onChange={(e) => onChange({ textValue: e.target.value })}
+            placeholder={PLACEHOLDER[type] ?? "Write your answer here…"}
+            className={`mt-1 w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm leading-relaxed ${
+              type === "programming" ? "font-mono" : ""
+            }`}
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            This answer is marked by your teacher — it is not scored automatically.
+          </p>
+        </div>
+      ) : hasOptions ? (
         <div className="space-y-2">
           {question.options.map((opt, i) => {
             const active = selected.includes(opt.id);
@@ -165,6 +284,14 @@ export const ExamQuestionView = ({
             </p>
           )}
         </div>
+      ) : (
+        // An option type that reached the student with no options is a broken
+        // question. Say so plainly rather than rendering an empty box that looks
+        // like the exam is still loading.
+        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          This question has no answer options configured. Tell your invigilator —
+          you will not be penalised for it.
+        </p>
       )}
     </div>
   );

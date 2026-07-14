@@ -12,11 +12,51 @@
 
 // ── Enumerations ─────────────────────────────────────────────────────────────
 export type McqQuestionType =
+  // ── Auto-evaluable ─────────────────────────────────────────────────────────
   | "single" // single correct option
   | "multiple" // multiple correct options
   | "true_false" // true / false
   | "assertion_reason" // assertion + reason, one correct interpretation
-  | "numerical"; // free numeric answer with tolerance
+  | "numerical" // free numeric answer with tolerance
+  | "fill_ups" // blank(s) completed with an exact string
+  | "one_word" // one-word answer, matched against the key
+  | "match_following" // two-column matching, scored pair-by-pair
+  // ── Teacher-evaluated (routed to Smart Mark Entry) ─────────────────────────
+  | "short_answer"
+  | "long_answer"
+  | "paragraph"
+  | "case_study"
+  | "diagram"
+  | "programming"
+  | "essay";
+
+/** Types the grading engine can score without a human. */
+export const AUTO_EVALUABLE_TYPES: McqQuestionType[] = [
+  "single", "multiple", "true_false", "assertion_reason",
+  "numerical", "fill_ups", "one_word", "match_following",
+];
+
+export const isAutoEvaluable = (t: McqQuestionType): boolean =>
+  AUTO_EVALUABLE_TYPES.includes(t);
+
+/** Bloom's taxonomy level — detected by the AI importer, used to balance papers. */
+export type BloomLevel =
+  | "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create";
+
+export const BLOOM_LEVELS: { value: BloomLevel; label: string }[] = [
+  { value: "remember", label: "Remember" },
+  { value: "understand", label: "Understand" },
+  { value: "apply", label: "Apply" },
+  { value: "analyze", label: "Analyze" },
+  { value: "evaluate", label: "Evaluate" },
+  { value: "create", label: "Create" },
+];
+
+/** One row of a match-the-following question. */
+export interface MatchPair { left: string; right: string }
+
+/** A nested part of a multi-part question (a)(b)(c). */
+export interface SubQuestion { label: string; text: string; marks: number }
 
 export type McqDifficulty = "easy" | "medium" | "hard";
 export type McqQuestionStatus = "draft" | "published";
@@ -29,6 +69,16 @@ export const MCQ_QUESTION_TYPES: { value: McqQuestionType; label: string }[] = [
   { value: "true_false", label: "True / False" },
   { value: "assertion_reason", label: "Assertion–Reason" },
   { value: "numerical", label: "Numerical Answer" },
+  { value: "fill_ups", label: "Fill in the Blanks" },
+  { value: "one_word", label: "One Word Answer" },
+  { value: "match_following", label: "Match the Following" },
+  { value: "short_answer", label: "Short Answer" },
+  { value: "long_answer", label: "Long Answer" },
+  { value: "paragraph", label: "Paragraph" },
+  { value: "case_study", label: "Case Study" },
+  { value: "diagram", label: "Diagram" },
+  { value: "programming", label: "Programming" },
+  { value: "essay", label: "Essay" },
 ];
 
 export const MCQ_DIFFICULTIES: { value: McqDifficulty; label: string }[] = [
@@ -78,6 +128,17 @@ export interface McqQuestion {
   ownerName?: string;
   /** Derived per-viewer — merged client-side from mcq_question_favorites. */
   isFavorite?: boolean;
+  // ── AI-importer metadata ──────────────────────────────────────────────────
+  bloomLevel?: BloomLevel;
+  tags?: string[];
+  board?: string;
+  standardId?: string;
+  answerText?: string;
+  matchPairs?: MatchPair[];
+  subQuestions?: SubQuestion[];
+  /** false ⇒ routed to teacher evaluation instead of the auto-grader. */
+  autoEvaluable?: boolean;
+  sourceImportId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,6 +160,21 @@ export interface McqQuestionInput {
   hasFormula?: boolean;
   status?: McqQuestionStatus;
   isGlobal?: boolean;
+  // ── Added by the AI paper importer; optional for hand-authored questions ──
+  bloomLevel?: BloomLevel | null;
+  tags?: string[];
+  board?: string | null;
+  standardId?: string | null;
+  /** Answer key for fill_ups / one_word / short_answer / essay / … */
+  answerText?: string | null;
+  matchPairs?: MatchPair[];
+  subQuestions?: SubQuestion[];
+  /** false ⇒ graded by a teacher in Smart Mark Entry, not by the engine. */
+  autoEvaluable?: boolean;
+  /** Normalised-text hash — powers "reuse existing question if duplicate". */
+  textHash?: string | null;
+  /** The uploaded paper this question was extracted from. */
+  sourceImportId?: string | null;
 }
 
 /** Where a question-bank query draws from. */
@@ -126,6 +202,14 @@ export interface GenerationRules {
   marksPerQuestion: number;
   subjectId?: string | null;
   includeTypes?: McqQuestionType[];
+  /**
+   * Spread the picks across Bloom levels and question types instead of taking
+   * whatever the bank happens to return first. Applied WITHIN each difficulty
+   * band, so it never fights the difficulty mix — a blueprint that asks for
+   * 20/50/30 still gets exactly 20/50/30.
+   */
+  balanceBloom?: boolean;
+  balanceTypes?: boolean;
 }
 
 export interface McqPaper {
@@ -293,6 +377,8 @@ export interface McqResponse {
   selectedOptionIds?: string[];
   /** Entered value — numerical questions. */
   numericValue?: number | null;
+  /** Typed answer — fill_ups / one_word and every teacher-graded type. */
+  textValue?: string | null;
 }
 
 /** The centrally-scored result of one response. */
@@ -302,6 +388,13 @@ export interface ScoredAnswer {
   maxMarks: number;
   correct: boolean;
   attempted: boolean;
+  /**
+   * true ⇒ this question CANNOT be auto-graded (essay, long answer, diagram…)
+   * and is waiting for a teacher in Smart Mark Entry. `awarded` is 0 only
+   * because nobody has marked it yet — it is NOT a zero the student earned.
+   * Consumers must not present a pending answer as a wrong one.
+   */
+  pendingReview?: boolean;
 }
 
 /** Aggregate score of a full attempt. */
@@ -312,5 +405,9 @@ export interface AttemptScore {
   correctCount: number;
   wrongCount: number;
   unattemptedCount: number;
+  /** Marks locked up in questions still awaiting teacher evaluation. */
+  pendingMarks: number;
+  /** true while any answer is pendingReview — the score is not final. */
+  awaitingEvaluation: boolean;
   answers: ScoredAnswer[];
 }
