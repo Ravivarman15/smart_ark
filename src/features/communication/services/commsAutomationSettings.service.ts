@@ -46,12 +46,16 @@ const toDomain = (r: DbRow): AutomationSetting => ({
   updatedBy: r.updated_by ?? undefined,
 });
 
-/** Registry default (disabled) for an event — the pre-migration fallback. */
+/**
+ * Registry default for an event — the pre-migration / un-seeded fallback.
+ * Enabled only when the registry explicitly opts in (`defaultEnabled`); every
+ * other event stays OFF until a human turns it on.
+ */
 const defaultFor = (eventKey: string): AutomationSetting => {
   const meta = AUTOMATION_EVENTS.find((e) => e.key === eventKey);
   return {
     eventKey,
-    enabled: false,
+    enabled: meta?.defaultEnabled ?? false,
     channel: meta?.defaultChannel ?? "whatsapp",
     timing: meta?.defaultTiming ?? "immediate",
     templateKey: meta?.defaultTemplate,

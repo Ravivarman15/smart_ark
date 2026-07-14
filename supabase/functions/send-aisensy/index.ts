@@ -106,7 +106,31 @@ const TEMPLATE_PARAM_SPECS: Record<string, (p: Record<string, unknown>) => strin
     tVal(p, "amount_paid", "amount"),
     tVal(p, "pending_balance", "amount_pending"),
   ],
+  // Enterprise Attendance utility templates. These are sent SYNCHRONOUSLY via
+  // the `direct` block below (the app builds the params and never queues), so
+  // these specs are a safety net only — they keep the ordering correct if an
+  // attendance row ever reaches the drain loop.
+  //
+  // Keyed under BOTH the internal template key and the AiSensy campaign name
+  // (`ark_`-prefixed): the drain loop looks up by `row.template`, which stores
+  // the campaign name, while other call-sites use the key.
+  // {{1}} parent_name, {{2}} student_name, {{3}} class, {{4}} section, {{5}} attendance_date
+  attendance_absent: (p) => [
+    tVal(p, "parent_name"),
+    tVal(p, "student_name"),
+    tVal(p, "class", "class_name", "batch_name"),
+    tVal(p, "section"),
+    tVal(p, "attendance_date", "date"),
+  ],
+  // {{1}} parent_name, {{2}} student_name, {{3}} attendance_date
+  attendance_corrected: (p) => [
+    tVal(p, "parent_name"),
+    tVal(p, "student_name"),
+    tVal(p, "attendance_date", "date"),
+  ],
 };
+TEMPLATE_PARAM_SPECS["ark_attendance_absent"] = TEMPLATE_PARAM_SPECS["attendance_absent"];
+TEMPLATE_PARAM_SPECS["ark_attendance_corrected"] = TEMPLATE_PARAM_SPECS["attendance_corrected"];
 const buildTemplateParams = (templateName: string, payload: Record<string, unknown>): string[] => {
   const spec = TEMPLATE_PARAM_SPECS[templateName];
   if (spec) return spec(payload || {});
@@ -125,6 +149,26 @@ const normalizePhone = (phone: string): string => {
 
 // STEP 6 — explicit debug-probe payload (TEST MODE; never touches the queue).
 interface DebugProbe {
+  campaignName?: string;
+  destination?: string;
+  templateParams?: unknown[];
+  userName?: string;
+  source?: string;
+}
+
+// ── DIRECT (SYNCHRONOUS) SEND ────────────────────────────────────────────────
+// The real-time path used by Enterprise Attendance WhatsApp Automation.
+//
+// Posts ONE message to AiSensy right now and returns the provider outcome to the
+// caller. It never reads or writes message_queue: there is no enqueue, no drain,
+// no retry loop and no scheduling. The CALLER owns the ledger — it claims its
+// row, calls this, and writes back the terminal state it gets here.
+//
+// Unlike `debug` (a credential probe that only echoes the raw HTTP body), this
+// returns a parsed, decision-ready result: ok / providerMessageId / error, plus
+// `transient` so the caller can tell "AiSensy is down, try later" apart from
+// "this number is invalid, never retry".
+interface DirectSend {
   campaignName?: string;
   destination?: string;
   templateParams?: unknown[];
@@ -174,12 +218,96 @@ Deno.serve(async (req) => {
     let campaignId: string | undefined;
     let limit = 50;
     let debug: DebugProbe | undefined;
+    let direct: DirectSend | undefined;
     try {
       const body = await req.json();
       campaignId = body?.campaignId;
       if (Number.isFinite(body?.limit)) limit = Math.min(Math.max(1, body.limit), 200);
       if (body?.debug && typeof body.debug === "object") debug = body.debug as DebugProbe;
+      if (body?.direct && typeof body.direct === "object") direct = body.direct as DirectSend;
     } catch { /* defaults */ }
+
+    // ── DIRECT MODE (synchronous real-time send) ────────────────────────────
+    // POST { direct: { campaignName, destination, templateParams?, userName? } }
+    // Returns { ok, responseStatus, providerMessageId, error, transient }.
+    // Touches NOTHING in the database — the caller owns its ledger row.
+    if (direct && (direct.campaignName || direct.destination)) {
+      const dest = normalizePhone(String(direct.destination ?? ""));
+      const templateParams = Array.isArray(direct.templateParams)
+        ? direct.templateParams.map((v) => String(v))
+        : [];
+
+      // Never burn a provider call on a message that cannot be delivered.
+      if (!dest || !direct.campaignName) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            responseStatus: 0,
+            error: !dest ? "no destination phone" : "no campaign/template name",
+            transient: false,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const requestBody = {
+        apiKey,
+        campaignName: direct.campaignName,
+        destination: dest,
+        userName: direct.userName || "ARK LEARNING ARENA",
+        source: direct.source || "ARK Attendance Automation",
+        templateParams,
+        tags: [] as string[],
+        attributes: {} as Record<string, unknown>,
+      };
+      console.log("send-aisensy [DIRECT] → request", {
+        campaignName: requestBody.campaignName,
+        destination: dest,
+        templateParams,
+      });
+
+      let responseStatus = 0;
+      let providerMessageId: string | null = null;
+      let errText = "";
+      try {
+        const res = await fetch(AISENSY_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        responseStatus = res.status;
+        const responseText = await res.text();
+        console.log("send-aisensy [DIRECT] ← response", {
+          status: responseStatus,
+          body: responseText.slice(0, 1000),
+        });
+        try {
+          const json = JSON.parse(responseText);
+          providerMessageId = json?.messageId ?? json?.data?.messageId ?? null;
+          if (!res.ok) errText = json?.message || json?.error || res.statusText;
+        } catch {
+          if (!res.ok) errText = responseText || res.statusText;
+        }
+      } catch (e) {
+        responseStatus = 0;
+        errText = (e as Error).message;
+        console.log("send-aisensy [DIRECT] ← network error", { message: errText });
+      }
+
+      const ok = responseStatus >= 200 && responseStatus < 300;
+      return new Response(
+        JSON.stringify({
+          ok,
+          responseStatus,
+          providerMessageId,
+          error: ok ? null : `HTTP ${responseStatus}: ${errText}`.slice(0, 500),
+          // Reuses the drainer's own classification so "retry later" vs "never
+          // retry" means exactly the same thing on both paths.
+          transient: ok ? false : classify(responseStatus) === "transient",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // ── STEP 6 — TEST MODE (sendAiSensyDebug) ───────────────────────────────
     // POST { debug: { campaignName, destination, templateParams?, userName?, source? } }

@@ -81,6 +81,24 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "amount_paid", "amount"),
     val(p, "pending_balance", "amount_pending"),
   ],
+  // ── Enterprise Attendance utility templates ────────────────────────────────
+  // Sent SYNCHRONOUSLY on Submit Attendance (attendanceWhatsapp.service), never
+  // queued. The service builds the params here and posts them straight to the
+  // send-aisensy `direct` endpoint.
+  // {{1}} parent_name, {{2}} student_name, {{3}} class, {{4}} section, {{5}} attendance_date
+  attendance_absent: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "class", "class_name", "batch_name"),
+    val(p, "section"),
+    val(p, "attendance_date", "date"),
+  ],
+  // {{1}} parent_name, {{2}} student_name, {{3}} attendance_date
+  attendance_corrected: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "attendance_date", "date"),
+  ],
 };
 
 /** Templates that use ordered positional params (vs the single-body fallback). */

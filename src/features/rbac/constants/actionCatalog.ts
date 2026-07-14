@@ -196,6 +196,8 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("attendance.automation",     "Run attendance automation", "override","attendance.auto_center",        "attendance.automation"),
   A("attendance.compliance",     "View compliance dashboard", "export",  "attendance.gov_compliance",     "attendance.compliance"),
   A("attendance.health",         "View attendance health",    "export",  "attendance.gov_health",         "attendance.health"),
+  A("attendance.comms_view",     "View attendance WhatsApp dashboard", "export", "attendance.comms_dashboard", "attendance.comms_view"),
+  A("attendance.comms_reports",  "Export attendance WhatsApp reports", "export", "attendance.comms_reports",   "attendance.comms_reports"),
   A("attendance.settings",       "Edit attendance settings",  "edit",    "attendance.settings",           "attendance.settings"),
 
   // ── Tasks ──────────────────────────────────────────────────────────────

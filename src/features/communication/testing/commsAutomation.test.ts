@@ -24,12 +24,15 @@ const student = (over: Partial<RecipientCandidate> = {}): RecipientCandidate => 
   meta: { parent_name: "Mr. Sharma", batch_name: "Grade 8 - A", ...over.meta },
 });
 
-// The page's existing perRecipientDefaults for the absent flow.
+// The page's perRecipientDefaults for the absent flow. Mirrors
+// SendAbsentAttendancePage — kept in step with the attendance_absent utility
+// template ({{1}} parent {{2}} student {{3}} class {{4}} section {{5}} date).
 const absentResolve = (c: RecipientCandidate) => ({
   student_name: c.name,
   parent_name: c.meta?.parent_name ?? c.name,
-  batch_name: c.meta?.batch_name ?? "",
-  date: "08 Jun 2026",
+  class: c.meta?.class_name ?? c.meta?.batch_name ?? "",
+  section: c.meta?.section ?? "-",
+  attendance_date: "08 Jun 2026",
 });
 
 describe("automation — buildAutomatedBatch", () => {

@@ -194,6 +194,8 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "attendance.auto_center",        label: "Automation Center",           route: "/admin/attendance/automation" },
       { id: "attendance.auto_students",      label: "Attendance Alerts",           route: "/admin/attendance/automation/students" },
       { id: "attendance.auto_staff",         label: "Staff Alerts",                route: "/admin/attendance/automation/staff" },
+      { id: "attendance.comms_dashboard",    label: "Communication Dashboard",     route: "/admin/attendance/communication" },
+      { id: "attendance.comms_reports",      label: "Attendance WhatsApp Reports", route: "/admin/attendance/communication/reports" },
       { id: "attendance.settings",           label: "Attendance Settings",         route: "/admin/attendance/settings" },
     ],
   },

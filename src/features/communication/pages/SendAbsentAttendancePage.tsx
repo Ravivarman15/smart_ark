@@ -41,9 +41,16 @@ const SendAbsentAttendancePage = () => {
         loadingCandidates={isLoading}
         filterFields={["search"]}
         automated
+        // Keep in step with the `attendance_absent` utility template
+        // (parent_name / student_name / class / section / attendance_date).
+        // `section` is optional; "-" because Meta rejects an empty param.
         perRecipientDefaults={(c) => ({
           student_name: c.name,
           parent_name: c.meta?.parent_name ?? c.name,
+          class: c.meta?.class_name ?? c.meta?.batch_name ?? "",
+          section: c.meta?.section ?? "-",
+          attendance_date: date,
+          // Legacy aliases — harmless, and keep any DB-seeded override rendering.
           batch_name: c.meta?.batch_name ?? "",
           date,
         })}

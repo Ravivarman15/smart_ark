@@ -313,6 +313,10 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("attendance.auto_center",   "Automation Center",          attendancePaths("/automation"),            adminMgmt),
       ...sub("attendance.auto_students", "Attendance Alerts",          attendancePaths("/automation/students"),   adminCoordMgmt),
       ...sub("attendance.auto_staff",    "Staff Alerts",               attendancePaths("/automation/staff"),      adminMgmt),
+      // Attendance WhatsApp automation — teachers see it too: they submit the
+      // register, so they are the ones who can fix a missing/invalid parent mobile.
+      ...sub("attendance.comms_dashboard", "Communication Dashboard",  attendancePaths("/communication"),         all),
+      ...sub("attendance.comms_reports",   "WhatsApp Reports",         attendancePaths("/communication/reports"), adminCoordMgmt),
       ...sub("attendance.settings",      "Attendance Settings",        attendancePaths("/settings"),           adminMgmt),
     ],
   },

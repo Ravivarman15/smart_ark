@@ -26,6 +26,13 @@ export interface AutomationEventMeta {
   defaultChannel: AutomationChannel;
   defaultTiming: AutomationTiming;
   kind: AutomationEventKind;
+  /**
+   * Registry default used ONLY when `comms_automation_settings` has no row for
+   * the event (pre-migration / un-seeded). Everything defaults OFF — a school
+   * must opt in before we message a parent — except the attendance notices,
+   * which the spec pins to Default = ON.
+   */
+  defaultEnabled?: boolean;
 }
 
 const ev = (
@@ -37,10 +44,14 @@ const ev = (
   defaultChannel: AutomationChannel,
   defaultTiming: AutomationTiming,
   kind: AutomationEventKind,
-): AutomationEventMeta => ({ key, label, category, description, defaultTemplate, defaultChannel, defaultTiming, kind });
+  defaultEnabled = false,
+): AutomationEventMeta => ({ key, label, category, description, defaultTemplate, defaultChannel, defaultTiming, kind, defaultEnabled });
 
 export const AUTOMATION_EVENTS: AutomationEventMeta[] = [
-  ev("attendance_absent",   "Student marked absent",   "Attendance", "Notify parents when a student is marked absent.",              "attendance_absent",      "whatsapp", "immediate", "event"),
+  // Real-time: fired synchronously by attendanceWhatsapp.service on Submit
+  // Attendance. Default ON — see docs/ATTENDANCE_WHATSAPP_AUTOMATION.md.
+  ev("attendance_absent",   "Student marked absent",   "Attendance", "Instantly WhatsApp parents when a student is marked absent (sent in real time on Submit Attendance).", "attendance_absent",   "whatsapp", "immediate", "event", true),
+  ev("attendance_corrected","Attendance corrected",    "Attendance", "Auto-send a correction when an already-notified absence is changed to PRESENT.",                      "attendance_corrected","whatsapp", "immediate", "event", true),
   ev("attendance_present",  "Student marked present",  "Attendance", "Optional present-confirmation to parents.",                    "attendance_present",     "whatsapp", "immediate", "event"),
   ev("fee_due",             "Fee due reminder",        "Fees",       "Daily reminder to students with a pending balance.",            "fee_due_reminder",       "whatsapp", "scheduled", "scheduled"),
   ev("fee_paid",            "Fee paid receipt",        "Fees",       "Auto-send a branded Email + WhatsApp receipt when a payment is collected.", "fee_receipt",       "both",     "immediate", "event"),

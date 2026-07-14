@@ -168,11 +168,39 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       buttons: [{ type: "url", label: "Pay Now", value: "{{pay_url}}" }],
     }
   ),
+  // ── Enterprise Attendance (AiSensy Utility templates) ──────────────────────
+  // Sent SYNCHRONOUSLY the moment a teacher submits attendance — never queued,
+  // never scheduled. Positional order is pinned in templateParams.ts (mirrored
+  // in send-aisensy). See docs/ATTENDANCE_WHATSAPP_AUTOMATION.md.
+  //
+  // `section` is deliberately NOT a required variable: most students have no
+  // section, and missingVariables() treats "" as missing — which would fail
+  // validation and silently drop the notice for every section-less student.
+  // The service substitutes "-" for a blank section (Meta rejects empty params).
+  // {{1}} parent_name {{2}} student_name {{3}} class {{4}} section {{5}} attendance_date
+  // `providerName` is the AiSensy CAMPAIGN NAME we post as `campaignName` — it is
+  // NOT the internal template key. They differ here: AiSensy campaigns are
+  // `ark_`-prefixed. Getting this wrong = AiSensy rejects the send.
   def(
     "attendance_absent",
     "attendance",
     "Attendance — absent",
-    "Hi {{parent_name}}, {{student_name}} was marked ABSENT for {{batch_name}} on {{date}}. If this was unintended, please contact the office."
+    "Dear {{parent_name}},\n\nThis is to inform you that {{student_name}} (Class {{class}} - {{section}}) was marked ABSENT on {{attendance_date}}.\n\nIf your child was present or if this attendance was marked incorrectly, please contact the school office.\n\nThank you,\nARK Learning Arena",
+    {
+      variables: ["parent_name", "student_name", "class", "attendance_date"],
+      providerName: "ark_attendance_absent",
+    }
+  ),
+  // {{1}} parent_name {{2}} student_name {{3}} attendance_date
+  def(
+    "attendance_corrected",
+    "attendance",
+    "Attendance — corrected to present",
+    "Dear {{parent_name}},\n\nThis is to inform you that the attendance for {{student_name}} on {{attendance_date}} has been corrected to PRESENT.\n\nThank you.\n\nARK Learning Arena",
+    {
+      variables: ["parent_name", "student_name", "attendance_date"],
+      providerName: "ark_attendance_corrected",
+    }
   ),
   def(
     "birthday_wish",

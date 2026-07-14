@@ -129,6 +129,9 @@ const AttHealth = lazy(() => import("./features/attendance/governance/pages/Atte
 const AttAutomation = lazy(() => import("./features/attendance/automation/pages/AutomationCenterPage"));
 const AttStudentAlerts = lazy(() => import("./features/attendance/automation/pages/StudentAlertsPage"));
 const AttStaffAlerts = lazy(() => import("./features/attendance/automation/pages/StaffAlertsPage"));
+// Attendance WhatsApp automation — real-time absent notification to parents.
+const AttCommsDashboard = lazy(() => import("./features/attendance/automation/pages/AttendanceCommsDashboardPage"));
+const AttCommsReports = lazy(() => import("./features/attendance/automation/pages/AttendanceCommsReportsPage"));
 
 // Reports & Analytics module pages (feature-based — src/features/reports)
 const RptTimetable = lazy(() => import("./features/reports/pages/TimetableReportPage"));
@@ -362,6 +365,9 @@ const attendanceRoutes = () => (
     <Route path="attendance/automation" element={<AttAutomation />} />
     <Route path="attendance/automation/students" element={<AttStudentAlerts />} />
     <Route path="attendance/automation/staff" element={<AttStaffAlerts />} />
+    {/* Attendance WhatsApp automation — real-time absent notification */}
+    <Route path="attendance/communication" element={<AttCommsDashboard />} />
+    <Route path="attendance/communication/reports" element={<AttCommsReports />} />
     <Route path="attendance/settings" element={<AttSettings />} />
   </>
 );

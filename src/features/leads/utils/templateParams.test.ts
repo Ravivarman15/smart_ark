@@ -121,6 +121,33 @@ describe("buildTemplateParams", () => {
       "lead_admission_completed_v2",
       "lead_demo_reminder_v2",
       "fee_receipt",
+      "attendance_absent",
+      "attendance_corrected",
     ]);
+  });
+
+  // Enterprise Attendance WhatsApp Automation — these are sent synchronously on
+  // Submit Attendance, so a wrong order here messages parents with the fields
+  // swapped. Pinned to the AiSensy utility templates.
+  it("attendance_absent → parent, student, class, section, date", () => {
+    expect(
+      buildTemplateParams("attendance_absent", {
+        parent_name: "Mr. Sharma",
+        student_name: "Aarav Sharma",
+        class: "10",
+        section: "A",
+        attendance_date: "14 Jul 2026",
+      }),
+    ).toEqual(["Mr. Sharma", "Aarav Sharma", "10", "A", "14 Jul 2026"]);
+  });
+
+  it("attendance_corrected → parent, student, date", () => {
+    expect(
+      buildTemplateParams("attendance_corrected", {
+        parent_name: "Mr. Sharma",
+        student_name: "Aarav Sharma",
+        attendance_date: "14 Jul 2026",
+      }),
+    ).toEqual(["Mr. Sharma", "Aarav Sharma", "14 Jul 2026"]);
   });
 });

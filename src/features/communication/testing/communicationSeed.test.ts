@@ -188,7 +188,11 @@ describe("comms — all 11 communication templates resolve cleanly", () => {
     exam_result: { student_name: "Aarav Sharma", exam_name: "Mid-Term Maths", marks: "82", total: "100", percentage: "82", grade: "A", report_url: "https://ark.test/r/1" },
     fee_status: { parent_name: "Mr. Sharma", student_name: "Aarav Sharma", batch_name: "Grade 8 - A", amount_paid: "₹10,000", amount_pending: "₹5,000", due_date: "30 Jun 2026" },
     fee_due_reminder: { amount_pending: "₹5,000", student_name: "Aarav Sharma", batch_name: "Grade 8 - A", due_date: "30 Jun 2026", pay_url: "https://ark.test/pay/1" },
-    attendance_absent: { parent_name: "Mr. Sharma", student_name: "Aarav Sharma", batch_name: "Grade 8 - A", date: "08 Jun 2026" },
+    // Enterprise utility template: {{1}} parent {{2}} student {{3}} class
+    // {{4}} section {{5}} attendance_date. `section` is intentionally NOT a
+    // required variable (a section-less student must still be notified).
+    attendance_absent: { parent_name: "Mr. Sharma", student_name: "Aarav Sharma", class: "10", section: "A", attendance_date: "08 Jun 2026" },
+    attendance_corrected: { parent_name: "Mr. Sharma", student_name: "Aarav Sharma", attendance_date: "08 Jun 2026" },
     birthday_wish: { student_name: "Aarav Sharma", branch_name: "ARK Central" },
   };
 

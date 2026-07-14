@@ -80,14 +80,25 @@ export const StudentMarkingPanel = ({ batchId, date, source = "manual" }: Props)
         <Button size="sm" variant="outline" onClick={copyYesterday} disabled={rows.length === 0}>
           <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Yesterday
         </Button>
+        {/*
+          Submit → save, then WhatsApp every absent student's parent in real time.
+          `previousRows` is the server state before this edit; the automation needs
+          it to tell a NEW absence from one being corrected back to PRESENT.
+        */}
         <Button
           size="sm"
           className="ml-auto"
-          onClick={() => saveMut.mutate({ batchId, date, rows, source })}
+          onClick={() =>
+            saveMut.mutate({ batchId, date, rows, source, previousRows: serverRows })
+          }
           disabled={rows.length === 0 || saveMut.isPending}
         >
           {saveMut.isPending && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-          Save Attendance
+          {saveMut.isPending
+            ? "Submitting & notifying…"
+            : counts.absent > 0
+              ? `Submit Attendance (${counts.absent} absent)`
+              : "Submit Attendance"}
         </Button>
       </div>
 
