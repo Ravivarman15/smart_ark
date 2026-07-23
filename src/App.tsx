@@ -43,6 +43,10 @@ const TasksTeamPage = lazy(() => import("./features/tasks/pages/TeamTasksPage"))
 const TasksBoardPage = lazy(() => import("./features/tasks/pages/TaskBoardPage"));
 const TasksWorkloadPage = lazy(() => import("./features/tasks/pages/WorkloadPage"));
 const TeacherOverview = lazy(() => import("./pages/coordinator/TeacherOverview"));
+// Academic Allocation module
+const StaffAllocation = lazy(() => import("./pages/management/StaffAllocation"));
+const ClassScheduling = lazy(() => import("./pages/coordinator/ClassScheduling"));
+const MyClassesPage = lazy(() => import("./features/allocation/pages/MyClassesPage"));
 const EnquiryManagement = lazy(() => import("./pages/shared/EnquiryManagement"));
 
 // Lead Management + Automation CRM
@@ -459,6 +463,7 @@ const AppRoutes: React.FC = () => (
         <Route path="attendance/students/register" element={<AttStudentRegister />} />
         <Route path="attendance/staff/check-in" element={<AttStaffCheckInOut />} />
         <Route path="payroll/my-salary" element={<PayMySalary />} />
+        <Route path="my-classes" element={<MyClassesPage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
         {renderSharedRoutes("teacher")}
       </Route>
@@ -731,6 +736,9 @@ const AppRoutes: React.FC = () => (
         <Route path="live-classes/add" element={<AddLiveClassPage />} />
         <Route path="live-classes" element={<ManageLiveClassPage />} />
         <Route path="live-classes/my" element={<MyLiveClassPage />} />
+        {/* Academic Allocation — management owns staff allocation + can override scheduling */}
+        <Route path="allocation" element={<StaffAllocation />} />
+        <Route path="scheduling" element={<ClassScheduling />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -739,6 +747,7 @@ const AppRoutes: React.FC = () => (
         <Route index element={<CoordinatorDashboard />} />
         <Route path="teachers" element={<TeacherOverview />} />
         <Route path="academic" element={<AcademicControl />} />
+        <Route path="scheduling" element={<ClassScheduling />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
         {leadRoutes()}
         <Route path="timetable" element={<TimetableView />} />

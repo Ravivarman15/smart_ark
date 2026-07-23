@@ -288,6 +288,7 @@ class PayrollConfigService extends BaseService {
       autoFinanceSync: true,
       autoNotify: true,
       salaryCategoryName: "Salary",
+      includeTeachingHours: false,
     };
     const { data, error } = await this.db
       .from("payroll_settings" as never)
@@ -304,6 +305,7 @@ class PayrollConfigService extends BaseService {
       autoFinanceSync: r.auto_finance_sync !== false,
       autoNotify: r.auto_notify !== false,
       salaryCategoryName: String(r.salary_category_name ?? "Salary"),
+      includeTeachingHours: r.include_teaching_hours === true,
       updatedAt: (r.updated_at as string) ?? undefined,
     };
   }
@@ -319,6 +321,8 @@ class PayrollConfigService extends BaseService {
     if (input.autoNotify !== undefined) payload.auto_notify = input.autoNotify;
     if (input.salaryCategoryName !== undefined)
       payload.salary_category_name = input.salaryCategoryName;
+    if (input.includeTeachingHours !== undefined)
+      payload.include_teaching_hours = input.includeTeachingHours;
     const { error } = await this.db
       .from("payroll_settings" as never)
       .upsert(payload as never, { onConflict: "id" });

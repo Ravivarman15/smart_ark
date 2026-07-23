@@ -49,6 +49,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PayrollPageShell, PayrollStatusBadge } from "../components";
+import { PayrollValidationPanel } from "../components/PayrollValidationPanel";
 import {
   usePayrollRuns,
   useGeneratePayroll,
@@ -390,6 +391,8 @@ const SalaryProcessingPage = () => {
               Worked hours, overtime and attendance are read automatically from the Attendance
               module for the selected period. No manual entry required.
             </p>
+            {/* Academic Operations — pre-generation discrepancy check */}
+            <PayrollValidationPanel from={form.periodStart} to={form.periodEnd} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>

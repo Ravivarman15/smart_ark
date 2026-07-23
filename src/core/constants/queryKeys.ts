@@ -72,6 +72,26 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.staff.all, "detail", id] as const,
     onboarding: (id: string) => [...queryKeys.staff.all, "onboarding", id] as const,
   },
+  allocation: {
+    all: ["allocation"] as const,
+    staffLinks: (coordinatorId?: string) =>
+      [...queryKeys.allocation.all, "staff-links", coordinatorId ?? "all"] as const,
+    standardLinks: (coordinatorId?: string) =>
+      [...queryKeys.allocation.all, "standard-links", coordinatorId ?? "all"] as const,
+    sections: (standardId?: string) =>
+      [...queryKeys.allocation.all, "sections", standardId ?? "all"] as const,
+    schedules: (filters?: Record<string, unknown>) =>
+      [...queryKeys.allocation.all, "schedules", filters ?? {}] as const,
+    teachingHours: (scope: string, from: string, to: string) =>
+      [...queryKeys.allocation.all, "teaching-hours", scope, from, to] as const,
+    classRoster: (classScheduleId: string) =>
+      [...queryKeys.allocation.all, "class-roster", classScheduleId] as const,
+    leaveImpact: (from: string, to: string, teacherId?: string) =>
+      [...queryKeys.allocation.all, "leave-impact", from, to, teacherId ?? "all"] as const,
+    timetableLocks: () => [...queryKeys.allocation.all, "timetable-locks"] as const,
+    payrollValidation: (from: string, to: string) =>
+      [...queryKeys.allocation.all, "payroll-validation", from, to] as const,
+  },
   enquiries: {
     all: ["enquiries"] as const,
     list: (params?: Record<string, unknown>) => [...queryKeys.enquiries.all, "list", params ?? {}] as const,

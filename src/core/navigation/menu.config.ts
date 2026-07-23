@@ -338,6 +338,25 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     ],
   },
 
+  // 6d. Academics / Allocation — coordinator management, scheduling & salary hours
+  {
+    key: "academics",
+    label: "Academics / Allocation",
+    icon: "CalendarClock",
+    module: "academics",
+    collapsible: true,
+    roles: all,
+    items: [
+      // Management — assign staff to coordinators + assign standards (scope).
+      ...sub("academics.allocation", "Staff Allocation", { management: "/management/allocation", admin: "/management/allocation" }, adminMgmt, { action: "academics.allocate_staff" }),
+      // Coordinator (management can override) — build the timetable.
+      ...sub("academics.scheduling", "Class Scheduling", { coordinator: "/coordinator/scheduling", management: "/management/scheduling", admin: "/management/scheduling" }, adminCoordMgmt, { action: "academics.schedule_class" }),
+      ...sub("academics.workload",   "Teacher Workload", { coordinator: "/coordinator/scheduling", management: "/management/scheduling", admin: "/management/scheduling" }, adminCoordMgmt, { action: "academics.view_workload" }),
+      // Teacher — read-only view of their own classes + salary hours.
+      ...sub("academics.my_classes", "My Classes", { teacher: "/teacher/my-classes" }, ["teacher"], { action: "academics.view_my_classes" }),
+    ],
+  },
+
   // 7. Live Class
   {
     key: "live_class",

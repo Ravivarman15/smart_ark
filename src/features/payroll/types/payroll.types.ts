@@ -283,6 +283,8 @@ export interface PayrollSettings {
   autoFinanceSync: boolean;
   autoNotify: boolean;
   salaryCategoryName: string;
+  /** When true, completed class-schedule hours feed worked/overtime minutes. */
+  includeTeachingHours: boolean;
   updatedAt?: string;
 }
 
@@ -293,6 +295,7 @@ export interface PayrollSettingsInput {
   autoFinanceSync?: boolean;
   autoNotify?: boolean;
   salaryCategoryName?: string;
+  includeTeachingHours?: boolean;
 }
 
 // ── Audit ────────────────────────────────────────────────────────────────────

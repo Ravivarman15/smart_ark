@@ -1,0 +1,608 @@
+import React, { useMemo, useState } from "react";
+import {
+  CalendarClock,
+  Plus,
+  Zap,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Clock,
+  BarChart3,
+  UserCog,
+  Lock,
+  Unlock,
+  CalendarX,
+  ArrowRightLeft,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useConfirm, usePrompt } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTeachers, useStandards, useSubjects, useBatches } from "@/features/setup/hooks";
+import {
+  useSchedules,
+  useScheduleMutations,
+  useScheduleOps,
+  useMyManagedStaffIds,
+  useMyStandardIds,
+  useSections,
+  useTeachingHours,
+  useLeaveImpact,
+  useTimetableLocks,
+  useTimetableLockMutations,
+} from "@/features/allocation/hooks";
+import { scheduleSchema } from "@/features/allocation/schemas/schedule.schema";
+import type { ScheduleInput, ScheduleStatus } from "@/features/allocation/types/allocation.types";
+
+// Week range [Mon..Sun] around today (ISO strings).
+const weekRange = () => {
+  const now = new Date();
+  const day = (now.getDay() + 6) % 7; // Mon=0
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - day);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: iso(mon), to: iso(sun) };
+};
+
+const statusBadge = (s: ScheduleStatus) => {
+  const map: Record<ScheduleStatus, string> = {
+    scheduled: "bg-blue-500/15 text-blue-500",
+    in_progress: "bg-cyan-500/15 text-cyan-500",
+    completed: "bg-emerald-500/15 text-emerald-500",
+    cancelled: "bg-red-500/15 text-red-500",
+    missed: "bg-amber-500/15 text-amber-500",
+    rescheduled: "bg-purple-500/15 text-purple-500",
+  };
+  return map[s] ?? "bg-muted";
+};
+
+const emptyForm = {
+  teacherId: "",
+  standardId: "",
+  sectionId: "",
+  subjectId: "",
+  batchId: "",
+  scheduleDate: new Date().toISOString().slice(0, 10),
+  startTime: "09:00",
+  endTime: "10:00",
+  mode: "offline" as "offline" | "online",
+  room: "",
+  meetingLink: "",
+  remarks: "",
+  repeatWeekly: false,
+  repeatUntil: "",
+  holidaySkip: true,
+  isExtra: false,
+  extraReason: "",
+};
+
+const ClassScheduling: React.FC = () => {
+  const { user } = useAuth();
+  const confirm = useConfirm();
+  const prompt = usePrompt();
+  const isOverride = user?.role === "management" || user?.role === "admin";
+
+  const { from, to } = useMemo(weekRange, []);
+  const { data: allTeachers = [] } = useTeachers();
+  const { data: standards = [] } = useStandards();
+  const { data: managedStaffIds = [] } = useMyManagedStaffIds();
+  const { data: myStandardIds = [] } = useMyStandardIds();
+
+  // Scope the teacher/standard pickers. Management/admin override → everyone.
+  const teachers = useMemo(
+    () =>
+      isOverride
+        ? allTeachers.filter((t) => t.role === "teacher" || t.role === "coordinator")
+        : allTeachers.filter((t) => managedStaffIds.includes(t.id)),
+    [allTeachers, managedStaffIds, isOverride],
+  );
+  const scopedStandards = useMemo(
+    () => (isOverride ? standards : standards.filter((s) => myStandardIds.includes(s.id))),
+    [standards, myStandardIds, isOverride],
+  );
+
+  const { data: schedules = [] } = useSchedules({
+    coordinatorId: isOverride ? undefined : user?.profileId,
+    from,
+    to,
+  });
+  const { data: teachingHours = [] } = useTeachingHours(from, to);
+  const { data: leaveAffected = [] } = useLeaveImpact(from, to);
+  const { data: locks = [] } = useTimetableLocks();
+  const { create, setStatus, reschedule, remove } = useScheduleMutations();
+  const { assignSubstitute, transfer } = useScheduleOps();
+  const { lock, unlock } = useTimetableLockMutations();
+
+  // Substitute / transfer dialog (teacher picker).
+  const [subTarget, setSubTarget] = useState<{ id: string; mode: "substitute" | "transfer" } | null>(null);
+  const [subTeacherId, setSubTeacherId] = useState("");
+
+  const doSubstitute = async () => {
+    if (!subTarget || !subTeacherId) return;
+    try {
+      if (subTarget.mode === "transfer") {
+        await transfer.mutateAsync({ id: subTarget.id, newTeacherId: subTeacherId });
+        toast.success("Class transferred — teacher notified");
+      } else {
+        await assignSubstitute.mutateAsync({ id: subTarget.id, substituteId: subTeacherId });
+        toast.success("Substitute assigned — teacher notified, hours reassigned");
+      }
+      setSubTarget(null);
+      setSubTeacherId("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const toggleLock = async () => {
+    try {
+      const active = locks.find((l) => l.periodStart <= from && l.periodEnd >= to);
+      if (active) {
+        await unlock.mutateAsync(active.id);
+        toast.success("Timetable unlocked for this week");
+      } else {
+        await lock.mutateAsync({ periodStart: from, periodEnd: to, reason: "Week locked by management" });
+        toast.success("Timetable locked for this week");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+  const weekLocked = locks.some((l) => l.periodStart <= from && l.periodEnd >= to);
+
+  // Workload classification (dynamic thresholds on total engaged hours/week).
+  const classify = (mins: number) => {
+    const h = mins / 60;
+    if (h === 0) return { label: "Free", cls: "bg-slate-500/15 text-slate-400" };
+    if (h > 20) return { label: "Overloaded", cls: "bg-red-500/15 text-red-500" };
+    if (h < 5) return { label: "Underutilized", cls: "bg-amber-500/15 text-amber-500" };
+    return { label: "Balanced", cls: "bg-emerald-500/15 text-emerald-500" };
+  };
+
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const { data: sections = [] } = useSections(form.standardId || undefined);
+  const { data: subjects = [] } = useSubjects(
+    form.standardId ? { standardId: form.standardId } : undefined,
+  );
+  const { data: batches = [] } = useBatches(
+    form.standardId ? { standardId: form.standardId } : undefined,
+  );
+
+  const openCreate = (extra: boolean) => {
+    setForm({ ...emptyForm, isExtra: extra });
+    setOpen(true);
+  };
+
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  const submit = async () => {
+    const parsed = scheduleSchema.safeParse(form);
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Check the form");
+      return;
+    }
+    try {
+      // zod defaults guarantee the required fields at runtime; the cast bridges
+      // zod's input/output type variance for the service contract.
+      await create.mutateAsync(parsed.data as unknown as ScheduleInput);
+      toast.success(form.isExtra ? "Extra class assigned — teacher notified" : "Class scheduled");
+      setOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to schedule");
+    }
+  };
+
+  const doStatus = async (id: string, status: ScheduleStatus) => {
+    try {
+      if (status === "cancelled") {
+        const reason = await prompt({ title: "Cancel class", placeholder: "Reason (optional)" });
+        if (reason === null) return;
+        await setStatus.mutateAsync({ id, status, reason });
+      } else {
+        await setStatus.mutateAsync({ id, status });
+      }
+      toast.success(`Marked ${status}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const doReschedule = async (id: string) => {
+    const date = await prompt({ title: "Reschedule — new date", placeholder: "YYYY-MM-DD" });
+    if (!date) return;
+    const start = await prompt({ title: "New start time", placeholder: "HH:MM" });
+    if (!start) return;
+    const end = await prompt({ title: "New end time", placeholder: "HH:MM" });
+    if (!end) return;
+    try {
+      await reschedule.mutateAsync({ id, date, start, end });
+      toast.success("Rescheduled — teacher notified");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const doDelete = async (id: string) => {
+    if (!(await confirm({ title: "Delete class?", type: "danger", confirmText: "Delete" }))) return;
+    try {
+      await remove.mutateAsync(id);
+      toast.success("Deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const nameOf = (id?: string) => teachers.find((t) => t.id === id)?.name ?? id ?? "";
+  const fmtHrs = (mins: number) => `${(mins / 60).toFixed(1)}h`;
+
+  return (
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <CalendarClock className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-xl font-semibold">Class Scheduling</h1>
+            <p className="text-sm text-muted-foreground">
+              {isOverride
+                ? "Management override — schedule any teacher."
+                : "Schedule your assigned teachers. This week."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {isOverride && (
+            <Button variant="outline" onClick={toggleLock}>
+              {weekLocked ? (
+                <><Unlock className="h-4 w-4 mr-1" /> Unlock Week</>
+              ) : (
+                <><Lock className="h-4 w-4 mr-1" /> Lock Week</>
+              )}
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => openCreate(true)}>
+            <Zap className="h-4 w-4 mr-1" /> Assign Extra Class
+          </Button>
+          <Button onClick={() => openCreate(false)} disabled={weekLocked && !isOverride}>
+            <Plus className="h-4 w-4 mr-1" /> Schedule Class
+          </Button>
+        </div>
+      </div>
+
+      {weekLocked && (
+        <Card className="border-red-500/40">
+          <CardContent className="py-3 text-sm text-red-500 flex items-center gap-2">
+            <Lock className="h-4 w-4" /> This week's timetable is locked by Management.
+            {isOverride ? " You can still override." : " Editing is disabled."}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Leave impact — classes needing coverage */}
+      {leaveAffected.length > 0 && (
+        <Card className="border-amber-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-amber-600">
+              <CalendarX className="h-4 w-4" /> Leave Impact — {leaveAffected.length} class(es) need coverage
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {leaveAffected.map(({ schedule: c, leaveType, leaveStatus }) => (
+              <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+                <p className="text-xs">
+                  <span className="font-medium">{c.teacherName ?? nameOf(c.teacherId)}</span> ·{" "}
+                  {c.scheduleDate} {c.startTime}–{c.endTime} ·{" "}
+                  {[c.standardName, c.subjectName].filter(Boolean).join(" / ")} ·{" "}
+                  <Badge variant="outline" className="ml-1">{leaveType ?? "leave"} · {leaveStatus}</Badge>
+                </p>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" onClick={() => { setSubTarget({ id: c.id, mode: "substitute" }); setSubTeacherId(""); }}>
+                    <UserCog className="h-4 w-4 mr-1" /> Substitute
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => doReschedule(c.id)}>
+                    <Clock className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {teachers.length === 0 && !isOverride && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No staff assigned to you yet. Ask Management to allocate staff on the Staff Allocation page.
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Workload */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BarChart3 className="h-4 w-4" /> Teacher Workload (this week)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {teachingHours.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No teaching hours recorded yet.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {teachingHours.map((h) => {
+                const engaged = h.totalMinutes + h.extraMinutes + h.scheduledMinutes;
+                const c = classify(engaged);
+                return (
+                  <div key={h.teacherId} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-sm truncate">{h.teacherName ?? nameOf(h.teacherId)}</p>
+                      <Badge className={c.cls}>{c.label}</Badge>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>Completed {fmtHrs(h.totalMinutes)}</span>
+                      <span>Extra {fmtHrs(h.extraMinutes)}</span>
+                      <span>Upcoming {fmtHrs(h.scheduledMinutes)}</span>
+                      <span>Cancelled {h.cancelledCount}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Schedule list */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Schedule ({schedules.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {schedules.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No classes scheduled this week.</p>
+          ) : (
+            schedules.map((c) => (
+              <div
+                key={c.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{c.teacherName ?? nameOf(c.teacherId)}</span>
+                    {c.isExtra && <Badge variant="outline" className="text-amber-500">Extra</Badge>}
+                    <Badge className={statusBadge(c.status)}>{c.status}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {c.scheduleDate} · {c.startTime}–{c.endTime} ({(c.durationMinutes / 60).toFixed(1)}h) ·{" "}
+                    {[c.standardName, c.sectionName, c.subjectName].filter(Boolean).join(" / ") || "—"} ·{" "}
+                    {c.mode}
+                    {c.room ? ` · ${c.room}` : ""}
+                  </p>
+                </div>
+                {(c.status === "scheduled" || c.status === "in_progress") && (
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" title="Assign substitute" onClick={() => { setSubTarget({ id: c.id, mode: "substitute" }); setSubTeacherId(""); }}>
+                      <UserCog className="h-4 w-4 text-blue-500" />
+                    </Button>
+                    {isOverride && (
+                      <Button variant="ghost" size="sm" title="Transfer teacher" onClick={() => { setSubTarget({ id: c.id, mode: "transfer" }); setSubTeacherId(""); }}>
+                        <ArrowRightLeft className="h-4 w-4 text-indigo-500" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" title="Complete" onClick={() => doStatus(c.id, "completed")}>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    </Button>
+                    <Button variant="ghost" size="sm" title="Missed" onClick={() => doStatus(c.id, "missed")}>
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    </Button>
+                    <Button variant="ghost" size="sm" title="Reschedule" onClick={() => doReschedule(c.id)}>
+                      <Clock className="h-4 w-4 text-purple-500" />
+                    </Button>
+                    <Button variant="ghost" size="sm" title="Cancel" onClick={() => doStatus(c.id, "cancelled")}>
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Substitute / Transfer dialog */}
+      <Dialog open={!!subTarget} onOpenChange={(v) => !v && setSubTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{subTarget?.mode === "transfer" ? "Transfer Class" : "Assign Substitute"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">
+              {subTarget?.mode === "transfer" ? "New teacher" : "Substitute teacher"}
+            </Label>
+            <Select value={subTeacherId} onValueChange={setSubTeacherId}>
+              <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
+              <SelectContent>
+                {teachers.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Teaching hours and the class move to the selected teacher, who is notified instantly.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSubTarget(null)}>Cancel</Button>
+            <Button onClick={doSubstitute} disabled={!subTeacherId}>
+              {subTarget?.mode === "transfer" ? "Transfer" : "Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create / Extra dialog */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{form.isExtra ? "Assign Extra Class" : "Schedule Class"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Field label="Teacher">
+              <Select value={form.teacherId} onValueChange={(v) => set("teacherId", v)}>
+                <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
+                <SelectContent>
+                  {teachers.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Standard">
+                <Select value={form.standardId} onValueChange={(v) => set("standardId", v)}>
+                  <SelectTrigger><SelectValue placeholder="Standard" /></SelectTrigger>
+                  <SelectContent>
+                    {scopedStandards.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Section">
+                <Select value={form.sectionId} onValueChange={(v) => set("sectionId", v)}>
+                  <SelectTrigger><SelectValue placeholder="Section" /></SelectTrigger>
+                  <SelectContent>
+                    {sections.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Subject">
+                <Select value={form.subjectId} onValueChange={(v) => set("subjectId", v)}>
+                  <SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger>
+                  <SelectContent>
+                    {subjects.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Batch">
+                <Select value={form.batchId} onValueChange={(v) => set("batchId", v)}>
+                  <SelectTrigger><SelectValue placeholder="Batch" /></SelectTrigger>
+                  <SelectContent>
+                    {batches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Date">
+                <Input type="date" value={form.scheduleDate} onChange={(e) => set("scheduleDate", e.target.value)} />
+              </Field>
+              <Field label="Start">
+                <Input type="time" value={form.startTime} onChange={(e) => set("startTime", e.target.value)} />
+              </Field>
+              <Field label="End">
+                <Input type="time" value={form.endTime} onChange={(e) => set("endTime", e.target.value)} />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Mode">
+                <Select value={form.mode} onValueChange={(v) => set("mode", v as "offline" | "online")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="offline">Offline</SelectItem>
+                    <SelectItem value="online">Online</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {form.mode === "offline" ? (
+                <Field label="Room">
+                  <Input value={form.room} onChange={(e) => set("room", e.target.value)} placeholder="Room" />
+                </Field>
+              ) : (
+                <Field label="Meeting link">
+                  <Input value={form.meetingLink} onChange={(e) => set("meetingLink", e.target.value)} placeholder="https://" />
+                </Field>
+              )}
+            </div>
+
+            {form.isExtra && (
+              <Field label="Reason for extra class">
+                <Input value={form.extraReason} onChange={(e) => set("extraReason", e.target.value)} placeholder="e.g. revision before exam" />
+              </Field>
+            )}
+
+            <Field label="Remarks">
+              <Input value={form.remarks} onChange={(e) => set("remarks", e.target.value)} placeholder="Optional" />
+            </Field>
+
+            {!form.isExtra && (
+              <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Switch checked={form.repeatWeekly} onCheckedChange={(v) => set("repeatWeekly", v)} />
+                  <Label className="text-sm">Repeat weekly</Label>
+                </div>
+                {form.repeatWeekly && (
+                  <Input
+                    type="date"
+                    className="w-40"
+                    value={form.repeatUntil}
+                    onChange={(e) => set("repeatUntil", e.target.value)}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={submit} disabled={create.isPending}>
+              {form.isExtra ? "Assign & Notify" : "Schedule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="space-y-1">
+    <Label className="text-xs text-muted-foreground">{label}</Label>
+    {children}
+  </div>
+);
+
+export default ClassScheduling;

@@ -70,6 +70,13 @@ export const AUTOMATION_EVENTS: AutomationEventMeta[] = [
   ev("live_class_created",  "Live class created",      "Live Class", "Notify assigned students when a live class is created.",        "live_class_notification","whatsapp", "immediate", "event"),
   ev("class_cancelled",     "Class cancelled",         "Live Class", "Notify students when a class is cancelled.",                    "class_cancelled",        "whatsapp", "immediate", "event"),
   ev("holiday_notice",      "Holiday notice",          "Holiday",    "Notify all students/staff when a holiday is added.",            "holiday_notice",         "whatsapp", "scheduled", "scheduled"),
+  // Academics / Allocation — these notify the TEACHER (recipient kind=staff) when
+  // a coordinator schedules/changes their classes. Default OFF (opt-in).
+  ev("teacher_class_scheduled",   "Class scheduled (teacher)",   "Academics", "Notify a teacher when a coordinator schedules a new class for them.",  "teacher_class_scheduled",   "both", "immediate", "event"),
+  ev("teacher_class_rescheduled", "Class rescheduled (teacher)", "Academics", "Notify a teacher when one of their classes is rescheduled.",           "teacher_class_rescheduled", "both", "immediate", "event"),
+  ev("teacher_class_cancelled",   "Class cancelled (teacher)",   "Academics", "Notify a teacher when one of their classes is cancelled.",             "teacher_class_cancelled",   "both", "immediate", "event"),
+  ev("teacher_extra_class",       "Extra class assigned",        "Academics", "Notify a teacher instantly when a coordinator assigns them an extra class.", "teacher_extra_class",   "both", "immediate", "event"),
+  ev("teacher_substitute_assigned", "Substitute assigned",       "Academics", "Notify a teacher instantly when a coordinator assigns them as substitute for a class.", "teacher_substitute_assigned", "both", "immediate", "event"),
 ];
 
 export const AUTOMATION_EVENTS_BY_KEY: Record<string, AutomationEventMeta> =

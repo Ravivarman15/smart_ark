@@ -26,6 +26,7 @@ const PayrollSettingsPage = () => {
     autoFinanceSync: true,
     autoNotify: true,
     salaryCategoryName: "Salary",
+    includeTeachingHours: false,
   });
 
   useEffect(() => {
@@ -117,6 +118,18 @@ const PayrollSettingsPage = () => {
             <Switch
               checked={form.autoNotify}
               onCheckedChange={(v) => setForm((f) => ({ ...f, autoNotify: v }))}
+            />
+          </div>
+          <div className="flex items-center justify-between border rounded-md px-3 py-2">
+            <div>
+              <p className="text-sm font-medium">Include teaching hours</p>
+              <p className="text-xs text-muted-foreground">
+                Add completed class-schedule hours to worked/overtime minutes when generating a run.
+              </p>
+            </div>
+            <Switch
+              checked={form.includeTeachingHours}
+              onCheckedChange={(v) => setForm((f) => ({ ...f, includeTeachingHours: v }))}
             />
           </div>
           <div className="flex justify-end">

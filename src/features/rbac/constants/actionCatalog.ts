@@ -300,6 +300,25 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("authentication.repair",       "Repair credentials",         "edit",   "authentication.credential_repair"),
   A("authentication.audit",        "View login audit",           "export", "authentication.login_audit"),
   A("authentication.health",       "View account health",        "export", "authentication.account_health"),
+
+  // ── Academics / Allocation ─────────────────────────────────────────────
+  A("academics.allocate_staff",   "Assign staff to coordinator", "assign",   "academics.allocation"),
+  A("academics.transfer_staff",   "Transfer staff",              "assign",   "academics.allocation"),
+  A("academics.assign_standards", "Assign standards to coordinator", "assign", "academics.allocation"),
+  A("academics.manage_sections",  "Manage sections",             "edit",     "academics.sections"),
+  A("academics.schedule_class",   "Schedule a class",            "create",   "academics.scheduling"),
+  A("academics.reschedule_class", "Reschedule / modify a class", "edit",     "academics.scheduling"),
+  A("academics.cancel_class",     "Cancel a class",              "delete",   "academics.scheduling"),
+  A("academics.extra_class",      "Assign an extra class",       "assign",   "academics.scheduling"),
+  A("academics.view_workload",    "View teacher workload",       "export",   "academics.workload"),
+  A("academics.view_my_classes",  "View my classes",             "edit",     "academics.my_classes"),
+  A("academics.override",         "Override schedules / payroll", "override", "academics.allocation"),
+  // Phase 2 — operations
+  A("academics.start_class",      "Start a class",               "edit",     "academics.my_classes"),
+  A("academics.mark_attendance",  "Mark class attendance",       "marks",    "academics.my_classes"),
+  A("academics.assign_substitute","Assign substitute teacher",   "assign",   "academics.scheduling"),
+  A("academics.transfer_class",   "Transfer class / teacher",    "assign",   "academics.allocation"),
+  A("academics.lock_timetable",   "Lock / unlock timetable",     "override", "academics.allocation"),
 ];
 
 // ── Convenience lookups ─────────────────────────────────────────────────────

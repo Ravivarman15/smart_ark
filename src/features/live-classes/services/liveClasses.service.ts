@@ -264,7 +264,48 @@ class LiveClassesService extends BaseService {
     } catch {
       /* messaging is best-effort — never block class creation */
     }
+
+    // Academic Operations (Phase 2) — attach a linked class_schedules row so the
+    // teacher's timetable/My-Classes + teaching hours pick up the live class.
+    // Best-effort + missing-table-safe; never blocks class creation.
+    try {
+      await this.linkSchedule(row, input, names, createdByProfileId);
+    } catch {
+      /* schedule linkage is best-effort */
+    }
     return created;
+  }
+
+  /** Best-effort: mirror a live class as an online class_schedules row. */
+  private async linkSchedule(
+    row: LiveClassRow,
+    input: CreateLiveClassInput,
+    names: { teacher: string | null; subject: string | null; standard: string | null },
+    createdByProfileId?: string,
+  ): Promise<void> {
+    if (!input.teacherId) return;
+    const res = await this.db.from("class_schedules" as never).insert({
+      teacher_id: input.teacherId,
+      teacher_name: names.teacher,
+      standard_id: input.standardId || null,
+      standard_name: names.standard,
+      subject_id: input.subjectId || null,
+      subject_name: names.subject,
+      batch_id: input.batchIds?.[0] || null,
+      schedule_date: input.startDate,
+      start_time: input.startTime,
+      end_time: input.endTime,
+      mode: "online",
+      meeting_link: input.meetingLink || null,
+      status: "scheduled",
+      live_class_id: row.id,
+      created_by: createdByProfileId ?? null,
+    } as never);
+    // Swallow "table/column missing" — allocation migration may be unapplied.
+    if (res.error && !tableMissing(res.error)) {
+      // A non-schema error is still non-fatal for class creation.
+      if (import.meta.env.DEV) console.warn("[live-class] schedule link failed:", res.error.message);
+    }
   }
 
   /** Replace the batch junction rows for a class. */

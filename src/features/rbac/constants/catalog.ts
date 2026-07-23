@@ -32,6 +32,7 @@ export type ModuleId =
   | "student"
   | "attendance"
   | "tasks"
+  | "academics"
   | "live_class"
   | "fee"
   | "exam"
@@ -216,6 +217,23 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "tasks.reports",   label: "Task Reports" },
       { id: "tasks.templates", label: "Task Templates" },
       { id: "tasks.settings",  label: "Task Settings" },
+    ],
+  },
+  {
+    id: "academics",
+    label: "Academics / Allocation",
+    icon: "CalendarClock",
+    defaultRoles: all,
+    submodules: [
+      // Management — assign staff to coordinators + assign standards (scope).
+      { id: "academics.allocation",  label: "Staff Allocation",   route: "/management/allocation" },
+      // Sections are managed inside the Staff Allocation page — catalog-only grant.
+      { id: "academics.sections",    label: "Manage Sections" },
+      // Coordinator — build the timetable for their assigned staff/standards.
+      { id: "academics.scheduling",  label: "Class Scheduling",   route: "/coordinator/scheduling" },
+      { id: "academics.workload",    label: "Teacher Workload",   route: "/coordinator/scheduling" },
+      // Teacher — read-only view of their own classes + salary hours.
+      { id: "academics.my_classes",  label: "My Classes",         route: "/teacher/my-classes" },
     ],
   },
   {

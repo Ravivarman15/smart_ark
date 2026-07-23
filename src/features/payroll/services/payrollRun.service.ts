@@ -1,5 +1,6 @@
 import { BaseService, AppError } from "@/shared/services";
 import { staffService } from "@/features/staff/services/staff.service";
+import { teachingHoursService } from "@/features/allocation/services/teachingHours.service";
 import { computePayroll, summariseRun, round2 } from "../utils/payrollCalc";
 import {
   canApprove,
@@ -257,6 +258,34 @@ class PayrollRunService extends BaseService {
       input.periodStart,
       input.periodEnd,
     );
+
+    // Enterprise salary automation — when enabled, fold completed class-schedule
+    // teaching hours into the same StaffAggregate the engine already consumes:
+    //   • regular completed teaching → worked + expected minutes (counts as work)
+    //   • completed EXTRA classes     → overtime minutes (paid at the OT rate)
+    // Best-effort + missing-table-safe: teachingHoursService returns empty when
+    // the allocation module isn't migrated, so payroll behaves exactly as before.
+    if (settings.includeTeachingHours) {
+      const teaching = await teachingHoursService.aggregate(
+        input.periodStart,
+        input.periodEnd,
+      );
+      for (const [sid, th] of teaching) {
+        const cur =
+          attendance.get(sid) ??
+          ({
+            workedMinutes: 0,
+            overtimeMinutes: 0,
+            expectedMinutes: 0,
+            lateCount: 0,
+            presentDays: 0,
+          } as StaffAggregate);
+        cur.workedMinutes += th.totalMinutes;
+        cur.expectedMinutes += th.totalMinutes;
+        cur.overtimeMinutes += th.extraMinutes;
+        attendance.set(sid, cur);
+      }
+    }
 
     // Insert the run shell first to obtain its id.
     const runIns = await this.runs()
