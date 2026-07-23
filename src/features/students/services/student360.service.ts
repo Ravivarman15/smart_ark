@@ -451,7 +451,9 @@ const buildReportHtml = (d: Student360Data): string => {
   .brand{font-weight:800;letter-spacing:.12em;color:var(--accent);font-size:15px}
   h1{font-size:24px;margin:4px 0 10px}
   h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#334155;border-bottom:2px solid var(--accent);padding-bottom:5px;margin:0 0 10px}
-  section{margin:0 0 22px;break-inside:avoid}
+  section{margin:0 0 22px;break-inside:auto;page-break-inside:auto}
+  h2, .cap, thead{break-after:avoid;page-break-after:avoid}
+  tr, .chart, table.kv, .cover, ul.timeline li{break-inside:avoid;page-break-inside:avoid;-webkit-column-break-inside:avoid}
   .cover{min-height:230px;border:1px solid var(--line);border-radius:12px;padding:22px;background:linear-gradient(135deg,#eef2ff,#fff)}
   .cover-grid{display:grid;grid-template-columns:120px 1fr 150px;gap:18px;align-items:start;margin-top:12px}
   .photo{width:120px;height:120px;border-radius:12px;object-fit:cover;border:2px solid #c7d2fe}
@@ -486,7 +488,11 @@ const buildReportHtml = (d: Student360Data): string => {
   .sb-track{height:9px;border-radius:999px;background:#e2e8f0;overflow:hidden}
   .sb-fill{height:100%;border-radius:999px}
   .footer{position:fixed;bottom:0;left:0;right:0;text-align:center;font-size:9px;color:var(--muted);padding:6px;border-top:1px solid var(--line);background:#fff}
-  @media print{.page{padding:14mm 12mm 18mm}@page{size:A4;margin:10mm}}
+  @media print{
+    .page{padding:0}
+    .footer{bottom:5mm;left:12mm;right:12mm;padding:6px 0}
+    @page{size:A4;margin:15mm 12mm 20mm 12mm}
+  }
 </style></head><body>
   <div class="page">
     ${cover}

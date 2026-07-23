@@ -297,9 +297,14 @@ class ResultSheetService extends BaseService {
   th,td{border:1px solid #cbd5e1;padding:5px 6px;text-align:center}
   th{background:#f1f5f9;font-weight:600}
   td.l,th.l{text-align:left}td.rk{font-weight:600}td.ab{color:#dc2626;font-weight:600}
+  tr{break-inside:avoid;page-break-inside:avoid}
+  thead{break-after:avoid;page-break-after:avoid}
   small{color:#64748b;font-size:9px}
   .footer{margin-top:12px;color:#94a3b8;font-size:9px;text-align:center}
-  @media print{body{padding:8mm}@page{size:A4 landscape;margin:8mm}}
+  @media print{
+    body{padding:0}
+    @page{size:A4 landscape;margin:10mm}
+  }
 </style></head><body>
   <h1>${esc(title)}</h1><p class="sub">${esc(sub)}</p>
   <table><thead>${head}</thead><tbody>${body || `<tr><td colspan="99">No results recorded for this month.</td></tr>`}</tbody></table>

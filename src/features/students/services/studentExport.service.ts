@@ -156,6 +156,12 @@ const exportBulkPdf = (
   table{width:100%;border-collapse:collapse;font-size:12px}
   th{background:#f1f5f9;text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-weight:600}
   td{padding:6px 8px;border-bottom:1px solid #e2e8f0} tr:nth-child(even){background:#fafafa}
+  tr{break-inside:avoid;page-break-inside:avoid}
+  thead{break-after:avoid;page-break-after:avoid}
+  @media print{
+    body{margin:0}
+    @page{size:A4;margin:15mm 12mm 15mm 12mm}
+  }
 </style></head><body>
   <h1>${escapeHtml(title)}</h1>
   ${subtitle ? `<p class="sub">${escapeHtml(subtitle)} · ${rows.length} students</p>` : `<p class="sub">${rows.length} students</p>`}

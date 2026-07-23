@@ -215,6 +215,8 @@ class ReportCardService extends BaseService {
   table{border-collapse:collapse;width:100%;font-size:12px;margin-bottom:14px}
   th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:center}
   th{background:#f1f5f9}td.l,th.l{text-align:left}.ab{color:#dc2626;font-weight:600}
+  tr, .summary, .ai, .sign, .who{break-inside:avoid;page-break-inside:avoid}
+  thead{break-after:avoid;page-break-after:avoid}
   .kv{border:0;width:auto}.kv td{border:0;text-align:left;padding:1px 10px 1px 0;font-size:12px}
   .kv td.k{color:#64748b}
   .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
@@ -225,7 +227,10 @@ class ReportCardService extends BaseService {
   .sign{display:flex;justify-content:space-between;margin-top:40px;font-size:12px}
   .sign div{border-top:1px solid #94a3b8;padding-top:4px;width:180px;text-align:center;color:#64748b}
   small{color:#64748b;font-size:10px}
-  @media print{body{padding:12mm}@page{size:A4;margin:12mm}}
+  @media print{
+    body{padding:0}
+    @page{size:A4;margin:15mm 12mm 15mm 12mm}
+  }
 </style></head><body>
   <div class="hd">
     <div class="brand"><h1>ARK Learning Arena</h1><p>${esc(card.params.academicYearName ?? "")} · ${esc(monthLabel(card.params.month))} Examination</p></div>
