@@ -319,6 +319,13 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("academics.assign_substitute","Assign substitute teacher",   "assign",   "academics.scheduling"),
   A("academics.transfer_class",   "Transfer class / teacher",    "assign",   "academics.allocation"),
   A("academics.lock_timetable",   "Lock / unlock timetable",     "override", "academics.allocation"),
+  // Phase 3 — faculty tracking, analytics, reports, audit
+  A("academics.end_class",        "End a class",                 "edit",     "academics.my_classes"),
+  A("academics.view_monitor",     "View the live class board",   "export",   "academics.monitor"),
+  A("academics.send_reminders",   "Send class reminders",        "assign",   "academics.monitor"),
+  A("academics.view_analytics",   "View faculty analytics",      "export",   "academics.analytics"),
+  A("academics.export_reports",   "Export faculty reports",      "export",   "academics.reports"),
+  A("academics.view_audit",       "View the class audit trail",  "export",   "academics.audit"),
 ];
 
 // ── Convenience lookups ─────────────────────────────────────────────────────

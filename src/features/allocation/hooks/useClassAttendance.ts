@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSaveStudentAttendance } from "@/features/attendance/hooks/useStudentAttendance";
 import type { StudentDraftRow } from "@/features/attendance/types/attendance.types";
 import { classAttendanceService, scheduleService } from "../services";
+import { toStudentStatus } from "../services/classAttendance.service";
 import type { ClassRosterRow } from "../types/allocation.types";
 
 /** The class roster (students + previous status + fee-due). */
@@ -13,6 +14,20 @@ export const useClassRoster = (classScheduleId?: string) =>
     queryFn: () => classAttendanceService.roster(classScheduleId as string),
     enabled: !!classScheduleId,
   });
+
+/**
+ * Auto-save (Phase 8) — persist the per-class marks as the teacher taps, WITHOUT
+ * completing the class or firing parent comms. Only `class_attendance` is
+ * touched, so a dropped connection mid-sheet never loses work and never sends a
+ * premature WhatsApp. The final Submit still runs the full pipeline below.
+ */
+export const useAutosaveClassAttendance = () => {
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (input: { classScheduleId: string; rows: ClassRosterRow[] }) =>
+      classAttendanceService.upsert(input.classScheduleId, input.rows, user?.profileId),
+  });
+};
 
 /**
  * Submit class attendance. Reuses the existing student-attendance pipeline
@@ -34,17 +49,20 @@ export const useSubmitClassAttendance = () => {
       rows: ClassRosterRow[];
       previousRows?: ClassRosterRow[];
     }) => {
+      // The per-class vocabulary (present/absent/late/medical/leave) is mapped
+      // onto the existing enterprise student-attendance statuses so the day-level
+      // save, parent WhatsApp and Student 360 stay on one vocabulary.
       const draft: StudentDraftRow[] = input.rows.map((r) => ({
         studentId: r.studentId,
         studentName: r.studentName,
         rollNumber: r.rollNumber,
-        status: r.status,
+        status: toStudentStatus(r.status),
         remarks: r.remarks,
       }));
       const previous: StudentDraftRow[] | undefined = input.previousRows?.map((r) => ({
         studentId: r.studentId,
         studentName: r.studentName,
-        status: r.previousStatus ?? r.status,
+        status: toStudentStatus(r.previousStatus ?? r.status),
       }));
 
       // 1) Day-level student attendance + parent WhatsApp (existing pipeline).

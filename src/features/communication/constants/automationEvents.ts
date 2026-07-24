@@ -77,6 +77,15 @@ export const AUTOMATION_EVENTS: AutomationEventMeta[] = [
   ev("teacher_class_cancelled",   "Class cancelled (teacher)",   "Academics", "Notify a teacher when one of their classes is cancelled.",             "teacher_class_cancelled",   "both", "immediate", "event"),
   ev("teacher_extra_class",       "Extra class assigned",        "Academics", "Notify a teacher instantly when a coordinator assigns them an extra class.", "teacher_extra_class",   "both", "immediate", "event"),
   ev("teacher_substitute_assigned", "Substitute assigned",       "Academics", "Notify a teacher instantly when a coordinator assigns them as substitute for a class.", "teacher_substitute_assigned", "both", "immediate", "event"),
+  // Phase 3 — class tracking automation. Reminders are dispatched by the
+  // Class Control Center sweep; started/ended fire from the class lifecycle.
+  // All default OFF (opt-in) so nothing is sent until an institute enables it.
+  ev("class_reminder_faculty",     "Class reminder — faculty",     "Academics", "Remind the faculty member 15 minutes before their class starts.",              "class_reminder_faculty",     "both", "immediate", "event"),
+  ev("class_reminder_coordinator", "Class reminder — coordinator", "Academics", "Alert the coordinator 5 minutes before a class that has not started yet.",     "class_reminder_coordinator", "both", "immediate", "event"),
+  ev("class_started",              "Class started",                "Academics", "Notify the coordinator and management the moment a class goes live.",          "class_started",              "both", "immediate", "event"),
+  ev("class_ended",                "Class ended",                  "Academics", "Notify the coordinator and management when a class ends, with actual hours.",  "class_ended",                "both", "immediate", "event"),
+  ev("class_attendance_missing",   "Attendance missing",           "Academics", "Chase the faculty member when a finished class still has no attendance.",      "class_attendance_missing",   "both", "immediate", "event"),
+  ev("class_cancelled_students",   "Class cancelled (students)",   "Academics", "Inform students and parents when a scheduled class is cancelled.",             "class_cancelled",            "whatsapp", "immediate", "event"),
 ];
 
 export const AUTOMATION_EVENTS_BY_KEY: Record<string, AutomationEventMeta> =

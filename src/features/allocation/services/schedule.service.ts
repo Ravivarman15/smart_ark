@@ -1,8 +1,17 @@
 import { BaseService, AppError } from "@/shared/services";
 import { commsDispatcherService } from "@/features/communication/services";
 import type { RecipientCandidate } from "@/features/communication/types/communication.types";
+import {
+  academicYearOf,
+  expandRecurrence,
+  effectivePattern,
+  monthOf,
+} from "../utils/recurrence";
+import { localContext } from "../utils/clientContext";
 import type {
   ClassSchedule,
+  ClientContext,
+  RepeatPattern,
   ScheduleFilters,
   ScheduleInput,
   ScheduleStatus,
@@ -73,6 +82,26 @@ const toSchedule = (r: Record<string, unknown>): ClassSchedule => ({
   completedAt: (r.completed_at as string) ?? undefined,
   attendanceSubmitted: Boolean(r.attendance_submitted),
   liveClassId: (r.live_class_id as string) ?? undefined,
+  // Phase 3 — academic dimensions
+  academicYear: (r.academic_year as string) ?? undefined,
+  term: (r.term as string) ?? undefined,
+  month: r.month != null ? Number(r.month) : undefined,
+  campusId: (r.campus_id as string) ?? undefined,
+  campusName: (r.campus_name as string) ?? undefined,
+  department: (r.department as string) ?? undefined,
+  repeatPattern:
+    (r.repeat_pattern as RepeatPattern) ?? (r.repeat_weekly ? "weekly" : "none"),
+  repeatDays: Array.isArray(r.repeat_days) ? (r.repeat_days as number[]).map(Number) : [],
+  seriesId: (r.series_id as string) ?? undefined,
+  // Phase 3/5 — class tracking
+  actualMinutes: r.actual_minutes != null ? Number(r.actual_minutes) : undefined,
+  lateMinutes: Number(r.late_minutes ?? 0),
+  earlyMinutes: Number(r.early_minutes ?? 0),
+  startDevice: (r.start_device as string) ?? undefined,
+  startBrowser: (r.start_browser as string) ?? undefined,
+  startIp: (r.start_ip as string) ?? undefined,
+  startLat: r.start_lat != null ? Number(r.start_lat) : undefined,
+  startLng: r.start_lng != null ? Number(r.start_lng) : undefined,
   createdBy: (r.created_by as string) ?? undefined,
   createdAt: (r.created_at as string) ?? undefined,
   updatedAt: (r.updated_at as string) ?? undefined,
@@ -80,29 +109,40 @@ const toSchedule = (r: Record<string, unknown>): ClassSchedule => ({
 
 interface Actor {
   id?: string;
+  name?: string;
+  role?: string;
 }
 
-/**
- * Expand a weekly-repeating input into one date per week up to repeat_until.
- * Uses UTC epoch math (not local `new Date(str)`) so it never drifts a day
- * across timezones.
- */
-export const expandWeeklyDates = (input: ScheduleInput): string[] => {
-  if (!input.repeatWeekly || !input.repeatUntil) return [input.scheduleDate];
-  const toUtc = (d: string): number => {
-    const [y, m, day] = d.split("-").map(Number);
-    return Date.UTC(y, (m ?? 1) - 1, day ?? 1);
-  };
-  const dates: string[] = [];
-  const start = toUtc(input.scheduleDate);
-  const until = toUtc(input.repeatUntil);
-  const week = 7 * 24 * 60 * 60 * 1000;
-  // guard against runaway loops (cap at ~2 years of weekly occurrences)
-  for (let t = start, i = 0; t <= until && i < 110; i++, t += week) {
-    dates.push(new Date(t).toISOString().slice(0, 10));
-  }
-  return dates.length > 0 ? dates : [input.scheduleDate];
+/** UUID for grouping a recurrence series (falls back where crypto is absent). */
+const newId = (): string =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
+
+/** Minutes between an ISO timestamp and an HH:MM wall-clock on the same date. */
+const minutesFromScheduled = (
+  actualIso: string,
+  scheduleDate: string,
+  hhmm: string,
+): number => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const [y, mo, d] = scheduleDate.split("-").map(Number);
+  const actual = new Date(actualIso);
+  // Compare in the viewer's local frame — schedule times are wall-clock local.
+  const planned = new Date(y, (mo ?? 1) - 1, d ?? 1, h ?? 0, m ?? 0, 0, 0);
+  return Math.round((actual.getTime() - planned.getTime()) / 60000);
 };
+
+/**
+ * Expand an allocation into its occurrence dates.
+ *
+ * Phase 1 shipped weekly-only repetition; Phase 3 generalised this into the
+ * daily / weekly / monthly + day-of-week engine in `utils/recurrence.ts`. This
+ * export stays as the service-level entry point (and keeps the original name
+ * its callers and tests use) — the maths lives in the pure module.
+ */
+export const expandWeeklyDates = (input: ScheduleInput): string[] =>
+  expandRecurrence(input);
 
 class ScheduleService extends BaseService {
   private table() {
@@ -117,6 +157,11 @@ class ScheduleService extends BaseService {
     if (filters.standardId) q = q.eq("standard_id", filters.standardId);
     if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
     if (filters.isExtra !== undefined) q = q.eq("is_extra", filters.isExtra);
+    if (filters.academicYear) q = q.eq("academic_year", filters.academicYear);
+    if (filters.term) q = q.eq("term", filters.term);
+    if (filters.month) q = q.eq("month", filters.month);
+    if (filters.campusId) q = q.eq("campus_id", filters.campusId);
+    if (filters.department) q = q.eq("department", filters.department);
     if (filters.from) q = q.gte("schedule_date", filters.from);
     if (filters.to) q = q.lte("schedule_date", filters.to);
     const res = await q.order("schedule_date", { ascending: true }).order("start_time", {
@@ -148,15 +193,37 @@ class ScheduleService extends BaseService {
       const res = await this.db.from(table as never).select("name").eq("id", id).maybeSingle();
       return (res.data as { name?: string } | null)?.name ?? null;
     };
-    const [teacher_name, subject_name, standard_name, section_name, batch_name] =
+    const [teacher_name, subject_name, standard_name, section_name, batch_name, campus_name] =
       await Promise.all([
         pick("profiles", input.teacherId),
         pick("subjects", input.subjectId),
         pick("standards", input.standardId),
         pick("sections", input.sectionId),
         pick("batches", input.batchId),
+        pick("campuses", input.campusId),
       ]);
-    return { teacher_name, subject_name, standard_name, section_name, batch_name };
+    return {
+      teacher_name,
+      subject_name,
+      standard_name,
+      section_name,
+      batch_name,
+      campus_name,
+      // Department defaults to the teacher's own department so allocation stays
+      // dynamic — nothing is hardcoded and analytics group correctly by default.
+      department: input.department ?? (await this.teacherDepartment(input.teacherId)),
+    };
+  }
+
+  /** The teacher's department (used as the allocation's default department). */
+  private async teacherDepartment(teacherId?: string): Promise<string | null> {
+    if (!teacherId) return null;
+    const res = (await this.db
+      .from("profiles" as never)
+      .select("department")
+      .eq("id", teacherId)
+      .maybeSingle()) as { data: { department?: string } | null };
+    return res.data?.department ?? null;
   }
 
   private toRow(
@@ -183,11 +250,19 @@ class ScheduleService extends BaseService {
       room: input.room || null,
       meeting_link: input.meetingLink || null,
       remarks: input.remarks || null,
-      repeat_weekly: Boolean(input.repeatWeekly),
+      repeat_weekly: effectivePattern(input) === "weekly",
+      repeat_pattern: effectivePattern(input),
+      repeat_days: input.repeatDays ?? [],
       repeat_until: input.repeatUntil || null,
       holiday_skip: input.holidaySkip !== false,
       is_extra: Boolean(input.isExtra),
       extra_reason: input.extraReason || null,
+      // ── Academic dimensions (derived where the caller didn't supply them) ──
+      academic_year: input.academicYear || academicYearOf(input.scheduleDate),
+      term: input.term || null,
+      campus_id: input.campusId || null,
+      campus_name: names.campus_name,
+      department: names.department,
       status: "scheduled",
       created_by: actor?.id ?? null,
     };
@@ -204,9 +279,19 @@ class ScheduleService extends BaseService {
   ): Promise<string[]> {
     await this.assertUnlocked(input.scheduleDate, opts.isOverride);
     const names = await this.resolveNames(input);
-    const dates = expandWeeklyDates(input);
+    const dates = expandRecurrence(input);
     const base = this.toRow(input, names, opts.coordinatorId, opts.actor);
-    const rows = dates.map((schedule_date) => ({ ...base, schedule_date }));
+    // One series id per recurrence run so the whole series can be edited,
+    // cancelled or reported on as a unit. Month / academic year are stamped per
+    // occurrence because a series legitimately straddles both.
+    const seriesId = dates.length > 1 ? newId() : null;
+    const rows = dates.map((schedule_date) => ({
+      ...base,
+      schedule_date,
+      series_id: seriesId,
+      month: monthOf(schedule_date),
+      academic_year: input.academicYear || academicYearOf(schedule_date),
+    }));
     const res = await this.table().insert(rows as never).select("id");
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
     const ids = ((res.data as unknown as { id: string }[]) ?? []).map((r) => String(r.id));
@@ -234,6 +319,9 @@ class ScheduleService extends BaseService {
     delete row.created_by;
     delete row.coordinator_id;
     row.schedule_date = input.scheduleDate;
+    // Keep the academic dimensions consistent when the date moves.
+    row.month = monthOf(input.scheduleDate);
+    row.academic_year = input.academicYear || academicYearOf(input.scheduleDate);
     const res = await this.table().update(row as never).eq("id", id);
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
   }
@@ -335,13 +423,23 @@ class ScheduleService extends BaseService {
     classScheduleId: string,
     action: string,
     detail: Record<string, unknown>,
-    actorId?: string,
+    actor?: Actor | string,
+    ctx?: ClientContext,
   ): Promise<void> {
+    const a: Actor = typeof actor === "string" ? { id: actor } : (actor ?? {});
+    // Device/browser are free (UA parse); IP/GPS only when the caller captured
+    // them, so the audit write never waits on the network.
+    const where = ctx ?? localContext();
     try {
       await this.db.from("class_schedule_audit" as never).insert({
         class_schedule_id: classScheduleId,
         action,
-        actor_id: actorId ?? null,
+        actor_id: a.id ?? null,
+        actor_name: a.name ?? null,
+        actor_role: a.role ?? null,
+        device: where.device ?? null,
+        browser: where.browser ?? null,
+        ip: where.ip ?? null,
         detail,
       } as never);
     } catch {
@@ -365,22 +463,95 @@ class ScheduleService extends BaseService {
     }
   }
 
-  /** Mark a class started (scheduled → in_progress). */
-  async start(id: string, actor?: Actor): Promise<void> {
+  /**
+   * SMART START (Phase 3) — scheduled → in_progress.
+   *
+   * Captures the actual start time plus the device / browser / IP / GPS the
+   * faculty started from, and derives punctuality (late vs early minutes)
+   * against the allocated start time. The class then shows LIVE on every
+   * dashboard, and the coordinator/management notifications fire best-effort.
+   */
+  async start(id: string, actor?: Actor, ctx?: ClientContext): Promise<ClassSchedule | null> {
+    const cur = await this.get(id);
+    const nowIso = new Date().toISOString();
+    const where = ctx ?? localContext();
+
+    const drift = cur ? minutesFromScheduled(nowIso, cur.scheduleDate, cur.startTime) : 0;
+    const lateMinutes = Math.max(0, drift);
+    const earlyMinutes = Math.max(0, -drift);
+
     const res = await this.table()
-      .update({ status: "in_progress", started_at: new Date().toISOString() } as never)
+      .update({
+        status: "in_progress",
+        started_at: nowIso,
+        late_minutes: lateMinutes,
+        early_minutes: earlyMinutes,
+        start_device: where.device ?? null,
+        start_browser: where.browser ?? null,
+        start_ip: where.ip ?? null,
+        start_lat: where.lat ?? null,
+        start_lng: where.lng ?? null,
+      } as never)
       .eq("id", id);
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
-    await this.audit(id, "started", {}, actor?.id);
+    await this.audit(id, "started", { lateMinutes, earlyMinutes, at: nowIso }, actor, where);
+
+    if (cur) {
+      await this.notifyOps("class_started", cur, {
+        late_minutes: String(lateMinutes),
+        started_at: nowIso.slice(11, 16),
+      });
+    }
+    return cur;
   }
 
-  /** Mark a class completed (stamps completed_at). */
-  async complete(id: string, actor?: Actor): Promise<void> {
+  /**
+   * END CLASS (Phase 5) — stamps the end time and derives the ACTUAL teaching
+   * minutes and the variance against the allocated duration. `duration_minutes`
+   * (allocated) is never overwritten; payroll and analytics read both.
+   */
+  async complete(id: string, actor?: Actor, ctx?: ClientContext): Promise<void> {
+    const cur = await this.get(id);
+    const nowIso = new Date().toISOString();
+    const where = ctx ?? localContext();
+
+    // Actual = started_at → now. Falls back to the allocated duration when the
+    // class was completed without ever being started (legacy / bulk complete).
+    const actualMinutes = cur?.startedAt
+      ? Math.max(0, Math.round((Date.parse(nowIso) - Date.parse(cur.startedAt)) / 60000))
+      : (cur?.durationMinutes ?? 0);
+    const varianceMinutes = actualMinutes - (cur?.durationMinutes ?? 0);
+
     const res = await this.table()
-      .update({ status: "completed", completed_at: new Date().toISOString() } as never)
+      .update({
+        status: "completed",
+        completed_at: nowIso,
+        actual_minutes: actualMinutes,
+        end_device: where.device ?? null,
+        end_browser: where.browser ?? null,
+        end_ip: where.ip ?? null,
+      } as never)
       .eq("id", id);
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
-    await this.audit(id, "completed", {}, actor?.id);
+    await this.audit(
+      id,
+      "completed",
+      { actualMinutes, allocatedMinutes: cur?.durationMinutes ?? 0, varianceMinutes },
+      actor,
+      where,
+    );
+
+    if (cur) {
+      await this.notifyOps("class_ended", cur, {
+        actual_hours: (actualMinutes / 60).toFixed(2),
+        variance_minutes: String(varianceMinutes),
+      });
+    }
+  }
+
+  /** Alias — the UI calls this "End Class". */
+  async end(id: string, actor?: Actor, ctx?: ClientContext): Promise<void> {
+    return this.complete(id, actor, ctx);
   }
 
   /**
@@ -390,14 +561,15 @@ class ScheduleService extends BaseService {
    */
   async submitAttendance(id: string, actor?: Actor): Promise<void> {
     const res = await this.table()
-      .update({
-        attendance_submitted: true,
-        status: "completed",
-        completed_at: new Date().toISOString(),
-      } as never)
+      .update({ attendance_submitted: true } as never)
       .eq("id", id);
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
-    await this.audit(id, "attendance_submitted", {}, actor?.id);
+    await this.audit(id, "attendance_submitted", {}, actor);
+    // Completing here (rather than in one update) reuses the Phase-3 End-Class
+    // path so actual minutes + variance + the class_ended broadcast are
+    // identical whether the teacher pressed End or submitted attendance.
+    const cur = await this.get(id);
+    if (cur && cur.status !== "completed") await this.complete(id, actor);
   }
 
   /**
@@ -456,6 +628,61 @@ class ScheduleService extends BaseService {
       time: "",
       actorId: actor?.id,
     });
+  }
+
+  /**
+   * Operational broadcast (Phase 9) — tells the coordinator who owns the class
+   * and every management profile that a class started / ended / needs
+   * attendance. Reuses the settings-gated comms dispatcher, so each event can be
+   * switched off per-institute and nothing is sent until it is opted in.
+   */
+  private async notifyOps(
+    eventKey: string,
+    sched: ClassSchedule,
+    extra: Record<string, string> = {},
+  ): Promise<void> {
+    try {
+      const ids = new Set<string>();
+      if (sched.coordinatorId) ids.add(sched.coordinatorId);
+      const mgmt = (await this.db
+        .from("profiles" as never)
+        .select("id, name, mobile, email, role")
+        .in("role", ["management", "admin"])) as {
+        data: { id: string; name?: string; mobile?: string; email?: string }[] | null;
+      };
+      for (const m of mgmt.data ?? []) ids.add(m.id);
+      if (ids.size === 0) return;
+
+      const people = (await this.db
+        .from("profiles" as never)
+        .select("id, name, mobile, email")
+        .in("id", [...ids])) as {
+        data: { id: string; name?: string; mobile?: string; email?: string }[] | null;
+      };
+      const recipients: RecipientCandidate[] = (people.data ?? []).map((p) => ({
+        id: p.id,
+        kind: "staff",
+        name: p.name ?? "Staff",
+        phone: p.mobile ?? undefined,
+        email: p.email ?? undefined,
+      }));
+      if (recipients.length === 0) return;
+
+      await commsDispatcherService.dispatch(eventKey, {
+        recipients,
+        resolve: (c) => ({
+          recipient_name: c.name,
+          teacher_name: sched.teacherName ?? "",
+          class_date: sched.scheduleDate,
+          class_time: `${sched.startTime}–${sched.endTime}`,
+          subject: sched.subjectName ?? "",
+          standard: [sched.standardName, sched.sectionName].filter(Boolean).join(" "),
+          ...extra,
+        }),
+      });
+    } catch {
+      /* operational notifications are best-effort */
+    }
   }
 
   private async teacherName(id: string): Promise<string | null> {

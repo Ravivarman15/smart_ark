@@ -47,6 +47,12 @@ const TeacherOverview = lazy(() => import("./pages/coordinator/TeacherOverview")
 const StaffAllocation = lazy(() => import("./pages/management/StaffAllocation"));
 const ClassScheduling = lazy(() => import("./pages/coordinator/ClassScheduling"));
 const MyClassesPage = lazy(() => import("./features/allocation/pages/MyClassesPage"));
+const ClassControlCenterPage = lazy(
+  () => import("./features/allocation/pages/ClassControlCenterPage"),
+);
+const FacultyAnalyticsPage = lazy(
+  () => import("./features/allocation/pages/FacultyAnalyticsPage"),
+);
 const EnquiryManagement = lazy(() => import("./pages/shared/EnquiryManagement"));
 
 // Lead Management + Automation CRM
@@ -739,6 +745,9 @@ const AppRoutes: React.FC = () => (
         {/* Academic Allocation — management owns staff allocation + can override scheduling */}
         <Route path="allocation" element={<StaffAllocation />} />
         <Route path="scheduling" element={<ClassScheduling />} />
+        {/* Phase 3 — realtime class tracking + faculty analytics/reports */}
+        <Route path="monitor" element={<ClassControlCenterPage />} />
+        <Route path="faculty-analytics" element={<FacultyAnalyticsPage />} />
         <Route path="coming-soon/:slug" element={<ComingSoon />} />
       </Route>
 
@@ -748,6 +757,9 @@ const AppRoutes: React.FC = () => (
         <Route path="teachers" element={<TeacherOverview />} />
         <Route path="academic" element={<AcademicControl />} />
         <Route path="scheduling" element={<ClassScheduling />} />
+        {/* Phase 3 — realtime class tracking + faculty analytics/reports */}
+        <Route path="monitor" element={<ClassControlCenterPage />} />
+        <Route path="faculty-analytics" element={<FacultyAnalyticsPage />} />
         <Route path="enquiries" element={<EnquiryManagement />} />
         {leadRoutes()}
         <Route path="timetable" element={<TimetableView />} />

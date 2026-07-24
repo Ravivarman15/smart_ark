@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
-import { scheduleService } from "../services";
+import { classReminderService, scheduleService } from "../services";
+import { captureContext } from "../utils/clientContext";
 import type {
   ScheduleFilters,
   ScheduleInput,
@@ -47,8 +48,16 @@ export const useScheduleMutations = () => {
     onSuccess: invalidate,
   });
   const setStatus = useMutation({
-    mutationFn: (v: { id: string; status: ScheduleStatus; reason?: string }) =>
-      scheduleService.setStatus(v.id, v.status, v.reason),
+    mutationFn: async (v: { id: string; status: ScheduleStatus; reason?: string }) => {
+      await scheduleService.setStatus(v.id, v.status, v.reason);
+      // Cancelling a class also informs the students/parents of that batch
+      // (settings-gated event, default OFF). Done here rather than inside the
+      // service to keep the schedule ↔ reminder services free of a cycle.
+      if (v.status === "cancelled") {
+        const sched = await scheduleService.get(v.id);
+        if (sched) await classReminderService.notifyCancellation(sched);
+      }
+    },
     onSuccess: invalidate,
   });
   const reschedule = useMutation({
@@ -68,19 +77,24 @@ export const useScheduleMutations = () => {
 export const useScheduleOps = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
-  const actor = { id: user?.profileId };
+  const actor = { id: user?.profileId, name: user?.name, role: user?.role };
   const isOverride = user?.role === "management" || user?.role === "admin";
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: queryKeys.allocation.all });
     qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
   };
 
+  // Smart Start / End — capture device, browser, IP and (when already granted)
+  // GPS so the class-tracking audit is complete. Capture never blocks: it
+  // resolves with whatever it could read.
   const start = useMutation({
-    mutationFn: (id: string) => scheduleService.start(id, actor),
+    mutationFn: async (id: string) =>
+      scheduleService.start(id, actor, await captureContext({ geo: true })),
     onSuccess: invalidate,
   });
   const complete = useMutation({
-    mutationFn: (id: string) => scheduleService.complete(id, actor),
+    mutationFn: async (id: string) =>
+      scheduleService.complete(id, actor, await captureContext()),
     onSuccess: invalidate,
   });
   const assignSubstitute = useMutation({

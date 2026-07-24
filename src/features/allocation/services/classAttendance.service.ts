@@ -1,6 +1,7 @@
 import { BaseService, AppError } from "@/shared/services";
 import { attendanceStudentService } from "@/features/attendance/services/studentAttendance.service";
-import type { ClassRosterRow } from "../types/allocation.types";
+import type { StudentAttendanceStatus } from "@/features/attendance/types/attendance.types";
+import type { ClassAttendanceStatus, ClassRosterRow } from "../types/allocation.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Class-attendance service — per-class granularity on TOP of the existing
@@ -25,6 +26,46 @@ interface ScheduleLite {
   batch_id?: string | null;
   schedule_date?: string | null;
 }
+
+/**
+ * Map the per-class vocabulary (Phase 3: present / absent / late / medical /
+ * leave) onto the EXISTING enterprise student-attendance vocabulary, so the
+ * day-level row, the parent WhatsApp automation, Student 360 and analytics all
+ * keep working off one set of statuses. No parallel vocabulary is introduced.
+ */
+export const toStudentStatus = (s: ClassAttendanceStatus): StudentAttendanceStatus => {
+  switch (s) {
+    case "medical":
+      return "medical_leave";
+    case "leave":
+      return "excused";
+    case "late":
+      return "late";
+    case "absent":
+      return "absent";
+    default:
+      return "present";
+  }
+};
+
+/** Reverse mapping, used when seeding the sheet from an existing day row. */
+export const fromStudentStatus = (s?: string): ClassAttendanceStatus => {
+  switch (s) {
+    case "medical_leave":
+      return "medical";
+    case "excused":
+      return "leave";
+    case "late":
+      return "late";
+    case "absent":
+      return "absent";
+    default:
+      return "present";
+  }
+};
+
+/** Statuses that count as "not in class" for the present/absent summary. */
+export const ABSENT_LIKE: ClassAttendanceStatus[] = ["absent", "medical", "leave"];
 
 class ClassAttendanceService extends BaseService {
   /** The class's students with current/previous status + fee-due indicator. */
@@ -54,14 +95,13 @@ class ClassAttendanceService extends BaseService {
 
     const rows: ClassRosterRow[] = draft.map((d) => {
       const prior = byStudent.get(d.studentId);
-      const status: "present" | "absent" =
-        prior?.status ?? (d.status === "absent" ? "absent" : "present");
+      const dayStatus = fromStudentStatus(d.status);
       return {
         studentId: d.studentId,
         studentName: d.studentName,
         rollNumber: d.rollNumber,
-        status,
-        previousStatus: d.status === "absent" ? "absent" : "present",
+        status: prior?.status ?? dayStatus,
+        previousStatus: dayStatus,
         feeDue: feeDue.has(d.studentId),
         remarks: prior?.remarks,
       };
@@ -97,7 +137,7 @@ class ClassAttendanceService extends BaseService {
     return ((res.data as unknown as Record<string, unknown>[]) ?? []).map((r) => ({
       studentId: String(r.student_id),
       studentName: String(r.student_name ?? ""),
-      status: (r.status as "present" | "absent") ?? "present",
+      status: (r.status as ClassAttendanceStatus) ?? "present",
       feeDue: false,
       remarks: (r.remarks as string) ?? undefined,
     }));

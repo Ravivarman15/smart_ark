@@ -91,6 +91,16 @@ export const queryKeys = {
     timetableLocks: () => [...queryKeys.allocation.all, "timetable-locks"] as const,
     payrollValidation: (from: string, to: string) =>
       [...queryKeys.allocation.all, "payroll-validation", from, to] as const,
+    // ── Phase 3 — faculty tracking ──────────────────────────────────────────
+    monitor: (date: string, scope?: string) =>
+      [...queryKeys.allocation.all, "monitor", date, scope ?? "all"] as const,
+    workload: (from: string, to: string, scope?: string) =>
+      [...queryKeys.allocation.all, "workload", from, to, scope ?? "all"] as const,
+    insights: (from: string, to: string, scope?: string) =>
+      [...queryKeys.allocation.all, "insights", from, to, scope ?? "all"] as const,
+    report: (key: string, from: string, to: string, scope?: string) =>
+      [...queryKeys.allocation.all, "report", key, from, to, scope ?? "all"] as const,
+    audit: (scope: string) => [...queryKeys.allocation.all, "audit", scope] as const,
   },
   enquiries: {
     all: ["enquiries"] as const,

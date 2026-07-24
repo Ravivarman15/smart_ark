@@ -12,7 +12,7 @@ export const scheduleSchema = z
     scheduleDate: z.string().min(1, "Pick a date"),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, "Start time HH:MM"),
     endTime: z.string().regex(/^\d{2}:\d{2}$/, "End time HH:MM"),
-    mode: z.enum(["offline", "online"]).default("offline"),
+    mode: z.enum(["offline", "online", "hybrid"]).default("offline"),
     room: z.string().optional(),
     meetingLink: z.string().optional(),
     remarks: z.string().optional(),
@@ -21,10 +21,22 @@ export const scheduleSchema = z
     holidaySkip: z.boolean().default(true),
     isExtra: z.boolean().default(false),
     extraReason: z.string().optional(),
+    // ── Phase 3 — academic dimensions + real recurrence ──────────────────────
+    academicYear: z.string().optional(),
+    term: z.string().optional(),
+    campusId: z.string().optional(),
+    department: z.string().optional(),
+    repeatPattern: z.enum(["none", "daily", "weekly", "monthly"]).default("none"),
+    /** 0=Sun … 6=Sat. Empty ⇒ every day the pattern produces. */
+    repeatDays: z.array(z.number().int().min(0).max(6)).default([]),
   })
   .refine((v) => v.endTime > v.startTime, {
     message: "End time must be after start time",
     path: ["endTime"],
+  })
+  .refine((v) => v.repeatPattern === "none" || !!v.repeatUntil, {
+    message: "A repeating class needs an end date",
+    path: ["repeatUntil"],
   })
   .refine((v) => !v.repeatWeekly || !!v.repeatUntil, {
     message: "Weekly repeat needs an end date",

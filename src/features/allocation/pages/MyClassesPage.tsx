@@ -1,11 +1,23 @@
 import React, { useMemo, useState } from "react";
-import { CalendarClock, Clock, Zap, CheckCircle2, GraduationCap, Play, ClipboardList } from "lucide-react";
+import {
+  CalendarClock,
+  Clock,
+  Zap,
+  CheckCircle2,
+  GraduationCap,
+  Play,
+  ClipboardList,
+  Square,
+  Wallet,
+  TrendingUp,
+  Radio,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { useMySchedule, useMyTeachingHours, useScheduleOps } from "../hooks";
+import { useMySchedule, useMyTeachingHours, useScheduleOps, useMyWorkload } from "../hooks";
 import { ClassAttendanceDialog } from "../components/ClassAttendanceDialog";
 import type { ClassSchedule } from "../types/allocation.types";
 
@@ -58,6 +70,7 @@ const MyClassesPage: React.FC = () => {
   const { from, to } = useMemo(monthRange, []);
   const { data: all = [], isLoading } = useMySchedule({ from, to });
   const { data: hours } = useMyTeachingHours(from, to);
+  const { data: workload } = useMyWorkload(from, to);
 
   const todays = all.filter((c) => c.scheduleDate === today && c.status !== "cancelled");
   const upcoming = all.filter((c) => c.scheduleDate > today && c.status === "scheduled");
@@ -75,11 +88,26 @@ const MyClassesPage: React.FC = () => {
   const handleStart = async (id: string) => {
     try {
       await ops.start.mutateAsync(id);
-      toast.success("Class started");
+      toast.success("Class started — you're live");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to start");
     }
   };
+
+  const handleEnd = async (c: ClassSchedule) => {
+    try {
+      await ops.complete.mutateAsync(c.id);
+      toast.success(
+        c.attendanceSubmitted
+          ? "Class ended — teaching hours updated"
+          : "Class ended — remember to submit attendance",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to end the class");
+    }
+  };
+
+  const inr = (n = 0) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -98,6 +126,33 @@ const MyClassesPage: React.FC = () => {
         <StatCard icon={<Clock className="h-5 w-5" />} label="Upcoming hours" value={fmtHrs(hours?.scheduledMinutes)} />
         <StatCard icon={<GraduationCap className="h-5 w-5" />} label="Completed classes" value={String(hours?.completedCount ?? 0)} />
       </div>
+
+      {/* Workload + earnings (Phase 6). Projected from the hourly rate configured
+          in Payroll — the payroll run stays the source of truth for actual pay. */}
+      {workload && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+            icon={<Clock className="h-5 w-5" />}
+            label="Today"
+            value={fmtHrs(workload.todayMinutes)}
+          />
+          <StatCard
+            icon={<TrendingUp className="h-5 w-5" />}
+            label="This week"
+            value={fmtHrs(workload.weekMinutes)}
+          />
+          <StatCard
+            icon={<Wallet className="h-5 w-5" />}
+            label="Earned this month"
+            value={inr(workload.salaryEarned)}
+          />
+          <StatCard
+            icon={<Wallet className="h-5 w-5" />}
+            label="Expected (allocated)"
+            value={inr(workload.expectedSalary)}
+          />
+        </div>
+      )}
 
       {attendancePending.length > 0 && (
         <Card className="border-amber-500/40">
@@ -138,7 +193,18 @@ const MyClassesPage: React.FC = () => {
                       {[c.standardName, c.sectionName, c.subjectName].filter(Boolean).join(" / ") || "Class"}
                     </span>
                     {c.isExtra && <Badge variant="outline" className="text-amber-500">Extra</Badge>}
-                    <Badge variant="secondary">{c.status}</Badge>
+                    {c.status === "in_progress" ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-600 gap-1">
+                        <Radio className="h-3 w-3" /> LIVE
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">{c.status}</Badge>
+                    )}
+                    {c.lateMinutes > 0 && (
+                      <Badge variant="outline" className="text-amber-600">
+                        started {c.lateMinutes}m late
+                      </Badge>
+                    )}
                     {c.attendanceSubmitted && (
                       <Badge className="bg-emerald-500/15 text-emerald-500">attendance ✓</Badge>
                     )}
@@ -146,12 +212,31 @@ const MyClassesPage: React.FC = () => {
                   <p className="text-xs text-muted-foreground">
                     {c.startTime}–{c.endTime} · {(c.durationMinutes / 60).toFixed(1)}h · {c.mode}
                     {c.room ? ` · ${c.room}` : ""}
+                    {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
+                    {c.actualMinutes != null
+                      ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h`
+                      : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {c.status === "scheduled" && (
-                    <Button size="sm" variant="outline" onClick={() => handleStart(c.id)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleStart(c.id)}
+                      disabled={ops.start.isPending}
+                    >
                       <Play className="h-4 w-4 mr-1" /> Start
+                    </Button>
+                  )}
+                  {c.status === "in_progress" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEnd(c)}
+                      disabled={ops.complete.isPending}
+                    >
+                      <Square className="h-4 w-4 mr-1" /> End
                     </Button>
                   )}
                   {!c.attendanceSubmitted && c.status !== "cancelled" && (

@@ -37,7 +37,14 @@ import {
 import { useConfirm, usePrompt } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTeachers, useStandards, useSubjects, useBatches } from "@/features/setup/hooks";
+import {
+  useTeachers,
+  useStandards,
+  useSubjects,
+  useBatches,
+  useCampuses,
+  useAcademicYears,
+} from "@/features/setup/hooks";
 import {
   useSchedules,
   useScheduleMutations,
@@ -51,7 +58,17 @@ import {
   useTimetableLockMutations,
 } from "@/features/allocation/hooks";
 import { scheduleSchema } from "@/features/allocation/schemas/schedule.schema";
-import type { ScheduleInput, ScheduleStatus } from "@/features/allocation/types/allocation.types";
+import {
+  DAY_LABELS,
+  academicYearOf,
+  expandRecurrence,
+} from "@/features/allocation/utils/recurrence";
+import type {
+  ClassMode,
+  RepeatPattern,
+  ScheduleInput,
+  ScheduleStatus,
+} from "@/features/allocation/types/allocation.types";
 
 // Week range [Mon..Sun] around today (ISO strings).
 const weekRange = () => {
@@ -77,16 +94,18 @@ const statusBadge = (s: ScheduleStatus) => {
   return map[s] ?? "bg-muted";
 };
 
+const todayIso = new Date().toISOString().slice(0, 10);
+
 const emptyForm = {
   teacherId: "",
   standardId: "",
   sectionId: "",
   subjectId: "",
   batchId: "",
-  scheduleDate: new Date().toISOString().slice(0, 10),
+  scheduleDate: todayIso,
   startTime: "09:00",
   endTime: "10:00",
-  mode: "offline" as "offline" | "online",
+  mode: "offline" as ClassMode,
   room: "",
   meetingLink: "",
   remarks: "",
@@ -95,7 +114,27 @@ const emptyForm = {
   holidaySkip: true,
   isExtra: false,
   extraReason: "",
+  // ── Phase 3 — academic dimensions + recurrence ────────────────────────────
+  academicYear: academicYearOf(todayIso),
+  term: "",
+  campusId: "",
+  department: "",
+  repeatPattern: "none" as RepeatPattern,
+  repeatDays: [] as number[],
 };
+
+/** Duration is derived, never typed — 10:00 → 12:00 shows "2h 0m". */
+const durationLabel = (start: string, end: string): string => {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  const mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (!Number.isFinite(mins) || mins <= 0) return "—";
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+};
+
+/** Terms are configurable free text with sensible defaults — nothing hardcoded
+ *  into the schema, so an institute can rename or add its own. */
+const TERM_OPTIONS = ["Term 1", "Term 2", "Term 3", "Annual"];
 
 const ClassScheduling: React.FC = () => {
   const { user } = useAuth();
@@ -106,6 +145,8 @@ const ClassScheduling: React.FC = () => {
   const { from, to } = useMemo(weekRange, []);
   const { data: allTeachers = [] } = useTeachers();
   const { data: standards = [] } = useStandards();
+  const { data: campuses = [] } = useCampuses();
+  const { data: academicYears = [] } = useAcademicYears();
   const { data: managedStaffIds = [] } = useMyManagedStaffIds();
   const { data: myStandardIds = [] } = useMyStandardIds();
 
@@ -469,16 +510,66 @@ const ClassScheduling: React.FC = () => {
             <DialogTitle>{form.isExtra ? "Assign Extra Class" : "Schedule Class"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Field label="Teacher">
-              <Select value={form.teacherId} onValueChange={(v) => set("teacherId", v)}>
-                <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
-                <SelectContent>
-                  {teachers.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+            {/* ── Academic scope. Every option is loaded from Setup, so adding a
+                year / term / campus needs no code change. ─────────────────── */}
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Academic year">
+                <Select value={form.academicYear} onValueChange={(v) => set("academicYear", v)}>
+                  <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                  <SelectContent>
+                    {academicYears.length === 0 ? (
+                      <SelectItem value={academicYearOf(form.scheduleDate)}>
+                        {academicYearOf(form.scheduleDate)}
+                      </SelectItem>
+                    ) : (
+                      academicYears.map((y) => (
+                        <SelectItem key={y.id} value={y.name}>{y.name}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Term">
+                <Select value={form.term} onValueChange={(v) => set("term", v)}>
+                  <SelectTrigger><SelectValue placeholder="Term" /></SelectTrigger>
+                  <SelectContent>
+                    {TERM_OPTIONS.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Campus">
+                <Select value={form.campusId} onValueChange={(v) => set("campusId", v)}>
+                  <SelectTrigger><SelectValue placeholder="Campus" /></SelectTrigger>
+                  <SelectContent>
+                    {campuses.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Teacher">
+                <Select value={form.teacherId} onValueChange={(v) => set("teacherId", v)}>
+                  <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
+                  <SelectContent>
+                    {teachers.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Department">
+                <Input
+                  value={form.department}
+                  onChange={(e) => set("department", e.target.value)}
+                  placeholder="Defaults to the teacher's department"
+                />
+              </Field>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <Field label="Standard">
@@ -538,13 +629,25 @@ const ClassScheduling: React.FC = () => {
               </Field>
             </div>
 
+            {/* Duration is computed from start/end — never typed. */}
+            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              Duration:{" "}
+              <span className="font-medium">
+                {durationLabel(form.startTime, form.endTime)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {" "}· calculated automatically and used for teaching hours &amp; salary
+              </span>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Mode">
-                <Select value={form.mode} onValueChange={(v) => set("mode", v as "offline" | "online")}>
+              <Field label="Class type">
+                <Select value={form.mode} onValueChange={(v) => set("mode", v as ClassMode)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="offline">Offline</SelectItem>
                     <SelectItem value="online">Online</SelectItem>
+                    <SelectItem value="hybrid">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
@@ -554,10 +657,16 @@ const ClassScheduling: React.FC = () => {
                 </Field>
               ) : (
                 <Field label="Meeting link">
-                  <Input value={form.meetingLink} onChange={(e) => set("meetingLink", e.target.value)} placeholder="https://" />
+                  <Input value={form.meetingLink} onChange={(e) => set("meetingLink", e.target.value)} placeholder="https://meet.google.com/…" />
                 </Field>
               )}
             </div>
+
+            {form.mode === "hybrid" && (
+              <Field label="Room (hybrid also needs a physical room)">
+                <Input value={form.room} onChange={(e) => set("room", e.target.value)} placeholder="Room" />
+              </Field>
+            )}
 
             {form.isExtra && (
               <Field label="Reason for extra class">
@@ -569,20 +678,108 @@ const ClassScheduling: React.FC = () => {
               <Input value={form.remarks} onChange={(e) => set("remarks", e.target.value)} placeholder="Optional" />
             </Field>
 
+            {/* ── Recurrence (Phase 1): daily / weekly / monthly + day mask ── */}
             {!form.isExtra && (
-              <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Switch checked={form.repeatWeekly} onCheckedChange={(v) => set("repeatWeekly", v)} />
-                  <Label className="text-sm">Repeat weekly</Label>
+              <div className="space-y-3 rounded-md border px-3 py-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Repeat">
+                    <Select
+                      value={form.repeatPattern}
+                      onValueChange={(v) => {
+                        const p = v as RepeatPattern;
+                        set("repeatPattern", p);
+                        // Keep the Phase-1 boolean in step so old rows/filters work.
+                        set("repeatWeekly", p === "weekly");
+                        if (p === "none") set("repeatDays", []);
+                      }}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Does not repeat</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  {form.repeatPattern !== "none" && (
+                    <Field label="Repeat until">
+                      <Input
+                        type="date"
+                        value={form.repeatUntil}
+                        onChange={(e) => set("repeatUntil", e.target.value)}
+                      />
+                    </Field>
+                  )}
                 </div>
-                {form.repeatWeekly && (
-                  <Input
-                    type="date"
-                    className="w-40"
-                    value={form.repeatUntil}
-                    onChange={(e) => set("repeatUntil", e.target.value)}
-                  />
+
+                {(form.repeatPattern === "daily" || form.repeatPattern === "weekly") && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Days {form.repeatPattern === "weekly" && "(leave empty to repeat on the start day)"}
+                    </Label>
+                    <div className="flex flex-wrap gap-1">
+                      {DAY_LABELS.map((d, i) => {
+                        const on = form.repeatDays.includes(i);
+                        return (
+                          <Button
+                            key={d}
+                            type="button"
+                            size="sm"
+                            variant={on ? "default" : "outline"}
+                            onClick={() =>
+                              set(
+                                "repeatDays",
+                                on
+                                  ? form.repeatDays.filter((x) => x !== i)
+                                  : [...form.repeatDays, i].sort((a, b) => a - b),
+                              )
+                            }
+                          >
+                            {d}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
+
+                {form.repeatPattern !== "none" && form.repeatUntil && (
+                  <p className="text-xs text-muted-foreground">
+                    Creates{" "}
+                    <span className="font-medium text-foreground">
+                      {expandRecurrence({
+                        scheduleDate: form.scheduleDate,
+                        repeatPattern: form.repeatPattern,
+                        repeatDays: form.repeatDays,
+                        repeatUntil: form.repeatUntil,
+                      }).length}
+                    </span>{" "}
+                    classes ·{" "}
+                    <span className="font-medium text-foreground">
+                      {(
+                        (expandRecurrence({
+                          scheduleDate: form.scheduleDate,
+                          repeatPattern: form.repeatPattern,
+                          repeatDays: form.repeatDays,
+                          repeatUntil: form.repeatUntil,
+                        }).length *
+                          ((Number(form.endTime.split(":")[0]) * 60 +
+                            Number(form.endTime.split(":")[1])) -
+                            (Number(form.startTime.split(":")[0]) * 60 +
+                              Number(form.startTime.split(":")[1])))) /
+                        60
+                      ).toFixed(1)}
+                      h
+                    </span>{" "}
+                    total allocated hours
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <Switch checked={form.holidaySkip} onCheckedChange={(v) => set("holidaySkip", v)} />
+                  <Label className="text-sm">Skip holidays</Label>
+                </div>
               </div>
             )}
           </div>

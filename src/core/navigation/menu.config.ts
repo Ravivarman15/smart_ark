@@ -354,6 +354,9 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("academics.workload",   "Teacher Workload", { coordinator: "/coordinator/scheduling", management: "/management/scheduling", admin: "/management/scheduling" }, adminCoordMgmt, { action: "academics.view_workload" }),
       // Teacher — read-only view of their own classes + salary hours.
       ...sub("academics.my_classes", "My Classes", { teacher: "/teacher/my-classes" }, ["teacher"], { action: "academics.view_my_classes" }),
+      // Phase 3 — realtime class tracking + faculty analytics/reports.
+      ...sub("academics.monitor",   "Class Control Center", { coordinator: "/coordinator/monitor", management: "/management/monitor", admin: "/management/monitor" }, adminCoordMgmt, { action: "academics.view_monitor" }),
+      ...sub("academics.analytics", "Faculty Analytics",    { management: "/management/faculty-analytics", admin: "/management/faculty-analytics", coordinator: "/coordinator/faculty-analytics" }, adminCoordMgmt, { action: "academics.view_analytics" }),
     ],
   },
 

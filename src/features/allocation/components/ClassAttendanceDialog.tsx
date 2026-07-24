@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { AlertCircle, Check, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { AlertCircle, Check, Clock, HeartPulse, Plane, Save, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,45 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useClassRoster, useSubmitClassAttendance } from "../hooks";
-import type { ClassRosterRow, ClassSchedule } from "../types/allocation.types";
+import {
+  useAutosaveClassAttendance,
+  useClassRoster,
+  useSubmitClassAttendance,
+} from "../hooks";
+import { ABSENT_LIKE } from "../services/classAttendance.service";
+import type {
+  ClassAttendanceStatus,
+  ClassRosterRow,
+  ClassSchedule,
+} from "../types/allocation.types";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// One-click class attendance (Phase 8).
+//
+//   • the whole roster loads automatically for the class's batch
+//   • five statuses — Present / Absent / Late / Medical / Leave — which map onto
+//     the existing enterprise student-attendance vocabulary on save
+//   • AUTO-SAVE: marks are persisted to class_attendance a second after the last
+//     tap, so nothing is lost mid-sheet. Parent comms only fire on Submit.
+//   • Submit runs the existing student-attendance pipeline (day row + parent
+//     WhatsApp), completes the class and updates teaching hours → payroll,
+//     coordinator/management dashboards and Student 360.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AUTOSAVE_DELAY_MS = 1000;
+
+const OPTIONS: {
+  value: ClassAttendanceStatus;
+  label: string;
+  icon: React.ReactNode;
+  active: string;
+}[] = [
+  { value: "present", label: "Present", icon: <Check className="h-4 w-4" />, active: "bg-emerald-500 text-white hover:bg-emerald-500/90" },
+  { value: "absent", label: "Absent", icon: <X className="h-4 w-4" />, active: "bg-rose-500 text-white hover:bg-rose-500/90" },
+  { value: "late", label: "Late", icon: <Clock className="h-4 w-4" />, active: "bg-amber-500 text-white hover:bg-amber-500/90" },
+  { value: "medical", label: "Medical", icon: <HeartPulse className="h-4 w-4" />, active: "bg-sky-500 text-white hover:bg-sky-500/90" },
+  { value: "leave", label: "Leave", icon: <Plane className="h-4 w-4" />, active: "bg-indigo-500 text-white hover:bg-indigo-500/90" },
+];
 
 interface Props {
   schedule: ClassSchedule | null;
@@ -20,24 +57,59 @@ interface Props {
   onOpenChange: (v: boolean) => void;
 }
 
-// Teacher class-attendance sheet. Reuses the roster + fee-due + previous status
-// from classAttendanceService; submitting drives the existing student-attendance
-// pipeline (parent WhatsApp) + completes the class.
 export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenChange }) => {
   const { data, isLoading } = useClassRoster(open ? schedule?.id : undefined);
   const submit = useSubmitClassAttendance();
+  const autosave = useAutosaveClassAttendance();
   const [rows, setRows] = useState<ClassRosterRow[]>([]);
+  const [dirty, setDirty] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (data?.rows) setRows(data.rows);
+    if (data?.rows) {
+      setRows(data.rows);
+      setDirty(false);
+    }
   }, [data]);
 
-  const setStatus = (studentId: string, status: "present" | "absent") =>
-    setRows((rs) => rs.map((r) => (r.studentId === studentId ? { ...r, status } : r)));
-  const setRemark = (studentId: string, remarks: string) =>
-    setRows((rs) => rs.map((r) => (r.studentId === studentId ? { ...r, remarks } : r)));
+  // Debounced auto-save — persists the per-class marks only (no comms, no
+  // completion), so a lost connection mid-sheet never costs the teacher work.
+  useEffect(() => {
+    if (!dirty || !schedule?.id || rows.length === 0) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      autosave.mutate(
+        { classScheduleId: schedule.id, rows },
+        {
+          onSuccess: () => {
+            setSavedAt(new Date().toLocaleTimeString());
+            setDirty(false);
+          },
+        },
+      );
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // `autosave` is a stable mutation object; re-running on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, dirty, schedule?.id]);
 
-  const presentCount = rows.filter((r) => r.status === "present").length;
+  const setStatus = (studentId: string, status: ClassAttendanceStatus) => {
+    setRows((rs) => rs.map((r) => (r.studentId === studentId ? { ...r, status } : r)));
+    setDirty(true);
+  };
+  const setRemark = (studentId: string, remarks: string) => {
+    setRows((rs) => rs.map((r) => (r.studentId === studentId ? { ...r, remarks } : r)));
+    setDirty(true);
+  };
+  const markAll = (status: ClassAttendanceStatus) => {
+    setRows((rs) => rs.map((r) => ({ ...r, status })));
+    setDirty(true);
+  };
+
+  const presentCount = rows.filter((r) => !ABSENT_LIKE.includes(r.status)).length;
 
   const handleSubmit = async () => {
     if (!schedule || !data?.batchId || !data.date) {
@@ -61,7 +133,7 @@ export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             Class Attendance —{" "}
@@ -79,41 +151,61 @@ export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenC
           </p>
         ) : (
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>{rows.length} students</span>
-              <span>{presentCount} present · {rows.length - presentCount} absent</span>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {rows.length} students · {presentCount} in class · {rows.length - presentCount} away
+              </span>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => markAll("present")}>
+                  Mark all present
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {dirty || autosave.isPending ? (
+                    <span className="flex items-center gap-1">
+                      <Save className="h-3 w-3 animate-pulse" /> saving…
+                    </span>
+                  ) : savedAt ? (
+                    `saved ${savedAt}`
+                  ) : (
+                    ""
+                  )}
+                </span>
+              </div>
             </div>
+
             {rows.map((r) => (
               <div key={r.studentId} className="rounded-md border px-3 py-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium truncate">{r.studentName}</span>
-                      {r.rollNumber && (
-                        <span className="text-xs text-muted-foreground">#{r.rollNumber}</span>
-                      )}
-                      {r.feeDue && (
-                        <Badge variant="outline" className="text-amber-500 gap-1">
-                          <AlertCircle className="h-3 w-3" /> Fee due
-                        </Badge>
-                      )}
-                    </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium truncate">{r.studentName}</span>
+                    {r.rollNumber && (
+                      <span className="text-xs text-muted-foreground">#{r.rollNumber}</span>
+                    )}
+                    {r.feeDue && (
+                      <Badge variant="outline" className="text-amber-500 gap-1">
+                        <AlertCircle className="h-3 w-3" /> Fee due
+                      </Badge>
+                    )}
+                    {r.previousStatus && r.previousStatus !== "present" && (
+                      <Badge variant="outline" className="text-xs">
+                        last: {r.previousStatus}
+                      </Badge>
+                    )}
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      size="sm"
-                      variant={r.status === "present" ? "default" : "outline"}
-                      onClick={() => setStatus(r.studentId, "present")}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={r.status === "absent" ? "destructive" : "outline"}
-                      onClick={() => setStatus(r.studentId, "absent")}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                  <div className="flex flex-wrap gap-1 shrink-0">
+                    {OPTIONS.map((o) => (
+                      <Button
+                        key={o.value}
+                        size="sm"
+                        variant="outline"
+                        title={o.label}
+                        className={r.status === o.value ? o.active : undefined}
+                        onClick={() => setStatus(r.studentId, o.value)}
+                      >
+                        {o.icon}
+                        <span className="ml-1 hidden sm:inline text-xs">{o.label}</span>
+                      </Button>
+                    ))}
                   </div>
                 </div>
                 <Input
@@ -129,12 +221,9 @@ export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenC
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            Close
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={submit.isPending || rows.length === 0}
-          >
+          <Button onClick={handleSubmit} disabled={submit.isPending || rows.length === 0}>
             Submit Attendance
           </Button>
         </DialogFooter>

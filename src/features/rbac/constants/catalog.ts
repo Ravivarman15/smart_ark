@@ -234,6 +234,12 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "academics.workload",    label: "Teacher Workload",   route: "/coordinator/scheduling" },
       // Teacher — read-only view of their own classes + salary hours.
       { id: "academics.my_classes",  label: "My Classes",         route: "/teacher/my-classes" },
+      // Phase 3 — realtime class tracking, analytics, reports and audit.
+      { id: "academics.monitor",     label: "Class Control Center", route: "/coordinator/monitor" },
+      { id: "academics.analytics",   label: "Faculty Analytics",  route: "/management/faculty-analytics" },
+      // Reports + audit live inside the analytics / control-center pages.
+      { id: "academics.reports",     label: "Faculty Reports" },
+      { id: "academics.audit",       label: "Class Audit Trail" },
     ],
   },
   {
