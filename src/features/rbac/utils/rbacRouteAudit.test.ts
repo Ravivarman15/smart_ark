@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { auditRbacRoutes } from "./rbacRouteAudit";
-import { SHARED_ROUTES } from "@/core/routing/sharedRoutes";
+import {
+  SHARED_ROUTES,
+  getNativeSubmoduleClaims,
+} from "@/core/routing/sharedRoutes";
 import { SUBMODULES_BY_ID } from "../constants/catalog";
 import type { Role } from "@/core/constants/roles";
 
@@ -58,6 +61,52 @@ describe("RBAC route consistency", () => {
   it("passes the overall route audit with zero errors", () => {
     const errors = report.findings.filter((f) => f.severity === "error");
     expect(report.ok, errors.map((f) => `[${f.kind}] ${f.detail}`).join("\n")).toBe(true);
+  });
+
+  // ── Coordinator portal parity ──────────────────────────────────────────────
+  // Every submodule that has a real page under SOME layout must also resolve to
+  // a real page under /coordinator. Without this gate, a module shipped for
+  // admin/management only silently regresses the coordinator portal: the Role
+  // Center happily grants the submodule, useNavigation can't find a coordinator
+  // path, and the link dead-ends on coming-soon.
+  //
+  // If a page is genuinely admin-only, add its submodule id to
+  // COORDINATOR_EXEMPT with a reason — the exemption should be a decision, not
+  // an oversight.
+  it("mounts every implemented submodule under the coordinator layout", () => {
+    const COORDINATOR_EXEMPT = new Set<string>([
+      // Parent Accounts provisions Parent Portal logins by invoking the
+      // `student-parent-accounts` edge function, which hard-gates to
+      // management|admin server-side (403 otherwise). Mounting it for a
+      // coordinator would render a console whose every button fails — worse
+      // than the page being absent. Deliberate, not an oversight.
+      "authentication.parent_accounts",
+    ]);
+
+    const reachableFor = (role: Role): Set<string> =>
+      new Set<string>([
+        ...getNativeSubmoduleClaims(role),
+        ...SHARED_ROUTES.filter((r) => matchesLayout(r.layouts, role))
+          .map((r) => r.submodule)
+          .filter((s): s is string => !!s),
+      ]);
+
+    const implementedSomewhere = new Set<string>();
+    for (const role of ROLES)
+      for (const id of reachableFor(role)) implementedSomewhere.add(id);
+
+    const coordinator = reachableFor("coordinator");
+    const gap = [...implementedSomewhere].filter(
+      (id) => !coordinator.has(id) && !COORDINATOR_EXEMPT.has(id),
+    );
+
+    expect(
+      gap,
+      `These submodules have a working page for another role but land on ` +
+        `coming-soon for coordinator. Add a SHARED_ROUTES row with ` +
+        `layouts: ["coordinator"] (or list it in COORDINATOR_EXEMPT):\n` +
+        gap.join("\n"),
+    ).toEqual([]);
   });
 
   // ── Per-module route verification (the spec's explicit checklist) ──────────

@@ -6,6 +6,7 @@ export { queryKeys } from "./constants/queryKeys";
 export { AppProviders } from "./providers/AppProviders";
 export { QueryProvider } from "./providers/QueryProvider";
 export { ProtectedRoute } from "./routing/ProtectedRoute";
+export { ParentProtectedRoute } from "./routing/ParentProtectedRoute";
 export { AuthRedirect } from "./routing/AuthRedirect";
 export { usePermissions, PermissionGate } from "./permissions";
 export {

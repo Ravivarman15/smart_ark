@@ -516,6 +516,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     roles: adminMgmt,
     items: [
       ...sub("authentication.account_health", "Account Health", { admin: "/admin/authentication/account-health", management: "/management/authentication/account-health" }, adminMgmt),
+      ...sub("authentication.parent_accounts", "Parent Accounts", { admin: "/admin/authentication/parent-accounts", management: "/management/authentication/parent-accounts" }, adminMgmt),
     ],
   },
 

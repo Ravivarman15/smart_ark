@@ -87,4 +87,66 @@ describe("AuthRedirect Component", () => {
     const nav = screen.getByTestId("navigate");
     expect(nav.getAttribute("data-to")).toBe("/admin");
   });
+
+  // ── Parent Portal ────────────────────────────────────────────────────────
+  it("should send a parent session to /parent", () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      isParentAuthenticated: true,
+      loading: false,
+    });
+    mockUsePermissions.mockReturnValue({ isLoading: false });
+    mockUseHomeRoute.mockReturnValue("/admin");
+
+    render(
+      <MemoryRouter>
+        <AuthRedirect />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId("navigate").getAttribute("data-to")).toBe("/parent");
+  });
+
+  it("should NOT stall a parent behind the staff RBAC gate", () => {
+    // Staff permissions are keyed on a `profiles` row, which a parent does not
+    // have — so `permissionsLoading` never resolves for them. Ordering the
+    // parent branch before that gate is what stops the portal hanging on a
+    // splash screen forever.
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      isParentAuthenticated: true,
+      loading: false,
+    });
+    mockUsePermissions.mockReturnValue({ isLoading: true });
+    mockUseHomeRoute.mockReturnValue("/admin");
+
+    render(
+      <MemoryRouter>
+        <AuthRedirect />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId("navigate").getAttribute("data-to")).toBe("/parent");
+  });
+
+  it("should still prefer the STAFF portal when somehow both resolve", () => {
+    // Defensive: the two principals are mutually exclusive by construction
+    // (a parent has no profiles row). If that invariant were ever broken, the
+    // staff portal must win — it is the one gated by an explicit role check.
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isParentAuthenticated: false,
+      loading: false,
+    });
+    mockUsePermissions.mockReturnValue({ isLoading: false });
+    mockUseHomeRoute.mockReturnValue("/management");
+
+    render(
+      <MemoryRouter>
+        <AuthRedirect />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId("navigate").getAttribute("data-to")).toBe("/management");
+  });
 });

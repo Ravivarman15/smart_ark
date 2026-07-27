@@ -17,6 +17,29 @@ export interface User {
   campusId?: string;
 }
 
+/**
+ * A parent principal — a `parent_auth_accounts` row backed by a real
+ * auth.users session, NOT a `profiles` row.
+ *
+ * Kept deliberately separate from `User`: every staff surface in the app reads
+ * `user` and branches on `user.role`, so widening that union would have forced
+ * a "parent" case into ~200 call sites. A parent instead leaves `user === null`
+ * and surfaces here, which means the staff portals are structurally incapable
+ * of rendering for a parent.
+ */
+export interface ParentIdentity {
+  /** parent_auth_accounts.id */
+  accountId: string;
+  /** auth.users.id */
+  userId: string;
+  name: string;
+  email: string;
+  mobile?: string;
+}
+
+/** Which portal the current session belongs to. */
+export type PortalKind = "staff" | "parent";
+
 // Minimal session bookkeeping. The reactive role/name/campus live in the
 // React Query cache (`current-profile` key) so the realtime layer can refresh
 // them without an explicit setUser call.
@@ -26,10 +49,18 @@ interface AuthSession {
 }
 
 interface AuthContextType {
+  /** The STAFF principal. `null` for a parent session — see ParentIdentity. */
   user: User | null;
+  /** The PARENT principal. `null` for a staff session. */
+  parent: ParentIdentity | null;
+  /** Which portal this session belongs to; `null` while signed out. */
+  portal: PortalKind | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  /** True for a STAFF session only — preserves every existing call site. */
   isAuthenticated: boolean;
+  /** True for a PARENT session only. */
+  isParentAuthenticated: boolean;
   loading: boolean;
 }
 
@@ -37,6 +68,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Public so the realtime layer can invalidate the same key.
 export const CURRENT_PROFILE_QUERY_KEY = ["current-profile"] as const;
+export const CURRENT_PARENT_QUERY_KEY = ["current-parent"] as const;
 
 interface DbProfile {
   id: string;
@@ -61,6 +93,38 @@ const pickCampusName = (c: DbProfile["campuses"]): string | undefined => {
   return row?.name ?? undefined;
 };
 
+interface DbParentAccount {
+  id: string;
+  name: string | null;
+  email: string | null;
+  login_email: string | null;
+  mobile: string | null;
+  status: string | null;
+}
+
+/**
+ * Resolve the parent account behind an auth session.
+ *
+ * Only an `active` account resolves — a disabled or locked parent is treated
+ * exactly like an unknown user and gets signed out, matching the RLS helper
+ * `current_parent_account_id()` which also filters on status. The two must
+ * agree, otherwise a suspended parent would hold a UI session that reads
+ * nothing and shows empty pages instead of being logged out.
+ *
+ * Returns `undefined` before the auth tables are migrated so a pre-migration
+ * database degrades to "staff only" instead of erroring on every login.
+ */
+async function loadParentByAuthId(authUserId: string): Promise<DbParentAccount | null> {
+  const { data, error } = await supabase
+    .from("parent_auth_accounts" as never)
+    .select("id, name, email, login_email, mobile, status")
+    .eq("user_id", authUserId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as unknown as DbParentAccount;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [bootstrapping, setBootstrapping] = useState(true);
@@ -76,17 +140,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     staleTime: 60_000,
   });
 
-  // Sign out on missing profile — a session without a profile causes a silent
-  // redirect loop. Behave the same way the old fetchProfile did.
+  // Parent fallback. Only runs once the profile lookup has settled EMPTY, so a
+  // staff login still costs exactly one round trip — the overwhelmingly common
+  // case pays nothing for the portal existing.
+  const noProfile = !!session && profileQuery.isFetched && !profileQuery.data;
+  const parentQuery = useQuery({
+    queryKey: session
+      ? [...CURRENT_PARENT_QUERY_KEY, session.authUserId]
+      : CURRENT_PARENT_QUERY_KEY,
+    queryFn: () => loadParentByAuthId(session!.authUserId),
+    enabled: noProfile,
+    staleTime: 60_000,
+  });
+
+  // Sign out on an unrecognised session — one that maps to neither a staff
+  // profile NOR an active parent account. Without this an orphaned auth.users
+  // row causes a silent redirect loop.
+  //
+  // The parent branch is what makes the portal possible at all: previously ANY
+  // session lacking a `profiles` row was force-signed-out, so a provisioned
+  // parent could authenticate and would then be ejected before reaching a page.
   useEffect(() => {
     if (!session) return;
-    if (profileQuery.isLoading) return;
-    if (!profileQuery.data && profileQuery.isFetched) {
-      console.error("[AuthContext] No profile found for user", session.authUserId);
-      void supabase.auth.signOut();
-      setSession(null);
-    }
-  }, [session, profileQuery.data, profileQuery.isLoading, profileQuery.isFetched]);
+    if (profileQuery.isLoading || !profileQuery.isFetched) return;
+    if (profileQuery.data) return;                     // staff — fine
+    if (parentQuery.isLoading || !parentQuery.isFetched) return;
+    if (parentQuery.data) return;                      // parent — fine
+
+    console.error("[AuthContext] No profile or parent account for user", session.authUserId);
+    void supabase.auth.signOut();
+    setSession(null);
+  }, [
+    session,
+    profileQuery.data, profileQuery.isLoading, profileQuery.isFetched,
+    parentQuery.data, parentQuery.isLoading, parentQuery.isFetched,
+  ]);
 
   const user = useMemo<User | null>(() => {
     if (!session || !profileQuery.data) return null;
@@ -102,6 +190,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [session, profileQuery.data]);
 
+  const parent = useMemo<ParentIdentity | null>(() => {
+    if (!session || !parentQuery.data) return null;
+    const p = parentQuery.data;
+    return {
+      accountId: p.id,
+      userId: session.authUserId,
+      name: p.name || "Parent",
+      email: p.email || p.login_email || session.email,
+      mobile: p.mobile || undefined,
+    };
+  }, [session, parentQuery.data]);
+
   // Listen to auth state changes
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
@@ -115,8 +215,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTimeout(() => setSession({ authUserId: s.user.id, email: s.user.email || "" }), 0);
       } else {
         setSession(null);
-        // Drop any cached profile so a re-login doesn't briefly show the old user.
+        // Drop any cached identity so a re-login doesn't briefly show the old
+        // user — and, more importantly, so a staff login immediately after a
+        // parent logout can never inherit the parent's cached account.
         qc.removeQueries({ queryKey: CURRENT_PROFILE_QUERY_KEY });
+        qc.removeQueries({ queryKey: CURRENT_PARENT_QUERY_KEY });
       }
     });
 
@@ -135,12 +238,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
     setSession(null);
     qc.removeQueries({ queryKey: CURRENT_PROFILE_QUERY_KEY });
+    qc.removeQueries({ queryKey: CURRENT_PARENT_QUERY_KEY });
   }, [qc]);
 
-  const loading = bootstrapping || (!!session && profileQuery.isLoading);
+  // Stay "loading" through the parent fallback too, otherwise a parent session
+  // would momentarily present as fully-resolved-and-unauthenticated and every
+  // ProtectedRoute would bounce it to /login before the account resolved.
+  const loading =
+    bootstrapping ||
+    (!!session && profileQuery.isLoading) ||
+    (noProfile && parentQuery.isLoading);
+
+  const portal: PortalKind | null = user ? "staff" : parent ? "parent" : null;
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        parent,
+        portal,
+        login,
+        logout,
+        isAuthenticated: !!user,
+        isParentAuthenticated: !!parent,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

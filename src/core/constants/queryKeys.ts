@@ -383,6 +383,40 @@ export const queryKeys = {
     timeline: (target: Record<string, unknown>) =>
       [...queryKeys.communication.all, "timeline", target] as const,
   },
+  // Parent Portal. Every key is namespaced by the CHILD id (not the parent),
+  // because that is the cache's real partition: switching child must never
+  // serve another child's cached page, and a realtime row carries a
+  // student_id — never a parent_account_id — so targeted invalidation has to
+  // key on the same thing.
+  parentPortal: {
+    all: ["parent-portal"] as const,
+    children: (parentAccountId: string) =>
+      [...queryKeys.parentPortal.all, "children", parentAccountId] as const,
+    overview: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "overview", studentId] as const,
+    academics: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "academics", studentId] as const,
+    attendance: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "attendance", studentId] as const,
+    exams: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "exams", studentId] as const,
+    fees: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "fees", studentId] as const,
+    schedule: (studentId: string, date: string) =>
+      [...queryKeys.parentPortal.all, "schedule", studentId, date] as const,
+    liveClasses: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "live-classes", studentId] as const,
+    communication: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "communication", studentId] as const,
+    documents: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "documents", studentId] as const,
+    timeline: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "timeline", studentId] as const,
+    assistant: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "assistant", studentId] as const,
+    preferences: (parentAccountId: string) =>
+      [...queryKeys.parentPortal.all, "preferences", parentAccountId] as const,
+  },
   authAccounts: {
     all: ["auth-accounts"] as const,
     students: () => [...queryKeys.authAccounts.all, "students"] as const,

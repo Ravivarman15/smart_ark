@@ -32,15 +32,61 @@ const generateTempPassword = (): string => {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lower = "abcdefghijkmnpqrstuvwxyz";
   const digits = "23456789";
-  const all = upper + lower + digits;
+  // SYMBOLS ARE NOT OPTIONAL. Supabase Auth lets a project require
+  // "lowercase, uppercase, digits AND symbols"; when that is set, a password
+  // drawn only from letters+digits is rejected and auth.admin.createUser fails
+  // with `create_failed` for EVERY account — regardless of the email, which is
+  // what makes it look like an email problem. Guaranteeing one of each class
+  // satisfies the strictest policy and is harmless under the loosest.
+  //
+  // Restricted to characters that survive being read aloud over the phone,
+  // pasted into a WhatsApp message, and embedded in an email — no quotes,
+  // backslashes or angle brackets.
+  const symbols = "!@#$%*-_+=?";
+  const all = upper + lower + digits + symbols;
   const pick = (set: string) => set[crypto.getRandomValues(new Uint32Array(1))[0] % set.length];
-  const chars = [pick(upper), pick(lower), pick(digits)];
-  for (let i = chars.length; i < 14; i++) chars.push(pick(all));
+  const chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
+  for (let i = chars.length; i < 16; i++) chars.push(pick(all));
   for (let i = chars.length - 1; i > 0; i--) {
     const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
     [chars[i], chars[j]] = [chars[j], chars[i]];
   }
   return chars.join("");
+};
+
+/**
+ * Flatten a Supabase auth error into something a human can act on.
+ *
+ * `AuthError.message` is sometimes empty and the useful part lives in `status`
+ * / `code` / `name`. Returning only `.message` is what surfaced in the UI as a
+ * bare "{}" with no reason attached.
+ */
+const describeAuthError = (e: unknown): { message: string; detail: Record<string, unknown> } => {
+  const err = (e ?? {}) as Record<string, unknown>;
+  const raw = typeof err.message === "string" ? err.message.trim() : "";
+  const status = err.status ?? err.statusCode;
+  const code = err.code ?? err.error_code;
+  const name = err.name;
+
+  let message = raw;
+  if (!message) {
+    message = code
+      ? `Auth rejected the request (${String(code)}).`
+      : status
+        ? `Auth rejected the request (HTTP ${String(status)}).`
+        : "Auth rejected the request without giving a reason.";
+  }
+
+  // Turn the two most common causes into instructions rather than jargon.
+  if (/password/i.test(message) && /requirement|weak|short|strength|character/i.test(message)) {
+    message =
+      `The generated password was rejected by this project's password policy: ${message}. ` +
+      `Check Authentication → Policies in the Supabase dashboard.`;
+  } else if (/already|exists|registered|duplicate/i.test(message)) {
+    message = `That email address is already registered to another account: ${message}`;
+  }
+
+  return { message, detail: { name, status, code, raw } };
 };
 
 const slugUsername = (name: string, salt: string): string => {
@@ -111,7 +157,13 @@ Deno.serve(async (req) => {
         user_metadata: { role: "student", student_id: studentId, name: stu.name },
       });
       if (createErr || !created?.user) {
-        return jsonResponse(200, { ok: false, reason: "create_failed", message: createErr?.message ?? "Could not create login" });
+        const described = describeAuthError(createErr);
+        return jsonResponse(200, {
+          ok: false,
+          reason: "create_failed",
+          message: described.message,
+          detail: { ...described.detail, attemptedLoginEmail: loginEmail },
+        });
       }
 
       const row = {
@@ -144,7 +196,17 @@ Deno.serve(async (req) => {
         email: loginEmail, password, email_confirm: true,
         user_metadata: { role: "parent", name },
       });
-      if (createErr || !created?.user) return jsonResponse(200, { ok: false, reason: "create_failed", message: createErr?.message ?? "Could not create login" });
+      if (createErr || !created?.user) {
+        const described = describeAuthError(createErr);
+        return jsonResponse(200, {
+          ok: false,
+          reason: "create_failed",
+          message: described.message,
+          // Echo what was ATTEMPTED — without this, a failure is undiagnosable
+          // from the client because it cannot see the synthesised login email.
+          detail: { ...described.detail, attemptedLoginEmail: loginEmail, usedProvidedEmail: !!body?.email },
+        });
+      }
 
       const { data: acct, error: upErr } = await supabase.from("parent_auth_accounts").insert({
         user_id: created.user.id, name, username, login_email: loginEmail,

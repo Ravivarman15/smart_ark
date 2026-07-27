@@ -1,6 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AppProviders, ProtectedRoute, AuthRedirect, type Role } from "@/core";
+import {
+  AppProviders,
+  ProtectedRoute,
+  ParentProtectedRoute,
+  AuthRedirect,
+  type Role,
+} from "@/core";
 import { renderSharedRoutes } from "@/core/routing/sharedRoutes";
 
 import { Suspense } from "react";
@@ -214,6 +220,8 @@ const PayMySalary = lazy(() => import("./features/payroll/pages/MySalaryPage"));
 
 // Authentication module (student/parent account health) — feature-based
 const AuthAccountHealth = lazy(() => import("./features/auth-accounts/pages/AccountHealthPage"));
+// Parent Accounts — the provisioning console for Parent Portal logins.
+const AuthParentAccounts = lazy(() => import("./features/auth-accounts/pages/ParentAccountsPage"));
 
 // Exam module pages (feature-based — src/features/exams)
 const ManageManualExamPage = lazy(() => import("./features/exams/pages/ManageManualExamPage"));
@@ -300,6 +308,37 @@ const MyLiveClassPage = lazy(() =>
   import("./features/liveclass/pages/LiveClassPages").then((m) => ({
     default: m.MyLiveClassPage,
   })),
+);
+
+// ── Parent Portal (src/features/parent-portal) ──────────────────────────────
+// Lazy-loaded as its own chunk: no staff session ever downloads it, and a
+// parent never downloads the staff portals.
+const ParentShellLayout = lazy(
+  () => import("./features/parent-portal/layouts/ParentShellLayout"),
+);
+const ParentHomePage = lazy(() => import("./features/parent-portal/pages/ParentHomePage"));
+const ParentProfilePage = lazy(() => import("./features/parent-portal/pages/ParentProfilePage"));
+const ParentAcademicsPage = lazy(
+  () => import("./features/parent-portal/pages/ParentAcademicsPage"),
+);
+const ParentAttendancePage = lazy(
+  () => import("./features/parent-portal/pages/ParentAttendancePage"),
+);
+const ParentClassesPage = lazy(() => import("./features/parent-portal/pages/ParentClassesPage"));
+const ParentExamsPage = lazy(() => import("./features/parent-portal/pages/ParentExamsPage"));
+const ParentFeesPage = lazy(() => import("./features/parent-portal/pages/ParentFeesPage"));
+const ParentMessagesPage = lazy(() => import("./features/parent-portal/pages/ParentMessagesPage"));
+const ParentDocumentsPage = lazy(
+  () => import("./features/parent-portal/pages/ParentDocumentsPage"),
+);
+const ParentTimelinePage = lazy(() => import("./features/parent-portal/pages/ParentTimelinePage"));
+const ParentAssistantPage = lazy(
+  () => import("./features/parent-portal/pages/ParentAssistantPage"),
+);
+const ParentServicesPage = lazy(() => import("./features/parent-portal/pages/ParentServicesPage"));
+const ParentReportsPage = lazy(() => import("./features/parent-portal/pages/ParentReportsPage"));
+const ParentSettingsPage = lazy(
+  () => import("./features/parent-portal/pages/ParentSettingsPage"),
 );
 
 // Settings module
@@ -552,6 +591,7 @@ const AppRoutes: React.FC = () => (
         <Route path="communication/timeline" element={<CommTimeline />} />
         {/* Authentication module routes — feature-based */}
         <Route path="authentication/account-health" element={<AuthAccountHealth />} />
+        <Route path="authentication/parent-accounts" element={<AuthParentAccounts />} />
         {/* Reports & Analytics routes */}
         <Route path="reports/timetable" element={<RptTimetable />} />
         <Route path="reports/student-inquiry" element={<RptStudentInquiry />} />
@@ -696,6 +736,7 @@ const AppRoutes: React.FC = () => (
         <Route path="communication/timeline" element={<CommTimeline />} />
         {/* Authentication module routes — feature-based, management-owned */}
         <Route path="authentication/account-health" element={<AuthAccountHealth />} />
+        <Route path="authentication/parent-accounts" element={<AuthParentAccounts />} />
         {/* Reports & Analytics routes — management-owned, full access */}
         <Route path="reports/timetable" element={<RptTimetable />} />
         <Route path="reports/student-inquiry" element={<RptStudentInquiry />} />
@@ -763,24 +804,55 @@ const AppRoutes: React.FC = () => (
         <Route path="enquiries" element={<EnquiryManagement />} />
         {leadRoutes()}
         <Route path="timetable" element={<TimetableView />} />
-        {studentRoutes()}
-        {attendanceRoutes()}
         <Route path="payroll/my-salary" element={<PayMySalary />} />
-        {/* Help & Support module routes — feature-based */}
-        <Route path="help" element={<HelpSupportRequest />} />
-        <Route path="help/new" element={<HelpSupportRequest />} />
-        <Route path="help/history" element={<HelpSupportHistory />} />
-        <Route path="help/history/:id" element={<HelpSupportHistory />} />
-        <Route path="help/feedback" element={<HelpPublicFeedbackBoard />} />
-        <Route path="help/feedback/new" element={<HelpFeedback />} />
-        <Route path="help/triage" element={<HelpManagementTriage />} />
-        <Route path="help/triage/:id" element={<HelpManagementTriage />} />
-        <Route path="coming-soon/:slug" element={<ComingSoon />} />
-        {/* RBAC-granted shared modules — Setup, Fee, Reports, Communication,
-            Finance, Exam, etc. SHARED_ROUTES entries with layouts:
-            ["coordinator", ...] auto-mount here so granting any module to
-            coordinator produces a working page, not coming-soon. */}
+        {/* Student, Attendance, Help and coming-soon are NOT declared here:
+            the shared registry mounts them for the coordinator layout. Adding
+            them natively too would register the same path twice and — worse —
+            leave getRoutePath() blind to them, which is exactly why granting
+            e.g. "Assign Class / Batch" or "Staff Manual Attendance" to a
+            coordinator used to land on coming-soon. */}
+        {/* RBAC-granted shared modules — Student, Attendance, Payroll, Setup,
+            Fee, Reports, Communication, Finance, Exam, Certificate, eStudy,
+            Live Class, Tasks, Help, Role Center, etc. SHARED_ROUTES entries
+            with layouts: ["coordinator", ...] auto-mount here so granting any
+            module to coordinator produces a working page, not coming-soon. */}
         {renderSharedRoutes("coordinator")}
+      </Route>
+
+      {/* ── Parent Portal ──────────────────────────────────────────────────
+          Guarded by ParentProtectedRoute, NOT ProtectedRoute: a parent is a
+          `parent_auth_accounts` principal, not a staff `profiles` role, so the
+          two guards are mutually exclusive by construction and neither portal
+          can fall through to the other.
+
+          No RBAC menu gate here. What a parent may see is decided by RLS
+          (`is_parent_of()`), not by a permission catalog — there is deliberately
+          nothing for an administrator to toggle per page. */}
+      <Route
+        path="/parent"
+        element={
+          <ParentProtectedRoute>
+            <ParentShellLayout />
+          </ParentProtectedRoute>
+        }
+      >
+        <Route index element={<ParentHomePage />} />
+        <Route path="profile" element={<ParentProfilePage />} />
+        <Route path="academics" element={<ParentAcademicsPage />} />
+        <Route path="attendance" element={<ParentAttendancePage />} />
+        <Route path="classes" element={<ParentClassesPage />} />
+        <Route path="exams" element={<ParentExamsPage />} />
+        <Route path="fees" element={<ParentFeesPage />} />
+        <Route path="messages" element={<ParentMessagesPage />} />
+        <Route path="documents" element={<ParentDocumentsPage />} />
+        <Route path="timeline" element={<ParentTimelinePage />} />
+        <Route path="assistant" element={<ParentAssistantPage />} />
+        <Route path="services" element={<ParentServicesPage />} />
+        <Route path="reports" element={<ParentReportsPage />} />
+        <Route path="settings" element={<ParentSettingsPage />} />
+        {/* Unknown /parent/* paths return to the dashboard rather than the
+            staff 404, which would look like a broken app to a parent. */}
+        <Route path="*" element={<Navigate to="/parent" replace />} />
       </Route>
 
       {/* Settings — role-agnostic shell at /settings/*. RBAC submodule gates

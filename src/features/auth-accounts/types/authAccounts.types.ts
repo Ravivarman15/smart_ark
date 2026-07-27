@@ -22,6 +22,17 @@ export interface StudentAuthAccount {
   lastLoginAt?: string;
 }
 
+/** A student attached to a parent account, resolved for display. */
+export interface LinkedChild {
+  studentId: string;
+  name: string;
+  className?: string;
+  section?: string;
+  enrolmentNo?: string;
+  relation?: string;
+  isPrimary: boolean;
+}
+
 export interface ParentAuthAccount {
   id: string;
   userId?: string;
@@ -32,6 +43,14 @@ export interface ParentAuthAccount {
   mobile?: string;
   status: AccountStatus;
   linkedStudentIds: string[];
+  /** Resolved children — populated by listParentAccounts(). */
+  children: LinkedChild[];
+  /**
+   * When true, the DB trigger mirrors the linked student's guardian fields
+   * onto this account. Flipped to false automatically on any manual edit.
+   */
+  autoSync?: boolean;
+  lastSyncedAt?: string;
 }
 
 /** Result of the server-side verify / provision (login proven or blocked). */
@@ -46,6 +65,14 @@ export interface AccountVerifyResult {
   loginVerified?: boolean;
   reason?: string;
   message?: string;
+  /**
+   * Raw server diagnostics (auth error name / status / code, the login email
+   * that was attempted). Surfaced in the UI behind a disclosure so a failure is
+   * always diagnosable without reading edge-function logs.
+   */
+  detail?: Record<string, unknown>;
+  /** Per-channel credential delivery outcome, when a send was attempted. */
+  deliveries?: { channel: "email" | "whatsapp"; ok: boolean; skipped?: boolean; message?: string }[];
 }
 
 export interface AccountHealthSnapshot {

@@ -63,7 +63,8 @@ describe("auth accounts — health snapshot", () => {
   });
   const par = (over: Partial<ParentAuthAccount>): ParentAuthAccount => ({
     id: over.id ?? "p", userId: over.userId, username: over.username, loginEmail: over.loginEmail,
-    status: over.status ?? "pending", linkedStudentIds: [],
+    status: over.status ?? "pending", linkedStudentIds: over.linkedStudentIds ?? [],
+    children: over.children ?? [],
   });
 
   it("counts created/missing/status and flags duplicates (ignoring synthetic emails)", () => {

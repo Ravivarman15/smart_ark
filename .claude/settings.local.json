@@ -80,7 +80,19 @@
       "Bash(python -)",
       "Bash(git stash *)",
       "Bash(grep -vE \"^\\\\s*$\")",
-      "Bash(grep -rn 'replace\\(/\\\\[\\\\^' src/features/exams/utils/paperParser.ts src/features/exams/services/questionPaperImport.service.ts)"
+      "Bash(grep -rn 'replace\\(/\\\\[\\\\^' src/features/exams/utils/paperParser.ts src/features/exams/services/questionPaperImport.service.ts)",
+      "PowerShell(npx vitest run src/test/__coordGap.test.ts --reporter=basic 2>&1 | Select-Object -First 200)",
+      "Bash(sed -i '520,630s/layouts: \\\\[\"teacher\"\\\\],/layouts: [\"coordinator\", \"teacher\"],/' src/core/routing/sharedRoutes.tsx)",
+      "Bash(sed -i '950,980s/layouts: \\\\[\"teacher\"\\\\],/layouts: [\"coordinator\", \"teacher\"],/' src/core/routing/sharedRoutes.tsx)",
+      "PowerShell(npx vitest run src/features/rbac/utils/rbacRouteAudit.test.ts src/test/useNavigation.test.tsx 2>&1 | Select-Object -Last 45)",
+      "PowerShell(npx tsc --noEmit -p tsconfig.app.json 2>&1 | Select-Object -Last 30)",
+      "PowerShell(npx tsc --noEmit -p tsconfig.app.json 2>&1 | Select-String -Pattern \"sharedRoutes|App.tsx|rbacRouteAudit\" ; echo \"--- count:\"; \\(npx tsc --noEmit -p tsconfig.app.json 2>&1 | Measure-Object -Line\\).Lines)",
+      "PowerShell(npx vitest run 2>&1 | Select-Object -Last 25)",
+      "PowerShell(npx vite build 2>&1 | Select-Object -Last 20)",
+      "PowerShell(npx eslint src/core/routing/sharedRoutes.tsx src/App.tsx src/features/rbac/utils/rbacRouteAudit.test.ts 2>&1 | Select-Object -Last 20)",
+      "Bash(grep -rn \"FOR SELECT TO authenticated USING \\(true\\)\\\\|FOR SELECT TO authenticated$\" supabase/migrations -A1)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(python -c ' *)"
     ]
   }
 }

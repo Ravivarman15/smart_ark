@@ -176,6 +176,96 @@ const RptAdmissionAnalysis = lazy(() => import("@/features/reports/pages/Admissi
 const RptFeeAnalysis = lazy(() => import("@/features/reports/pages/FeeAnalysisReportPage"));
 const RptProfitLossAnalysis = lazy(() => import("@/features/reports/pages/ProfitLossAnalysisPage"));
 
+// Attendance module — admin/management mount these natively in App.tsx; the
+// coordinator layout gets the whole module through the registry so every
+// attendance grant resolves to a real page instead of coming-soon.
+const AttDashboard = lazy(() => import("@/features/attendance/pages/AttendanceDashboardPage"));
+const AttMarkStudent = lazy(() => import("@/features/attendance/pages/MarkStudentAttendancePage"));
+const AttStudentRegister = lazy(() => import("@/features/attendance/pages/StudentRegisterPage"));
+const AttBackdated = lazy(() => import("@/features/attendance/pages/BackdatedAttendancePage"));
+const AttStudentCorrections = lazy(() => import("@/features/attendance/pages/StudentCorrectionsPage"));
+const AttStudentImport = lazy(() => import("@/features/attendance/pages/StudentAttendanceImportPage"));
+const AttStaffManual = lazy(() => import("@/features/attendance/pages/StaffManualAttendancePage"));
+const AttStaffCheckInOut = lazy(() => import("@/features/attendance/pages/StaffCheckInOutPage"));
+const AttWorkHours = lazy(() => import("@/features/attendance/pages/WorkHoursDashboardPage"));
+const AttStaffRegister = lazy(() => import("@/features/attendance/pages/StaffRegisterPage"));
+const AttStaffCorrections = lazy(() => import("@/features/attendance/pages/StaffCorrectionsPage"));
+const AttStaffImport = lazy(() => import("@/features/attendance/pages/StaffAttendanceImportPage"));
+const AttStudentAnalytics = lazy(() => import("@/features/attendance/analytics/pages/StudentAnalyticsPage"));
+const AttStaffAnalytics = lazy(() => import("@/features/attendance/analytics/pages/StaffAnalyticsPage"));
+const AttTrends = lazy(() => import("@/features/attendance/analytics/pages/AttendanceTrendsPage"));
+const AttRisk = lazy(() => import("@/features/attendance/analytics/pages/RiskAnalysisPage"));
+const AttWorkHoursAnalytics = lazy(() => import("@/features/attendance/analytics/pages/WorkHoursAnalyticsPage"));
+const AttReports = lazy(() => import("@/features/attendance/analytics/pages/AttendanceReportsPage"));
+const AttCompliance = lazy(() => import("@/features/attendance/governance/pages/ComplianceDashboardPage"));
+const AttLocks = lazy(() => import("@/features/attendance/governance/pages/LockPeriodsPage"));
+const AttClosing = lazy(() => import("@/features/attendance/governance/pages/MonthlyClosingPage"));
+const AttReopen = lazy(() => import("@/features/attendance/governance/pages/ReopenRequestsPage"));
+const AttApprovals = lazy(() => import("@/features/attendance/governance/pages/ApprovalQueuePage"));
+const AttAuditCenter = lazy(() => import("@/features/attendance/governance/pages/AuditCenterPage"));
+const AttHealth = lazy(() => import("@/features/attendance/governance/pages/AttendanceHealthPage"));
+const AttAutomation = lazy(() => import("@/features/attendance/automation/pages/AutomationCenterPage"));
+const AttStudentAlerts = lazy(() => import("@/features/attendance/automation/pages/StudentAlertsPage"));
+const AttStaffAlerts = lazy(() => import("@/features/attendance/automation/pages/StaffAlertsPage"));
+const AttCommsDashboard = lazy(() => import("@/features/attendance/automation/pages/AttendanceCommsDashboardPage"));
+const AttCommsReports = lazy(() => import("@/features/attendance/automation/pages/AttendanceCommsReportsPage"));
+const AttSettings = lazy(() => import("@/features/attendance/pages/AttendanceSettingsPage"));
+
+// Payroll module — admin/management mount natively; coordinator via registry.
+const PayDashboard = lazy(() => import("@/features/payroll/pages/PayrollDashboardPage"));
+const PayApproval = lazy(() => import("@/features/payroll/pages/PayrollApprovalCenterPage"));
+const PayRoleRates = lazy(() => import("@/features/payroll/pages/RoleRatesPage"));
+const PayStaffRates = lazy(() => import("@/features/payroll/pages/StaffRatesPage"));
+const PayShifts = lazy(() => import("@/features/payroll/pages/ShiftsPage"));
+const PayRules = lazy(() => import("@/features/payroll/pages/RulesPage"));
+const PayProcessing = lazy(() => import("@/features/payroll/pages/SalaryProcessingPage"));
+const PayRegister = lazy(() => import("@/features/payroll/pages/SalaryRegisterPage"));
+const PayAnalytics = lazy(() => import("@/features/payroll/pages/PayrollAnalyticsPage"));
+const PayAudit = lazy(() => import("@/features/payroll/pages/PayrollAuditPage"));
+const PaySettings = lazy(() => import("@/features/payroll/pages/PayrollSettingsPage"));
+
+// Certificate + shared eStudy surfaces
+const AddCertificatePage = lazy(() =>
+  import("@/features/certificates/pages/CertificatePages").then((m) => ({
+    default: m.AddCertificatePage,
+  })),
+);
+const ManageCertificatesPage = lazy(() =>
+  import("@/features/certificates/pages/CertificatePages").then((m) => ({
+    default: m.ManageCertificatesPage,
+  })),
+);
+const SharedStudyMaterialPage = lazy(() =>
+  import("@/features/estudy/pages/EStudyPages").then((m) => ({
+    default: m.SharedStudyMaterialPage,
+  })),
+);
+
+// Fee receipt communication centre
+const FeeCommunicationCenter = lazy(() => import("@/features/fee/pages/FeeCommunicationCenter"));
+
+// Communication admin surfaces (deployment / automation / timeline)
+const CommDeployment = lazy(() => import("@/features/communication/pages/CommunicationDeploymentPage"));
+const CommAutomation = lazy(() => import("@/features/communication/pages/AutomationSettingsPage"));
+const CommTimeline = lazy(() => import("@/features/communication/pages/CommunicationTimelinePage"));
+
+// Lead CRM — management-tier surfaces (dashboard, automation config, import)
+const ManagementLeadsPage = lazy(() => import("@/features/leads/pages/ManagementLeadsPage"));
+const LeadConfigPage = lazy(() => import("@/features/leads/pages/LeadConfigPage"));
+const LeadBulkImportPage = lazy(() => import("@/features/leads/pages/BulkImportPage"));
+
+// Staff attendance register + RBAC administration (Role Center)
+const StaffAttendanceBoard = lazy(() => import("@/pages/admin/TeacherCheckins"));
+const ManageModulePermissions = lazy(() => import("@/features/rbac/pages/ManageModulePermissions"));
+const PermissionDiagnostics = lazy(() => import("@/features/rbac/pages/PermissionDiagnosticsPage"));
+const SystemHealth = lazy(() => import("@/features/rbac/pages/SystemHealthPage"));
+const RoleCenterList = lazy(() => import("@/features/rbac/pages/RoleCenterListPage"));
+const RoleEditor = lazy(() => import("@/features/rbac/pages/RoleEditorPage"));
+
+// Academics / Allocation
+const StaffAllocation = lazy(() => import("@/pages/management/StaffAllocation"));
+const MyClassesPage = lazy(() => import("@/features/allocation/pages/MyClassesPage"));
+
 export interface SharedRouteDef {
   /** Path relative to the role layout root. No leading slash. */
   path: string;
@@ -414,115 +504,117 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
   },
 
   // ── Student ────────────────────────────────────────────────────────────
-  // Teacher-layout entries only — admin/management/coordinator mount
-  // these directly via studentRoutes() in App.tsx. When admin grants a
-  // teacher access to e.g. "student.attendance", useNavigation synthesizes
-  // /teacher/students/attendance and these entries make that path real
-  // instead of falling through to coming-soon.
+  // Coordinator + teacher layouts — admin/management still mount these
+  // directly via studentRoutes() in App.tsx. When RBAC grants e.g.
+  // "student.assign_batch" to a coordinator, useNavigation asks the registry
+  // for the path; these entries make /coordinator/students/assign-batch real
+  // instead of falling through to coming-soon. (The coordinator layout no
+  // longer calls studentRoutes() — the registry is its only student mount, so
+  // nothing is registered twice.)
   {
     path: "students",
     element: <ManageStudentsPage />,
     submodule: "student.manage",
     label: "Manage Student",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/registration",
     element: <StudentRegistrationPage />,
     submodule: "student.add",
     label: "Add Student Registration",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/import",
     element: <StudentsImportPage />,
     submodule: "student.import",
     label: "Students Import",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/assign-batch",
     element: <AssignBatchPage />,
     submodule: "student.assign_batch",
     label: "Assign Class / Batch",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/attendance",
     element: <StudentAttendancePage />,
     submodule: "student.attendance",
     label: "Student Attendance",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/documents",
     element: <ShareDocumentsPage />,
     submodule: "student.share_docs",
     label: "Share Documents",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/shared-documents",
     element: <ManageSharedDocumentsPage />,
     submodule: "student.manage_shared_docs",
     label: "Manage Shared Documents",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/leave",
     element: <StudentLeavePage />,
     submodule: "student.leave_request",
     label: "Manage Leave Request",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/year-transfer",
     element: <StudentYearTransferPage />,
     submodule: "student.year_transfer",
     label: "Student Year Transfer",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/untransfer",
     element: <StudentUntransferPage />,
     submodule: "student.untransfer",
     label: "Student Untransfer",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/chat",
     element: <StudentChatPage />,
     submodule: "student.chat",
     label: "Chat With Students",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/feedback",
     element: <StudentFeedbackPage />,
     submodule: "student.feedback",
     label: "Student Feedback",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/rights",
     element: <AppAccessRightsPage />,
     submodule: "student.rights",
     label: "Student Rights",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/app-access",
     element: <AppAccessRightsPage />,
     submodule: "student.app_access",
     label: "App. Access Rights",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "students/attendance-history",
     element: <AttendanceHistoryPage />,
     submodule: "student.attendance_history",
     label: "Attendance History",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   // Student detail (no submodule — accessed via "View" buttons from the
   // manage list). Mounted only under teacher; other roles get this via
@@ -531,8 +623,65 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     path: "students/:id",
     element: <StudentProfilePage />,
     label: "Student Profile",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
+
+  // ── Attendance (coordinator layout) ────────────────────────────────────
+  // Admin/management mount the module natively via attendanceRoutes() in
+  // App.tsx. The coordinator layout gets the full module here instead, so
+  // every attendance submodule the Role Center can grant resolves to a real
+  // page. (The coordinator block in App.tsx no longer calls attendanceRoutes()
+  // — these rows are its single mount, so nothing is registered twice.)
+  { path: "attendance/dashboard",              element: <AttDashboard />,           submodule: "attendance.dashboard",             label: "Attendance Dashboard",        layouts: ["coordinator"] },
+  { path: "attendance/students/mark",          element: <AttMarkStudent />,         submodule: "attendance.student_mark",          label: "Mark Student Attendance",     layouts: ["coordinator"] },
+  { path: "attendance/students/register",      element: <AttStudentRegister />,     submodule: "attendance.student_register",      label: "Student Attendance Register", layouts: ["coordinator"] },
+  { path: "attendance/students/backdated",     element: <AttBackdated />,           submodule: "attendance.student_backdated",     label: "Backdated Attendance",        layouts: ["coordinator"] },
+  { path: "attendance/students/corrections",   element: <AttStudentCorrections />,  submodule: "attendance.student_corrections",   label: "Attendance Corrections",      layouts: ["coordinator"] },
+  { path: "attendance/students/import",        element: <AttStudentImport />,       submodule: "attendance.student_import",        label: "Import Student Attendance",   layouts: ["coordinator"] },
+  { path: "attendance/staff/manual",           element: <AttStaffManual />,         submodule: "attendance.staff_manual",          label: "Staff Manual Attendance",     layouts: ["coordinator"] },
+  { path: "attendance/staff/check-in",         element: <AttStaffCheckInOut />,     submodule: "attendance.staff_checkin",         label: "Check In / Check Out",        layouts: ["coordinator"] },
+  { path: "attendance/staff/work-hours",       element: <AttWorkHours />,           submodule: "attendance.staff_hours",           label: "Work Hours Dashboard",        layouts: ["coordinator"] },
+  { path: "attendance/staff/register",         element: <AttStaffRegister />,       submodule: "attendance.staff_register",        label: "Staff Attendance Register",   layouts: ["coordinator"] },
+  { path: "attendance/staff/corrections",      element: <AttStaffCorrections />,    submodule: "attendance.staff_corrections",     label: "Staff Corrections",           layouts: ["coordinator"] },
+  { path: "attendance/staff/import",           element: <AttStaffImport />,         submodule: "attendance.staff_import",          label: "Import Staff Attendance",     layouts: ["coordinator"] },
+  { path: "attendance/analytics/students",     element: <AttStudentAnalytics />,    submodule: "attendance.analytics_students",    label: "Student Analytics",           layouts: ["coordinator"] },
+  { path: "attendance/analytics/staff",        element: <AttStaffAnalytics />,      submodule: "attendance.analytics_staff",       label: "Staff Analytics",             layouts: ["coordinator"] },
+  { path: "attendance/analytics/trends",       element: <AttTrends />,              submodule: "attendance.analytics_trends",      label: "Attendance Trends",           layouts: ["coordinator"] },
+  { path: "attendance/analytics/risk",         element: <AttRisk />,                submodule: "attendance.analytics_risk",        label: "Risk Analysis",               layouts: ["coordinator"] },
+  { path: "attendance/analytics/work-hours",   element: <AttWorkHoursAnalytics />,  submodule: "attendance.analytics_hours",       label: "Work Hours Analytics",        layouts: ["coordinator"] },
+  { path: "attendance/reports",                element: <AttReports />,             submodule: "attendance.reports",               label: "Attendance Reports",          layouts: ["coordinator"] },
+  { path: "attendance/governance/compliance",  element: <AttCompliance />,          submodule: "attendance.gov_compliance",        label: "Compliance Dashboard",        layouts: ["coordinator"] },
+  { path: "attendance/governance/locks",       element: <AttLocks />,               submodule: "attendance.gov_locks",             label: "Lock Periods",                layouts: ["coordinator"] },
+  { path: "attendance/governance/closing",     element: <AttClosing />,             submodule: "attendance.gov_closing",           label: "Monthly Closing",             layouts: ["coordinator"] },
+  { path: "attendance/governance/reopen",      element: <AttReopen />,              submodule: "attendance.gov_reopen",            label: "Reopen Requests",             layouts: ["coordinator"] },
+  { path: "attendance/governance/approvals",   element: <AttApprovals />,           submodule: "attendance.gov_approvals",         label: "Approval Queue",              layouts: ["coordinator"] },
+  { path: "attendance/governance/audit",       element: <AttAuditCenter />,         submodule: "attendance.gov_audit",             label: "Audit Center",                layouts: ["coordinator"] },
+  { path: "attendance/governance/health",      element: <AttHealth />,              submodule: "attendance.gov_health",            label: "Attendance Health",           layouts: ["coordinator"] },
+  { path: "attendance/automation",             element: <AttAutomation />,          submodule: "attendance.auto_center",           label: "Automation Center",           layouts: ["coordinator"] },
+  { path: "attendance/automation/students",    element: <AttStudentAlerts />,       submodule: "attendance.auto_students",         label: "Attendance Alerts",           layouts: ["coordinator"] },
+  { path: "attendance/automation/staff",       element: <AttStaffAlerts />,         submodule: "attendance.auto_staff",            label: "Staff Alerts",                layouts: ["coordinator"] },
+  { path: "attendance/communication",          element: <AttCommsDashboard />,      submodule: "attendance.comms_dashboard",       label: "Communication Dashboard",     layouts: ["coordinator"] },
+  { path: "attendance/communication/reports",  element: <AttCommsReports />,        submodule: "attendance.comms_reports",         label: "WhatsApp Reports",            layouts: ["coordinator"] },
+  { path: "attendance/settings",               element: <AttSettings />,            submodule: "attendance.settings",              label: "Attendance Settings",         layouts: ["coordinator"] },
+
+  // ── Payroll (coordinator layout) ───────────────────────────────────────
+  // Admin/management mount payroll natively via payrollRoutes(). Coordinator
+  // gets the same pages here — each row keeps the menu's action gate so a
+  // coordinator granted "Payroll Dashboard" without `payroll.dashboard`
+  // still can't open it by typing the URL.
+  { path: "payroll/dashboard",           element: <PayDashboard />,  submodule: "payroll.dashboard",   action: "payroll.dashboard",         label: "Payroll Dashboard",  layouts: ["coordinator"] },
+  { path: "payroll/approval",            element: <PayApproval />,   submodule: "payroll.approval",    action: "payroll.approve",           label: "Approval Center",    layouts: ["coordinator"] },
+  { path: "payroll/config/role-rates",   element: <PayRoleRates />,  submodule: "payroll.role_rates",  action: "payroll.salary_configure",  label: "Role Wise Salary",   layouts: ["coordinator"] },
+  { path: "payroll/config/staff-rates",  element: <PayStaffRates />, submodule: "payroll.staff_rates", action: "payroll.salary_configure",  label: "Staff Wise Salary",  layouts: ["coordinator"] },
+  { path: "payroll/config/shifts",       element: <PayShifts />,     submodule: "payroll.shifts",      action: "payroll.salary_configure",  label: "Shift Assignment",   layouts: ["coordinator"] },
+  { path: "payroll/config/rules",        element: <PayRules />,      submodule: "payroll.rules",       action: "payroll.salary_configure",  label: "Overtime & Rules",   layouts: ["coordinator"] },
+  { path: "payroll/processing",          element: <PayProcessing />, submodule: "payroll.processing",  action: "payroll.create",            label: "Salary Processing",  layouts: ["coordinator"] },
+  { path: "payroll/register",            element: <PayRegister />,   submodule: "payroll.register",    action: "payroll.salary_view_all",   label: "Salary Register",    layouts: ["coordinator"] },
+  { path: "payroll/analytics",           element: <PayAnalytics />,  submodule: "payroll.analytics",   action: "payroll.analytics",         label: "Payroll Analytics",  layouts: ["coordinator"] },
+  { path: "payroll/audit",               element: <PayAudit />,      submodule: "payroll.audit",       action: "payroll.audit",             label: "Payroll Audit",      layouts: ["coordinator"] },
+  { path: "payroll/settings",            element: <PaySettings />,   submodule: "payroll.settings",    action: "payroll.settings",          label: "Payroll Settings",   layouts: ["coordinator"] },
+  // payroll/my-salary stays a native coordinator/teacher mount in App.tsx —
+  // menu.config already gives every role a real path for it.
 
   // ── Enquiry / Leads ───────────────────────────────────────────────────
   // adminCoordMgmt are native (declared explicitly in App.tsx). The teacher
@@ -558,6 +707,31 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     label: "Assign Enquiry",
     layouts: ["teacher"],
   },
+  // Lead CRM — the coordinator layout mounts the counselor-facing pages
+  // natively via leadRoutes(); these are the management-tier surfaces a
+  // coordinator can be granted (org dashboard, automation config, import).
+  {
+    path: "leads/management",
+    element: <ManagementLeadsPage />,
+    submodule: "lead.management",
+    label: "Lead Management",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "leads/config",
+    element: <LeadConfigPage />,
+    submodule: "lead.config",
+    label: "Automation Config",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "leads/bulk-import",
+    element: <LeadBulkImportPage />,
+    submodule: "lead.bulk_import",
+    action: "bulk_import.view",
+    label: "Bulk Import",
+    layouts: ["coordinator"],
+  },
 
   // ── Fee (coordinator + teacher) ───────────────────────────────────────
   // adminMgmt are native via App.tsx. Coordinator/teacher get the same
@@ -575,6 +749,14 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     submodule: "fee.manage",
     label: "Manage Fees",
     layouts: ["coordinator", "teacher"],
+  },
+  // Fee receipt communication centre (auto email/WhatsApp receipt health).
+  {
+    path: "fees/communication",
+    element: <FeeCommunicationCenter />,
+    submodule: "fee.communication",
+    label: "Fee Communication",
+    layouts: ["coordinator"],
   },
 
   // ── Staff / User (coordinator + teacher) ─────────────────────────────
@@ -603,6 +785,82 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     submodule: "staff.action_rights",
     label: "Manage Staff Action Rights",
     layouts: ["management", "coordinator", "teacher"],
+  },
+  // Staff attendance register (admin: /admin/teacher-checkins, management:
+  // /management/staff-attendance). Coordinator gets the same board.
+  {
+    path: "staff-attendance",
+    element: <StaffAttendanceBoard />,
+    submodule: "staff.attendance",
+    label: "Staff Attendance",
+    layouts: ["coordinator"],
+  },
+  // Role Center / permission administration. Management owns these natively;
+  // a coordinator only reaches them when `staff.rights` is explicitly granted
+  // (the catalog default excludes coordinator), and LayoutAccessGate re-checks
+  // that grant on every direct URL hit.
+  {
+    path: "roles",
+    element: <RoleCenterList />,
+    submodule: "staff.rights",
+    label: "Manage Staff Role",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "roles/new",
+    element: <RoleEditor />,
+    submodule: "staff.rights",
+    label: "Create Staff Role",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "roles/:slug",
+    element: <RoleEditor />,
+    submodule: "staff.rights",
+    label: "Edit Staff Role",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "permissions",
+    element: <ManageModulePermissions />,
+    submodule: "staff.rights",
+    label: "Manage Module Permissions",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "permissions/diagnostics",
+    element: <PermissionDiagnostics />,
+    submodule: "staff.rights",
+    label: "Permission Diagnostics",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "system-health",
+    element: <SystemHealth />,
+    submodule: "staff.rights",
+    label: "System Health",
+    layouts: ["coordinator"],
+  },
+
+  // ── Academics / Allocation ────────────────────────────────────────────
+  // Scheduling / monitor / faculty-analytics are native coordinator mounts.
+  // These two close the remaining gaps: staff allocation (management-owned)
+  // and the personal "My Classes" view a teaching coordinator may be granted.
+  {
+    path: "allocation",
+    element: <StaffAllocation />,
+    submodule: "academics.allocation",
+    action: "academics.allocate_staff",
+    label: "Staff Allocation",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "my-classes",
+    element: <MyClassesPage />,
+    submodule: "academics.my_classes",
+    action: "academics.view_my_classes",
+    label: "My Classes",
+    layouts: ["coordinator"],
   },
 
   // ── Timetable (shared view; admin/mgmt/coord have explicit mounts) ───
@@ -697,6 +955,29 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     submodule: "whatsapp.credential_health",
     label: "Credential Health",
     layouts: ["coordinator", "teacher"],
+  },
+  // Deployment / automation / timeline — admin+management own these natively;
+  // coordinator reaches them through the registry when granted.
+  {
+    path: "communication/deployment-manager",
+    element: <CommDeployment />,
+    submodule: "whatsapp.deployment_manager",
+    label: "Deployment Manager",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "communication/automation",
+    element: <CommAutomation />,
+    submodule: "whatsapp.automation_settings",
+    label: "Communication Automation",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "communication/timeline",
+    element: <CommTimeline />,
+    submodule: "whatsapp.communication_timeline",
+    label: "Communication Timeline",
+    layouts: ["coordinator"],
   },
 
   // ── Authentication (student & parent accounts) ────────────────────────
@@ -852,7 +1133,8 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     element: <HelpTicketAnalytics />,
     submodule: "help.analytics",
     label: "Ticket analytics",
-    layouts: ["admin", "management"],
+    action: "help.analytics.view",
+    layouts: ["admin", "management", "coordinator"],
   },
 
   // ── eStudy (coordinator + teacher; admin/management mount natively) ──
@@ -861,7 +1143,7 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     element: <CreateStudyMaterialPage />,
     submodule: "estudy.create",
     label: "Create Study Material",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "estudy",
@@ -870,8 +1152,13 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     label: "Manage Study Material",
     layouts: ["coordinator", "teacher"],
   },
-  // estudy.shared is admin/management only per menu.config; no shared-layout
-  // mount needed here.
+  {
+    path: "estudy/shared",
+    element: <SharedStudyMaterialPage />,
+    submodule: "estudy.shared",
+    label: "Manage Shared Study Material",
+    layouts: ["coordinator"],
+  },
 
   // ── Live Class (coordinator + teacher; admin/management mount natively) ─
   {
@@ -879,7 +1166,7 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     element: <AddLiveClassPage />,
     submodule: "live.add",
     label: "Add Class",
-    layouts: ["teacher"],
+    layouts: ["coordinator", "teacher"],
   },
   {
     path: "live-classes",
@@ -896,7 +1183,21 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     layouts: ["coordinator", "teacher"],
   },
 
-  // ── Certificate — admin + management only, mounted natively in App.tsx ─
+  // ── Certificate (admin + management mount natively in App.tsx) ─────────
+  {
+    path: "certificates",
+    element: <ManageCertificatesPage />,
+    submodule: "certificate.manage",
+    label: "Manage Certificate",
+    layouts: ["coordinator"],
+  },
+  {
+    path: "certificates/add",
+    element: <AddCertificatePage />,
+    submodule: "certificate.add",
+    label: "Add Certificate",
+    layouts: ["coordinator"],
+  },
 
   // ── Tasks (coordinator + teacher; admin/management mount natively) ────
   {
