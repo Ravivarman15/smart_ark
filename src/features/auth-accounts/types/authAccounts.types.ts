@@ -51,6 +51,14 @@ export interface ParentAuthAccount {
    */
   autoSync?: boolean;
   lastSyncedAt?: string;
+  /**
+   * Set when the children could not be READ (not when there are none).
+   *
+   * "We don't know" and "there are none" must render differently: showing
+   * "No children linked" after a failed query told staff a linked child was
+   * missing and sent them to re-link an account that was already correct.
+   */
+  childrenError?: string;
 }
 
 /** Result of the server-side verify / provision (login proven or blocked). */
@@ -71,6 +79,13 @@ export interface AccountVerifyResult {
    * always diagnosable without reading edge-function logs.
    */
   detail?: Record<string, unknown>;
+  /**
+   * Set when the account was created but one or more children could not be
+   * attached. Distinct from `message`: the provision SUCCEEDED, so this must
+   * not be rendered as a failure — but a parent linked to nobody sees an empty
+   * portal, and staff have to be told.
+   */
+  linkWarning?: string;
   /** Per-channel credential delivery outcome, when a send was attempted. */
   deliveries?: { channel: "email" | "whatsapp"; ok: boolean; skipped?: boolean; message?: string }[];
 }

@@ -77,8 +77,12 @@ export const useProvisionParent = () => {
     }) => authAccountsService.createParent(input),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: queryKeys.authAccounts.all });
-      if (res.ok && res.loginVerified) toast.success("Parent account created & login verified");
-      else toast.error(res.message ?? accountReasonLabel(res.reason));
+      if (res.ok && res.loginVerified) {
+        toast.success("Parent account created & login verified");
+        // A created-but-unlinked account is a success that behaves like a
+        // failure the first time the parent signs in. Say so now.
+        if (res.linkWarning) toast.warning(res.linkWarning);
+      } else toast.error(res.message ?? accountReasonLabel(res.reason));
     },
     onError: (e: Error) => toast.error(e.message),
   });

@@ -122,6 +122,16 @@ const CredentialPanel = ({
           </div>
         </div>
 
+        {/* The account exists, so this is not a failure panel — but a parent
+            with no child attached signs in to an empty portal, and that has to
+            be visible at the moment of creation rather than discovered later. */}
+        {result.linkWarning && (
+          <p className="mt-3 text-[11px] text-amber-600 flex items-start gap-1.5">
+            <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+            <span>{result.linkWarning}</span>
+          </p>
+        )}
+
         {/* Delivery outcome per channel — so staff know whether they still
             need to read the password out over the phone. */}
         {result.deliveries && result.deliveries.length > 0 && (
@@ -634,7 +644,19 @@ export const ParentAccountsPage = () => {
                     </p>
 
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {p.children.length === 0 ? (
+                      {p.childrenError ? (
+                        // NOT "no children" — we could not read them. Claiming
+                        // the former sends staff to re-link an account that is
+                        // already correct.
+                        <span
+                          className="text-[11px] text-muted-foreground inline-flex items-start gap-1"
+                          title={p.childrenError}
+                        >
+                          <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                          Linked children could not be loaded — the list below is unknown, not
+                          empty. Apply the pending student-profile migration and reload.
+                        </span>
+                      ) : p.children.length === 0 ? (
                         <span className="text-[11px] text-amber-600 inline-flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" /> No children linked — this parent
                           sees an empty portal

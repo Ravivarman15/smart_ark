@@ -217,14 +217,37 @@ Deno.serve(async (req) => {
         return jsonResponse(200, { ok: false, reason: "row_failed", message: upErr.message });
       }
       const accountId = (acct as { id: string }).id;
-      for (const sid of studentIds) {
-        await supabase.from("parent_student_links").insert({ parent_account_id: accountId, student_id: sid }).then(() => {}, () => {});
+
+      // LINKING IS PART OF PROVISIONING, NOT A SIDE EFFECT.
+      // This loop previously ended in `.then(() => {}, () => {})`, discarding
+      // every error — so an account could be reported as fully created while
+      // linked to nobody, and the parent signed in to an empty portal with
+      // nothing anywhere explaining why. Report what actually happened.
+      const linkedStudentIds: string[] = [];
+      const linkFailures: { studentId: string; message: string }[] = [];
+      for (const [i, sid] of studentIds.entries()) {
+        const { error: linkErr } = await supabase.from("parent_student_links").insert({
+          parent_account_id: accountId,
+          student_id: sid,
+          relation: body?.relation ?? null,
+          is_primary: i === 0,
+        });
+        // The row already existing is the outcome we wanted.
+        if (linkErr && !/duplicate|unique/i.test(linkErr.message)) {
+          linkFailures.push({ studentId: sid, message: linkErr.message });
+        } else {
+          linkedStudentIds.push(sid);
+        }
       }
 
       const proof = await rotateAndProve(supabase, url, anonKey, created.user.id, loginEmail);
       await logAudit(supabase, { subject_type: "parent", account_id: accountId, user_id: created.user.id, event: "account_created", detail: `username ${username}` });
       if (!proof.ok) return jsonResponse(200, { ok: false, reason: proof.reason, message: `Account created but login could not be proven: ${proof.detail ?? ""}` });
-      return jsonResponse(200, { ok: true, accountId, userId: created.user.id, username, loginEmail, password: proof.password, loginVerified: true });
+      return jsonResponse(200, {
+        ok: true, accountId, userId: created.user.id, username, loginEmail,
+        password: proof.password, loginVerified: true,
+        linkedStudentIds, linkFailures,
+      });
     }
 
     // ── verify / reset_password (rotate + prove login, return creds) ───────

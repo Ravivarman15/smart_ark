@@ -92,7 +92,9 @@
       "PowerShell(npx eslint src/core/routing/sharedRoutes.tsx src/App.tsx src/features/rbac/utils/rbacRouteAudit.test.ts 2>&1 | Select-Object -Last 20)",
       "Bash(grep -rn \"FOR SELECT TO authenticated USING \\(true\\)\\\\|FOR SELECT TO authenticated$\" supabase/migrations -A1)",
       "Bash(awk '{print $5, $9}')",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(supabase --version)",
+      "Bash(echo \"--- TSC EXIT: $? ---\")"
     ]
   }
 }

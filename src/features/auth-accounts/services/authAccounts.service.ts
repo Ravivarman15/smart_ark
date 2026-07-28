@@ -245,6 +245,19 @@ class AuthAccountsService extends BaseService {
 
     if (!res.ok) return res;
 
+    // Linking is NOT optional — a parent account with no child is an empty
+    // portal, which is indistinguishable from a broken one. Verify and repair
+    // before reporting success. See reconcileLinks().
+    if (res.accountId) {
+      const failed = await this.reconcileLinks(res.accountId, input.studentIds ?? [], relation);
+      if (failed.length > 0) {
+        res.linkWarning =
+          `The login was created but ${failed.length} student${failed.length === 1 ? "" : "s"} ` +
+          `could not be attached to it. Use “Link child” on the account to finish, ` +
+          `otherwise the parent signs in to an empty portal.`;
+      }
+    }
+
     if (res.accountId && relation) {
       await this.stampRelation(res.accountId, input.studentIds ?? [], relation);
     }
@@ -253,6 +266,72 @@ class AuthAccountsService extends BaseService {
       await this.updateParent(res.accountId, { email: contactEmail }).catch(() => {});
     }
     return res;
+  }
+
+  /**
+   * Guarantee every requested child is actually linked; returns the ids that
+   * could not be attached.
+   *
+   * WHY THIS EXISTS — the deployed edge function links children like this:
+   *
+   *     await supabase.from("parent_student_links").insert(…).then(() => {}, () => {});
+   *
+   * …which discards the result. Any failure (RLS, a stale FK, a transient
+   * network blip) leaves the account created, the response `ok: true`, and the
+   * parent linked to nobody. Staff then see a working account attached to an
+   * empty portal with nothing anywhere explaining why.
+   *
+   * Reading the links back and re-inserting the gaps makes the outcome true
+   * regardless of which build of the function is deployed. The direct insert is
+   * a legitimate fallback, not a privilege bypass: `parent_student_links`
+   * already carries a staff-write policy (admin/management/coordinator), which
+   * is the same policy `unlinkStudent` relies on.
+   */
+  private async reconcileLinks(
+    parentAccountId: string,
+    studentIds: string[],
+    relation?: string,
+  ): Promise<string[]> {
+    if (studentIds.length === 0) return [];
+
+    const { data, error } = await this.db
+      .from("parent_student_links" as never)
+      .select("student_id")
+      .eq("parent_account_id", parentAccountId);
+
+    // Could not read them back — attempt every insert rather than assume they
+    // landed. A duplicate is rejected harmlessly by the UNIQUE constraint and
+    // treated as success below; a missing link is a silently broken portal.
+    const present = new Set(
+      error ? [] : ((data as unknown as { student_id: string }[]) ?? []).map((r) => String(r.student_id)),
+    );
+    const missing = studentIds.filter((id) => !present.has(id));
+    if (missing.length === 0) return [];
+
+    const failed: string[] = [];
+    for (const studentId of missing) {
+      const isPrimary = studentId === studentIds[0];
+      const viaFunction = await this.linkStudent({
+        parentAccountId,
+        studentId,
+        relation,
+        isPrimary,
+      });
+      if (viaFunction.ok) continue;
+
+      const { error: insErr } = await this.db.from("parent_student_links" as never).insert({
+        parent_account_id: parentAccountId,
+        student_id: studentId,
+        relation: relation ?? null,
+        is_primary: isPrimary,
+      } as never);
+      // The row already existing is the outcome we wanted.
+      if (insErr && !/duplicate|unique/i.test(insErr.message)) {
+        console.warn("[authAccounts] could not link student:", studentId, insErr.message);
+        failed.push(studentId);
+      }
+    }
+    return failed;
   }
 
   /**
@@ -354,14 +433,29 @@ class AuthAccountsService extends BaseService {
     }));
     if (accounts.length === 0) return accounts;
 
-    const links = await this.db
-      .from("parent_student_links" as never)
-      .select(
-        "parent_account_id, student_id, relation, is_primary, students(name, section, enrolment_no, standards(name))",
-      );
-    // A missing join (pre-migration column) must not blank the whole page —
-    // the accounts themselves are still useful without their children.
-    if (links.error) return accounts;
+    // `students.section` arrives with 20260630_student_profile_foundation.sql.
+    // Naming it in the embed makes the WHOLE query fail with 42703 on a database
+    // that has not applied that file — and the previous `if (error) return
+    // accounts` then rendered every parent as "No children linked", which is a
+    // LIE about a security-relevant relationship: staff read it as "the portal
+    // is broken" and re-link a child that was already linked.
+    //
+    // So: fall back exactly the way students.service.ts does (RICH → BASE), and
+    // if even the minimal shape fails, report the error instead of inventing an
+    // empty list. An unknown state and an empty state must never look alike.
+    const LINK_RICH =
+      "parent_account_id, student_id, relation, is_primary, students(name, section, enrolment_no, standards(name))";
+    const LINK_BASE = "parent_account_id, student_id, relation, is_primary, students(name)";
+
+    let links = await this.db.from("parent_student_links" as never).select(LINK_RICH);
+    if (links.error) {
+      links = await this.db.from("parent_student_links" as never).select(LINK_BASE);
+    }
+    if (links.error) {
+      const msg = links.error.message;
+      for (const a of accounts) a.childrenError = msg;
+      return accounts;
+    }
 
     const byParent = new Map<string, LinkedChild[]>();
     for (const raw of (links.data as unknown as Record<string, unknown>[]) ?? []) {
