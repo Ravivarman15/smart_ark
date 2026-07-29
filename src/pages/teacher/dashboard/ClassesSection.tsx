@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { CalendarClock, ClipboardList, Loader2, Play, Radio, Square, Users2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -7,6 +7,7 @@ import {
   useClassStudentCounts,
 } from "@/features/allocation/hooks";
 import { ClassAttendanceDialog } from "@/features/allocation/components/ClassAttendanceDialog";
+import { hhmmToMinutes } from "@/features/allocation/services/classMonitor.service";
 import type { ClassSchedule } from "@/features/allocation/types/allocation.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,8 +30,28 @@ const labelOf = (c: ClassSchedule): string =>
     .filter(Boolean)
     .join(" / ") || "Class";
 
+/** Minutes a class is past its start time with nobody having pressed Start. */
+const overdueStart = (c: ClassSchedule, nowMinutes: number): number =>
+  c.status === "scheduled" ? Math.max(0, nowMinutes - hhmmToMinutes(c.startTime)) : 0;
+
+/** Minutes a still-running class is past its scheduled end. */
+const overrun = (c: ClassSchedule, nowMinutes: number): number =>
+  c.status === "in_progress" ? Math.max(0, nowMinutes - hhmmToMinutes(c.endTime)) : 0;
+
+const minutesNow = (): number => {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+};
+
 export const ClassesSection: React.FC = () => {
   const today = todayIso();
+  // The nudges below are time-relative, so the section has to notice the clock
+  // moving even when nothing in the data changed.
+  const [nowMinutes, setNowMinutes] = useState(minutesNow);
+  useEffect(() => {
+    const t = setInterval(() => setNowMinutes(minutesNow()), 60_000);
+    return () => clearInterval(t);
+  }, []);
   const { data: all = [], isLoading } = useMySchedule({ from: today, to: today });
   const ops = useScheduleOps();
   const [attClass, setAttClass] = useState<ClassSchedule | null>(null);
@@ -105,6 +126,18 @@ export const ClassesSection: React.FC = () => {
                   {c.attendanceSubmitted && (
                     <span className="text-[9px] font-bold uppercase tracking-wider text-ark-success">
                       Attendance ✓
+                    </span>
+                  )}
+                  {/* The same two things the coordinator's board flags, shown
+                      to the person who can actually fix them. */}
+                  {overdueStart(c, nowMinutes) > 0 && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-ark-warning">
+                      Not started · {overdueStart(c, nowMinutes)}m late
+                    </span>
+                  )}
+                  {overrun(c, nowMinutes) > 0 && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-ark-danger">
+                      {overrun(c, nowMinutes)}m over — press End
                     </span>
                   )}
                 </div>

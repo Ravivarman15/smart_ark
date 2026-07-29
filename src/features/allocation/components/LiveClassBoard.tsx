@@ -5,13 +5,19 @@ import {
   ClipboardList,
   Clock,
   Radio,
+  TimerOff,
+  UserCheck,
   Users,
   XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import type { ClassMonitorBoard, MonitorCard } from "../types/allocation.types";
+import type {
+  ClassMonitorBoard,
+  MonitorCard,
+  StaffComplianceRow,
+} from "../types/allocation.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The realtime class board (Phase 4). Cards tick locally every second so the
@@ -111,6 +117,64 @@ const Kpi: React.FC<{
   </Card>
 );
 
+/**
+ * Who ran their classes properly today.
+ *
+ * The board above answers "what is happening"; this answers "who did what they
+ * were supposed to". Sorted worst-first — the whole value of the panel is that
+ * the person who needs a nudge is the first name on it.
+ */
+const StaffCompliancePanel: React.FC<{ rows: StaffComplianceRow[] }> = ({ rows }) => {
+  if (rows.length === 0) return null;
+  const tone = (p: number) =>
+    p >= 100 ? "text-emerald-600" : p >= 60 ? "text-amber-600" : "text-rose-600";
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <UserCheck className="h-4 w-4" /> Staff start / complete ({rows.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Counted against classes whose end time has already passed — an afternoon class
+          isn't overdue in the morning.
+        </p>
+        {rows.map((r) => (
+          <div
+            key={r.teacherId}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{r.teacherName ?? "—"}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {r.total} class{r.total === 1 ? "" : "es"} · started {r.started} · ended{" "}
+                {r.completed} · attendance {r.attendanceSubmitted}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              {r.notStarted > 0 && (
+                <Badge variant="outline" className="text-amber-600">
+                  {r.notStarted} not started
+                </Badge>
+              )}
+              {r.notEnded > 0 && (
+                <Badge variant="outline" className="text-rose-600">
+                  {r.notEnded} not ended
+                </Badge>
+              )}
+              <Badge variant="outline" className={tone(r.compliancePct)}>
+                {r.due === 0 ? "nothing due yet" : `${r.compliancePct}%`}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+};
+
 interface Props {
   board?: ClassMonitorBoard;
   isLoading?: boolean;
@@ -138,6 +202,8 @@ export const LiveClassBoard: React.FC<Props> = ({ board, isLoading }) => {
           tone="bg-sky-500/10 text-sky-600" />
         <Kpi icon={<AlertTriangle className="h-4 w-4" />} label="Not started" value={board.notStarted.length}
           tone="bg-amber-500/10 text-amber-600" />
+        <Kpi icon={<TimerOff className="h-4 w-4" />} label="Not ended" value={board.notEnded.length}
+          tone="bg-rose-500/10 text-rose-600" />
         <Kpi icon={<ClipboardList className="h-4 w-4" />} label="Attendance pending"
           value={board.attendancePending.length} tone="bg-amber-500/10 text-amber-600" />
         <Kpi icon={<XCircle className="h-4 w-4" />} label="Cancelled" value={board.cancelled.length}
@@ -188,6 +254,35 @@ export const LiveClassBoard: React.FC<Props> = ({ board, isLoading }) => {
           </CardContent>
         </Card>
       )}
+
+      {board.notEnded.length > 0 && (
+        <Card className="border-rose-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-rose-600">
+              <TimerOff className="h-4 w-4" /> Started but not ended ({board.notEnded.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              These classes are still running past their scheduled end. Teaching hours keep
+              accruing until the staff member presses End or submits attendance.
+            </p>
+            {board.notEnded.map((c) => (
+              <SimpleRow
+                key={c.schedule.id}
+                card={c}
+                right={
+                  <Badge variant="outline" className="text-rose-600">
+                    {fmtDuration(c.overrunMinutes)} over
+                  </Badge>
+                }
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <StaffCompliancePanel rows={board.staffCompliance} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card>

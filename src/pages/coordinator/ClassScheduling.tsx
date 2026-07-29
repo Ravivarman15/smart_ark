@@ -14,6 +14,7 @@ import {
   CalendarX,
   ArrowRightLeft,
   Users2,
+  Radio,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -485,7 +486,24 @@ const ClassScheduling: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{c.teacherName ?? nameOf(c.teacherId)}</span>
                     {c.isExtra && <Badge variant="outline" className="text-amber-500">Extra</Badge>}
-                    <Badge className={statusBadge(c.status)}>{c.status}</Badge>
+                    {c.status === "in_progress" ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-600 gap-1">
+                        <Radio className="h-3 w-3" /> LIVE
+                      </Badge>
+                    ) : (
+                      <Badge className={statusBadge(c.status)}>{c.status}</Badge>
+                    )}
+                    {/* The lifecycle the teacher drives, mirrored here live —
+                        a coordinator shouldn't have to open the Control Center
+                        to find out whether a class actually happened. */}
+                    {c.lateMinutes > 0 && (
+                      <Badge variant="outline" className="text-amber-600">
+                        {c.lateMinutes}m late
+                      </Badge>
+                    )}
+                    {c.attendanceSubmitted && (
+                      <Badge className="bg-emerald-500/15 text-emerald-500">attendance ✓</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {c.scheduleDate} · {c.startTime}–{c.endTime} ({(c.durationMinutes / 60).toFixed(1)}h) ·{" "}
@@ -501,6 +519,9 @@ const ClassScheduling: React.FC = () => {
                     {c.mode}
                     {c.room ? ` · ${c.room}` : ""}
                     {studentCounts[c.id] ? ` · ${studentCounts[c.id]} students` : ""}
+                    {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
+                    {c.completedAt ? ` · ended ${c.completedAt.slice(11, 16)}` : ""}
+                    {c.actualMinutes != null ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h` : ""}
                   </p>
                 </div>
                 {(c.status === "scheduled" || c.status === "in_progress") && (

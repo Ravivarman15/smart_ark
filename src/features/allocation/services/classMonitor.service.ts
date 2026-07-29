@@ -3,6 +3,7 @@ import type {
   ClassMonitorBoard,
   ClassSchedule,
   MonitorCard,
+  StaffComplianceRow,
 } from "../types/allocation.types";
 import { scheduleService } from "./schedule.service";
 
@@ -31,6 +32,66 @@ export const minutesToHhmm = (mins: number): string => {
 
 const pct = (num: number, den: number): number =>
   den > 0 ? Math.round((num / den) * 100) : 0;
+
+/**
+ * Per-staff start/complete scoreboard for one day.
+ *
+ * Every staff member is expected to Start their class and then End it (or
+ * submit attendance, which ends it). This turns that expectation into
+ * something a coordinator can see at a glance instead of having to read every
+ * card on the board.
+ *
+ * Only DUE classes — scheduled end already passed — count towards the
+ * percentage. Judging someone at 9am on a 2pm class would make the number
+ * meaningless before lunch, and a number nobody trusts is worse than none.
+ */
+export const buildStaffCompliance = (
+  cards: MonitorCard[],
+  nowMinutes: number,
+): StaffComplianceRow[] => {
+  const byTeacher = new Map<string, StaffComplianceRow>();
+
+  for (const c of cards) {
+    const s = c.schedule;
+    if (s.status === "cancelled") continue; // never held ⇒ nothing to comply with
+    const key = s.teacherId ?? "";
+    if (!key) continue;
+
+    const row =
+      byTeacher.get(key) ??
+      ({
+        teacherId: key,
+        teacherName: s.teacherName,
+        total: 0,
+        due: 0,
+        started: 0,
+        completed: 0,
+        attendanceSubmitted: 0,
+        notStarted: 0,
+        notEnded: 0,
+        compliant: 0,
+        compliancePct: 100,
+      } satisfies StaffComplianceRow);
+
+    const isDue = hhmmToMinutes(s.endTime) <= nowMinutes;
+    row.total += 1;
+    if (isDue) row.due += 1;
+    // `startedAt` is the honest signal: a class completed straight from the
+    // coordinator's list never had a Start pressed by the staff member.
+    if (s.startedAt) row.started += 1;
+    if (s.status === "completed") row.completed += 1;
+    if (s.attendanceSubmitted) row.attendanceSubmitted += 1;
+    if (s.status === "scheduled" && hhmmToMinutes(s.startTime) <= nowMinutes) row.notStarted += 1;
+    if (c.overrunMinutes > 0) row.notEnded += 1;
+    if (isDue && s.status === "completed" && s.attendanceSubmitted) row.compliant += 1;
+
+    byTeacher.set(key, row);
+  }
+
+  return [...byTeacher.values()]
+    .map((r) => ({ ...r, compliancePct: r.due > 0 ? pct(r.compliant, r.due) : 100 }))
+    .sort((a, b) => a.compliancePct - b.compliancePct || (a.teacherName ?? "").localeCompare(b.teacherName ?? ""));
+};
 
 /**
  * Build the live board for one day.
@@ -70,10 +131,15 @@ export const buildBoard = (
             : 0,
       attendancePending: !s.attendanceSubmitted && s.status !== "cancelled",
       studentCount: s.batchId ? (studentCounts.get(s.batchId) ?? 0) : 0,
+      // Started but never ended. Without this a forgotten class stays "LIVE"
+      // for the rest of the day and its actual minutes keep inflating, which
+      // flows straight into teaching hours and the salary projection.
+      overrunMinutes: live ? Math.max(0, nowMinutes - endMin) : 0,
     };
   });
 
   const live = cards.filter((c) => c.schedule.status === "in_progress");
+  const notEnded = live.filter((c) => c.overrunMinutes > 0);
   const completed = cards.filter((c) => c.schedule.status === "completed");
   const cancelled = cards.filter((c) => c.schedule.status === "cancelled");
   const scheduled = cards.filter((c) => c.schedule.status === "scheduled");
@@ -101,9 +167,11 @@ export const buildBoard = (
     upcoming,
     completed,
     notStarted,
+    notEnded,
     cancelled,
     attendancePending,
     lateFaculty,
+    staffCompliance: buildStaffCompliance(cards, nowMinutes),
     totalClasses: cards.length,
     averageDelayMinutes:
       delays.length > 0

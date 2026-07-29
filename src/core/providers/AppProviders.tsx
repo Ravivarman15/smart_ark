@@ -17,6 +17,7 @@ import { LeadsRealtimeProvider } from "@/features/leads/providers/LeadsRealtimeP
 import { ReportsRealtimeProvider } from "@/features/reports/providers/ReportsRealtimeProvider";
 import { SetupRealtimeProvider } from "@/features/setup/providers/SetupRealtimeProvider";
 import { TasksRealtimeProvider } from "@/features/tasks/providers/TasksRealtimeProvider";
+import { AllocationRealtimeProvider } from "@/features/allocation/providers/AllocationRealtimeProvider";
 import { ThemeProvider } from "@/core/theme";
 import { QueryProvider } from "./QueryProvider";
 
@@ -38,6 +39,9 @@ import { QueryProvider } from "./QueryProvider";
 //                         data sources no other provider watches (exams,
 //                         exam_results, mcq_attempts, message_queue,
 //                         profile/teacher_attendance, students)
+//   AllocationRealtime  → class lifecycle (start / end / attendance / roster),
+//                         so a teacher pressing Start updates the coordinator's
+//                         and management's boards without a refresh
 //   AppData             → legacy mega-context (kept during migration; will shrink)
 //   TooltipProvider     → UI primitive
 //   Toasters            → outside layout tree so they survive route changes
@@ -61,7 +65,9 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
                             <LeadsRealtimeProvider>
                               <ReportsRealtimeProvider>
                                 <TasksRealtimeProvider>
-                                  <AppDataProvider>{children}</AppDataProvider>
+                                  <AllocationRealtimeProvider>
+                                    <AppDataProvider>{children}</AppDataProvider>
+                                  </AllocationRealtimeProvider>
                                 </TasksRealtimeProvider>
                               </ReportsRealtimeProvider>
                             </LeadsRealtimeProvider>

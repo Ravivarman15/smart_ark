@@ -214,6 +214,94 @@ describe("buildBoard", () => {
     expect(board.averageDelayMinutes).toBe(0);
     expect(board.facultyUtilisationPct).toBe(0);
     expect(board.classUtilisationPct).toBe(0);
+    expect(board.notEnded).toEqual([]);
+    expect(board.staffCompliance).toEqual([]);
+  });
+
+  // A class nobody ended stays "LIVE" all day and keeps accruing actual
+  // minutes, which feed teaching hours and the salary projection — so it has
+  // to be called out, not just left running.
+  it("flags a live class that is past its scheduled end as not ended", () => {
+    const board = buildBoard(
+      "2026-07-24",
+      [
+        cls({ id: "over", status: "in_progress", startTime: "09:00", endTime: "11:00" }),
+        cls({ id: "ok", status: "in_progress", startTime: "11:30", endTime: "13:00" }),
+      ],
+      NOON,
+    );
+    expect(board.notEnded.map((c) => c.schedule.id)).toEqual(["over"]);
+    expect(board.notEnded[0].overrunMinutes).toBe(60);
+    // Still live — "not ended" is a flag on a running class, not a bucket
+    // that removes it from the board.
+    expect(board.live).toHaveLength(2);
+  });
+});
+
+// ── Staff start/complete compliance ─────────────────────────────────────────
+describe("buildStaffCompliance", () => {
+  const NOON = hhmmToMinutes("12:00");
+  const rowsFor = (schedules: ClassSchedule[]) =>
+    buildBoard("2026-07-24", schedules, NOON).staffCompliance;
+
+  it("counts a class compliant only when it is both ended and marked", () => {
+    const [row] = rowsFor([
+      cls({ id: "a", startTime: "09:00", endTime: "10:00", status: "completed",
+        startedAt: "2026-07-24T09:00:00", attendanceSubmitted: true }),
+      cls({ id: "b", startTime: "10:00", endTime: "11:00", status: "completed",
+        startedAt: "2026-07-24T10:00:00", attendanceSubmitted: false }),
+    ]);
+    expect(row.due).toBe(2);
+    expect(row.completed).toBe(2);
+    expect(row.compliant).toBe(1);
+    expect(row.compliancePct).toBe(50);
+  });
+
+  // Judging someone at noon on a 2pm class would make the number meaningless
+  // before lunch, and a number nobody trusts is worse than no number.
+  it("ignores classes that are not due yet", () => {
+    const [row] = rowsFor([
+      cls({ id: "later", startTime: "14:00", endTime: "15:00", status: "scheduled" }),
+    ]);
+    expect(row.total).toBe(1);
+    expect(row.due).toBe(0);
+    expect(row.compliancePct).toBe(100);
+  });
+
+  it("counts not-started and not-ended separately", () => {
+    const [row] = rowsFor([
+      cls({ id: "a", startTime: "11:00", endTime: "12:30", status: "scheduled" }),
+      cls({ id: "b", startTime: "09:00", endTime: "10:00", status: "in_progress",
+        startedAt: "2026-07-24T09:00:00" }),
+    ]);
+    expect(row.notStarted).toBe(1);
+    expect(row.notEnded).toBe(1);
+    expect(row.started).toBe(1);
+  });
+
+  // A class the coordinator marked complete on the teacher's behalf never had
+  // a Start pressed — `startedAt` is what separates the two.
+  it("does not credit a start that never happened", () => {
+    const [row] = rowsFor([
+      cls({ startTime: "09:00", endTime: "10:00", status: "completed", attendanceSubmitted: true }),
+    ]);
+    expect(row.started).toBe(0);
+    expect(row.compliant).toBe(1);
+  });
+
+  it("excludes cancelled classes and splits rows per teacher, worst first", () => {
+    const rows = rowsFor([
+      cls({ id: "a", teacherId: "t1", teacherName: "Mani", startTime: "09:00", endTime: "10:00",
+        status: "completed", attendanceSubmitted: true }),
+      cls({ id: "b", teacherId: "t2", teacherName: "Archana", startTime: "09:00", endTime: "10:00",
+        status: "scheduled" }),
+      cls({ id: "c", teacherId: "t2", teacherName: "Archana", startTime: "09:00", endTime: "10:00",
+        status: "cancelled" }),
+    ]);
+    expect(rows.map((r) => r.teacherId)).toEqual(["t2", "t1"]);
+    expect(rows[0].total).toBe(1); // the cancelled class is not held against them
+    expect(rows[0].compliancePct).toBe(0);
+    expect(rows[1].compliancePct).toBe(100);
   });
 });
 

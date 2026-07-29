@@ -136,6 +136,38 @@ export interface MonitorCard {
   delayMinutes: number;
   attendancePending: boolean;
   studentCount: number;
+  /**
+   * Minutes a still-running class is past its scheduled end — i.e. the staff
+   * member started but never pressed End. 0 for every other state.
+   */
+  overrunMinutes: number;
+}
+
+/**
+ * Per-staff "did they run their classes properly today" summary.
+ *
+ * Compliance is measured only against classes that are DUE (scheduled end has
+ * passed). A teacher whose first class is at 2pm is not non-compliant at 9am,
+ * and a board that says otherwise trains people to ignore it.
+ */
+export interface StaffComplianceRow {
+  teacherId: string;
+  teacherName?: string;
+  /** Classes today, excluding cancelled ones. */
+  total: number;
+  /** Classes whose scheduled end has passed (the compliance denominator). */
+  due: number;
+  started: number;
+  completed: number;
+  attendanceSubmitted: number;
+  /** Past start time, still 'scheduled' — nobody pressed Start. */
+  notStarted: number;
+  /** Running past its scheduled end — nobody pressed End. */
+  notEnded: number;
+  /** Due classes that are completed AND have attendance submitted. */
+  compliant: number;
+  /** compliant ÷ due, as a percentage. 100 when nothing is due yet. */
+  compliancePct: number;
 }
 
 /** The whole coordinator/management live board for one day. */
@@ -145,9 +177,12 @@ export interface ClassMonitorBoard {
   upcoming: MonitorCard[];
   completed: MonitorCard[];
   notStarted: MonitorCard[]; // past start time, still 'scheduled'
+  notEnded: MonitorCard[]; // still 'in_progress' past its scheduled end
   cancelled: MonitorCard[];
   attendancePending: MonitorCard[];
   lateFaculty: MonitorCard[];
+  /** One row per staff member rostered today — the start/complete scoreboard. */
+  staffCompliance: StaffComplianceRow[];
   totalClasses: number;
   averageDelayMinutes: number;
   facultyUtilisationPct: number; // busy faculty ÷ faculty with classes today
