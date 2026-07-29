@@ -8,10 +8,12 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   LogOut, Menu, X, Lock, CheckCircle2, Circle, Users2, FileText,
   ClipboardList, TrendingUp, Timer, AlertTriangle, MapPin, Loader2,
-  Layers, GraduationCap,
+  Layers, GraduationCap, CalendarClock,
 } from "lucide-react";
 
+import { useMySchedule } from "@/features/allocation/hooks";
 import { useTeacherWorkspace } from "./dashboard/useTeacherWorkspace";
+import ClassesSection from "./dashboard/ClassesSection";
 import ShiftControl from "./dashboard/ShiftControl";
 import AttendanceSection from "./dashboard/AttendanceSection";
 import MarksSection from "./dashboard/MarksSection";
@@ -54,6 +56,14 @@ const TeacherDashboard: React.FC = () => {
 
   const locked = !shift.checkedIn;
 
+  // Classes a coordinator scheduled for today. Same query key as the section
+  // below, so react-query serves both from one fetch.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: todaysClasses = [] } = useMySchedule({ from: today, to: today });
+  const hasScheduledClasses = todaysClasses.some(
+    (c) => c.status !== "cancelled" && c.status !== "rescheduled",
+  );
+
   // A section only exists if it has something to say. A teacher with no class
   // never sees an empty attendance/marks/insights shell.
   const showAttendance = hasClass;
@@ -62,6 +72,7 @@ const TeacherDashboard: React.FC = () => {
   const showTasks = tasks.length > 0;
 
   const jumpLinks = [
+    hasScheduledClasses && { id: "classes", label: "Classes", icon: CalendarClock },
     showAttendance && { id: "attendance", label: "Attendance", icon: Users2 },
     showMarks && { id: "marks", label: "Marks", icon: FileText },
     showInsights && { id: "insights", label: "Insights", icon: TrendingUp },
@@ -296,9 +307,14 @@ const TeacherDashboard: React.FC = () => {
             </section>
           ) : (
             <>
+              {/* Classes assigned by a coordinator — first, because they are
+                  what the teacher is here to run. */}
+              <ClassesSection />
+
               {/* No roster — one honest, actionable notice instead of four
-                  empty section shells. */}
-              {!hasClass && (
+                  empty section shells. A teacher who HAS scheduled classes is
+                  not unassigned, so the notice would be a lie. */}
+              {!hasClass && !hasScheduledClasses && (
                 <section className="rounded-2xl bg-ark-warning/5 border border-ark-warning/25 p-5 text-center">
                   <div className="w-12 h-12 rounded-2xl bg-ark-warning/10 border border-ark-warning/20 flex items-center justify-center mx-auto mb-3">
                     <GraduationCap className="w-5 h-5 text-ark-warning" />

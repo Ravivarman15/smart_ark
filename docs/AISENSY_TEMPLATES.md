@@ -79,13 +79,61 @@ Each maps to an event key in the registry. *Channel* is the seeded default (conf
 
 ### Credentials
 
-**staff_credentials** — event `staff_credentials` · WhatsApp
-- Vars: `{{1}} staff_name`, `{{2}} branch_name`, `{{3}} username`, `{{4}} password` · *(button)* `login_url`
-- Body: `Hi {{1}}, your {{2}} portal credentials are: User: {{3}} Temp Password: {{4}} Login: {{login_url}}`
+**staff_credentials** — staff account created / welcome resent / password reset · WhatsApp
+- Enqueued by `staffCredentialsService.sendWhatsapp` (Create Staff sheet + Manage Staff → Resend /
+  Reset), **alongside** the Brevo welcome email that `invite-staff` already sends. The same password
+  the email carries — never a second one.
+- Also used by the gated Send Staff Credentials page (`CredentialSendPanel`), which composes with a
+  login-proven `username`; the positional spec aliases that onto `{{3}}`.
+- Vars: `{{1}} staff_name`, `{{2}} role`, `{{3}} login_email`, `{{4}} password`, `{{5}} login_url`
+- Body:
+  ```
+  Dear {{1}},
+
+  Your ARK Learning Arena staff portal account has been created.
+
+  Role: {{2}}
+  Login Email: {{3}}
+  Temporary Password: {{4}}
+  Portal: {{5}}
+
+  Please sign in and change your password after the first login. Keep these details confidential.
+
+  Thank you,
+  ARK Learning Arena
+  ```
+- Deliberately the **same shape** as `parent_credentials` — name, who they are, login, password,
+  link — so the two credential templates cannot drift into different orders.
 
 **student_credentials** — event `student_credentials` · WhatsApp
 - Vars: `{{1}} parent_name`, `{{2}} branch_name`, `{{3}} student_name`, `{{4}} username`, `{{5}} password` · *(button)* `login_url`
 - Body: `Hi {{1}}, the {{2}} parent app credentials for {{3}} are: User: {{4}} Temp Password: {{5}}`
+
+**parent_credentials** — Parent Portal provisioning / password reset / resend · WhatsApp
+- Enqueued by `parentCredentialsService.sendWhatsapp` (auth-accounts → Parent accounts), alongside
+  the credential email. Drained immediately — credentials never wait for a cron tick.
+- Vars: `{{1}} parent_name`, `{{2}} student_name`, `{{3}} login_email`, `{{4}} password`, `{{5}} login_url`
+- Body:
+  ```
+  Dear {{1}},
+
+  The ARK Learning Arena Parent Portal account for {{2}} has been created.
+
+  Login Email: {{3}}
+  Temporary Password: {{4}}
+  Portal: {{5}}
+
+  Please sign in and change your password after the first login. Keep these details confidential.
+
+  Thank you,
+  ARK Learning Arena
+  ```
+- The portal link is a **body variable, not a URL button**: a missing button config would still send
+  the message, minus the address the parent needs. As a body param it is validated — a credential
+  message with no link is refused, never delivered half-useless.
+- The org name is **static text**, not a variable, so no positional param can shift behind it.
+- `{{2}}` carries every linked child (`"Ravi test, Meera test"`) — the login is per parent, not per
+  child.
 
 ### Tasks
 
@@ -164,8 +212,9 @@ different AiSensy templates for the same intent.
 | lead_demo_scheduled_v2 | student_name, course_name, demo_date, demo_time, faculty_name | Utility | event demo_scheduled / Lead CRM | ✅ |
 | lead_demo_reminder_v2 | student_name, course_name, demo_date, demo_time | Utility | event demo_reminder / Lead CRM | ✅ |
 | payroll_approved | staff_name, salary_month, net_salary, pay_date | Utility | event payroll_approved | ✅ |
-| staff_credentials | staff_name, branch_name, username, password (+login_url) | Utility | event staff_credentials | ✅ |
+| staff_credentials | staff_name, role, login_email, password, login_url | Utility | Staff creation / resend / reset + Send Staff Credentials | ✅ |
 | student_credentials | parent_name, branch_name, student_name, username, password (+login_url) | Utility | event student_credentials | ✅ |
+| parent_credentials | parent_name, student_name, login_email, password, login_url | Utility | Parent Portal provisioning / reset / resend | ✅ |
 | task_assigned | staff_name, task_name, assigned_by, due_date (+task_url) | Utility | event task_assigned | ✅ |
 | task_reminder | task_name, due_date, status (+task_url) | Utility | event task_due | ✅ |
 | certificate_ready | recipient_name, certificate_name, student_name (+certificate_url) | Utility | event certificate_ready | ✅ |
@@ -178,7 +227,11 @@ different AiSensy templates for the same intent.
 | sla_breach_alert | counselor_name, student_name, course_name | Utility | Lead CRM | ✅ |
 | lead_admission_completed_v2 | parent_name, student_name, course_name | Utility | Lead CRM | ✅ |
 
+> **`parent_credentials` re-added** (2026-07-29): the Parent Portal now enqueues it on every login
+> provisioned, password reset and resend, so it is a live template again — see the Credentials
+> section above for the exact body and parameter order.
+>
 > **Removed from this doc vs Phase 1:** `birthday_staff` (never seeded — no code path),
-> `inquiry_followup`, `parent_credentials`, `password_reset`, `account_activated`,
+> `inquiry_followup`, `password_reset`, `account_activated`,
 > `account_disabled` (present in `BUILTIN_TEMPLATES` but not referenced by any Phase-2 automation
 > event or active service path — re-add here only if a feature starts enqueuing them).

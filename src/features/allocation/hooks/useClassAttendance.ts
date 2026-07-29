@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSaveStudentAttendance } from "@/features/attendance/hooks/useStudentAttendance";
 import type { StudentDraftRow } from "@/features/attendance/types/attendance.types";
 import { classAttendanceService, scheduleService } from "../services";
-import { toStudentStatus } from "../services/classAttendance.service";
+import { groupRowsByBatch, toStudentStatus } from "../services/classAttendance.service";
 import type { ClassRosterRow } from "../types/allocation.types";
 
 /** The class roster (students + previous status + fee-due). */
@@ -44,7 +44,8 @@ export const useSubmitClassAttendance = () => {
   return useMutation({
     mutationFn: async (input: {
       classScheduleId: string;
-      batchId: string;
+      /** The class's own batch — the fallback for rows with no batch of their own. */
+      batchId?: string;
       date: string;
       rows: ClassRosterRow[];
       previousRows?: ClassRosterRow[];
@@ -52,26 +53,40 @@ export const useSubmitClassAttendance = () => {
       // The per-class vocabulary (present/absent/late/medical/leave) is mapped
       // onto the existing enterprise student-attendance statuses so the day-level
       // save, parent WhatsApp and Student 360 stay on one vocabulary.
-      const draft: StudentDraftRow[] = input.rows.map((r) => ({
+      const toDraft = (r: ClassRosterRow): StudentDraftRow => ({
         studentId: r.studentId,
         studentName: r.studentName,
         rollNumber: r.rollNumber,
         status: toStudentStatus(r.status),
         remarks: r.remarks,
-      }));
-      const previous: StudentDraftRow[] | undefined = input.previousRows?.map((r) => ({
-        studentId: r.studentId,
-        studentName: r.studentName,
-        status: toStudentStatus(r.previousStatus ?? r.status),
-      }));
+      });
+      const previousById = new Map(
+        (input.previousRows ?? []).map((r) => [
+          r.studentId,
+          {
+            studentId: r.studentId,
+            studentName: r.studentName,
+            status: toStudentStatus(r.previousStatus ?? r.status),
+          } as StudentDraftRow,
+        ]),
+      );
+
+      // A multi-standard class draws students from several batches, and the
+      // day-level row is batch-stamped — so run the existing pipeline once per
+      // batch rather than filing everyone under the class's own batch.
+      const groups = groupRowsByBatch(input.rows, input.batchId);
 
       // 1) Day-level student attendance + parent WhatsApp (existing pipeline).
-      await saveStudentAttendance.mutateAsync({
-        batchId: input.batchId,
-        date: input.date,
-        rows: draft,
-        previousRows: previous,
-      });
+      for (const [batchId, rows] of groups) {
+        await saveStudentAttendance.mutateAsync({
+          batchId,
+          date: input.date,
+          rows: rows.map(toDraft),
+          previousRows: rows
+            .map((r) => previousById.get(r.studentId))
+            .filter((v): v is StudentDraftRow => !!v),
+        });
+      }
       // 2) Per-class granular rows.
       await classAttendanceService.upsert(input.classScheduleId, input.rows, user?.profileId);
       // 3) Complete the class → teaching hours → payroll.

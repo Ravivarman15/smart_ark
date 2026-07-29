@@ -13,6 +13,7 @@ import {
   Unlock,
   CalendarX,
   ArrowRightLeft,
+  Users2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,10 @@ import {
   useLeaveImpact,
   useTimetableLocks,
   useTimetableLockMutations,
+  useClassStudentCounts,
 } from "@/features/allocation/hooks";
+import { ClassRosterDialog } from "@/features/allocation/components/ClassRosterDialog";
+import { ClassRosterPicker } from "@/features/allocation/components/ClassRosterPicker";
 import { scheduleSchema } from "@/features/allocation/schemas/schedule.schema";
 import {
   DAY_LABELS,
@@ -65,6 +69,7 @@ import {
 } from "@/features/allocation/utils/recurrence";
 import type {
   ClassMode,
+  ClassSchedule,
   RepeatPattern,
   ScheduleInput,
   ScheduleStatus,
@@ -98,7 +103,10 @@ const todayIso = new Date().toISOString().slice(0, 10);
 
 const emptyForm = {
   teacherId: "",
-  standardId: "",
+  // A class can cover several standards; the first is the primary one that
+  // stamps standard_id / standard_name for filters, RLS and reports.
+  standardIds: [] as string[],
+  studentIds: [] as string[],
   sectionId: "",
   subjectId: "",
   batchId: "",
@@ -168,6 +176,9 @@ const ClassScheduling: React.FC = () => {
     from,
     to,
   });
+  const { data: studentCounts = {} } = useClassStudentCounts(
+    useMemo(() => schedules.map((s) => s.id), [schedules]),
+  );
   const { data: teachingHours = [] } = useTeachingHours(from, to);
   const { data: leaveAffected = [] } = useLeaveImpact(from, to);
   const { data: locks = [] } = useTimetableLocks();
@@ -178,6 +189,8 @@ const ClassScheduling: React.FC = () => {
   // Substitute / transfer dialog (teacher picker).
   const [subTarget, setSubTarget] = useState<{ id: string; mode: "substitute" | "transfer" } | null>(null);
   const [subTeacherId, setSubTeacherId] = useState("");
+  // Editing who is in an already-scheduled class (students join and leave).
+  const [rosterTarget, setRosterTarget] = useState<ClassSchedule | null>(null);
 
   const doSubstitute = async () => {
     if (!subTarget || !subTeacherId) return;
@@ -223,12 +236,22 @@ const ClassScheduling: React.FC = () => {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const { data: sections = [] } = useSections(form.standardId || undefined);
+  // The primary standard drives the single-value lookups (sections, subjects).
+  const primaryStandardId = form.standardIds[0];
+  const { data: sections = [] } = useSections(primaryStandardId);
   const { data: subjects = [] } = useSubjects(
-    form.standardId ? { standardId: form.standardId } : undefined,
+    primaryStandardId ? { standardId: primaryStandardId } : undefined,
   );
-  const { data: batches = [] } = useBatches(
-    form.standardId ? { standardId: form.standardId } : undefined,
+  // Batches are loaded unscoped and filtered here: a multi-standard class needs
+  // the UNION of its standards' batches, which the single-standard hook filter
+  // cannot express.
+  const { data: allBatches = [] } = useBatches();
+  const batches = useMemo(
+    () =>
+      form.standardIds.length === 0
+        ? allBatches
+        : allBatches.filter((b) => !b.standardId || form.standardIds.includes(b.standardId)),
+    [allBatches, form.standardIds],
   );
 
   const openCreate = (extra: boolean) => {
@@ -238,6 +261,30 @@ const ClassScheduling: React.FC = () => {
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  /**
+   * Toggle a standard. Dropping one also drops the dependent choices it made
+   * valid — a section belongs to a single standard, and a batch left behind
+   * from a removed standard would silently filter the roster to nothing.
+   */
+  const toggleStandard = (id: string) =>
+    setForm((f) => {
+      const standardIds = f.standardIds.includes(id)
+        ? f.standardIds.filter((s) => s !== id)
+        : [...f.standardIds, id];
+      const batchStillValid =
+        !f.batchId ||
+        standardIds.length === 0 ||
+        allBatches.some(
+          (b) => b.id === f.batchId && (!b.standardId || standardIds.includes(b.standardId)),
+        );
+      return {
+        ...f,
+        standardIds,
+        sectionId: standardIds.length === 1 ? f.sectionId : "",
+        batchId: batchStillValid ? f.batchId : "",
+      };
+    });
 
   const submit = async () => {
     const parsed = scheduleSchema.safeParse(form);
@@ -249,7 +296,12 @@ const ClassScheduling: React.FC = () => {
       // zod defaults guarantee the required fields at runtime; the cast bridges
       // zod's input/output type variance for the service contract.
       await create.mutateAsync(parsed.data as unknown as ScheduleInput);
-      toast.success(form.isExtra ? "Extra class assigned — teacher notified" : "Class scheduled");
+      const who = form.studentIds.length
+        ? ` · ${form.studentIds.length} student(s) assigned`
+        : "";
+      toast.success(
+        (form.isExtra ? "Extra class assigned — teacher notified" : "Class scheduled") + who,
+      );
       setOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to schedule");
@@ -437,13 +489,25 @@ const ClassScheduling: React.FC = () => {
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {c.scheduleDate} · {c.startTime}–{c.endTime} ({(c.durationMinutes / 60).toFixed(1)}h) ·{" "}
-                    {[c.standardName, c.sectionName, c.subjectName].filter(Boolean).join(" / ") || "—"} ·{" "}
+                    {[
+                      // Every standard, not just the primary — otherwise a
+                      // combined class reads as if it only covers one.
+                      c.standardNames.length > 0 ? c.standardNames.join(" + ") : c.standardName,
+                      c.sectionName,
+                      c.subjectName,
+                    ]
+                      .filter(Boolean)
+                      .join(" / ") || "—"} ·{" "}
                     {c.mode}
                     {c.room ? ` · ${c.room}` : ""}
+                    {studentCounts[c.id] ? ` · ${studentCounts[c.id]} students` : ""}
                   </p>
                 </div>
                 {(c.status === "scheduled" || c.status === "in_progress") && (
                   <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" title="Students in this class" onClick={() => setRosterTarget(c)}>
+                      <Users2 className="h-4 w-4 text-teal-500" />
+                    </Button>
                     <Button variant="ghost" size="sm" title="Assign substitute" onClick={() => { setSubTarget({ id: c.id, mode: "substitute" }); setSubTeacherId(""); }}>
                       <UserCog className="h-4 w-4 text-blue-500" />
                     </Button>
@@ -471,6 +535,13 @@ const ClassScheduling: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Who is in this class */}
+      <ClassRosterDialog
+        schedule={rosterTarget}
+        open={!!rosterTarget}
+        onOpenChange={(v) => !v && setRosterTarget(null)}
+      />
 
       {/* Substitute / Transfer dialog */}
       <Dialog open={!!subTarget} onOpenChange={(v) => !v && setSubTarget(null)}>
@@ -571,30 +642,55 @@ const ClassScheduling: React.FC = () => {
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Standard">
-                <Select value={form.standardId} onValueChange={(v) => set("standardId", v)}>
-                  <SelectTrigger><SelectValue placeholder="Standard" /></SelectTrigger>
-                  <SelectContent>
-                    {scopedStandards.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Section">
-                <Select value={form.sectionId} onValueChange={(v) => set("sectionId", v)}>
-                  <SelectTrigger><SelectValue placeholder="Section" /></SelectTrigger>
-                  <SelectContent>
-                    {sections.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
+            {/* Standards — a class may cover more than one. The first picked
+                becomes the primary (what reports and filters group by). */}
+            <Field label="Standards (pick one or more)">
+              {scopedStandards.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No standards in your scope. Ask Management to assign them on the Staff
+                  Allocation page.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {scopedStandards.map((s, i) => {
+                    const on = form.standardIds.includes(s.id);
+                    const isPrimary = form.standardIds[0] === s.id;
+                    return (
+                      <Button
+                        key={s.id ?? i}
+                        type="button"
+                        size="sm"
+                        variant={on ? "default" : "outline"}
+                        onClick={() => toggleStandard(s.id)}
+                      >
+                        {s.name}
+                        {isPrimary && form.standardIds.length > 1 && (
+                          <span className="ml-1 text-[9px] uppercase opacity-80">primary</span>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </Field>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div
+              className={`grid gap-3 ${form.standardIds.length === 1 ? "grid-cols-3" : "grid-cols-2"}`}
+            >
+              {/* Sections belong to ONE standard, so the field only makes sense
+                  for a single-standard class. */}
+              {form.standardIds.length === 1 && (
+                <Field label="Section">
+                  <Select value={form.sectionId} onValueChange={(v) => set("sectionId", v)}>
+                    <SelectTrigger><SelectValue placeholder="Section" /></SelectTrigger>
+                    <SelectContent>
+                      {sections.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
               <Field label="Subject">
                 <Select value={form.subjectId} onValueChange={(v) => set("subjectId", v)}>
                   <SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger>
@@ -605,9 +701,9 @@ const ClassScheduling: React.FC = () => {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Batch">
+              <Field label="Batch (optional filter)">
                 <Select value={form.batchId} onValueChange={(v) => set("batchId", v)}>
-                  <SelectTrigger><SelectValue placeholder="Batch" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="All batches" /></SelectTrigger>
                   <SelectContent>
                     {batches.map((b) => (
                       <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
@@ -616,6 +712,15 @@ const ClassScheduling: React.FC = () => {
                 </Select>
               </Field>
             </div>
+
+            {/* Who is actually in the class. Everyone eligible starts selected;
+                deselect the students who aren't attending. */}
+            <ClassRosterPicker
+              standardIds={form.standardIds}
+              batchId={form.batchId || undefined}
+              value={form.studentIds}
+              onChange={(studentIds) => set("studentIds", studentIds)}
+            />
 
             <div className="grid grid-cols-3 gap-3">
               <Field label="Date">

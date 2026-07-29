@@ -1,5 +1,6 @@
 import { BaseService, AppError } from "@/shared/services";
 import { commsDispatcherService } from "@/features/communication/services";
+import { classStudentsService } from "./classStudents.service";
 import type { RecipientCandidate } from "@/features/communication/types/communication.types";
 import {
   academicYearOf,
@@ -39,6 +40,29 @@ const isMissingTable = (err: { message?: string } | null | undefined): boolean =
   );
 };
 
+/**
+ * A named column PostgREST can't resolve (42703 / stale schema cache). Distinct
+ * from a missing table: the table is fine, one column isn't there yet.
+ */
+const isMissingColumn = (err: { message?: string; code?: string } | null | undefined): boolean => {
+  if (!err) return false;
+  if (err.code === "42703" || err.code === "PGRST204") return true;
+  const m = (err.message ?? "").toLowerCase();
+  return m.includes("column") && (m.includes("does not exist") || m.includes("could not find"));
+};
+
+/**
+ * "This class covers standard X" — matching either the primary scalar or the
+ * multi-standard array.
+ *
+ * The array literal MUST be inner-quoted: `cs.{uuid}` inside an `or(...)` makes
+ * PostgREST hand the bare uuid to Postgres as an array literal and the whole
+ * request 400s with `malformed array literal`. Verified against the live REST
+ * endpoint, which is the only way to catch it — it type-checks either way.
+ */
+export const standardOrFilter = (standardId: string): string =>
+  `standard_id.eq.${standardId},standard_ids.cs.{"${standardId}"}`;
+
 const minutesBetween = (start: string, end: string): number => {
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
@@ -52,6 +76,18 @@ const toSchedule = (r: Record<string, unknown>): ClassSchedule => ({
   coordinatorId: (r.coordinator_id as string) ?? undefined,
   standardId: (r.standard_id as string) ?? undefined,
   standardName: (r.standard_name as string) ?? undefined,
+  // Pre-multi-standard rows have no array — fall back to the single standard so
+  // consumers can read `standardIds` uniformly without a null check everywhere.
+  standardIds: Array.isArray(r.standard_ids)
+    ? (r.standard_ids as string[]).map(String)
+    : r.standard_id
+      ? [String(r.standard_id)]
+      : [],
+  standardNames: Array.isArray(r.standard_names)
+    ? (r.standard_names as string[]).map(String).filter(Boolean)
+    : r.standard_name
+      ? [String(r.standard_name)]
+      : [],
   sectionId: (r.section_id as string) ?? undefined,
   sectionName: (r.section_name as string) ?? undefined,
   subjectId: (r.subject_id as string) ?? undefined,
@@ -113,6 +149,24 @@ interface Actor {
   role?: string;
 }
 
+/**
+ * Normalise the two ways a caller can express standards.
+ *
+ * `standardIds` is authoritative; `standardId` is its first element. Keeping
+ * the scalar in step matters — RLS, every `standardId` filter and the
+ * denormalised `standard_name` label all still read the scalar column.
+ */
+export const normalizeStandards = (input: {
+  standardId?: string;
+  standardIds?: string[];
+}): { ids: string[]; primaryId?: string } => {
+  // The array wins outright when present. Merging in the scalar would let a
+  // stale single-standard value ride along and become the primary.
+  const source = (input.standardIds ?? []).filter(Boolean);
+  const ids = [...new Set(source.length > 0 ? source : input.standardId ? [input.standardId] : [])];
+  return { ids, primaryId: ids[0] };
+};
+
 /** UUID for grouping a recurrence series (falls back where crypto is absent). */
 const newId = (): string =>
   typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -151,10 +205,36 @@ class ScheduleService extends BaseService {
 
   // ── Reads ─────────────────────────────────────────────────────────────────
   async list(filters: ScheduleFilters = {}): Promise<ClassSchedule[]> {
+    const res = await this.runList(filters, true);
+    // `standard_ids` is absent until the multi-standard migration is applied;
+    // a missing column fails the whole query, so fall back to the scalar filter
+    // rather than reporting "no classes this week".
+    if (res.error && isMissingColumn(res.error)) {
+      const legacy = await this.runList(filters, false);
+      if (legacy.error) {
+        if (isMissingTable(legacy.error)) return [];
+        throw AppError.fromSupabase(legacy.error, "class_schedules");
+      }
+      return ((legacy.data as unknown as Record<string, unknown>[]) ?? []).map(toSchedule);
+    }
+    if (res.error) {
+      if (isMissingTable(res.error)) return [];
+      throw AppError.fromSupabase(res.error, "class_schedules");
+    }
+    return ((res.data as unknown as Record<string, unknown>[]) ?? []).map(toSchedule);
+  }
+
+  private runList(filters: ScheduleFilters, multiStandard: boolean) {
     let q = this.table().select("*");
     if (filters.teacherId) q = q.eq("teacher_id", filters.teacherId);
     if (filters.coordinatorId) q = q.eq("coordinator_id", filters.coordinatorId);
-    if (filters.standardId) q = q.eq("standard_id", filters.standardId);
+    if (filters.standardId) {
+      // A class covering Std 9 + 10 must appear under BOTH, not only under the
+      // primary standard it happens to be stamped with.
+      q = multiStandard
+        ? q.or(standardOrFilter(filters.standardId))
+        : q.eq("standard_id", filters.standardId);
+    }
     if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
     if (filters.isExtra !== undefined) q = q.eq("is_extra", filters.isExtra);
     if (filters.academicYear) q = q.eq("academic_year", filters.academicYear);
@@ -164,14 +244,7 @@ class ScheduleService extends BaseService {
     if (filters.department) q = q.eq("department", filters.department);
     if (filters.from) q = q.gte("schedule_date", filters.from);
     if (filters.to) q = q.lte("schedule_date", filters.to);
-    const res = await q.order("schedule_date", { ascending: true }).order("start_time", {
-      ascending: true,
-    });
-    if (res.error) {
-      if (isMissingTable(res.error)) return [];
-      throw AppError.fromSupabase(res.error, "class_schedules");
-    }
-    return ((res.data as unknown as Record<string, unknown>[]) ?? []).map(toSchedule);
+    return q.order("schedule_date", { ascending: true }).order("start_time", { ascending: true });
   }
 
   async get(id: string): Promise<ClassSchedule | null> {
@@ -193,11 +266,12 @@ class ScheduleService extends BaseService {
       const res = await this.db.from(table as never).select("name").eq("id", id).maybeSingle();
       return (res.data as { name?: string } | null)?.name ?? null;
     };
+    const { primaryId } = normalizeStandards(input);
     const [teacher_name, subject_name, standard_name, section_name, batch_name, campus_name] =
       await Promise.all([
         pick("profiles", input.teacherId),
         pick("subjects", input.subjectId),
-        pick("standards", input.standardId),
+        pick("standards", primaryId),
         pick("sections", input.sectionId),
         pick("batches", input.batchId),
         pick("campuses", input.campusId),
@@ -226,18 +300,35 @@ class ScheduleService extends BaseService {
     return res.data?.department ?? null;
   }
 
+  /** Labels for every standard on the class, in the same order as the ids. */
+  private async standardLabels(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const res = await this.db.from("standards").select("id, name").in("id", ids);
+    if (res.error) return [];
+    const byId = new Map(
+      ((res.data ?? []) as unknown as { id: string; name?: string }[]).map((r) => [
+        String(r.id),
+        r.name ?? "",
+      ]),
+    );
+    return ids.map((id) => byId.get(id) ?? "");
+  }
+
   private toRow(
     input: ScheduleInput,
     names: Record<string, string | null>,
     coordinatorId?: string,
     actor?: Actor,
+    standards: { ids: string[]; labels: string[] } = { ids: [], labels: [] },
   ): Record<string, unknown> {
     return {
       teacher_id: input.teacherId || null,
       teacher_name: names.teacher_name,
       coordinator_id: coordinatorId ?? actor?.id ?? null,
-      standard_id: input.standardId || null,
+      standard_id: standards.ids[0] ?? input.standardId ?? null,
       standard_name: names.standard_name,
+      standard_ids: standards.ids,
+      standard_names: standards.labels,
       section_id: input.sectionId || null,
       section_name: names.section_name,
       subject_id: input.subjectId || null,
@@ -279,8 +370,10 @@ class ScheduleService extends BaseService {
   ): Promise<string[]> {
     await this.assertUnlocked(input.scheduleDate, opts.isOverride);
     const names = await this.resolveNames(input);
+    const { ids: standardIds } = normalizeStandards(input);
+    const standards = { ids: standardIds, labels: await this.standardLabels(standardIds) };
     const dates = expandRecurrence(input);
-    const base = this.toRow(input, names, opts.coordinatorId, opts.actor);
+    const base = this.toRow(input, names, opts.coordinatorId, opts.actor, standards);
     // One series id per recurrence run so the whole series can be edited,
     // cancelled or reported on as a unit. Month / academic year are stamped per
     // occurrence because a series legitimately straddles both.
@@ -295,6 +388,12 @@ class ScheduleService extends BaseService {
     const res = await this.table().insert(rows as never).select("id");
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
     const ids = ((res.data as unknown as { id: string }[]) ?? []).map((r) => String(r.id));
+
+    // The chosen students apply to EVERY occurrence of the series — a weekly
+    // class is one intent, not twelve separate rosters to re-pick.
+    if (input.studentIds?.length) {
+      await classStudentsService.setRoster(ids, input.studentIds, opts.actor?.id);
+    }
 
     await this.notify(input.isExtra ? "teacher_extra_class" : "teacher_class_scheduled", {
       teacherId: input.teacherId,
@@ -313,7 +412,11 @@ class ScheduleService extends BaseService {
   async update(id: string, input: ScheduleInput, actor?: Actor, isOverride = false): Promise<void> {
     await this.assertUnlocked(input.scheduleDate, isOverride);
     const names = await this.resolveNames(input);
-    const row = this.toRow(input, names, undefined, actor);
+    const { ids: standardIds } = normalizeStandards(input);
+    const row = this.toRow(input, names, undefined, actor, {
+      ids: standardIds,
+      labels: await this.standardLabels(standardIds),
+    });
     // never clobber status/created_by/coordinator on an edit
     delete row.status;
     delete row.created_by;
@@ -324,6 +427,12 @@ class ScheduleService extends BaseService {
     row.academic_year = input.academicYear || academicYearOf(input.scheduleDate);
     const res = await this.table().update(row as never).eq("id", id);
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
+    // `undefined` means "the caller isn't editing the roster"; an empty array
+    // means "clear it". Treating them the same would wipe the roster on every
+    // unrelated edit (a time change, a room change).
+    if (input.studentIds) {
+      await classStudentsService.setRoster([id], input.studentIds, actor?.id);
+    }
   }
 
   // ── Status transitions ──────────────────────────────────────────────────────
@@ -375,6 +484,8 @@ class ScheduleService extends BaseService {
         coordinator_id: orig.coordinatorId ?? actor?.id ?? null,
         standard_id: orig.standardId ?? null,
         standard_name: orig.standardName ?? null,
+        standard_ids: orig.standardIds,
+        standard_names: orig.standardNames,
         section_id: orig.sectionId ?? null,
         section_name: orig.sectionName ?? null,
         subject_id: orig.subjectId ?? null,
@@ -398,6 +509,17 @@ class ScheduleService extends BaseService {
       .single();
     if (ins.error) throw AppError.fromSupabase(ins.error, "class_schedules");
     const newId = String((ins.data as { id: string }).id);
+
+    // Carry the roster across. A rescheduled class is the same class on a new
+    // day — landing the teacher on an empty sheet would be a silent data loss.
+    const roster = await classStudentsService.listAssigned(id);
+    if (roster.length > 0) {
+      await classStudentsService.setRoster(
+        [newId],
+        roster.map((r) => r.studentId),
+        actor?.id,
+      );
+    }
 
     if (orig.teacherId) {
       await this.notify("teacher_class_rescheduled", {

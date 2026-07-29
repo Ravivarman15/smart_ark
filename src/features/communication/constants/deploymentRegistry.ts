@@ -43,6 +43,9 @@ const wa = {
 
 const CAMPAIGN_SVC = "commsCampaignsService.launch → aisensyService.enqueueBulk";
 const CRED_SVC = "verify-credentials → aisensyService.enqueue";
+// Both credential flows delegate to the shared sendCredentialWhatsapp helper.
+const PARENT_CRED_SVC = "parentCredentialsService.sendAll → aisensyService.enqueue";
+const STAFF_CRED_SVC = "staffCredentialsService.sendWhatsapp → aisensyService.enqueue";
 
 // Keyed by template key. Wired entries correspond to the 12 audited modules; the
 // remaining keys are registered templates awaiting module/automation wiring.
@@ -51,7 +54,7 @@ export const DEPLOYMENT_REGISTRY: TemplateDeployMeta[] = [
   { key: "inquiry_followup", module: "Inquiry", trigger: "Manual campaign", usedIn: "communication/send-inquiry", service: CAMPAIGN_SVC, wired: true, ...wa },
   { key: "student_welcome", module: "Student", trigger: "Manual campaign", usedIn: "communication/send-student", service: CAMPAIGN_SVC, wired: true, ...wa },
   { key: "staff_welcome", module: "Staff", trigger: "Manual campaign", usedIn: "communication/send-staff", service: CAMPAIGN_SVC, wired: true, ...wa },
-  { key: "staff_credentials", module: "Staff", trigger: "Credential send (login-gated)", usedIn: "communication/send-staff-credentials", service: CRED_SVC, wired: true, ...wa },
+  { key: "staff_credentials", module: "Staff", trigger: "Staff account created / resend / reset · credential send (login-gated)", usedIn: "staff/manage-staff + communication/send-staff-credentials", service: `${STAFF_CRED_SVC} · ${CRED_SVC}`, wired: true, ...wa },
   { key: "student_credentials", module: "Student", trigger: "Credential send (login-gated)", usedIn: "communication/send-student-credentials", service: CRED_SVC, wired: true, ...wa },
   { key: "exam_reminder", module: "Exam", trigger: "Upcoming exam campaign", usedIn: "communication/send-exam-reminder", service: CAMPAIGN_SVC, wired: true, ...wa },
   { key: "exam_result", module: "Exam", trigger: "Marks published campaign", usedIn: "communication/send-exam-marks", service: CAMPAIGN_SVC, wired: true, ...wa },
@@ -59,10 +62,10 @@ export const DEPLOYMENT_REGISTRY: TemplateDeployMeta[] = [
   { key: "fee_due_reminder", module: "Fee", trigger: "Fee due campaign", usedIn: "communication/send-fee-due-reminder", service: CAMPAIGN_SVC, wired: true, ...wa },
   { key: "attendance_absent", module: "Attendance", trigger: "Today-absent campaign", usedIn: "communication/send-absent-attendance", service: CAMPAIGN_SVC, wired: true, ...wa },
   { key: "birthday_wish", module: "Student", trigger: "Birthday campaign", usedIn: "communication/send-birthday", service: CAMPAIGN_SVC, wired: true, ...wa },
+  { key: "parent_credentials", module: "Parent Portal", trigger: "Parent login created / password reset / resend", usedIn: "auth-accounts/parent-accounts", service: PARENT_CRED_SVC, wired: true, ...wa },
 
   // ── Registered, awaiting module/automation wiring ───────────────────────
   { key: "payment_received", module: "Fee", trigger: "On payment (planned)", usedIn: "automation (planned)", service: CAMPAIGN_SVC, wired: false, ...wa },
-  { key: "parent_credentials", module: "Student", trigger: "Parent portal provisioning", usedIn: "automation (planned)", service: CRED_SVC, wired: false, ...wa },
   { key: "password_reset", module: "Credentials", trigger: "Password reset", usedIn: "automation (planned)", service: CRED_SVC, wired: false, ...wa },
   { key: "account_activated", module: "Credentials", trigger: "Account activated", usedIn: "automation (planned)", service: CRED_SVC, wired: false, ...wa },
   { key: "account_disabled", module: "Credentials", trigger: "Account disabled", usedIn: "automation (planned)", service: CRED_SVC, wired: false, ...wa },

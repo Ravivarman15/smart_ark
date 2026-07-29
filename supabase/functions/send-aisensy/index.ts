@@ -106,6 +106,29 @@ const TEMPLATE_PARAM_SPECS: Record<string, (p: Record<string, unknown>) => strin
     tVal(p, "amount_paid", "amount"),
     tVal(p, "pending_balance", "amount_pending"),
   ],
+  // Staff credentials utility template (staffCredentials.service + the gated
+  // Send Staff Credentials page).
+  // {{1}} staff_name, {{2}} role, {{3}} login_email, {{4}} password,
+  // {{5}} login_url. `username` is an alias for {{3}} — the send page composes
+  // with a login-proven username rather than the profile email.
+  staff_credentials: (p) => [
+    tVal(p, "staff_name"),
+    tVal(p, "role", "designation"),
+    tVal(p, "login_email", "username", "email"),
+    tVal(p, "password"),
+    tVal(p, "login_url"),
+  ],
+  // Parent Portal credentials utility template (parentCredentials.service).
+  // {{1}} parent_name, {{2}} student_name, {{3}} login_email, {{4}} password,
+  // {{5}} login_url. `username` is an alias for {{3}} so a row written in the
+  // older staff/student credential shape still lines up.
+  parent_credentials: (p) => [
+    tVal(p, "parent_name"),
+    tVal(p, "student_name"),
+    tVal(p, "login_email", "username"),
+    tVal(p, "password"),
+    tVal(p, "login_url"),
+  ],
   // Enterprise Attendance utility templates. These are sent SYNCHRONOUSLY via
   // the `direct` block below (the app builds the params and never queues), so
   // these specs are a safety net only — they keep the ordering correct if an

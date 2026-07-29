@@ -154,7 +154,7 @@ const CredentialPanel = ({
                   {d.ok
                     ? d.channel === "email"
                       ? "credentials emailed to the parent"
-                      : "credentials queued for WhatsApp"
+                      : "credentials sent to the parent's WhatsApp"
                     : (d.message ?? "not sent")}
                 </span>
               </p>

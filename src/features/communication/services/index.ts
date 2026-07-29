@@ -15,3 +15,8 @@ export {
 export { commsAutomationSettingsService } from "./commsAutomationSettings.service";
 export { commsDispatcherService, type DispatchContext } from "./commsDispatcher.service";
 export { commsTimelineService } from "./commsTimeline.service";
+export {
+  sendCredentialWhatsapp,
+  type CredentialDelivery,
+  type CredentialWhatsappInput,
+} from "./credentialWhatsapp.service";

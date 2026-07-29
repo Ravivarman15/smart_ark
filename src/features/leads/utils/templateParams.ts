@@ -81,6 +81,37 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "amount_paid", "amount"),
     val(p, "pending_balance", "amount_pending"),
   ],
+  // ── Staff credentials utility template ─────────────────────────────────────
+  // Enqueued on staff account creation / welcome resend / password reset
+  // (staffCredentials.service) and by the gated Send Staff Credentials page.
+  // {{1}} staff_name, {{2}} role, {{3}} login_email, {{4}} password,
+  // {{5}} login_url
+  //
+  // The credential send page composes with a login-PROVEN `username` rather
+  // than the profile email, hence the alias on {{3}}: whichever field the call
+  // site holds, the parameter it lands in is the same.
+  staff_credentials: (p) => [
+    val(p, "staff_name"),
+    val(p, "role", "designation"),
+    val(p, "login_email", "username", "email"),
+    val(p, "password"),
+    val(p, "login_url"),
+  ],
+  // ── Parent Portal credentials utility template ─────────────────────────────
+  // Enqueued by parentCredentials.service on provisioning / reset / resend.
+  // {{1}} parent_name, {{2}} student_name, {{3}} login_email, {{4}} password,
+  // {{5}} login_url
+  //
+  // `username` is accepted as an alias for {{3}} because the older credential
+  // templates (staff_credentials / student_credentials) name that field
+  // `username`; a queue row written by either shape must still line up.
+  parent_credentials: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "login_email", "username"),
+    val(p, "password"),
+    val(p, "login_url"),
+  ],
   // ── Enterprise Attendance utility templates ────────────────────────────────
   // Sent SYNCHRONOUSLY on Submit Attendance (attendanceWhatsapp.service), never
   // queued. The service builds the params here and posts them straight to the

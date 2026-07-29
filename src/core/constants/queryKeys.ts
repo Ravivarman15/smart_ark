@@ -86,6 +86,10 @@ export const queryKeys = {
       [...queryKeys.allocation.all, "teaching-hours", scope, from, to] as const,
     classRoster: (classScheduleId: string) =>
       [...queryKeys.allocation.all, "class-roster", classScheduleId] as const,
+    studentCandidates: (standardIds: string[], batchId?: string) =>
+      [...queryKeys.allocation.all, "student-candidates", [...standardIds].sort().join(","), batchId ?? "all"] as const,
+    assignedStudents: (classScheduleId: string) =>
+      [...queryKeys.allocation.all, "assigned-students", classScheduleId] as const,
     leaveImpact: (from: string, to: string, teacherId?: string) =>
       [...queryKeys.allocation.all, "leave-impact", from, to, teacherId ?? "all"] as const,
     timetableLocks: () => [...queryKeys.allocation.all, "timetable-locks"] as const,

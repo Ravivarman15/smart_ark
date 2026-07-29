@@ -10,6 +10,10 @@ export {
 export { inviteService } from "./invite.service";
 export { emailService } from "./email.service";
 export {
+  staffCredentialsService,
+  type SendStaffCredentialsInput,
+} from "./staffCredentials.service";
+export {
   onboardingService,
   type ActorRef,
   type LogEventArgs,

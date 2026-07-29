@@ -110,9 +110,12 @@ export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenC
   };
 
   const presentCount = rows.filter((r) => !ABSENT_LIKE.includes(r.status)).length;
+  const multiStandard = new Set(rows.map((r) => r.standardId).filter(Boolean)).size > 1;
 
   const handleSubmit = async () => {
-    if (!schedule || !data?.batchId || !data.date) {
+    // An assigned roster carries its own per-student batch, so the class-level
+    // batch is only required when we're falling back to the batch roster.
+    if (!schedule || !data?.date || (!data.assigned && !data.batchId)) {
       toast.error("This class has no batch/roster to mark.");
       return;
     }
@@ -137,7 +140,13 @@ export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenC
         <DialogHeader>
           <DialogTitle>
             Class Attendance —{" "}
-            {[schedule?.standardName, schedule?.sectionName, schedule?.subjectName]
+            {[
+              schedule?.standardNames?.length
+                ? schedule.standardNames.join(" + ")
+                : schedule?.standardName,
+              schedule?.sectionName,
+              schedule?.subjectName,
+            ]
               .filter(Boolean)
               .join(" / ") || "Class"}
           </DialogTitle>
@@ -147,13 +156,15 @@ export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenC
           <p className="text-sm text-muted-foreground py-6">Loading roster…</p>
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6">
-            No students found for this class (a batch must be assigned to the class).
+            No students in this class yet — ask your coordinator to assign students to it
+            (or set a batch) on the Class Scheduling page.
           </p>
         ) : (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span className="text-muted-foreground">
                 {rows.length} students · {presentCount} in class · {rows.length - presentCount} away
+                {data?.assigned ? " · assigned to this class" : ""}
               </span>
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={() => markAll("present")}>
@@ -180,6 +191,12 @@ export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenC
                     <span className="text-sm font-medium truncate">{r.studentName}</span>
                     {r.rollNumber && (
                       <span className="text-xs text-muted-foreground">#{r.rollNumber}</span>
+                    )}
+                    {/* Only worth showing when the class actually mixes them. */}
+                    {multiStandard && r.standardName && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {r.standardName}
+                      </Badge>
                     )}
                     {r.feeDue && (
                       <Badge variant="outline" className="text-amber-500 gap-1">

@@ -13,21 +13,20 @@
 // login URL. Passing roleLabel "Parent — access for Ram" reads correctly and
 // works against the CURRENTLY DEPLOYED function.
 //
-// WhatsApp delivery deliberately goes through the existing message_queue →
-// send-aisensy path rather than a direct call, so a parent's credential message
-// appears in the same Communication Timeline as every other outbound message
-// and inherits its retry and delivery-status handling.
+// WhatsApp delivery goes through the existing renderMessage → aisensyService
+// .enqueue → send-aisensy path rather than a direct provider call, on the
+// registered `parent_credentials` utility template. A parent's credential
+// message therefore appears in the same Communication Timeline as every other
+// outbound message and inherits its validation, retry and delivery-status
+// handling. See sendWhatsapp() for why the previous hand-written queue row
+// could never have been delivered.
 
 import { BaseService } from "@/shared/services";
 import { loginUrl as appLoginUrl } from "@/features/staff/utils/appUrl";
-import { normalizeMobile } from "../utils/parentCandidates";
+import { sendCredentialWhatsapp } from "@/features/communication/services/credentialWhatsapp.service";
+import type { CredentialDelivery } from "@/features/communication/services/credentialWhatsapp.service";
 
-export interface CredentialDelivery {
-  channel: "email" | "whatsapp";
-  ok: boolean;
-  skipped?: boolean;
-  message?: string;
-}
+export type { CredentialDelivery };
 
 export interface SendCredentialsInput {
   parentName: string;
@@ -138,49 +137,52 @@ class ParentCredentialsService extends BaseService {
   }
 
   /**
-   * Queue the credentials over WhatsApp.
+   * WhatsApp the credentials through the `parent_credentials` utility template.
    *
-   * Writes to `message_queue` — the Communication Center's own outbound table —
-   * so the message is picked up by the existing sender, retried on failure, and
-   * visible in the Communication Timeline alongside every other message to this
-   * family. Bypassing the queue would create an invisible second channel.
+   * WHAT THIS REPLACED, AND WHY IT NEVER DELIVERED
+   * The previous version hand-wrote a `message_queue` row with
+   * `template: "parent_portal_credentials"` and a camelCase payload. Both halves
+   * were fatal, and neither was visible from the UI:
+   *
+   *   1. No `__body`. The drainer's very first guard is
+   *      `if (!dest || !bodyText) → status 'failed', last_error 'empty body'`.
+   *      Every credential row died there without one provider call being made,
+   *      while the screen said "credentials queued for WhatsApp".
+   *   2. `parent_portal_credentials` is not a template — not in the builtin
+   *      registry, not in the positional-param table, not an AiSensy campaign.
+   *      Even past the guard, AiSensy had nothing to send.
+   *
+   * So this now goes through the SAME path every other outbound message uses —
+   * renderMessage → aisensyService.enqueue → send-aisensy — which supplies the
+   * rendered body, the snake_case variable map the positional spec reads, phone
+   * normalisation, validation, retry/backoff, delivery webhooks and the
+   * Communication Timeline entry. Nothing here is credential-specific except the
+   * variable bag.
+   *
+   * Credentials are transactional: the queue is drained IMMEDIATELY rather than
+   * left for the next cron tick, exactly as fee receipts are. A parent waiting
+   * on a password should not wait on a scheduler.
    */
   async sendWhatsapp(input: SendCredentialsInput): Promise<CredentialDelivery> {
-    const mobile = normalizeMobile(input.mobile);
-    if (mobile.length !== 10) {
-      return {
-        channel: "whatsapp",
-        ok: false,
-        skipped: true,
-        message: "No valid mobile on record — nothing was sent.",
-      };
-    }
-
-    try {
-      const { error } = await this.db.from("message_queue" as never).insert({
-        channel: "whatsapp",
-        provider: "aisensy",
-        template: "parent_portal_credentials",
-        recipient_name: input.parentName,
-        recipient_phone: mobile,
-        recipient_student_id: input.studentId ?? null,
-        context_type: "credentials",
-        context_id: input.parentAccountId ?? null,
-        status: "queued",
-        payload: {
-          parentName: input.parentName,
-          loginEmail: input.loginEmail,
-          password: input.password,
-          loginUrl: loginUrl(),
-          children: input.childNames ?? [],
-        },
-      } as never);
-
-      if (error) return { channel: "whatsapp", ok: false, message: error.message };
-      return { channel: "whatsapp", ok: true };
-    } catch (e) {
-      return { channel: "whatsapp", ok: false, message: (e as Error).message };
-    }
+    return sendCredentialWhatsapp({
+      templateKey: "parent_credentials",
+      vars: {
+        parent_name: input.parentName,
+        // One WhatsApp param, so multiple children join into one phrase. The
+        // login is per-parent, not per-child — naming only the first would tell
+        // a two-child parent their second child has no access.
+        student_name: input.childNames?.length ? input.childNames.join(", ") : "your child",
+        login_email: input.loginEmail,
+        password: input.password,
+        login_url: loginUrl(),
+      },
+      recipientName: input.parentName,
+      mobile: input.mobile,
+      recipientKind: "guardian",
+      contextType: "parent_credentials",
+      contextId: input.parentAccountId,
+      studentId: input.studentId,
+    });
   }
 
   /** Send on every channel the parent actually has details for. */

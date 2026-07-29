@@ -94,11 +94,19 @@ export const CredentialSendPanel = ({
       }
 
       // 2. Compose with the LOGIN-PROVEN credentials.
+      // `staff_credentials` names `role` and `login_email`; both are supplied
+      // here as well as the legacy `username`, because an unresolved body
+      // variable is REJECTED by the enqueue gate — a template gaining a field
+      // must not silently stop this page from sending.
       const rendered = renderMessage(template, {
         branch_name: branchName ?? "",
         staff_name: c.name,
         student_name: c.name,
         parent_name: String(c.meta?.parent_name ?? c.name),
+        role: String(c.meta?.designation ?? c.meta?.role ?? "Staff"),
+        // The login-PROVEN username wins over the profile email: it is what the
+        // password was just verified against.
+        login_email: v.username ?? c.email ?? "",
         username: v.username ?? "",
         password: v.password ?? "",
         login_url: v.loginUrl ?? loginUrl,

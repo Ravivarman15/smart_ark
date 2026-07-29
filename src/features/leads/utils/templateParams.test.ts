@@ -121,9 +121,76 @@ describe("buildTemplateParams", () => {
       "lead_admission_completed_v2",
       "lead_demo_reminder_v2",
       "fee_receipt",
+      "staff_credentials",
+      "parent_credentials",
       "attendance_absent",
       "attendance_corrected",
     ]);
+  });
+
+  it("staff_credentials → staff, role, login email, password, portal link", () => {
+    expect(
+      buildTemplateParams("staff_credentials", {
+        staff_name: "Asha Rao",
+        role: "Teacher",
+        login_email: "asha@thearktuition.com",
+        password: "Ark#7712",
+        login_url: "https://smartark.vercel.app/login",
+      }),
+    ).toEqual([
+      "Asha Rao",
+      "Teacher",
+      "asha@thearktuition.com",
+      "Ark#7712",
+      "https://smartark.vercel.app/login",
+    ]);
+  });
+
+  it("staff_credentials accepts the login-proven username for {{3}}", () => {
+    // The gated Send Staff Credentials page composes with the username the
+    // password was just verified against, not the profile email.
+    expect(
+      buildTemplateParams("staff_credentials", {
+        staff_name: "A",
+        designation: "Coordinator",
+        username: "asha@thearktuition.com",
+        password: "p",
+        login_url: "https://x/login",
+      }),
+    ).toEqual(["A", "Coordinator", "asha@thearktuition.com", "p", "https://x/login"]);
+  });
+
+  // Parent Portal credentials. A wrong order here sends a parent their password
+  // in the "login email" line — and the password field is shown ONCE, so there
+  // is no second copy to compare against.
+  it("parent_credentials → parent, student, login email, password, portal link", () => {
+    expect(
+      buildTemplateParams("parent_credentials", {
+        parent_name: "Ravivarman",
+        student_name: "Ravi test",
+        login_email: "ravi.a3f9@parents.ark.local",
+        password: "Ark#4821",
+        login_url: "https://smartark.vercel.app/login",
+      }),
+    ).toEqual([
+      "Ravivarman",
+      "Ravi test",
+      "ravi.a3f9@parents.ark.local",
+      "Ark#4821",
+      "https://smartark.vercel.app/login",
+    ]);
+  });
+
+  it("parent_credentials accepts username as an alias for the login email", () => {
+    expect(
+      buildTemplateParams("parent_credentials", {
+        parent_name: "R",
+        student_name: "S",
+        username: "s.a3f9",
+        password: "p",
+        login_url: "https://x/login",
+      })[2],
+    ).toBe("s.a3f9");
   });
 
   // Enterprise Attendance WhatsApp Automation — these are sent synchronously on

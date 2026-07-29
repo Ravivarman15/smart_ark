@@ -6,6 +6,14 @@ export const scheduleSchema = z
   .object({
     teacherId: z.string().min(1, "Select a teacher"),
     standardId: z.string().optional(),
+    /** A class may cover several standards; `standardId` is the first of these. */
+    standardIds: z.array(z.string()).default([]),
+    /**
+     * The exact students in the class. Empty is legal — the class then falls
+     * back to the whole batch, which is how classes behaved before per-class
+     * assignment — but the UI pre-selects everyone so this is rarely empty.
+     */
+    studentIds: z.array(z.string()).default([]),
     sectionId: z.string().optional(),
     subjectId: z.string().optional(),
     batchId: z.string().optional(),
@@ -30,6 +38,8 @@ export const scheduleSchema = z
     /** 0=Sun … 6=Sat. Empty ⇒ every day the pattern produces. */
     repeatDays: z.array(z.number().int().min(0).max(6)).default([]),
   })
+  // Standards stay OPTIONAL on purpose: an extra/revision class scheduled
+  // without one was always legal, and tightening that here would reject it.
   .refine((v) => v.endTime > v.startTime, {
     message: "End time must be after start time",
     path: ["endTime"],

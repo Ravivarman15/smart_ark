@@ -120,13 +120,29 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "Staff welcome",
     "Welcome aboard {{staff_name}}! You have joined {{branch_name}} as {{designation}}. Please complete your onboarding within 48 hours."
   ),
+  // ── Staff credentials (AiSensy Utility template) ───────────────────────────
+  // Sent when a staff account is created (Create Staff), when the welcome is
+  // resent, and on a password reset — alongside the Brevo welcome email that
+  // `invite-staff` owns. Also used by the gated Send Staff Credentials page.
+  //
+  // {{1}} staff_name {{2}} role {{3}} login_email {{4}} password {{5}} login_url
+  //
+  // Deliberately the SAME SHAPE as parent_credentials — name, who they are,
+  // login, password, link — so the two credential templates cannot drift into
+  // different orders and mislead whoever maintains them.
+  //
+  // `username` is kept as an accepted alias for {{3}} because the credential
+  // send page composes with a login-proven `username`; see templateParams.ts.
   def(
     "staff_credentials",
     "credentials",
     "Staff credentials",
-    "Hi {{staff_name}}, your {{branch_name}} portal credentials are:\nUser: {{username}}\nTemp Password: {{password}}\nLogin: {{login_url}}",
+    "Dear {{staff_name}},\n\nYour ARK Learning Arena staff portal account has been created.\n\nRole: {{role}}\nLogin Email: {{login_email}}\nTemporary Password: {{password}}\nPortal: {{login_url}}\n\nPlease sign in and change your password after the first login. Keep these details confidential.\n\nThank you,\nARK Learning Arena",
     {
-      buttons: [{ type: "url", label: "Login", value: "{{login_url}}" }],
+      // Same reasoning as parent_credentials: the org name is static text, and
+      // the portal link is a body variable rather than a URL button so a
+      // credential message can never be delivered without somewhere to log in.
+      variables: ["staff_name", "role", "login_email", "password", "login_url"],
     }
   ),
   def(
@@ -233,13 +249,32 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       media: { type: "pdf", url: "{{receipt_url}}" },
     }
   ),
+  // ── Parent Portal credentials (AiSensy Utility template) ───────────────────
+  // Sent the moment a parent login is provisioned (and on every reset/resend),
+  // alongside the credential email. See parentCredentials.service.ts.
+  //
+  // {{1}} parent_name {{2}} student_name {{3}} login_email {{4}} password {{5}} login_url
+  //
+  // WHY THE LINK IS A BODY VARIABLE, NOT A BUTTON:
+  // a dynamic URL button is a separate AiSensy/Meta configuration, and if it is
+  // missing the message still sends — WITHOUT the address the parent needs. A
+  // body param cannot silently disappear: `missingVariables` refuses to queue a
+  // credential message that has nowhere to log in.
+  //
+  // The password is a temporary one shown once on screen; putting it here means
+  // the parent has it without an office phone call. Utility category is correct —
+  // this is an account-servicing message the recipient's own action triggered.
   def(
     "parent_credentials",
     "credentials",
-    "Parent app credentials",
-    "Hi {{parent_name}}, your {{branch_name}} parent portal credentials are:\nUser: {{username}}\nTemp Password: {{password}}\nYou can view all your children's attendance, fees and results.",
+    "Parent portal credentials",
+    "Dear {{parent_name}},\n\nThe ARK Learning Arena Parent Portal account for {{student_name}} has been created.\n\nLogin Email: {{login_email}}\nTemporary Password: {{password}}\nPortal: {{login_url}}\n\nPlease sign in and change your password after the first login. Keep these details confidential.\n\nThank you,\nARK Learning Arena",
     {
-      buttons: [{ type: "url", label: "Open Portal", value: "{{login_url}}" }],
+      // The org name is deliberately STATIC text, not `{{branch_name}}`. Every
+      // variable in this body is a positional Meta param; adding a sixth for a
+      // value that never changes shifts the password and the link by one if it
+      // is ever omitted. Static text cannot be misaligned.
+      variables: ["parent_name", "student_name", "login_email", "password", "login_url"],
     }
   ),
   def(

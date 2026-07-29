@@ -1,6 +1,7 @@
 import { BaseService, AppError } from "@/shared/services";
 import { attendanceStudentService } from "@/features/attendance/services/studentAttendance.service";
 import type { StudentAttendanceStatus } from "@/features/attendance/types/attendance.types";
+import { classStudentsService } from "./classStudents.service";
 import type { ClassAttendanceStatus, ClassRosterRow } from "../types/allocation.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,12 +68,47 @@ export const fromStudentStatus = (s?: string): ClassAttendanceStatus => {
 /** Statuses that count as "not in class" for the present/absent summary. */
 export const ABSENT_LIKE: ClassAttendanceStatus[] = ["absent", "medical", "leave"];
 
+/**
+ * Split a class roster into per-batch groups for the day-level save.
+ *
+ * The day-level `student_attendance` row is batch-stamped, and a multi-standard
+ * class deliberately mixes batches — so saving the whole sheet under the class's
+ * own batch would file every visiting student against a batch they aren't in,
+ * corrupting the batch register. Rows with no batch at all are dropped rather
+ * than guessed: there is nothing truthful to stamp them with.
+ */
+export const groupRowsByBatch = (
+  rows: ClassRosterRow[],
+  fallbackBatchId?: string,
+): Map<string, ClassRosterRow[]> => {
+  const groups = new Map<string, ClassRosterRow[]>();
+  for (const r of rows) {
+    const key = r.batchId ?? fallbackBatchId;
+    if (!key) continue;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  return groups;
+};
+
 class ClassAttendanceService extends BaseService {
-  /** The class's students with current/previous status + fee-due indicator. */
+  /**
+   * The class's students with current/previous status + fee-due indicator.
+   *
+   * Source of the student list, in order:
+   *   1. the EXPLICIT roster the coordinator assigned (class_students), which
+   *      may span several standards and batches;
+   *   2. the class's batch, for classes scheduled before per-class assignment
+   *      existed (and for anyone who deliberately left the roster empty).
+   *
+   * This is the whole point of the feature: a teacher sees the students they
+   * were given, not everyone who happens to share a batch.
+   */
   async roster(classScheduleId: string): Promise<{
     rows: ClassRosterRow[];
     batchId?: string;
     date?: string;
+    /** True when the list came from an explicit per-class assignment. */
+    assigned?: boolean;
   }> {
     const schedRes = (await this.db
       .from("class_schedules" as never)
@@ -80,10 +116,28 @@ class ClassAttendanceService extends BaseService {
       .eq("id", classScheduleId)
       .maybeSingle()) as { data: ScheduleLite | null };
     const sched = schedRes.data;
-    if (!sched?.batch_id || !sched.schedule_date) return { rows: [] };
+    if (!sched?.schedule_date) return { rows: [] };
 
-    // Reuse the attendance module's roster loader (day-level status per student).
-    const draft = await attendanceStudentService.getDay(sched.batch_id, sched.schedule_date);
+    const assignedRoster = await classStudentsService.listAssigned(classScheduleId);
+    const assigned = assignedRoster.length > 0;
+    if (!assigned && !sched.batch_id) return { rows: [], date: sched.schedule_date };
+
+    // Reuse the attendance module's roster loader (day-level status per student)
+    // for both paths, so the "what was this student marked today" logic is
+    // resolved in exactly one place.
+    const draft = assigned
+      ? await attendanceStudentService.getDayForStudents(
+          assignedRoster.map((a) => a.studentId),
+          sched.schedule_date,
+        )
+      : await attendanceStudentService.getDay(
+          sched.batch_id as string,
+          sched.schedule_date,
+        );
+
+    // Which batch/standard each student belongs to — the submit groups the
+    // day-level save by this, since one class can now cross batches.
+    const meta = new Map(assignedRoster.map((a) => [a.studentId, a]));
 
     // Any per-class marks already saved override the day defaults.
     const existing = await this.list(classScheduleId);
@@ -96,6 +150,7 @@ class ClassAttendanceService extends BaseService {
     const rows: ClassRosterRow[] = draft.map((d) => {
       const prior = byStudent.get(d.studentId);
       const dayStatus = fromStudentStatus(d.status);
+      const m = meta.get(d.studentId);
       return {
         studentId: d.studentId,
         studentName: d.studentName,
@@ -104,9 +159,12 @@ class ClassAttendanceService extends BaseService {
         previousStatus: dayStatus,
         feeDue: feeDue.has(d.studentId),
         remarks: prior?.remarks,
+        batchId: m?.batchId ?? sched.batch_id ?? undefined,
+        standardId: m?.standardId,
+        standardName: m?.standardName,
       };
     });
-    return { rows, batchId: sched.batch_id, date: sched.schedule_date };
+    return { rows, batchId: sched.batch_id ?? undefined, date: sched.schedule_date, assigned };
   }
 
   /** Students (from a list) that carry an outstanding fee balance. */

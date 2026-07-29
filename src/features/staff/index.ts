@@ -66,6 +66,8 @@ export {
   inviteService,
   emailService,
   onboardingService,
+  staffCredentialsService,
+  type SendStaffCredentialsInput,
   type RoleDescriptor,
   type ActorRef,
   type LogEventArgs,

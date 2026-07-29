@@ -57,8 +57,12 @@ export interface ClassSchedule {
   teacherId?: string;
   teacherName?: string;
   coordinatorId?: string;
+  /** The PRIMARY standard — always `standardIds[0]`. Kept for filters/reports. */
   standardId?: string;
   standardName?: string;
+  /** Every standard this class covers (a class may span more than one). */
+  standardIds: string[];
+  standardNames: string[];
   sectionId?: string;
   sectionName?: string;
   subjectId?: string;
@@ -212,6 +216,37 @@ export interface ClassRosterRow {
   previousStatus?: ClassAttendanceStatus;
   feeDue: boolean;
   remarks?: string;
+  /**
+   * The student's OWN batch. A multi-standard class draws students from several
+   * batches, and the day-level attendance row is batch-stamped — so the submit
+   * has to group by this, not by the class's single batch_id.
+   */
+  batchId?: string;
+  standardId?: string;
+  standardName?: string;
+}
+
+/**
+ * A student eligible for a class (standard + optional batch filter), as shown
+ * in the coordinator's select/deselect roster picker.
+ */
+export interface ClassStudentCandidate {
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  standardId?: string;
+  standardName?: string;
+  batchId?: string;
+  batchName?: string;
+  sectionName?: string;
+}
+
+/** A student actually assigned to a class (a persisted class_students row). */
+export interface ClassStudentAssignment extends ClassStudentCandidate {
+  id: string;
+  classScheduleId: string;
+  assignedBy?: string;
+  assignedAt?: string;
 }
 
 /** A class impacted by a teacher's leave. */
@@ -248,7 +283,15 @@ export interface TimetableLock {
 /** Input for creating/updating a class schedule. */
 export interface ScheduleInput {
   teacherId: string;
+  /** Primary standard. Derived from `standardIds[0]` when only the array is set. */
   standardId?: string;
+  /** All standards the class covers. */
+  standardIds?: string[];
+  /**
+   * The exact students in this class. Empty ⇒ the class falls back to the whole
+   * batch roster, which is how every class behaved before per-class assignment.
+   */
+  studentIds?: string[];
   sectionId?: string;
   subjectId?: string;
   batchId?: string;

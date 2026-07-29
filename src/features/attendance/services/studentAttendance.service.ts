@@ -101,6 +101,60 @@ class AttendanceStudentService extends BaseService {
   }
 
   /**
+   * The same day-level read as `getDay`, but for an EXPLICIT set of students
+   * rather than a whole batch.
+   *
+   * A per-class roster can span standards and batches, so there is no single
+   * batch to load. The status resolution is deliberately identical to `getDay`
+   * — same table, same date-column fallback, same present-by-default — so both
+   * paths cannot drift apart.
+   */
+  async getDayForStudents(studentIds: string[], date: string): Promise<StudentDraftRow[]> {
+    const ids = [...new Set(studentIds.filter(Boolean))];
+    if (ids.length === 0) return [];
+
+    const studentsRes = await this.db
+      .from("students")
+      .select("id, name, roll_number")
+      .in("id", ids)
+      .order("name");
+    if (studentsRes.error) throw AppError.fromSupabase(studentsRes.error, "students");
+    const roster = (studentsRes.data ?? []) as {
+      id: string;
+      name: string;
+      roll_number: string | null;
+    }[];
+    if (roster.length === 0) return [];
+
+    let attRes = await this.db
+      .from("student_attendance")
+      .select("student_id, status")
+      .eq("attendance_date", date)
+      .in("student_id", ids);
+    if (attRes.error && isSchemaCacheMiss(attRes.error)) {
+      attRes = await this.db
+        .from("student_attendance")
+        .select("student_id, status")
+        .eq("date", date)
+        .in("student_id", ids);
+    }
+    if (attRes.error) throw AppError.fromSupabase(attRes.error, "student_attendance");
+
+    const marks = new Map(
+      ((attRes.data ?? []) as { student_id: string; status: string }[]).map((r) => [
+        r.student_id,
+        r.status as StudentAttendanceStatus,
+      ]),
+    );
+    return roster.map((s) => ({
+      studentId: s.id,
+      studentName: s.name,
+      rollNumber: s.roll_number ?? undefined,
+      status: marks.get(s.id) ?? "present",
+    }));
+  }
+
+  /**
    * Persist a whole day's marks. Delegates to the students-feature service so
    * the batch-access guard + audit trigger + legacy fallback all apply. The
    * capture `source` is stored in the `method` column (the student table's

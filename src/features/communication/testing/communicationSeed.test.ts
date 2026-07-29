@@ -182,7 +182,11 @@ describe("comms — all 11 communication templates resolve cleanly", () => {
     inquiry_followup: { name: "Mr. Rao", branch_name: "ARK Central", cta_url: "https://ark.test/book" },
     student_welcome: { branch_name: "ARK Central", student_name: "Aarav Sharma", batch_name: "Grade 8 - A" },
     staff_welcome: { staff_name: "Priya Nair", branch_name: "ARK Central", designation: "Senior Teacher" },
-    staff_credentials: { staff_name: "Priya Nair", branch_name: "ARK Central", username: "priya.n", password: "Temp@123", login_url: "https://ark.test/login" },
+    // {{1}} staff_name {{2}} role {{3}} login_email {{4}} password {{5}} login_url.
+    // `username` stays in the bag because the gated Send Staff Credentials page
+    // still composes with it — the positional spec aliases it onto {{3}}.
+    staff_credentials: { staff_name: "Priya Nair", role: "Senior Teacher", login_email: "priya.n@ark.test", username: "priya.n", password: "Temp@123", login_url: "https://ark.test/login" },
+    parent_credentials: { parent_name: "Mr. Sharma", student_name: "Aarav Sharma", login_email: "sharma.a3f9@parents.ark.local", password: "Temp@123", login_url: "https://ark.test/login" },
     student_credentials: { parent_name: "Mr. Sharma", branch_name: "ARK Central", student_name: "Aarav Sharma", username: "aarav.s", password: "Temp@123", login_url: "https://ark.test/app" },
     exam_reminder: { student_name: "Aarav Sharma", exam_name: "Mid-Term Maths", exam_date: "12 Jun 2026", exam_time: "10:00 AM", venue: "Room 4" },
     exam_result: { student_name: "Aarav Sharma", exam_name: "Mid-Term Maths", marks: "82", total: "100", percentage: "82", grade: "A", report_url: "https://ark.test/r/1" },

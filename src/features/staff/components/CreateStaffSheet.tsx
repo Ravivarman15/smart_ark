@@ -5,6 +5,7 @@ import {
   Copy,
   Loader2,
   MailWarning,
+  MessageCircle,
   ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +31,10 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "../hooks/useRoles";
 import { useInviteStaff } from "../hooks/useStaffMutations";
+import {
+  staffCredentialsService,
+  type CredentialDelivery,
+} from "../services/staffCredentials.service";
 import { isWhatsappPhone } from "@/features/leads/utils/whatsappPhone";
 import { createStaffSchema, type CreateStaffFormValues } from "../schemas/staff.schema";
 
@@ -129,6 +134,9 @@ export const CreateStaffSheet = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [emailChecking, setEmailChecking] = useState(false);
   const [result, setResult] = useState<InviteStaffResult | null>(null);
+  // Undefined while the send is still in flight — "we don't know yet" and "it
+  // didn't go" must not look the same on a panel showing a password.
+  const [whatsapp, setWhatsapp] = useState<CredentialDelivery | undefined>();
 
   // Synchronous re-entrancy guard. `disabled` on the button covers the steady
   // state, but there is a render tick between the first click and the button
@@ -142,6 +150,7 @@ export const CreateStaffSheet = ({
       setValues(EMPTY);
       setErrors({});
       setResult(null);
+      setWhatsapp(undefined);
       submitLockRef.current = false;
     }
   }, [open]);
@@ -206,6 +215,35 @@ export const CreateStaffSheet = ({
         toast.warning("Staff created — welcome email not delivered");
       }
       warnIfWhatsappMissing(values.role, values.mobile);
+
+      // WhatsApp the SAME credentials the email carries — never a second
+      // password. An email that lands in spam is why the office ends up reading
+      // passwords down the phone; this is the channel staff actually open.
+      // Deliberately after the panel is shown: the account exists regardless of
+      // whether this succeeds, and the panel reports the outcome itself.
+      if (res.tempPassword) {
+        setWhatsapp(
+          await staffCredentialsService.sendWhatsapp({
+            staffName: `${values.firstName} ${values.lastName}`.trim(),
+            loginEmail: values.email,
+            password: res.tempPassword,
+            mobile: values.mobile,
+            role: values.role,
+            designation: values.designation,
+            profileId: res.profileId,
+            createdBy: user?.profileId,
+          }),
+        );
+      } else {
+        // No password came back, so there is nothing to send — say that rather
+        // than leaving a spinner running forever.
+        setWhatsapp({
+          channel: "whatsapp",
+          ok: false,
+          skipped: true,
+          message: "No temporary password was returned — nothing to send.",
+        });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to invite staff";
       if (/already exists/i.test(msg)) {
@@ -249,6 +287,8 @@ export const CreateStaffSheet = ({
         {result ? (
           <SuccessPanel
             result={result}
+            whatsapp={whatsapp}
+            mobile={values.mobile}
             email={values.email}
             staffName={`${values.firstName} ${values.lastName}`.trim()}
             onConfigureAccess={
@@ -462,12 +502,17 @@ export const CreateStaffSheet = ({
 // ── Credential-delivery success panel ────────────────────────────────────────
 const SuccessPanel = ({
   result,
+  whatsapp,
+  mobile,
   email,
   staffName,
   onConfigureAccess,
   onDone,
 }: {
   result: InviteStaffResult;
+  /** Undefined while the WhatsApp send is still running. */
+  whatsapp?: CredentialDelivery;
+  mobile?: string;
   email: string;
   staffName: string;
   onConfigureAccess?: () => void;
@@ -520,6 +565,36 @@ const SuccessPanel = ({
                   ? "Brevo email is not configured. Share the credentials below with the staff member directly."
                   : result.emailError ??
                     "Email delivery failed. Share the credentials below directly."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* WhatsApp delivery status — the second channel, reported separately.
+            Email and WhatsApp fail for different reasons (spam vs a missing
+            number), so one line for both would hide whichever went wrong. */}
+        {whatsapp === undefined ? (
+          <div className="rounded-lg border border-border/60 p-3 flex gap-2.5 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 mt-0.5 shrink-0 animate-spin" />
+            <p>Sending credentials to WhatsApp…</p>
+          </div>
+        ) : whatsapp.ok ? (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 flex gap-2.5">
+            <MessageCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+            <div className="text-sm text-emerald-700 dark:text-emerald-400">
+              <p className="font-medium">Credentials sent on WhatsApp</p>
+              <p className="text-xs">Delivered to {mobile || "the number on file"}.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex gap-2.5">
+            <MessageCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <div className="text-sm text-amber-700 dark:text-amber-400">
+              <p className="font-medium">
+                {whatsapp.skipped ? "WhatsApp not sent" : "WhatsApp delivery failed"}
+              </p>
+              <p className="text-xs">
+                {whatsapp.message ?? "Share the credentials below directly."}
               </p>
             </div>
           </div>

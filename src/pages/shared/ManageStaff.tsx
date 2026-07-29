@@ -19,6 +19,7 @@ import {
   StaffAccessSheet,
   StaffProfileDrawer,
   onboardingService,
+  staffCredentialsService,
   useDeactivateStaff,
   useActivateStaff,
   useDeleteStaff,
@@ -196,6 +197,14 @@ const ManageStaff = () => {
     }
   };
 
+  /**
+   * Re-deliver the credentials on BOTH channels.
+   *
+   * `resend_invite` rotates the password server-side, so the old one is dead
+   * the moment this runs. Emailing the new one and not WhatsApping it would
+   * lock out exactly the staff member whose email was the problem in the first
+   * place — resending is almost always a response to "I never got it".
+   */
   const handleResend = async (s: Staff) => {
     if (!s.email) return toast.error("No email on file for this staff");
     try {
@@ -209,9 +218,32 @@ const ManageStaff = () => {
           }${res.tempPassword ? `. New temp password: ${res.tempPassword}` : ""}`
         );
       }
+      await whatsappCredentials(s, res.tempPassword);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to resend invite");
     }
+  };
+
+  /**
+   * WhatsApp the freshly-generated credentials, reusing whatever the
+   * `invite-staff` edge function just returned — never a second password.
+   * Silent when there is no number on file: that is a data gap, not an error
+   * worth a red toast on every reset.
+   */
+  const whatsappCredentials = async (s: Staff, tempPassword?: string) => {
+    if (!tempPassword || !s.email) return;
+    const wa = await staffCredentialsService.sendWhatsapp({
+      staffName: s.name,
+      loginEmail: s.email,
+      password: tempPassword,
+      mobile: s.mobile,
+      role: s.role,
+      designation: s.designation,
+      profileId: s.id,
+      createdBy: user?.profileId,
+    });
+    if (wa.ok) toast.success(`Credentials also sent on WhatsApp to ${s.mobile}`);
+    else if (!wa.skipped) toast.warning(`WhatsApp not sent — ${wa.message}`);
   };
 
   const handleVerifyAuth = async (s: Staff) => {
@@ -295,6 +327,7 @@ const ManageStaff = () => {
           }`
         );
       }
+      await whatsappCredentials(s, res.tempPassword);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send reset");
     }

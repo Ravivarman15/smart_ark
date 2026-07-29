@@ -163,8 +163,9 @@ class AttendanceService extends BaseService {
   /**
    * Throws AppError.permission unless the caller is allowed to mark
    * attendance for `batchId`. Admin/management/coordinator are always
-   * allowed. Teachers must own the batch (`batches.teacher_id`) or be
-   * assigned to it via the `teacher_students` junction.
+   * allowed. Teachers must own the batch (`batches.teacher_id`), be assigned
+   * to it via the `teacher_students` junction, or be teaching a scheduled
+   * class that a coordinator put students of this batch into.
    *
    * Called by `saveDay` before any write happens — so an unauthorised
    * teacher can never insert a single audit row.
@@ -199,6 +200,23 @@ class AttendanceService extends BaseService {
     } catch {
       // Junction table absent on some installs — fall through to deny.
     }
+
+    // Per-class roster fallback. A multi-standard class deliberately mixes
+    // batches, so the teacher of that class is authorised for each batch its
+    // assigned students come from — otherwise the coordinator could build a
+    // class the teacher is then forbidden to mark.
+    try {
+      const c = await this.db
+        .from("class_students" as never)
+        .select("id, class_schedules!inner(teacher_id)")
+        .eq("batch_id", batchId)
+        .eq("class_schedules.teacher_id", marker.profileId)
+        .limit(1);
+      if (!c.error && (c.data ?? []).length > 0) return;
+    } catch {
+      // Table absent until the assignment migration is applied — deny as before.
+    }
+
     throw AppError.permission("You are not assigned to this batch");
   }
 
