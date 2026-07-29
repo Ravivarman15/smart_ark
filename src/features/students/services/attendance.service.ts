@@ -163,9 +163,17 @@ class AttendanceService extends BaseService {
   /**
    * Throws AppError.permission unless the caller is allowed to mark
    * attendance for `batchId`. Admin/management/coordinator are always
-   * allowed. Teachers must own the batch (`batches.teacher_id`), be assigned
-   * to it via the `teacher_students` junction, or be teaching a scheduled
-   * class that a coordinator put students of this batch into.
+   * allowed. A teacher qualifies through any ONE of four routes, checked in
+   * order: they own the batch (`batches.teacher_id`), they're linked to it via
+   * the `teacher_students` junction, they're **scheduled to teach a class for
+   * it**, or a coordinator put students of this batch into a class of theirs
+   * (`class_students`).
+   *
+   * The scheduled-class route matters most in practice: `batches.teacher_id`
+   * is a legacy single-owner field that class scheduling never writes and the
+   * junction is empty on installs that allocate work through the timetable —
+   * so without it a teacher handed a class could see the sheet and be refused
+   * on submit, which is exactly the dead end this guard is meant to prevent.
    *
    * Called by `saveDay` before any write happens — so an unauthorised
    * teacher can never insert a single audit row.
@@ -201,10 +209,27 @@ class AttendanceService extends BaseService {
       // Junction table absent on some installs — fall through to deny.
     }
 
+    // Scheduled-class fallback. A coordinator scheduling a class for this
+    // batch IS the assignment; cancelled classes don't count, so revoking the
+    // class revokes the access with it. Substitutes are covered because a
+    // substitution swaps `teacher_id` on the row.
+    try {
+      const s = await this.db
+        .from("class_schedules" as never)
+        .select("id")
+        .eq("batch_id", batchId)
+        .eq("teacher_id", marker.profileId)
+        .neq("status", "cancelled")
+        .limit(1);
+      if (!s.error && (s.data ?? []).length > 0) return;
+    } catch {
+      // Scheduling module absent on some installs — fall through.
+    }
+
     // Per-class roster fallback. A multi-standard class deliberately mixes
     // batches, so the teacher of that class is authorised for each batch its
-    // assigned students come from — otherwise the coordinator could build a
-    // class the teacher is then forbidden to mark.
+    // assigned students come from — the class's own batch (checked above) is
+    // not necessarily the batch a visiting student belongs to.
     try {
       const c = await this.db
         .from("class_students" as never)
@@ -217,7 +242,10 @@ class AttendanceService extends BaseService {
       // Table absent until the assignment migration is applied — deny as before.
     }
 
-    throw AppError.permission("You are not assigned to this batch");
+    throw AppError.permission(
+      "You are not assigned to this batch. Ask your coordinator to schedule a " +
+        "class for it, or to assign you its students.",
+    );
   }
 
   // ── Write path ────────────────────────────────────────────────────────────
