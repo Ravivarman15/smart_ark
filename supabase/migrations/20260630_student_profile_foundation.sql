@@ -4,7 +4,6 @@
 -- Extends public.students with shared profile fields every module can reuse:
 -- section, transport, hostel, medical, emergency contact, communication
 -- preference, parent language, and a richer student lifecycle status.
---
 -- SAFETY:
 --   • Only ADDS columns (IF NOT EXISTS) — nothing is dropped or altered.
 --   • All new columns are NULLable → existing rows keep working untouched.
