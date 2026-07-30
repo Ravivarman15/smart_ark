@@ -5,20 +5,17 @@ import {
   Zap,
   CheckCircle2,
   GraduationCap,
-  Play,
   ClipboardList,
-  Square,
   Wallet,
   TrendingUp,
   Radio,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import { useMySchedule, useMyTeachingHours, useScheduleOps, useMyWorkload } from "../hooks";
+import { useMySchedule, useMyTeachingHours, useMyWorkload } from "../hooks";
 import { ClassAttendanceDialog } from "../components/ClassAttendanceDialog";
+import { ClassLifecycleActions } from "../components/ClassLifecycleActions";
 import type { ClassSchedule } from "../types/allocation.types";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -43,23 +40,41 @@ const Row: React.FC<{ c: ClassSchedule }> = ({ c }) => (
         {c.scheduleDate} · {c.startTime}–{c.endTime} · {(c.durationMinutes / 60).toFixed(1)}h · {c.mode}
         {c.room ? ` · ${c.room}` : ""}
         {c.meetingLink ? " · online" : ""}
+        {/* The lifecycle, on the history rows too — "completed" alone never
+            said whether the class was actually run or just marked off. */}
+        {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
+        {c.completedAt ? ` · ended ${c.completedAt.slice(11, 16)}` : ""}
+        {c.actualMinutes != null ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h` : ""}
       </p>
     </div>
-    <Badge variant="secondary">{c.status}</Badge>
+    <div className="flex items-center gap-1.5 shrink-0">
+      {c.attendanceSubmitted && (
+        <Badge className="bg-emerald-500/15 text-emerald-500">attendance ✓</Badge>
+      )}
+      {c.status === "in_progress" ? (
+        <Badge className="bg-emerald-500/15 text-emerald-600 gap-1">
+          <Radio className="h-3 w-3" /> LIVE
+        </Badge>
+      ) : (
+        <Badge variant="secondary">{c.status}</Badge>
+      )}
+    </div>
   </div>
 );
 
-const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({
-  icon,
-  label,
-  value,
-}) => (
+const StatCard: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  note?: string;
+}> = ({ icon, label, value, note }) => (
   <Card>
     <CardContent className="flex items-center gap-3 py-4">
       <div className="rounded-md bg-primary/10 p-2 text-primary">{icon}</div>
       <div>
         <p className="text-lg font-semibold">{value}</p>
         <p className="text-xs text-muted-foreground">{label}</p>
+        {note && <p className="text-xs text-emerald-600">{note}</p>}
       </div>
     </CardContent>
   </Card>
@@ -79,33 +94,13 @@ const MyClassesPage: React.FC = () => {
 
   const fmtHrs = (mins = 0) => `${(mins / 60).toFixed(1)}h`;
 
-  const ops = useScheduleOps();
   const [attClass, setAttClass] = useState<ClassSchedule | null>(null);
   const attendancePending = todays.filter(
     (c) => (c.status === "scheduled" || c.status === "in_progress") && !c.attendanceSubmitted,
   );
-
-  const handleStart = async (id: string) => {
-    try {
-      await ops.start.mutateAsync(id);
-      toast.success("Class started — you're live");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to start");
-    }
-  };
-
-  const handleEnd = async (c: ClassSchedule) => {
-    try {
-      await ops.complete.mutateAsync(c.id);
-      toast.success(
-        c.attendanceSubmitted
-          ? "Class ended — teaching hours updated"
-          : "Class ended — remember to submit attendance",
-      );
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to end the class");
-    }
-  };
+  // Started and not yet ended. Teaching hours only accrue on End, so this is
+  // the teacher's own copy of the flag the coordinator's board raises.
+  const running = todays.filter((c) => c.status === "in_progress");
 
   const inr = (n = 0) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
@@ -123,7 +118,18 @@ const MyClassesPage: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard icon={<CheckCircle2 className="h-5 w-5" />} label="Teaching hours" value={fmtHrs(hours?.totalMinutes)} />
         <StatCard icon={<Zap className="h-5 w-5" />} label="Extra hours" value={fmtHrs(hours?.extraMinutes)} />
-        <StatCard icon={<Clock className="h-5 w-5" />} label="Upcoming hours" value={fmtHrs(hours?.scheduledMinutes)} />
+        {/* A class you have started is neither taught nor upcoming until you
+            press End — say so rather than letting the hours quietly vanish. */}
+        <StatCard
+          icon={<Clock className="h-5 w-5" />}
+          label="Upcoming hours"
+          value={fmtHrs(hours?.scheduledMinutes)}
+          note={
+            hours?.inProgressCount
+              ? `${fmtHrs(hours.inProgressMinutes)} in class now`
+              : undefined
+          }
+        />
         <StatCard icon={<GraduationCap className="h-5 w-5" />} label="Completed classes" value={String(hours?.completedCount ?? 0)} />
       </div>
 
@@ -152,6 +158,20 @@ const MyClassesPage: React.FC = () => {
             value={inr(workload.expectedSalary)}
           />
         </div>
+      )}
+
+      {running.length > 0 && (
+        <Card className="border-emerald-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-emerald-600">
+              <Radio className="h-4 w-4" /> In class now ({running.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Press <strong>End</strong> when you finish — your teaching hours are banked at that
+            moment, and your coordinator's board keeps showing the class as live until you do.
+          </CardContent>
+        </Card>
       )}
 
       {attendancePending.length > 0 && (
@@ -213,37 +233,14 @@ const MyClassesPage: React.FC = () => {
                     {c.startTime}–{c.endTime} · {(c.durationMinutes / 60).toFixed(1)}h · {c.mode}
                     {c.room ? ` · ${c.room}` : ""}
                     {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
+                    {c.completedAt ? ` · ended ${c.completedAt.slice(11, 16)}` : ""}
                     {c.actualMinutes != null
                       ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h`
                       : ""}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {c.status === "scheduled" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStart(c.id)}
-                      disabled={ops.start.isPending}
-                    >
-                      <Play className="h-4 w-4 mr-1" /> Start
-                    </Button>
-                  )}
-                  {c.status === "in_progress" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEnd(c)}
-                      disabled={ops.complete.isPending}
-                    >
-                      <Square className="h-4 w-4 mr-1" /> End
-                    </Button>
-                  )}
-                  {!c.attendanceSubmitted && c.status !== "cancelled" && (
-                    <Button size="sm" onClick={() => setAttClass(c)}>
-                      <ClipboardList className="h-4 w-4 mr-1" /> Attendance
-                    </Button>
-                  )}
+                <div className="shrink-0">
+                  <ClassLifecycleActions schedule={c} onAttendance={setAttClass} />
                 </div>
               </div>
             ))

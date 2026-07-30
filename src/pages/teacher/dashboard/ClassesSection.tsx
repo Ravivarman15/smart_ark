@@ -1,12 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CalendarClock, ClipboardList, Loader2, Play, Radio, Square, Users2 } from "lucide-react";
-import { toast } from "sonner";
-import {
-  useMySchedule,
-  useScheduleOps,
-  useClassStudentCounts,
-} from "@/features/allocation/hooks";
+import { CalendarClock, Loader2, Radio, Users2 } from "lucide-react";
+import { useMySchedule, useClassStudentCounts } from "@/features/allocation/hooks";
 import { ClassAttendanceDialog } from "@/features/allocation/components/ClassAttendanceDialog";
+import { ClassLifecycleActions } from "@/features/allocation/components/ClassLifecycleActions";
 import { hhmmToMinutes } from "@/features/allocation/services/classMonitor.service";
 import type { ClassSchedule } from "@/features/allocation/types/allocation.types";
 
@@ -53,7 +49,6 @@ export const ClassesSection: React.FC = () => {
     return () => clearInterval(t);
   }, []);
   const { data: all = [], isLoading } = useMySchedule({ from: today, to: today });
-  const ops = useScheduleOps();
   const [attClass, setAttClass] = useState<ClassSchedule | null>(null);
 
   const classes = useMemo(
@@ -66,28 +61,6 @@ export const ClassesSection: React.FC = () => {
   const { data: counts = {} } = useClassStudentCounts(
     useMemo(() => classes.map((c) => c.id), [classes]),
   );
-
-  const handleStart = async (id: string) => {
-    try {
-      await ops.start.mutateAsync(id);
-      toast.success("Class started — you're live");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to start");
-    }
-  };
-
-  const handleEnd = async (c: ClassSchedule) => {
-    try {
-      await ops.complete.mutateAsync(c.id);
-      toast.success(
-        c.attendanceSubmitted
-          ? "Class ended — teaching hours updated"
-          : "Class ended — remember to submit attendance",
-      );
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to end the class");
-    }
-  };
 
   // A teacher with nothing scheduled gets no empty shell — the dashboard's
   // rule throughout.
@@ -153,33 +126,8 @@ export const ClassesSection: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                {c.status === "scheduled" && (
-                  <button
-                    onClick={() => handleStart(c.id)}
-                    disabled={ops.start.isPending}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-card border border-border text-xs font-semibold hover:border-accent/50 transition-colors disabled:opacity-60"
-                  >
-                    <Play className="w-3.5 h-3.5" /> Start
-                  </button>
-                )}
-                {c.status === "in_progress" && (
-                  <button
-                    onClick={() => handleEnd(c)}
-                    disabled={ops.complete.isPending}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-card border border-border text-xs font-semibold hover:border-accent/50 transition-colors disabled:opacity-60"
-                  >
-                    <Square className="w-3.5 h-3.5" /> End
-                  </button>
-                )}
-                {!c.attendanceSubmitted && (
-                  <button
-                    onClick={() => setAttClass(c)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg gradient-accent text-accent-foreground text-xs font-semibold"
-                  >
-                    <ClipboardList className="w-3.5 h-3.5" /> Attendance
-                  </button>
-                )}
+              <div className="flex-shrink-0">
+                <ClassLifecycleActions schedule={c} onAttendance={setAttClass} compact />
               </div>
             </div>
           </div>

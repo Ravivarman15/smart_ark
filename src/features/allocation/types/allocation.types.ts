@@ -204,6 +204,23 @@ export interface FacultyWorkload {
   extraMinutes: number;
   classesTaken: number;
   classesRemaining: number;
+  /**
+   * Classes running RIGHT NOW. Without this a workload row looks identical
+   * before and after a teacher presses Start — `classesRemaining` counts a live
+   * class exactly like an untouched one.
+   */
+  inProgressCount: number;
+  /** Classes with a `started_at` stamp — proof Start was actually pressed. */
+  startedCount: number;
+  /** Classes whose attendance has been submitted. */
+  attendanceSubmittedCount: number;
+  /**
+   * Non-cancelled classes dated BEFORE today that were never started — the
+   * window-level counterpart of the live board's `notStarted`. Past days are
+   * used rather than a wall clock so the number never depends on the time of
+   * day the report is opened.
+   */
+  neverStartedCount: number;
   averageDelayMinutes: number;
   lateStarts: number;
   hourlyRate: number;
@@ -395,6 +412,13 @@ export interface TeachingHours {
   totalMinutes: number; // completed regular classes
   extraMinutes: number; // completed extra classes
   scheduledMinutes: number; // still-scheduled (upcoming) minutes
+  /**
+   * Minutes currently being taught. `in_progress` is neither "completed" nor
+   * "scheduled", so without this a started class vanished from every hours
+   * total until the teacher pressed End.
+   */
+  inProgressMinutes: number;
+  inProgressCount: number;
   cancelledCount: number;
   missedCount: number;
   completedCount: number;

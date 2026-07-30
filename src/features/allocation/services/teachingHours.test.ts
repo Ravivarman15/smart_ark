@@ -5,6 +5,8 @@ import { describe, it, expect, vi } from "vitest";
 //   • only COMPLETED classes contribute paid minutes
 //   • regular completed → totalMinutes; completed EXTRA → extraMinutes (overtime)
 //   • scheduled (upcoming) minutes are tracked separately (never paid)
+//   • in_progress is its OWN bucket — started ≠ taught, so it must never be
+//     folded into completed, and must not silently disappear either
 //   • cancelled / missed are counted, not paid
 //   • a missing table degrades to an empty map (never throws into payroll)
 // ════════════════════════════════════════════════════════════════════════════
@@ -36,6 +38,7 @@ describe("teachingHoursService.aggregate", () => {
       { teacher_id: "t1", teacher_name: "Ravi", duration_minutes: 90, status: "completed", is_extra: false },
       { teacher_id: "t1", teacher_name: "Ravi", duration_minutes: 45, status: "completed", is_extra: true },
       { teacher_id: "t1", teacher_name: "Ravi", duration_minutes: 60, status: "scheduled", is_extra: false },
+      { teacher_id: "t1", teacher_name: "Ravi", duration_minutes: 75, status: "in_progress", is_extra: false },
       { teacher_id: "t1", teacher_name: "Ravi", duration_minutes: 60, status: "cancelled", is_extra: false },
       { teacher_id: "t1", teacher_name: "Ravi", duration_minutes: 60, status: "missed", is_extra: false },
       { teacher_id: "t2", teacher_name: "Anu", duration_minutes: 30, status: "completed", is_extra: false },
@@ -46,6 +49,10 @@ describe("teachingHoursService.aggregate", () => {
     expect(t1.totalMinutes).toBe(150); // 60 + 90
     expect(t1.extraMinutes).toBe(45); // the completed extra class
     expect(t1.scheduledMinutes).toBe(60);
+    // Started but not ended: its own bucket, and NOT paid.
+    expect(t1.inProgressMinutes).toBe(75);
+    expect(t1.inProgressCount).toBe(1);
+    expect(t1.totalMinutes).toBe(150);
     expect(t1.cancelledCount).toBe(1);
     expect(t1.missedCount).toBe(1);
     expect(t1.completedCount).toBe(3); // 2 regular + 1 extra

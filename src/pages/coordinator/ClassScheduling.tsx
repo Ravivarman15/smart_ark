@@ -446,17 +446,33 @@ const ClassScheduling: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {teachingHours.map((h) => {
-                const engaged = h.totalMinutes + h.extraMinutes + h.scheduledMinutes;
+                // A class being taught right now is neither completed nor
+                // upcoming. Leaving it out made a teacher's load DROP the
+                // moment they pressed Start, which is the opposite of the truth.
+                const engaged =
+                  h.totalMinutes + h.extraMinutes + h.scheduledMinutes + h.inProgressMinutes;
                 const c = classify(engaged);
                 return (
                   <div key={h.teacherId} className="rounded-md border p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium text-sm truncate">{h.teacherName ?? nameOf(h.teacherId)}</p>
-                      <Badge className={c.cls}>{c.label}</Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {h.inProgressCount > 0 && (
+                          <Badge className="bg-emerald-500/15 text-emerald-600 gap-1">
+                            <Radio className="h-3 w-3" /> LIVE
+                          </Badge>
+                        )}
+                        <Badge className={c.cls}>{c.label}</Badge>
+                      </div>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>Completed {fmtHrs(h.totalMinutes)}</span>
                       <span>Extra {fmtHrs(h.extraMinutes)}</span>
+                      {h.inProgressCount > 0 && (
+                        <span className="text-emerald-600">
+                          In class {fmtHrs(h.inProgressMinutes)}
+                        </span>
+                      )}
                       <span>Upcoming {fmtHrs(h.scheduledMinutes)}</span>
                       <span>Cancelled {h.cancelledCount}</span>
                     </div>

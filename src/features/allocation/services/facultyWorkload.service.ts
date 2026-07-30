@@ -90,6 +90,10 @@ export const buildWorkload = (
 
     const started = rows.filter((r) => r.startedAt);
     const lateStarts = started.filter((r) => (r.lateMinutes ?? 0) > 0);
+    // The lifecycle, surfaced. A live class used to be indistinguishable from an
+    // untouched one here — both simply sat inside `classesRemaining`.
+    const inProgress = rows.filter((r) => r.status === "in_progress");
+    const neverStarted = chargeable.filter((r) => !r.startedAt && r.scheduleDate < today);
     const averageDelayMinutes =
       started.length > 0
         ? Math.round(started.reduce((t, r) => t + (r.lateMinutes ?? 0), 0) / started.length)
@@ -116,6 +120,10 @@ export const buildWorkload = (
       extraMinutes: minutes(completed.filter((r) => r.isExtra)),
       classesTaken: completed.length,
       classesRemaining: remaining.length,
+      inProgressCount: inProgress.length,
+      startedCount: started.length,
+      attendanceSubmittedCount: rows.filter((r) => r.attendanceSubmitted).length,
+      neverStartedCount: neverStarted.length,
       averageDelayMinutes,
       lateStarts: lateStarts.length,
       hourlyRate,

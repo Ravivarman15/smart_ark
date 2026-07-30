@@ -55,6 +55,8 @@ class TeachingHoursService extends BaseService {
           totalMinutes: 0,
           extraMinutes: 0,
           scheduledMinutes: 0,
+          inProgressMinutes: 0,
+          inProgressCount: 0,
           cancelledCount: 0,
           missedCount: 0,
           completedCount: 0,
@@ -67,6 +69,11 @@ class TeachingHoursService extends BaseService {
         else cur.totalMinutes += mins;
       } else if (status === "scheduled") {
         cur.scheduledMinutes += mins;
+      } else if (status === "in_progress") {
+        // Counted separately, never folded into completed: payroll must only
+        // ever pay for a class the teacher actually ended.
+        cur.inProgressMinutes += mins;
+        cur.inProgressCount += 1;
       } else if (status === "cancelled") {
         cur.cancelledCount += 1;
       } else if (status === "missed") {
@@ -86,6 +93,8 @@ class TeachingHoursService extends BaseService {
         totalMinutes: 0,
         extraMinutes: 0,
         scheduledMinutes: 0,
+        inProgressMinutes: 0,
+        inProgressCount: 0,
         cancelledCount: 0,
         missedCount: 0,
         completedCount: 0,

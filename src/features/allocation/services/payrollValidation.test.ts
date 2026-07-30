@@ -50,6 +50,8 @@ const th = (over: Record<string, unknown> = {}) => ({
   totalMinutes: 120,
   extraMinutes: 0,
   scheduledMinutes: 0,
+  inProgressMinutes: 0,
+  inProgressCount: 0,
   cancelledCount: 0,
   missedCount: 0,
   completedCount: 2,
@@ -96,6 +98,17 @@ describe("payrollValidationService.buildDiscrepancy", () => {
     const [row] = await payrollValidationService.buildDiscrepancy("2026-07-01", "2026-07-31");
     expect(row.flags.some((f) => f.includes("leave"))).toBe(true);
     expect(row.flags.some((f) => f.includes("unfinished"))).toBe(true);
+  });
+
+  // A class left running is not payable — completed minutes are. Running
+  // payroll with one open silently underpays the teacher, so it must be a flag.
+  it("flags classes that were started but never ended", async () => {
+    hoisted.hours = new Map([["t1", th({ inProgressMinutes: 90, inProgressCount: 2 })]]);
+    hoisted.schedules = [
+      { id: "c1", teacherId: "t1", status: "in_progress", durationMinutes: 60 },
+    ];
+    const [row] = await payrollValidationService.buildDiscrepancy("2026-07-01", "2026-07-31");
+    expect(row.flags.some((f) => f.includes("2 class(es) started but never ended"))).toBe(true);
   });
 
   it("returns [] when there is no activity", async () => {

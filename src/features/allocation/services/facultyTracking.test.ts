@@ -102,6 +102,50 @@ describe("buildWorkload", () => {
     expect(w.monthMinutes).toBe(360);
   });
 
+  // The workload row is where management reads "is this teacher working right
+  // now" — a live class must be distinguishable from an untouched one.
+  it("surfaces a started class as in-progress instead of hiding it in Remaining", () => {
+    const [w] = buildWorkload(
+      [
+        cls({ id: "a", status: "in_progress", startedAt: "2026-07-24T10:01:00Z" }),
+        cls({ id: "b", status: "scheduled" }),
+      ],
+      rates,
+      { from: "2026-07-01", to: "2026-07-31", today: "2026-07-24" },
+    );
+    expect(w.inProgressCount).toBe(1);
+    expect(w.startedCount).toBe(1);
+    expect(w.classesRemaining).toBe(2); // unchanged: both are still unfinished
+  });
+
+  it("counts attendance submissions alongside the lifecycle", () => {
+    const [w] = buildWorkload(
+      [
+        cls({ id: "a", status: "completed", startedAt: "x", attendanceSubmitted: true }),
+        cls({ id: "b", status: "completed", startedAt: "x" }),
+      ],
+      rates,
+      { from: "2026-07-01", to: "2026-07-31", today: "2026-07-24" },
+    );
+    expect(w.startedCount).toBe(2);
+    expect(w.attendanceSubmittedCount).toBe(1);
+  });
+
+  it("counts only PAST classes as never started, and never a cancelled one", () => {
+    const [w] = buildWorkload(
+      [
+        cls({ id: "a", scheduleDate: "2026-07-22", status: "missed" }), // past, no start
+        cls({ id: "b", scheduleDate: "2026-07-22", status: "cancelled" }), // nobody was due
+        cls({ id: "c", scheduleDate: "2026-07-22", status: "completed", startedAt: "x" }),
+        cls({ id: "d", scheduleDate: "2026-07-24" }), // today — still has time
+        cls({ id: "e", scheduleDate: "2026-07-28" }), // future
+      ],
+      rates,
+      { from: "2026-07-01", to: "2026-07-31", today: "2026-07-24" },
+    );
+    expect(w.neverStartedCount).toBe(1);
+  });
+
   it("reports a zero rate rather than guessing one", () => {
     const [w] = buildWorkload([cls({ status: "completed" })], new Map(), {
       from: "2026-07-01",
@@ -371,6 +415,10 @@ const workload = (over: Partial<FacultyWorkload> = {}): FacultyWorkload =>
     extraMinutes: 0,
     classesTaken: 0,
     classesRemaining: 0,
+    inProgressCount: 0,
+    startedCount: 0,
+    attendanceSubmittedCount: 0,
+    neverStartedCount: 0,
     averageDelayMinutes: 0,
     lateStarts: 0,
     hourlyRate: 350,

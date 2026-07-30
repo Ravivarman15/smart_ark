@@ -95,6 +95,11 @@ export const buildFacultyMonthly = (c: Ctx): AllocationReport => {
     "Cancelled (h)": hrs(w.cancelledMinutes),
     "Classes taken": w.classesTaken,
     Remaining: w.classesRemaining,
+    // Whether the timetable was actually RUN, not just marked off — the export
+    // is what gets attached to a payroll or compliance discussion.
+    Started: w.startedCount,
+    "Attendance marked": w.attendanceSubmittedCount,
+    "Never started": w.neverStartedCount,
     "Avg delay (min)": w.averageDelayMinutes,
   }));
   return {
@@ -111,6 +116,9 @@ export const buildFacultyMonthly = (c: Ctx): AllocationReport => {
       { header: "Cancelled (h)", field: "Cancelled (h)", align: "right" },
       { header: "Classes taken", field: "Classes taken", align: "right" },
       { header: "Remaining", field: "Remaining", align: "right" },
+      { header: "Started", field: "Started", align: "right" },
+      { header: "Attendance marked", field: "Attendance marked", align: "right" },
+      { header: "Never started", field: "Never started", align: "right" },
       { header: "Avg delay (min)", field: "Avg delay (min)", align: "right" },
     ],
     rows,

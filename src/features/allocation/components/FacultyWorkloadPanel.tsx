@@ -1,4 +1,5 @@
 import React from "react";
+import { Radio } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -56,6 +57,7 @@ export const FacultyWorkloadPanel: React.FC<Props> = ({ rows, isLoading, title }
               <TableHead className="text-right">Completed</TableHead>
               <TableHead className="text-right">Missed</TableHead>
               <TableHead className="text-right">Taken / Left</TableHead>
+              <TableHead className="text-right">Started / Marked</TableHead>
               <TableHead className="text-right">Avg delay</TableHead>
               <TableHead className="text-right">Rate</TableHead>
               <TableHead className="text-right">Earned</TableHead>
@@ -68,7 +70,16 @@ export const FacultyWorkloadPanel: React.FC<Props> = ({ rows, isLoading, title }
               return (
                 <TableRow key={w.teacherId}>
                   <TableCell className="font-medium">
-                    {w.teacherName ?? w.teacherId}
+                    <span className="flex items-center gap-1.5">
+                      {w.teacherName ?? w.teacherId}
+                      {/* Pressing Start has to be visible HERE, not only on the
+                          live board — this is the table management reads. */}
+                      {w.inProgressCount > 0 && (
+                        <Badge className="bg-emerald-500/15 text-emerald-600 gap-1">
+                          <Radio className="h-3 w-3" /> LIVE
+                        </Badge>
+                      )}
+                    </span>
                     {w.department && (
                       <span className="block text-xs text-muted-foreground">{w.department}</span>
                     )}
@@ -83,6 +94,14 @@ export const FacultyWorkloadPanel: React.FC<Props> = ({ rows, isLoading, title }
                   <TableCell className="text-right">{h(w.missedMinutes)}</TableCell>
                   <TableCell className="text-right">
                     {w.classesTaken} / {w.classesRemaining}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {w.startedCount} / {w.attendanceSubmittedCount}
+                    {w.neverStartedCount > 0 && (
+                      <span className="block text-[10px] text-rose-500">
+                        {w.neverStartedCount} never started
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     {w.averageDelayMinutes > 0 ? (
@@ -114,6 +133,11 @@ export const FacultyWorkloadPanel: React.FC<Props> = ({ rows, isLoading, title }
         </Table>
       )}
       <p className="pt-3 text-xs text-muted-foreground">
+        <strong>Started / Marked</strong> counts the classes the teacher actually pressed Start on
+        and the ones whose attendance is in — a class can be “completed” without either, so the
+        two numbers are what tell you the timetable was really run.
+      </p>
+      <p className="pt-1 text-xs text-muted-foreground">
         Earned / Expected are <strong>projections</strong> from the hourly rate configured in
         Payroll (individual → role → derived from monthly ÷ working days ÷ daily hours). The
         payroll run remains the source of truth for what is actually paid.

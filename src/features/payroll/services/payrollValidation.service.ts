@@ -69,6 +69,10 @@ class PayrollValidationService extends BaseService {
       const flags: string[] = [];
       if (missing > 0) flags.push(`${missing} completed class(es) missing attendance`);
       if ((h?.scheduledMinutes ?? 0) > 0) flags.push("has still-scheduled (unfinished) classes");
+      // Started and never ended. These minutes are NOT payable (only completed
+      // classes are), so a payroll run with them still open silently underpays.
+      if ((h?.inProgressCount ?? 0) > 0)
+        flags.push(`${h?.inProgressCount} class(es) started but never ended`);
       if (leaveClasses > 0) flags.push(`${leaveClasses} class(es) overlap a leave request`);
       out.push({
         teacherId: tid,
