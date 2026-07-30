@@ -62,14 +62,22 @@ BEGIN
   END IF;
 
   -- A teacher may RUN their class. They may not RE-PLAN it.
+  --
+  -- `duration_minutes` is deliberately NOT in this list even though it is part
+  -- of the plan: it is GENERATED ALWAYS from (end_time - start_time), and a
+  -- generated column is computed AFTER before-row triggers — so NEW.duration_minutes
+  -- reads NULL here while OLD holds the stored value, and every single teacher
+  -- update would look like a duration change and be refused. The two columns it
+  -- is derived from are both guarded below, so nothing is actually unprotected.
+  -- Never add a generated column to this comparison.
   IF ROW(NEW.teacher_id, NEW.coordinator_id, NEW.standard_id, NEW.standard_ids,
          NEW.section_id, NEW.subject_id, NEW.batch_id, NEW.schedule_date,
-         NEW.start_time, NEW.end_time, NEW.duration_minutes, NEW.mode,
+         NEW.start_time, NEW.end_time, NEW.mode,
          NEW.is_extra, NEW.cancel_reason, NEW.original_teacher_id)
      IS DISTINCT FROM
      ROW(OLD.teacher_id, OLD.coordinator_id, OLD.standard_id, OLD.standard_ids,
          OLD.section_id, OLD.subject_id, OLD.batch_id, OLD.schedule_date,
-         OLD.start_time, OLD.end_time, OLD.duration_minutes, OLD.mode,
+         OLD.start_time, OLD.end_time, OLD.mode,
          OLD.is_extra, OLD.cancel_reason, OLD.original_teacher_id)
   THEN
     RAISE EXCEPTION
