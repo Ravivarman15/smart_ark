@@ -5,3 +5,4 @@ export * from "./useClassAttendance";
 export * from "./useClassStudents";
 export * from "./useOperations";
 export * from "./useFacultyOps";
+export * from "./useMinuteClock";

@@ -435,13 +435,42 @@ class ScheduleService extends BaseService {
     }
   }
 
+  /**
+   * Apply a patch to one class and PROVE the row actually moved.
+   *
+   * A PostgREST UPDATE whose row RLS filters away returns 204 with `error:
+   * null` — byte-for-byte indistinguishable from success. That is exactly how
+   * Start spent its life lying: teachers had no UPDATE policy on
+   * class_schedules, every press updated zero rows, and the UI toasted "you're
+   * live" while the coordinator's board kept the class under "not started".
+   *
+   * Asking for the id back makes a refused write a visible failure instead of a
+   * green tick, so the next permission gap surfaces the first time it happens.
+   */
+  private async applyPatch(
+    id: string,
+    patch: Record<string, unknown>,
+    action: string,
+  ): Promise<void> {
+    const res = (await this.table()
+      .update(patch as never)
+      .eq("id", id)
+      .select("id")) as { data: { id: string }[] | null; error: { message?: string } | null };
+    if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
+    if ((res.data ?? []).length === 0) {
+      throw AppError.validation(
+        `Could not ${action} this class — the database refused the change. ` +
+          `You may not be assigned to it any more; ask your coordinator to re-check the timetable.`,
+      );
+    }
+  }
+
   // ── Status transitions ──────────────────────────────────────────────────────
   async setStatus(id: string, status: ScheduleStatus, reason?: string): Promise<void> {
     const patch: Record<string, unknown> = { status };
     if (status === "cancelled") patch.cancel_reason = reason ?? null;
     if (status === "completed") patch.completed_at = new Date().toISOString();
-    const res = await this.table().update(patch as never).eq("id", id);
-    if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
+    await this.applyPatch(id, patch, `mark this class ${status}`);
     await this.audit(id, status, reason ? { reason } : {});
 
     if (status === "cancelled") {
@@ -592,9 +621,20 @@ class ScheduleService extends BaseService {
    * faculty started from, and derives punctuality (late vs early minutes)
    * against the allocated start time. The class then shows LIVE on every
    * dashboard, and the coordinator/management notifications fire best-effort.
+   *
+   * Lateness is RECORDED, never a reason to refuse: a class started 12 minutes
+   * behind is still a class that happened, and blocking it would leave the
+   * timetable claiming it never did.
    */
   async start(id: string, actor?: Actor, ctx?: ClientContext): Promise<ClassSchedule | null> {
     const cur = await this.get(id);
+    // Pressing Start twice must not reset the clock — the first press is the
+    // real start time and everything downstream (late minutes, actual minutes,
+    // the audit trail) is measured from it.
+    if (cur && (cur.status === "in_progress" || cur.startedAt)) return cur;
+    if (cur && cur.status === "completed") {
+      throw AppError.validation("This class is already completed.");
+    }
     const nowIso = new Date().toISOString();
     const where = ctx ?? localContext();
 
@@ -602,8 +642,9 @@ class ScheduleService extends BaseService {
     const lateMinutes = Math.max(0, drift);
     const earlyMinutes = Math.max(0, -drift);
 
-    const res = await this.table()
-      .update({
+    await this.applyPatch(
+      id,
+      {
         status: "in_progress",
         started_at: nowIso,
         late_minutes: lateMinutes,
@@ -613,9 +654,9 @@ class ScheduleService extends BaseService {
         start_ip: where.ip ?? null,
         start_lat: where.lat ?? null,
         start_lng: where.lng ?? null,
-      } as never)
-      .eq("id", id);
-    if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
+      },
+      "start",
+    );
     await this.audit(id, "started", { lateMinutes, earlyMinutes, at: nowIso }, actor, where);
 
     if (cur) {
@@ -634,6 +675,7 @@ class ScheduleService extends BaseService {
    */
   async complete(id: string, actor?: Actor, ctx?: ClientContext): Promise<void> {
     const cur = await this.get(id);
+    if (cur?.status === "completed") return; // idempotent — don't restamp the end
     const nowIso = new Date().toISOString();
     const where = ctx ?? localContext();
 
@@ -644,17 +686,18 @@ class ScheduleService extends BaseService {
       : (cur?.durationMinutes ?? 0);
     const varianceMinutes = actualMinutes - (cur?.durationMinutes ?? 0);
 
-    const res = await this.table()
-      .update({
+    await this.applyPatch(
+      id,
+      {
         status: "completed",
         completed_at: nowIso,
         actual_minutes: actualMinutes,
         end_device: where.device ?? null,
         end_browser: where.browser ?? null,
         end_ip: where.ip ?? null,
-      } as never)
-      .eq("id", id);
-    if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
+      },
+      "end",
+    );
     await this.audit(
       id,
       "completed",
@@ -682,10 +725,7 @@ class ScheduleService extends BaseService {
    * (via the existing attendanceStudentService/attendanceWhatsappService path).
    */
   async submitAttendance(id: string, actor?: Actor): Promise<void> {
-    const res = await this.table()
-      .update({ attendance_submitted: true } as never)
-      .eq("id", id);
-    if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
+    await this.applyPatch(id, { attendance_submitted: true }, "record attendance against");
     await this.audit(id, "attendance_submitted", {}, actor);
     // Completing here (rather than in one update) reuses the Phase-3 End-Class
     // path so actual minutes + variance + the class_ended broadcast are

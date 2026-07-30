@@ -110,6 +110,36 @@ export const useClassAudit = (classScheduleId?: string, limit = 100) =>
  */
 export const useReminderSweep = (date: string, enabled: boolean, everyMs = 120_000) => {
   const { coordinatorId } = useScope();
+  useSweepLoop(date, enabled, everyMs, coordinatorId);
+};
+
+/**
+ * The same sweep, driven from the TEACHER's own screen.
+ *
+ * The board-driven sweep only runs while a coordinator happens to have the
+ * Class Control Center open, but the person who has to act on "attendance due
+ * in 10 minutes" is the teacher — and they are the one certain to have a screen
+ * open during their own class. RLS scopes the sweep to their rows, and each
+ * reminder is claimed atomically, so both sweeps running at once cannot
+ * double-send. (A server cron remains the proper upgrade for classes nobody has
+ * a tab open for.)
+ */
+export const useMyClassReminderSweep = (
+  date: string,
+  enabled: boolean,
+  everyMs = 120_000,
+) => {
+  // No coordinator filter: a teacher is not the coordinator of their classes,
+  // and passing their own id would filter every row away.
+  useSweepLoop(date, enabled, everyMs, undefined);
+};
+
+const useSweepLoop = (
+  date: string,
+  enabled: boolean,
+  everyMs: number,
+  coordinatorId: string | undefined,
+) => {
   const running = useRef(false);
 
   useEffect(() => {

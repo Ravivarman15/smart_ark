@@ -1,9 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { CalendarClock, Loader2, Radio, Users2 } from "lucide-react";
-import { useMySchedule, useClassStudentCounts } from "@/features/allocation/hooks";
+import {
+  useMySchedule,
+  useClassStudentCounts,
+  useMinuteClock,
+  useMyClassReminderSweep,
+} from "@/features/allocation/hooks";
 import { ClassAttendanceDialog } from "@/features/allocation/components/ClassAttendanceDialog";
 import { ClassLifecycleActions } from "@/features/allocation/components/ClassLifecycleActions";
 import { hhmmToMinutes } from "@/features/allocation/services/classMonitor.service";
+import { attendanceDueIn } from "@/features/allocation/services/classReminder.service";
 import type { ClassSchedule } from "@/features/allocation/types/allocation.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,21 +40,15 @@ const overdueStart = (c: ClassSchedule, nowMinutes: number): number =>
 const overrun = (c: ClassSchedule, nowMinutes: number): number =>
   c.status === "in_progress" ? Math.max(0, nowMinutes - hhmmToMinutes(c.endTime)) : 0;
 
-const minutesNow = (): number => {
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes();
-};
-
 export const ClassesSection: React.FC = () => {
   const today = todayIso();
   // The nudges below are time-relative, so the section has to notice the clock
   // moving even when nothing in the data changed.
-  const [nowMinutes, setNowMinutes] = useState(minutesNow);
-  useEffect(() => {
-    const t = setInterval(() => setNowMinutes(minutesNow()), 60_000);
-    return () => clearInterval(t);
-  }, []);
+  const nowMinutes = useMinuteClock();
   const { data: all = [], isLoading } = useMySchedule({ from: today, to: today });
+  // The teacher's own screen drives their own reminders — the "attendance due
+  // in 10 minutes" alert can't depend on a coordinator having a tab open.
+  useMyClassReminderSweep(today, true);
   const [attClass, setAttClass] = useState<ClassSchedule | null>(null);
 
   const classes = useMemo(
@@ -111,6 +111,13 @@ export const ClassesSection: React.FC = () => {
                   {overrun(c, nowMinutes) > 0 && (
                     <span className="text-[9px] font-bold uppercase tracking-wider text-ark-danger">
                       {overrun(c, nowMinutes)}m over — press End
+                    </span>
+                  )}
+                  {/* Attendance is owed BEFORE the bell, while the students are
+                      still there to correct a wrong mark. */}
+                  {attendanceDueIn(c, nowMinutes) !== null && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-ark-warning">
+                      Attendance due in {attendanceDueIn(c, nowMinutes)}m
                     </span>
                   )}
                 </div>

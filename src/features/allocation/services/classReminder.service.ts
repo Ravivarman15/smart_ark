@@ -7,9 +7,10 @@ import { scheduleService } from "./schedule.service";
 // ─────────────────────────────────────────────────────────────────────────────
 // Class reminder + alert automation (Phase 9).
 //
-//   • 15 minutes before  → remind the FACULTY
-//   •  5 minutes before  → remind the COORDINATOR
-//   • class ended, attendance still missing → alert the FACULTY
+//   • 15 minutes before start → remind the FACULTY
+//   •  5 minutes before start → remind the COORDINATOR
+//   • 10 minutes before END, attendance still blank → alert the FACULTY
+//   • class ended, attendance still missing → chase the FACULTY
 //
 // Everything is dispatched through the existing settings-gated comms engine
 // (commsDispatcherService) — no new sending path, no new templates table. Each
@@ -24,6 +25,12 @@ import { scheduleService } from "./schedule.service";
 
 export const FACULTY_LEAD_MINUTES = 15;
 export const COORDINATOR_LEAD_MINUTES = 5;
+/**
+ * Attendance is expected to be IN before the class ends, not chased afterwards
+ * — the students are still in the room at T-10, which is the only moment the
+ * teacher can actually fix a wrong mark.
+ */
+export const ATTENDANCE_DUE_LEAD_MINUTES = 10;
 /** How long after a class ends before "attendance missing" is chased. */
 export const ATTENDANCE_GRACE_MINUTES = 30;
 
@@ -32,9 +39,29 @@ const hhmmToMinutes = (hhmm: string): number => {
   return (h || 0) * 60 + (m || 0);
 };
 
+/**
+ * Minutes left to submit attendance before the class ends, or `null` when the
+ * class isn't in that window (already marked, cancelled, or more than
+ * ATTENDANCE_DUE_LEAD_MINUTES from its end).
+ *
+ * Exported so the teacher's own screens count down against exactly the same
+ * rule that decides whether to send them a message — a banner that disagrees
+ * with the WhatsApp alert is worse than neither.
+ */
+export const attendanceDueIn = (
+  s: ClassSchedule,
+  nowMinutes: number,
+): number | null => {
+  if (s.attendanceSubmitted) return null;
+  if (s.status === "cancelled" || s.status === "rescheduled") return null;
+  const left = hhmmToMinutes(s.endTime) - nowMinutes;
+  if (left > ATTENDANCE_DUE_LEAD_MINUTES || left < 0) return null;
+  return left;
+};
+
 export interface ReminderDecision {
   scheduleId: string;
-  kind: "faculty_15" | "coordinator_5" | "attendance_missing";
+  kind: "faculty_15" | "coordinator_5" | "attendance_due" | "attendance_missing";
 }
 
 /**
@@ -72,6 +99,14 @@ export const dueReminders = (
       out.push({ scheduleId: s.id, kind: "coordinator_5" });
     }
 
+    // Attendance due: the class ends in ≤10 minutes and the sheet is still
+    // blank. Deliberately fires whether or not the class was ever started —
+    // attendance is owed for a class that happened, and an unstarted class is a
+    // separate problem the coordinator has already been told about.
+    if (attendanceDueIn(s, nowMinutes) !== null) {
+      out.push({ scheduleId: s.id, kind: "attendance_due" });
+    }
+
     // Attendance chase: the class is over (or completed) and nothing was marked.
     if (
       !s.attendanceSubmitted &&
@@ -87,12 +122,14 @@ export const dueReminders = (
 const EVENT_BY_KIND: Record<ReminderDecision["kind"], string> = {
   faculty_15: "class_reminder_faculty",
   coordinator_5: "class_reminder_coordinator",
+  attendance_due: "class_attendance_due",
   attendance_missing: "class_attendance_missing",
 };
 
 const STAMP_BY_KIND: Record<ReminderDecision["kind"], string> = {
   faculty_15: "reminder_faculty_at",
   coordinator_5: "reminder_coordinator_at",
+  attendance_due: "attendance_due_alert_at",
   attendance_missing: "attendance_alert_at",
 };
 
@@ -137,29 +174,45 @@ class ClassReminderService extends BaseService {
       const rawRow = rawById.get(d.scheduleId) ?? {};
       if (ALREADY_SENT(rawRow as unknown as ClassSchedule, d.kind)) continue;
 
-      const ok = await this.dispatch(d.kind, sched);
-      // Stamp regardless of the dispatch result: a disabled event or a comms
-      // outage must not turn into a retry storm on every board refresh.
-      await this.stamp(d.scheduleId, d.kind);
+      // Claim BEFORE sending, not after. Two sweeps running at once (a
+      // coordinator's board and the teacher's own dashboard) would otherwise
+      // both read a blank stamp and both message the same person.
+      if (!(await this.claim(d.scheduleId, d.kind))) continue;
+      const ok = await this.dispatch(d.kind, sched, {
+        minutes_left: String(attendanceDueIn(sched, nowMinutes) ?? 0),
+      });
       if (ok) sent += 1;
     }
     return sent;
   }
 
-  private async stamp(id: string, kind: ReminderDecision["kind"]): Promise<void> {
+  /**
+   * Atomically take ownership of one reminder: stamp it only if it is still
+   * unstamped, and report whether this caller was the one that won.
+   *
+   * The stamp is written before the dispatch, so a disabled event or a comms
+   * outage costs one lost reminder rather than a retry storm on every refresh —
+   * the same trade the sweep has always made, now race-free.
+   */
+  private async claim(id: string, kind: ReminderDecision["kind"]): Promise<boolean> {
+    const col = STAMP_BY_KIND[kind];
     try {
-      await this.db
+      const res = (await this.db
         .from("class_schedules" as never)
-        .update({ [STAMP_BY_KIND[kind]]: new Date().toISOString() } as never)
-        .eq("id", id);
+        .update({ [col]: new Date().toISOString() } as never)
+        .eq("id", id)
+        .is(col, null)
+        .select("id")) as { data: { id: string }[] | null; error: unknown };
+      return (res.data ?? []).length > 0;
     } catch {
-      /* stamping is best-effort */
+      return false; // can't claim it → don't risk a duplicate send
     }
   }
 
   private async dispatch(
     kind: ReminderDecision["kind"],
     sched: ClassSchedule,
+    extra: Record<string, string> = {},
   ): Promise<boolean> {
     const targetId =
       kind === "coordinator_5" ? sched.coordinatorId : sched.teacherId;
@@ -192,6 +245,7 @@ class ClassReminderService extends BaseService {
           standard: [sched.standardName, sched.sectionName].filter(Boolean).join(" "),
           room: sched.room ?? "",
           meeting_link: sched.meetingLink ?? "",
+          ...extra,
         }),
       });
       return true;

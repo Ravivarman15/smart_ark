@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CalendarClock,
   Clock,
   Zap,
@@ -13,9 +14,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMySchedule, useMyTeachingHours, useMyWorkload } from "../hooks";
+import {
+  useMinuteClock,
+  useMySchedule,
+  useMyTeachingHours,
+  useMyWorkload,
+} from "../hooks";
 import { ClassAttendanceDialog } from "../components/ClassAttendanceDialog";
 import { ClassLifecycleActions } from "../components/ClassLifecycleActions";
+import { attendanceDueIn } from "../services/classReminder.service";
 import type { ClassSchedule } from "../types/allocation.types";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -82,6 +89,7 @@ const StatCard: React.FC<{
 
 const MyClassesPage: React.FC = () => {
   const today = todayIso();
+  const nowMinutes = useMinuteClock();
   const { from, to } = useMemo(monthRange, []);
   const { data: all = [], isLoading } = useMySchedule({ from, to });
   const { data: hours } = useMyTeachingHours(from, to);
@@ -101,6 +109,12 @@ const MyClassesPage: React.FC = () => {
   // Started and not yet ended. Teaching hours only accrue on End, so this is
   // the teacher's own copy of the flag the coordinator's board raises.
   const running = todays.filter((c) => c.status === "in_progress");
+  // The last ten minutes of a class whose sheet is still blank. Same rule the
+  // reminder sweep uses, so the banner and the WhatsApp alert never disagree.
+  const dueNow = todays
+    .map((c) => ({ c, left: attendanceDueIn(c, nowMinutes) }))
+    .filter((x): x is { c: ClassSchedule; left: number } => x.left !== null)
+    .sort((a, b) => a.left - b.left);
 
   const inr = (n = 0) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
@@ -170,6 +184,27 @@ const MyClassesPage: React.FC = () => {
           <CardContent className="text-sm text-muted-foreground">
             Press <strong>End</strong> when you finish — your teaching hours are banked at that
             moment, and your coordinator's board keeps showing the class as live until you do.
+          </CardContent>
+        </Card>
+      )}
+
+      {dueNow.length > 0 && (
+        <Card className="border-amber-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-amber-600">
+              <AlertTriangle className="h-4 w-4" /> Attendance due now ({dueNow.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-1">
+            {dueNow.map(({ c, left }) => (
+              <p key={c.id}>
+                <strong>
+                  {[c.standardName, c.subjectName].filter(Boolean).join(" / ") || "Class"}
+                </strong>{" "}
+                ({c.startTime}–{c.endTime}) — <strong>{left} min left</strong> to submit
+                attendance before the class ends.
+              </p>
+            ))}
           </CardContent>
         </Card>
       )}

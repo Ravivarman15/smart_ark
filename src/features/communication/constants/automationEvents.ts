@@ -84,6 +84,7 @@ export const AUTOMATION_EVENTS: AutomationEventMeta[] = [
   ev("class_reminder_coordinator", "Class reminder — coordinator", "Academics", "Alert the coordinator 5 minutes before a class that has not started yet.",     "class_reminder_coordinator", "both", "immediate", "event"),
   ev("class_started",              "Class started",                "Academics", "Notify the coordinator and management the moment a class goes live.",          "class_started",              "both", "immediate", "event"),
   ev("class_ended",                "Class ended",                  "Academics", "Notify the coordinator and management when a class ends, with actual hours.",  "class_ended",                "both", "immediate", "event"),
+  ev("class_attendance_due",       "Attendance due (10 min)",      "Academics", "Alert the faculty member 10 minutes before the class ends if attendance is still blank.", "class_attendance_due",   "both", "immediate", "event"),
   ev("class_attendance_missing",   "Attendance missing",           "Academics", "Chase the faculty member when a finished class still has no attendance.",      "class_attendance_missing",   "both", "immediate", "event"),
   ev("class_cancelled_students",   "Class cancelled (students)",   "Academics", "Inform students and parents when a scheduled class is cancelled.",             "class_cancelled",            "whatsapp", "immediate", "event"),
 ];

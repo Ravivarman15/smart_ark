@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildWorkload, weekBounds } from "./facultyWorkload.service";
 import { buildBoard, hhmmToMinutes } from "./classMonitor.service";
-import { dueReminders } from "./classReminder.service";
+import { attendanceDueIn, dueReminders } from "./classReminder.service";
 import { scoreFaculty, weeksBetween } from "./facultyInsights.service";
 import type { ClassSchedule, FacultyWorkload } from "../types/allocation.types";
 
@@ -397,6 +397,79 @@ describe("dueReminders", () => {
         at("13:00"),
       ),
     ).toEqual([]);
+  });
+
+  // Attendance is owed BEFORE the bell — at T-10 the students are still in the
+  // room, which is the only moment a wrong mark can actually be corrected.
+  it("alerts the faculty 10 minutes before the end when the sheet is blank", () => {
+    const out = dueReminders(
+      [cls({ startTime: "10:00", endTime: "12:00", status: "in_progress" })],
+      at("11:52"),
+    );
+    expect(out).toEqual([{ scheduleId: "c1", kind: "attendance_due" }]);
+  });
+
+  it("does not alert while there is still more than 10 minutes left", () => {
+    expect(
+      dueReminders(
+        [cls({ startTime: "10:00", endTime: "12:00", status: "in_progress" })],
+        at("11:45"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("alerts even when the class was never started — attendance is still owed", () => {
+    const out = dueReminders(
+      [cls({ startTime: "10:00", endTime: "12:00", status: "scheduled" })],
+      at("11:55"),
+    );
+    expect(out).toEqual([{ scheduleId: "c1", kind: "attendance_due" }]);
+  });
+
+  it("stops alerting once attendance is in", () => {
+    expect(
+      dueReminders(
+        [
+          cls({
+            startTime: "10:00",
+            endTime: "12:00",
+            status: "in_progress",
+            attendanceSubmitted: true,
+          }),
+        ],
+        at("11:55"),
+      ),
+    ).toEqual([]);
+  });
+
+  // The countdown window closes at the bell; from there the 30-minute
+  // "attendance missing" chase takes over, so the two never overlap.
+  it("hands over to the missing-attendance chase after the class ends", () => {
+    expect(
+      dueReminders(
+        [cls({ startTime: "10:00", endTime: "12:00", status: "in_progress" })],
+        at("12:05"),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("attendanceDueIn", () => {
+  const at = (hhmm: string) => hhmmToMinutes(hhmm);
+
+  it("counts down the minutes left before the class ends", () => {
+    expect(attendanceDueIn(cls({ endTime: "12:00" }), at("11:53"))).toBe(7);
+  });
+
+  it("is null outside the window, once submitted, and for a cancelled class", () => {
+    expect(attendanceDueIn(cls({ endTime: "12:00" }), at("11:30"))).toBeNull();
+    expect(attendanceDueIn(cls({ endTime: "12:00" }), at("12:01"))).toBeNull();
+    expect(
+      attendanceDueIn(cls({ endTime: "12:00", attendanceSubmitted: true }), at("11:55")),
+    ).toBeNull();
+    expect(
+      attendanceDueIn(cls({ endTime: "12:00", status: "cancelled" }), at("11:55")),
+    ).toBeNull();
   });
 });
 
