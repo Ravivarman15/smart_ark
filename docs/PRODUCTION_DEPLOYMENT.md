@@ -472,7 +472,124 @@ row, so the hook will emit a claim for every existing login.
 
 ---
 
-## 17. Command reference
+## 17. Google Fonts blocked by CSP — self-hosted instead (fixed, needs redeploy)
+
+**Symptom:** console reported the stylesheet from `fonts.googleapis.com`
+violating `style-src 'self' 'unsafe-inline'`. Fonts did not load.
+
+**Audit — where CSP is generated.** Searched the whole repository. CSP is
+defined in exactly **one** place: the global header block in `vercel.json`.
+There is no middleware, no Express/nginx layer, no CSP utility, and no edge
+function that sets it. The only other occurrences are assertions in
+`phase0.test.ts` and `phase5.test.ts`.
+
+**Root cause.** `src/index.css` line 1 was
+`@import url('https://fonts.googleapis.com/css2?family=Inter:...&family=Space+Grotesk:...')`.
+Phase 0 tightened CSP to `style-src 'self' 'unsafe-inline'` and
+`font-src 'self' data:`. Both halves were blocked — the stylesheet *and* the
+`.woff2` files it points at. Two families were affected, not one: **Inter**
+(`font-sans`, body) and **Space Grotesk** (`font-display`, headings).
+
+**Chosen: Option B — self-host.** Reasons, in order of weight:
+
+1. **Security.** Option A grants `fonts.googleapis.com` the right to inject CSS
+   into an authenticated document, forever. CSS is not inert — it can exfiltrate
+   via selectors and attribute matching, and restyle UI into a convincing
+   phishing surface. Self-hosting keeps `style-src` at `'self'`, which is
+   strictly stronger than any allow-list.
+2. **It removes a third-party runtime dependency** from first paint. An
+   `@import` inside CSS is render-blocking *and* serialised — the browser must
+   fetch and parse `index.css` before it even discovers the font request, then
+   pay DNS + TLS to two more origins.
+3. **Privacy.** Google Fonts discloses every visitor's IP to a third party. For
+   an Indian education platform handling minors' data under DPDP, removing that
+   is worth more than the CDN cache hit (which browser cache partitioning has
+   largely eliminated anyway).
+4. **The Capacitor Android build works offline.** A remote font does not.
+
+**Implementation.** `scripts/fetch-fonts.mjs` downloads the woff2 files and
+generates `src/styles/fonts.css`. It is a script, not a manual copy, because the
+alternative rots: fonts get a new version, someone hand-edits one `@font-face`,
+and a `unicode-range` drifts from the file it points at — then a Vietnamese or
+Cyrillic name renders as tofu on one page and not another. `--check` verifies
+disk against upstream without downloading.
+
+- **10 variable-font files, 280 KB total**, in `public/fonts/`, covering all 7
+  subsets Google served (latin, latin-ext, cyrillic, cyrillic-ext, greek,
+  greek-ext, vietnamese). `unicode-range` is preserved verbatim, so a
+  Latin-only page still downloads only ~70 KB.
+- Variable fonts: one file per subset spans the whole weight range, replacing
+  what would have been 10 static weights per subset.
+- Filenames carry the font version (`inter-latin-v20.woff2`) because `public/`
+  files get no content hash, and `vercel.json` now caches `/fonts/` for a year
+  as `immutable`. A new version must be a new URL.
+- **CSP is unchanged.** That is the point of Option B.
+
+**Indic scripts unaffected.** Inter and Space Grotesk never covered
+Devanagari/Tamil/Telugu/Kannada/Malayalam — Google did not serve those subsets
+either, so Phase 6's multi-language surfaces fell back to system fonts before
+and still do. No regression.
+
+### Cross-origin headers
+
+Added `Cross-Origin-Opener-Policy: same-origin-allow-popups` and
+`Cross-Origin-Resource-Policy: same-origin`.
+
+**COEP `require-corp` deliberately NOT added.** It demands an explicit CORP
+header from every cross-origin subresource; Razorpay's checkout script, the QR
+images from `chart.googleapis.com` and Supabase Storage objects send none, so it
+would break payments, ID cards and every uploaded document. It buys nothing here
+— the app uses no `SharedArrayBuffer`. COOP is `same-origin-allow-popups` rather
+than `same-origin` for the same reason: Razorpay's bank/UPI popups talk back via
+`window.opener`.
+
+### Two findings NOT changed (flagged, not fixed)
+
+- `script-src` still carries **`'unsafe-inline' 'unsafe-eval'`**, which is the
+  real remaining XSS exposure — far more than fonts ever were. Removing it needs
+  a nonce/hash strategy and a check of every dependency that evals. Out of scope
+  here; worth its own pass.
+- `Permissions-Policy` sets **`payment=()`**, which disables the Payment Request
+  API for this document *and its iframes*. If Razorpay Checkout uses it for
+  Google Pay / UPI intent, that will block it. Untestable until the Razorpay
+  secrets are set — **test this explicitly on the first live payment.**
+
+### Auth diagnostics page — `/platform/debug/auth`
+
+Development builds only, verified by inspecting the production bundle:
+
+- `routes.tsx` registers it only inside an `import.meta.env.DEV` branch, so the
+  path string is **absent** from the production bundle.
+- The module's default export collapses to `() => null` outside DEV, so the
+  component tree-shakes away. The emitted chunk is **244 bytes** containing only
+  `const e=()=>null` — no strings, no queries, no field names.
+- It additionally requires an active MFA-enrolled platform user holding
+  `settings.manage`.
+- The **raw access token is never rendered** — it is a bearer credential. Only
+  the decoded claim payload is shown, and that decode is display-only, never an
+  authorization input.
+- All reads go through RLS **as the current user**, deliberately: a service-role
+  read would show data the session cannot actually see, making the page lie in
+  exactly the situation it exists for. Phase 2's "no platform page queries
+  supabase directly" gate was not relaxed — it now grants a narrow exemption
+  that a page must *earn* by proving both halves of the dev-only guard.
+
+**JWT claim audit result:** `organization_id` ✓ and `principal_kind` ✓ are
+emitted (verified by invoking `custom_access_token_hook` against real ARK users
+— all resolve to ARK Learning Arena). `platform_role` ✓ is emitted, MFA-gated.
+`role` is present natively from GoTrue as `authenticated` — the Postgres role,
+not an app role.
+
+**`organization_role` does not exist, and should not.** `organization_users`
+has no role column; the app role lives in `profiles.role` and is read
+server-side by `get_user_role(auth.uid())` inside RLS. Baking it into the token
+would mean a demoted user keeps elevated rights for up to an hour, until the
+token refreshes. Reading it live from the table means a permission change
+applies on the next query. The hook was **not modified.**
+
+---
+
+## 18. Command reference
 
 ```bash
 node scripts/deploy-migrations.mjs --dry-run    # preview

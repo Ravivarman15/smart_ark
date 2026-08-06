@@ -125,12 +125,38 @@ describe("THE CORE INVARIANT — no RLS bypass for platform staff", () => {
   it("no platform page queries supabase directly", () => {
     // Pages go through the service, which is the file the gate above polices.
     // A direct import would route around that check entirely.
+    //
+    // NARROW EXEMPTION: a page that cannot exist in a production build. The
+    // diagnostics page deliberately queries as the CURRENT user so it can show
+    // what this session can actually see — the opposite of a bypass, but still
+    // a direct read, so it is only allowed while it is provably compiled out.
+    // The exemption is not granted by filename; it is EARNED by proving both
+    // halves of the dev-only guard below, so a page cannot claim it by being
+    // named "debug".
+    const routes = stripTsComments(read(join(PLATFORM, "routes.tsx")));
+
+    const isProvablyDevOnly = (file: string, src: string): boolean => {
+      const base = file.split(/[\\/]/).pop()!.replace(/\.tsx?$/, "");
+      // 1. The module itself collapses to a no-op outside a dev build, so an
+      //    accidental import elsewhere still renders nothing.
+      const selfGuarded = /import\.meta\.env\.DEV\s*\?[\s\S]{0,80}?:\s*\(\)\s*=>\s*null/.test(src);
+      // 2. The route is registered only inside an import.meta.env.DEV branch,
+      //    so Vite strips the path and the element from the production bundle.
+      const devRouteBlock = /import\.meta\.env\.DEV\s*\?\s*\[[\s\S]*?\]\s*:\s*\[\]/.exec(routes);
+      const routedDevOnly = !!devRouteBlock && devRouteBlock[0].includes(`<${base} />`);
+      // 3. And it must not ALSO be mounted anywhere outside that branch.
+      const outsideDevBranch = routes
+        .replace(devRouteBlock?.[0] ?? "", "")
+        .includes(`<${base} />`);
+      return selfGuarded && routedDevOnly && !outsideDevBranch;
+    };
+
     const offenders: string[] = [];
     for (const f of walk(join(PLATFORM, "pages"))) {
       const src = stripTsComments(read(f));
-      if (/from "@\/integrations\/supabase\/client"/.test(src)) {
-        offenders.push(f.replace(ROOT, ""));
-      }
+      if (!/from "@\/integrations\/supabase\/client"/.test(src)) continue;
+      if (isProvablyDevOnly(f, src)) continue;
+      offenders.push(f.replace(ROOT, ""));
     }
     expect(offenders, `platform pages importing supabase directly: ${offenders.join(", ")}`)
       .toEqual([]);

@@ -19,6 +19,9 @@ const DashboardPage = lazy(() => import("./pages/PlatformDashboardPage"));
 const OrganizationsPage = lazy(() => import("./pages/OrganizationsPage"));
 const OrganizationDetailPage = lazy(() => import("./pages/OrganizationDetailPage"));
 const ProvisioningPage = lazy(() => import("./pages/ProvisioningPage"));
+// Referenced only from DEV_ROUTES below, so this import is dead code in a
+// production build and the chunk is never emitted.
+const AuthDebugPage = lazy(() => import("./pages/AuthDebugPage"));
 
 const Commerce = {
   Plans: lazy(() => import("./pages/CommercePages").then((m) => ({ default: m.PlansPage }))),
@@ -50,7 +53,27 @@ interface PlatformRoute {
   capability?: PlatformCapability;
 }
 
+/**
+ * Development-only routes.
+ *
+ * `import.meta.env.DEV` is statically replaced at build time, so Vite drops both
+ * this array AND the lazy import below from a production bundle — the chunk is
+ * never emitted and the route cannot be reached, regardless of capability. That
+ * matters because the page prints JWT claims: capability gating alone would
+ * still leave it one compromised platform account away from being readable.
+ */
+const DEV_ROUTES: PlatformRoute[] = import.meta.env.DEV
+  ? [{
+      path: "debug/auth",
+      element: <AuthDebugPage />,
+      // Narrowest capability in the set — this is a diagnostics surface, not an
+      // operational one.
+      capability: "settings.manage",
+    }]
+  : [];
+
 export const PLATFORM_ROUTES: PlatformRoute[] = [
+  ...DEV_ROUTES,
   { path: "dashboard", element: <DashboardPage /> },
   { path: "organizations", element: <OrganizationsPage />, capability: "organizations.read" },
   { path: "organization/:id", element: <OrganizationDetailPage />, capability: "organizations.read" },

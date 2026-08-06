@@ -27,6 +27,20 @@ const FUNCTIONS = join(ROOT, "supabase", "functions");
 
 const readMigration = (name: string) => readFileSync(join(MIGRATIONS, name), "utf8");
 
+interface VercelHeader { key: string; value: string }
+interface VercelConfig {
+  headers: { source: string; headers: VercelHeader[] }[];
+}
+const vercelConfig = (): VercelConfig =>
+  JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as VercelConfig;
+
+/** The header block applied to every response. */
+const globalHeaders = (): VercelHeader[] =>
+  vercelConfig().headers.find((h) => h.source === "/(.*)")?.headers ?? [];
+
+const vercelCsp = (): string =>
+  globalHeaders().find((h) => h.key === "Content-Security-Policy")?.value ?? "";
+
 /**
  * Strip comments before scanning for banned CODE patterns.
  *
@@ -313,5 +327,132 @@ describe("migrations/ is safe to deploy", () => {
     const runner = readFileSync(join(ROOT, "scripts", "deploy-migrations.mjs"), "utf8");
     const missing = onDisk.filter((f) => !runner.includes(f));
     expect(missing, "add these to scripts/deploy-migrations.mjs ORDER").toEqual([]);
+  });
+});
+
+describe("S12 — no third-party origin serves styles or fonts", () => {
+  // Phase 0's CSP is `style-src 'self' 'unsafe-inline'` and `font-src 'self'
+  // data:`. src/index.css opened with
+  // `@import url(https://fonts.googleapis.com/...)`, which that CSP blocked
+  // outright — so every surface silently fell back to a system sans and the
+  // console filled with violations.
+  //
+  // The fix was to self-host, NOT to allow-list Google. These gates keep it
+  // that way: re-adding the import would break the UI again, and adding the
+  // origins to the CSP would hand a third party the right to inject CSS into
+  // an authenticated document.
+  const SRC = join(ROOT, "src");
+
+  const cssSources = (): string[] => {
+    const out: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(css|scss)$/.test(e.name)) out.push(p);
+      }
+    };
+    walk(SRC);
+    return out;
+  };
+
+  // Comments are stripped before scanning. Both index.css and fonts.css NAME
+  // the old `@import url(https://fonts.googleapis.com/...)` in the comment that
+  // explains why it was removed. A gate that punishes documenting the fix
+  // teaches people to delete the explanation — same reasoning as stripComments
+  // above, which exists for exactly this reason.
+  const stripCss = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("no stylesheet imports a remote font service", () => {
+    const offenders = cssSources().filter((f) =>
+      /@import[^;]*https?:\/\//.test(stripCss(readFileSync(f, "utf8"))),
+    );
+    expect(offenders.map((f) => f.replace(ROOT, ""))).toEqual([]);
+  });
+
+  it("no source file references Google Fonts", () => {
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { walk(p); continue; }
+        if (!/\.(css|ts|tsx|html)$/.test(e.name)) continue;
+        if (p.includes(join("test", "security"))) continue; // this file names them
+        const body = /\.css$/.test(e.name)
+          ? stripCss(readFileSync(p, "utf8"))
+          : stripComments(readFileSync(p, "utf8"));
+        if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(body)) {
+          offenders.push(p.replace(ROOT, ""));
+        }
+      }
+    };
+    walk(SRC);
+    expect(readFileSync(join(ROOT, "index.html"), "utf8")).not.toMatch(/fonts\.(googleapis|gstatic)/);
+    expect(offenders).toEqual([]);
+  });
+
+  it("the CSP does not allow-list a font or style CDN", () => {
+    const csp = vercelCsp();
+    expect(csp).toMatch(/style-src 'self' 'unsafe-inline';/);
+    expect(csp).toMatch(/font-src 'self' data:;/);
+    expect(csp).not.toMatch(/fonts\.(googleapis|gstatic)/);
+  });
+
+  it("the self-hosted font files actually exist and are woff2", () => {
+    const css = readFileSync(join(SRC, "styles", "fonts.css"), "utf8");
+    const refs = [...css.matchAll(/url\('\/fonts\/([^']+)'\)/g)].map((m) => m[1]);
+    expect(refs.length, "no @font-face src found").toBeGreaterThan(0);
+    for (const r of refs) {
+      const p = join(ROOT, "public", "fonts", r);
+      expect(existsSync(p), `missing font file: ${r}`).toBe(true);
+      // A fetch that returned an HTML error page would still "exist".
+      expect(readFileSync(p).subarray(0, 4).toString("latin1"), `${r} is not woff2`)
+        .toBe("wOF2");
+    }
+  });
+
+  it("every declared font family is self-hosted", () => {
+    // Tailwind maps sans → Inter and display → Space Grotesk. A family declared
+    // there but absent from fonts.css renders as a system fallback everywhere.
+    const tw = readFileSync(join(ROOT, "tailwind.config.ts"), "utf8");
+    const css = readFileSync(join(SRC, "styles", "fonts.css"), "utf8");
+    for (const fam of ["Inter", "Space Grotesk"]) {
+      expect(tw, `${fam} missing from tailwind config`).toContain(`"${fam}"`);
+      expect(css, `${fam} is not self-hosted`).toContain(`font-family: '${fam}'`);
+    }
+  });
+});
+
+describe("S13 — cross-origin isolation headers", () => {
+  const hdr = (key: string): string | undefined =>
+    globalHeaders().find((h) => h.key === key)?.value;
+
+  it("sets Cross-Origin-Opener-Policy", () => {
+    // same-origin-allow-popups, NOT same-origin: Razorpay opens bank/UPI flows
+    // in a popup that talks back via window.opener, and the stricter value
+    // severs that — silently breaking payment confirmation.
+    expect(hdr("Cross-Origin-Opener-Policy")).toBe("same-origin-allow-popups");
+  });
+
+  it("sets Cross-Origin-Resource-Policy", () => {
+    expect(hdr("Cross-Origin-Resource-Policy")).toBe("same-origin");
+  });
+
+  it("does NOT set COEP: require-corp", () => {
+    // Deliberate. require-corp demands an explicit CORP header from EVERY
+    // cross-origin subresource; Razorpay's checkout script, the QR images from
+    // chart.googleapis.com and Supabase Storage objects do not send one, so it
+    // would break payments, ID cards and every uploaded document. It buys
+    // nothing here — the app uses no SharedArrayBuffer.
+    expect(hdr("Cross-Origin-Embedder-Policy")).toBeUndefined();
+  });
+
+  it("still sets every header Phase 0 established", () => {
+    for (const k of [
+      "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy",
+      "Strict-Transport-Security", "Content-Security-Policy", "Permissions-Policy",
+    ]) {
+      expect(hdr(k), `${k} was dropped`).toBeDefined();
+    }
   });
 });

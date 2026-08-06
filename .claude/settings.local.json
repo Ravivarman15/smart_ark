@@ -142,7 +142,10 @@
       "Bash(curl -s \"https://smart-ark-main.vercel.app/login\")",
       "Bash(curl -sI \"https://smart-ark-main.vercel.app/\")",
       "Bash(curl -sI \"https://smart-ark-main.vercel.app/features\")",
-      "Bash(npx vercel *)"
+      "Bash(npx vercel *)",
+      "Bash(curl -s -o /dev/null -w \"google fonts css: %{http_code}\\\\n\" \"https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap\" --max-time 20)",
+      "Bash(npm view *)",
+      "Bash(awk '{print $5\" bytes\"}')"
     ]
   }
 }
