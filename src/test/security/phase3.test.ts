@@ -251,9 +251,28 @@ describe("SEO", () => {
     expect(pkg.scripts.build).toContain("prerender-marketing");
   });
 
-  it("Vercel serves prerendered shells (cleanUrls)", () => {
+  // This gate used to assert `cleanUrls: true`, on the belief that Vercel needed
+  // it to serve dist/features/index.html at /features. It does not — that is a
+  // DIRECTORY INDEX, resolved natively. cleanUrls instead redirects every .html
+  // path to its extensionless form, which made /index.html unservable and broke
+  // the SPA fallback for every non-prerendered route in production.
+  //
+  // So the gate was not merely useless, it PROTECTED the outage: the correct
+  // config failed CI. Asserting the real requirement — the prerenderer emits
+  // directory indexes — instead of the mechanism someone assumed it implied.
+  it("the prerenderer emits directory indexes, which Vercel serves without cleanUrls", () => {
+    expect(prerender).toMatch(/writeFileSync\(join\(outDir, "index\.html"\), html\)/);
+    expect(prerender).toMatch(/mkdirSync\(outDir, \{ recursive: true \}\)/);
+  });
+
+  it("the marketing shells are reachable without shadowing the app shell", () => {
+    // Vercel checks the filesystem before rewrites, so a prerendered file wins
+    // over the catch-all and the catch-all covers everything else. Both halves
+    // have to hold: no cleanUrls, and a fallback that still points at a real file.
     const v = JSON.parse(read(join(ROOT, "vercel.json")));
-    expect(v.cleanUrls).toBe(true);
+    expect(v.cleanUrls ?? false).toBe(false);
+    expect(v.rewrites?.find((r: { source: string }) => r.source === "/(.*)")?.destination)
+      .toBe("/index.html");
   });
 });
 

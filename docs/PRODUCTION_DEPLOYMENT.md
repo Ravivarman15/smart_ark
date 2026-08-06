@@ -359,7 +359,67 @@ flags set.
 
 ---
 
-## 15. Command reference
+## 15. Post-deployment: the SPA fallback was broken (fixed, needs redeploy)
+
+**Symptom reported:** the landing page's *Sign in* button opened
+`/login` and showed 404.
+
+**Actual scope — far wider than the login button.** Every route without a
+prerendered file on disk returned Vercel's own `NOT_FOUND`:
+
+| Path | Before |
+|---|---|
+| `/login`, `/admin`, `/management`, `/parent`, `/exam`, `/admissions/apply` | **404** |
+| any in-app page refresh | **404** |
+| every credential link WhatsApp'd to staff/parents (`…/login`) | **404** |
+| `/`, `/features`, `/pricing` and the other 24 prerendered routes | 200 |
+
+Only the marketing site worked, which is exactly why it looked like a broken
+button rather than a total outage.
+
+**Cause.** `vercel.json` set `"cleanUrls": true`. That makes Vercel redirect
+every `.html` path to its extensionless form — `/index.html` **308s to `/`** and
+stops being a servable target. The catch-all rewrite's destination therefore
+resolved to nothing, and Vercel fell through to 404. Proof:
+
+```
+GET /index.html  →  308      (destination is a redirect, not a file)
+GET /login       →  404      X-Vercel-Error: NOT_FOUND
+GET /features    →  200      (a real file on disk)
+```
+
+The `headers` block from the same `vercel.json` *was* applied, which confirmed
+the config was deployed and narrowed the fault to `rewrites` alone.
+
+**Fix.** Removed `cleanUrls`. It bought nothing: the prerenderer writes
+`dist/<route>/index.html` — directory indexes, which Vercel resolves natively.
+
+**Why CI did not catch it.** A Phase 3 gate *asserted* `cleanUrls: true`. The
+gate encoded an assumption about the mechanism rather than the requirement, so
+the correct configuration would have **failed** CI. It now asserts what actually
+matters (the prerenderer emits directory indexes) plus the fallback invariant,
+and a Phase 0 gate fails the build if `cleanUrls` returns or any rewrite
+destination becomes unservable.
+
+> **Not yet verified in production — this needs a redeploy.** The diagnosis is
+> evidence-based (the 308 above is direct proof) and the local build is correct,
+> but I have no Vercel credentials on this machine, so the live fix is unproven.
+> After deploying, confirm:
+>
+> ```bash
+> for p in /login /admin /parent /admissions/apply /features /pricing; do
+>   printf "%-22s " "$p"
+>   curl -s -o /dev/null -w "%{http_code}\n" "https://smart-ark-main.vercel.app$p"
+> done
+> ```
+>
+> Expected: **200 for all** — `/login` and friends from the SPA shell, `/features`
+> and `/pricing` still from their prerendered files. Also confirm `/features`
+> still returns its own `<title>`, proving the fallback did not shadow it.
+
+---
+
+## 16. Command reference
 
 ```bash
 node scripts/deploy-migrations.mjs --dry-run    # preview

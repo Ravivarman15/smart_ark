@@ -26,8 +26,18 @@
 //   • The real fix for both is moving the marketing site to its own SSG/SSR
 //     app. That is scoped separately and deliberately not smuggled in here.
 //
-// Vercel serves dist/features/index.html at /features because vercel.json
-// sets cleanUrls, and `rewrites` only apply when no file matches.
+// Vercel serves dist/features/index.html at /features because that is a
+// DIRECTORY INDEX, which Vercel resolves natively — and because `rewrites`
+// only apply when no file matches, so the SPA fallback never hijacks it.
+//
+// This does NOT depend on vercel.json's cleanUrls, and cleanUrls must stay OFF:
+// it turns every .html path into a redirect to its extensionless form, so
+// /index.html 308s to / and stops being a servable rewrite destination. The SPA
+// fallback then resolves to nothing and EVERY non-prerendered route 404s —
+// /login, /admin, /parent, /exam, /admissions/apply, plus every in-app refresh
+// and every credential link sent to staff and parents. It shipped that way and
+// took the whole application offline while the marketing pages kept working,
+// because those are real files on disk. A gate in phase0.test.ts enforces this.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";

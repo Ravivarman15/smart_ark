@@ -137,7 +137,12 @@
       "Read(//c/Users/arrav/.supabase/**)",
       "Bash(env)",
       "Bash(supabase config *)",
-      "Bash(grep -n -B4 -A6 \"array_agg\\(a\\\\\\\\\\\\\\\\.attname ORDER BY\\\\|SELECT count\\\\\\\\\\\\\\\\\\(\\\\\\\\\\\\\\\\*\\\\\\\\\\\\\\\\\\) INTO remaining\" src/test/security/phase1e.test.ts)"
+      "Bash(grep -n -B4 -A6 \"array_agg\\(a\\\\\\\\\\\\\\\\.attname ORDER BY\\\\|SELECT count\\\\\\\\\\\\\\\\\\(\\\\\\\\\\\\\\\\*\\\\\\\\\\\\\\\\\\) INTO remaining\" src/test/security/phase1e.test.ts)",
+      "Bash(curl -sI \"https://smart-ark-main.vercel.app/login\")",
+      "Bash(curl -s \"https://smart-ark-main.vercel.app/login\")",
+      "Bash(curl -sI \"https://smart-ark-main.vercel.app/\")",
+      "Bash(curl -sI \"https://smart-ark-main.vercel.app/features\")",
+      "Bash(npx vercel *)"
     ]
   }
 }

@@ -200,6 +200,43 @@ describe("S10 — no credentials in the repository", () => {
   });
 });
 
+describe("the SPA fallback actually resolves", () => {
+  // This shipped broken and took the entire application offline in production.
+  // `cleanUrls: true` makes Vercel redirect every .html path to its
+  // extensionless form, so /index.html 308s to / and is no longer a servable
+  // rewrite destination. The catch-all fallback then resolved to nothing and
+  // Vercel returned NOT_FOUND for every path without a real file behind it:
+  // /login, /admin, /management, /parent, /exam, /admissions/apply, every
+  // in-app refresh, and every credential link WhatsApp'd to staff and parents.
+  // The marketing pages kept working — they are prerendered files on disk —
+  // which is exactly why it looked like a broken login button.
+  const raw = readFileSync(join(ROOT, "vercel.json"), "utf8");
+  const cfg = JSON.parse(raw) as {
+    cleanUrls?: boolean;
+    rewrites?: { source: string; destination: string }[];
+  };
+
+  it("has a catch-all rewrite to the app shell", () => {
+    const fallback = cfg.rewrites?.find((r) => r.source === "/(.*)");
+    expect(fallback, "no SPA fallback rewrite").toBeDefined();
+    expect(fallback!.destination).toBe("/index.html");
+  });
+
+  it("does not enable cleanUrls, which would make that destination unservable", () => {
+    expect(cfg.cleanUrls ?? false).toBe(false);
+  });
+
+  it("keeps every rewrite destination servable under the current settings", () => {
+    // Stated as the general rule rather than the one instance: any .html
+    // destination is unreachable the moment cleanUrls is on.
+    if (!cfg.cleanUrls) return;
+    for (const r of cfg.rewrites ?? []) {
+      expect(r.destination, `cleanUrls makes ${r.destination} a redirect, not a target`)
+        .not.toMatch(/\.html$/);
+    }
+  });
+});
+
 describe("S11 — security response headers", () => {
   const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
     headers: { source: string; headers: { key: string; value: string }[] }[];
