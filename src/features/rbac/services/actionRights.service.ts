@@ -69,7 +69,7 @@ class ActionRightsService extends BaseService {
     };
     const { error } = await this.db
       .from("rbac_role_actions" as never)
-      .upsert(payload as never, { onConflict: "role,action_id" });
+      .upsert(payload as never, { onConflict: "organization_id,role,action_id" });
     if (error) {
       if (isTableMissing(error)) throw missingTableError();
       throw AppError.fromSupabase(error, "rbac_role_actions.upsert");
@@ -92,7 +92,7 @@ class ActionRightsService extends BaseService {
     }));
     const { error } = await this.db
       .from("rbac_role_actions" as never)
-      .upsert(payload as never, { onConflict: "role,action_id" });
+      .upsert(payload as never, { onConflict: "organization_id,role,action_id" });
     if (error) {
       if (isTableMissing(error)) throw missingTableError();
       throw AppError.fromSupabase(error, "rbac_role_actions.upsertMany");

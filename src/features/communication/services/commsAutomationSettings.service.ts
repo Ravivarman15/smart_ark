@@ -109,7 +109,7 @@ class CommsAutomationSettingsService extends BaseService {
     };
     const res = await this.db
       .from("comms_automation_settings" as never)
-      .upsert(payload as never, { onConflict: "event_key" });
+      .upsert(payload as never, { onConflict: "organization_id,event_key" });
     if (res.error) {
       if (isMissingTable(res.error)) return; // pre-migration: silently no-op
       throw AppError.fromSupabase(res.error, "comms_automation_settings.upsert");

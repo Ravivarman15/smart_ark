@@ -11,17 +11,21 @@ Deno.serve(async (req) => {
   // Gate: cron-only function. Scheduler must send `x-cron-key` matching the
   // CRON_SECRET env var. Without this any anon caller could trigger heavy
   // KPI recomputation as a DoS vector.
+  // FAIL CLOSED. This previously ran the gate only `if (cronSecret)`, so an
+  // unset secret left the endpoint fully open — and because verify_jwt = false
+  // for cron functions, that meant any anonymous caller on the internet could
+  // trigger a full KPI recomputation. A missing secret is a misconfiguration,
+  // not permission to skip authorization.
   const cronSecret = Deno.env.get("CRON_SECRET");
-  if (cronSecret) {
-    const provided = req.headers.get("x-cron-key");
-    if (provided !== cronSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+  const provided = req.headers.get("x-cron-key");
+  if (!cronSecret || provided !== cronSecret) {
+    if (!cronSecret) {
+      console.error("[kpi-engine] CRON_SECRET is not set — refusing all calls. Set it in Supabase → Edge Functions → Secrets.");
     }
-  } else {
-    console.warn("[kpi-engine] CRON_SECRET not set — function is open. Set it in Supabase Dashboard → Edge Functions → Secrets.");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {

@@ -88,7 +88,7 @@ class SmsSettingsService extends BaseService {
     };
     const { error } = await this.db
       .from("settings_sms_automations" as never)
-      .upsert(payload as never, { onConflict: "automation_key" });
+      .upsert(payload as never, { onConflict: "organization_id,automation_key" });
     if (error) throw AppError.fromSupabase(error, "settings_sms_automations.upsert");
   }
 }

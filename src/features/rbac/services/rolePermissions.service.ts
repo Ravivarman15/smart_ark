@@ -77,7 +77,7 @@ class RolePermissionsService extends BaseService {
     };
     const { error } = await this.db
       .from("rbac_role_permissions" as never)
-      .upsert(payload as never, { onConflict: "role,module_id,submodule_id" });
+      .upsert(payload as never, { onConflict: "organization_id,role,module_id,submodule_id" });
     if (error) {
       if (isTableMissing(error)) throw missingTableError();
       throw AppError.fromSupabase(error, "rbac_role_permissions.upsert");
@@ -102,7 +102,7 @@ class RolePermissionsService extends BaseService {
     }));
     const { error } = await this.db
       .from("rbac_role_permissions" as never)
-      .upsert(payload as never, { onConflict: "role,module_id,submodule_id" });
+      .upsert(payload as never, { onConflict: "organization_id,role,module_id,submodule_id" });
     if (error) {
       if (isTableMissing(error)) throw missingTableError();
       throw AppError.fromSupabase(error, "rbac_role_permissions.upsertMany");

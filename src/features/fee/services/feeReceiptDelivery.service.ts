@@ -34,6 +34,7 @@ import { resolveChannels } from "@/features/communication/utils/automationRules"
 import { studentFeeService } from "./studentFee.service";
 import { buildReceipt, receiptToPdfBlob } from "../utils/receipt";
 import { formatINR } from "../utils/feeCalc";
+import { orgPath } from "@/lib/orgStorage";
 
 const ORG_NAME = "ARK Learning Arena";
 const RECEIPTS_BUCKET = "receipts";
@@ -133,7 +134,7 @@ class FeeReceiptDeliveryService extends BaseService {
       );
       const blob = await receiptToPdfBlob(receipt, ORG_NAME);
       const safeReceipt = receiptNo.replace(/[^a-zA-Z0-9_-]/g, "_");
-      const path = `${studentFeeId}/${safeReceipt}.pdf`;
+      const path = orgPath(`${studentFeeId}/${safeReceipt}.pdf`);
       const up = await this.db.storage
         .from(RECEIPTS_BUCKET)
         .upload(path, blob, { contentType: "application/pdf", upsert: true });

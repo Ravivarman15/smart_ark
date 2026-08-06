@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender-marketing.mjs",
     "build:dev": "vite build --mode development",
     "postbuild": "cap sync android",
     "lint": "eslint .",
@@ -17,7 +17,8 @@
     "android:build": "npm run build && cd android && ./gradlew assembleDebug",
     "android:build:release": "npm run build && cd android && ./gradlew assembleRelease",
     "android:open": "cap open android",
-    "android:run": "npm run build && cap run android"
+    "android:run": "npm run build && cap run android",
+    "prerender": "node scripts/prerender-marketing.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.1.0",

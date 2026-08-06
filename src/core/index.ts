@@ -2,7 +2,24 @@
 // rather than reaching into subfolders so we can rearrange internals freely.
 export { APP_CONFIG } from "./constants/config";
 export { ROLES, SUPER_ROLES, ROLE_HOME_ROUTE, type Role } from "./constants/roles";
-export { queryKeys } from "./constants/queryKeys";
+export { queryKeys, withOrg } from "./constants/queryKeys";
+// Tenant context — the single source of truth for "which organization is this?".
+export {
+  OrganizationProvider,
+  useOrganization,
+} from "./tenant/OrganizationProvider";
+export {
+  currentOrganization,
+  currentOrganizationId,
+  requireOrganization,
+  isOrganizationMember,
+  listMemberships,
+  resolveOrganizationByHost,
+  orgSlugFromHost,
+  hostMatchesOrg,
+  type Organization,
+  type OrganizationMembership,
+} from "./tenant/tenant";
 export { AppProviders } from "./providers/AppProviders";
 export { QueryProvider } from "./providers/QueryProvider";
 export { ProtectedRoute } from "./routing/ProtectedRoute";

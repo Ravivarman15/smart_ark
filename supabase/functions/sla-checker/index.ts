@@ -9,17 +9,19 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   // Gate: cron-only function. Without CRON_SECRET anyone could mint violations.
+  // FAIL CLOSED — see the note in kpi-engine. An unset CRON_SECRET used to skip
+  // the check entirely, leaving this verify_jwt = false endpoint open to anyone;
+  // minting SLA violations is a write, so that was worse than a read DoS.
   const cronSecret = Deno.env.get("CRON_SECRET");
-  if (cronSecret) {
-    const provided = req.headers.get("x-cron-key");
-    if (provided !== cronSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+  const provided = req.headers.get("x-cron-key");
+  if (!cronSecret || provided !== cronSecret) {
+    if (!cronSecret) {
+      console.error("[sla-checker] CRON_SECRET is not set — refusing all calls.");
     }
-  } else {
-    console.warn("[sla-checker] CRON_SECRET not set — function is open.");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {

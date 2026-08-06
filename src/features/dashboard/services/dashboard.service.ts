@@ -44,7 +44,7 @@ class DashboardService extends BaseService {
         items: layout.items,
         updated_at: new Date().toISOString(),
       } as never,
-      { onConflict: "scope" }
+      { onConflict: "organization_id,scope" }
     );
     if (error) throw AppError.fromSupabase(error, "dashboard_layouts.save");
   }

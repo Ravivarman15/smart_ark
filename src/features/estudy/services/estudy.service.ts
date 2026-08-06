@@ -1,5 +1,6 @@
 import { BaseService, AppError } from "@/shared/services";
 import type { StudyMaterial, StudyMaterialInput, StudyMaterialVisibility, StudyMaterialKind } from "../types/estudy.types";
+import { orgPath } from "@/lib/orgStorage";
 
 const BUCKET = "study-materials";
 
@@ -85,7 +86,7 @@ class EstudyService extends BaseService {
       throw new Error("No file selected for upload");
     }
 
-    const path = `estudy/${Date.now()}_${slugifyFileName(input.file.name)}`;
+    const path = orgPath(`estudy/${Date.now()}_${slugifyFileName(input.file.name)}`);
     const up = await this.db.storage.from(BUCKET).upload(path, input.file, {
       cacheControl: "3600",
       upsert: false,

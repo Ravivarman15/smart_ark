@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveCaller } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,36 +10,26 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
-
-    // Platform already validated the JWT (verify_jwt=true in config.toml).
-    // Decode the payload to get the user ID without a redundant auth API call.
-    const token = authHeader.replace("Bearer ", "");
-    let userId: string;
-    try {
-      const payloadB64 = token.split(".")[1];
-      const payload = JSON.parse(atob(payloadB64));
-      userId = payload.sub;
-      if (!userId) throw new Error("no sub");
-    } catch {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    const today = new Date().toISOString().split("T")[0];
 
-    // Get admin profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, role")
-      .eq("user_id", userId)
-      .single();
+    // Phase 0: the JWT is now signature-verified rather than base64-decoded.
+    // The old comment justified the decode with "the platform already
+    // validated it" — true today, but that guarantee lives in config.toml,
+    // not here, and one `verify_jwt = false` would silently turn this into
+    // "trust whatever sub the caller sent". See _shared/auth.ts.
+    //
+    // resolveCaller() also folds in the profile lookup this function did
+    // separately, so the verification costs no extra round trip overall.
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const profile = caller.profileId ? { id: caller.profileId, role: caller.role } : null;
 
     if (!profile || profile.role !== "admin") {
       return new Response(

@@ -6,6 +6,33 @@
 // Always start with a string literal so partial invalidation
 // (`queryClient.invalidateQueries({ queryKey: queryKeys.students.all })`)
 // invalidates everything under a feature.
+//
+// ─── TENANT ISOLATION OF THE CACHE (Phase 1) ────────────────────────────────
+// RLS cannot protect data that never leaves the browser. If the active
+// organization changes and a cache entry survives under the same key, the UI
+// renders the previous tenant's rows without making a request — so no policy is
+// ever consulted.
+//
+// The PRIMARY defence is therefore a hard `queryClient.clear()` on any change
+// of organization id, in OrganizationProvider. That is complete for the switch
+// case and needs no change to the ~200 key factories below, each of which would
+// have been an opportunity to introduce a typo in a security boundary.
+//
+// `withOrg()` is defence in depth for NEW code that wants an explicitly
+// tenant-scoped key. Prefer it in anything written from here on.
+// ────────────────────────────────────────────────────────────────────────────
+
+import { currentOrganizationId } from "@/core/tenant/tenant";
+
+/**
+ * Prefix a query key with the active organization.
+ *
+ * Falls back to "no-org" rather than throwing: a key built before the provider
+ * resolves must not crash a component tree, and "no-org" can never collide with
+ * a real organization's uuid.
+ */
+export const withOrg = <T extends readonly unknown[]>(key: T) =>
+  ["org", currentOrganizationId() ?? "no-org", ...key] as const;
 
 export const queryKeys = {
   students: {

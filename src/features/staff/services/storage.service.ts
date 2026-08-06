@@ -1,4 +1,5 @@
 import { BaseService, AppError } from "@/shared/services";
+import { orgPath } from "@/lib/orgStorage";
 
 // Storage service for staff profile pictures.
 //
@@ -31,7 +32,7 @@ class StaffStorageService extends BaseService {
       const mime = (args.file as Blob).type || "";
       return mime.split("/")[1] || "png";
     })();
-    const key = args.keyOverride ?? `${args.ownerId}/${Date.now()}.${ext}`;
+    const key = orgPath(args.keyOverride ?? `${args.ownerId}/${Date.now()}.${ext}`);
 
     const { error } = await this.db.storage.from(BUCKET).upload(key, args.file, {
       upsert: true,

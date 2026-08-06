@@ -63,7 +63,7 @@ class AttendanceSettingsService extends BaseService {
       updated_at: new Date().toISOString(),
     };
     // Upsert on the `singleton` unique column keeps exactly one policy row.
-    const res = await this.table().upsert(payload as never, { onConflict: "singleton" });
+    const res = await this.table().upsert(payload as never, { onConflict: "organization_id,singleton" });
     if (res.error) throw AppError.fromSupabase(res.error, "attendance_settings.update");
   }
 }

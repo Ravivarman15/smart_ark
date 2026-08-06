@@ -72,3 +72,53 @@ verify_jwt = true
 # Reusable Brevo sender for all non-staff transactional emails.
 [functions.send-email]
 verify_jwt = true
+
+# ─── platform-admin: control-plane privileged operations ─────────────────────
+# Provisioning, status changes, impersonation, platform-user invites.
+# verify_jwt = true so the platform verifies the signature at the edge; the
+# function then independently resolves the caller against platform_users and
+# checks MFA + capability. Neither check is sufficient alone.
+[functions.platform-admin]
+verify_jwt = true
+
+# ─── public-onboarding: PUBLIC self-service trial provisioning ───────────────
+# verify_jwt = false because check_slug and track_signup run for anonymous
+# visitors who have not signed up yet. The `provision` action verifies the
+# bearer token against GoTrue itself AND requires a confirmed email — the
+# platform-level JWT check would be too coarse here (it would block the two
+# genuinely public actions) and too weak there (it would not check
+# email_confirmed_at).
+[functions.public-onboarding]
+verify_jwt = false
+
+# ─── provisioning-worker: drains the provisioning queue ──────────────────────
+# verify_jwt = false because the primary caller is CRON, which has no user
+# session. The function authorises internally: a CRON_SECRET header, or a
+# verified platform user. Neither path trusts the request body.
+[functions.provisioning-worker]
+verify_jwt = false
+
+# ─── razorpay-webhook: PROVIDER callbacks ────────────────────────────────────
+# verify_jwt = false — Razorpay has no user session. Authenticated instead by
+# HMAC-SHA256 over the RAW body against RAZORPAY_WEBHOOK_SECRET, verified
+# inside the function. This is the ONLY place money-related state changes.
+[functions.razorpay-webhook]
+verify_jwt = false
+
+# ─── billing-checkout: tenant-initiated payment setup ────────────────────────
+# Creates Razorpay orders/subscriptions. Deliberately CANNOT activate anything.
+[functions.billing-checkout]
+verify_jwt = true
+
+# ─── billing-lifecycle: trial/grace/suspension sweep (cron) ──────────────────
+# verify_jwt = false because cron has no user session; gated by CRON_SECRET or
+# a verified platform user inside the function.
+[functions.billing-lifecycle]
+verify_jwt = false
+
+# ─── domain-verify: DNS / SSL / SMTP verification ────────────────────────────
+# Real DNS-over-HTTPS lookups plus provider credential validation. verify_jwt
+# = true; the function additionally requires an org admin or a platform user,
+# and a tenant can only ever act on its OWN domains.
+[functions.domain-verify]
+verify_jwt = true

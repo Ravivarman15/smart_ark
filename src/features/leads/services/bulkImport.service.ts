@@ -6,6 +6,7 @@ import { BaseService, AppError } from "@/shared/services";
 import { isSchemaMissing, SLA_MINUTES } from "./leadMappers";
 import { normalizeMobile } from "../utils/bulkImportMapping";
 import { ensureWhatsappPhone } from "../utils/whatsappPhone";
+import { orgPath } from "@/lib/orgStorage";
 import type {
   ImportJobStatus,
   ImportRowError,
@@ -340,7 +341,7 @@ class BulkImportService extends BaseService {
   // ── Report upload (best-effort) ──────────────────────────────────────────
   async uploadReport(jobId: string, fileName: string, csv: string): Promise<string | null> {
     try {
-      const path = `${jobId}/${fileName}`;
+      const path = orgPath(`${jobId}/${fileName}`);
       const res = await this.db.storage
         .from("lead-imports")
         .upload(path, new Blob([csv], { type: "text/csv" }), { upsert: true });

@@ -7,6 +7,7 @@ import { mcqQuestionService, type QuestionOwner } from "./mcqQuestion.service";
 import { mcqImportService } from "./mcqImport.service";
 import { mcqPaperService } from "./mcqPaper.service";
 import { isAutoEvaluable } from "../types/mcq.types";
+import { orgPath } from "@/lib/orgStorage";
 import type {
   BloomLevel, MatchPair, McqDifficulty, McqOption, McqPaper,
   McqQuestionInput, McqQuestionType, PaperQuestionDraft, SubQuestion,
@@ -307,7 +308,7 @@ class QuestionPaperImportService extends BaseService {
 
     let storagePath: string | undefined;
     try {
-      const path = `${owner.ownerId ?? "anon"}/${Date.now()}-${file.name}`;
+      const path = orgPath(`${owner.ownerId ?? "anon"}/${Date.now()}-${file.name}`);
       const { error } = await supabase.storage.from("question-papers").upload(path, file);
       if (!error) storagePath = path;
     } catch {

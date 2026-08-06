@@ -60,7 +60,7 @@ class LocksService extends BaseService {
       locked_by_role: marker?.role ?? null,
       locked_at: new Date().toISOString(),
     };
-    const res = await this.table().upsert(payload as never, { onConflict: "scope,period_type,period_key" });
+    const res = await this.table().upsert(payload as never, { onConflict: "organization_id,scope,period_type,period_key" });
     if (res.error) throw AppError.fromSupabase(res.error, "attendance_locks.lock");
     await governanceAuditService.log(
       {

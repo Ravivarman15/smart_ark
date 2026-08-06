@@ -24,6 +24,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { requireRole, scoped } from "../_shared/auth.ts";
 
 const STUDENT_DOMAIN = "students.ark.local";
 const PARENT_DOMAIN = "parents.ark.local";
@@ -119,21 +120,17 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) return jsonResponse(401, { error: "Unauthorized" });
-    let callerUserId: string | null = null;
-    try { callerUserId = JSON.parse(atob(authHeader.replace("Bearer ", "").split(".")[1])).sub || null; } catch { /* */ }
-    if (!callerUserId) return jsonResponse(401, { error: "Unauthorized" });
-
     const url = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const { data: caller } = await supabase.from("profiles").select("id, role").eq("user_id", callerUserId).maybeSingle();
-    if (!caller || !["management", "admin"].includes(caller.role as string)) {
-      return jsonResponse(403, { error: "Forbidden — management or admin role required" });
-    }
-    const createdBy = caller.id as string;
+    // Phase 0: the caller's JWT is now SIGNATURE-VERIFIED against GoTrue
+    // instead of base64-decoded and trusted. This function provisions real
+    // logins with the service role, so a forged `sub` was the highest-value
+    // impersonation target in the codebase. See _shared/auth.ts.
+    const gate = await requireRole(req, supabase, ["management", "admin"]);
+    if (!gate.ok) return jsonResponse(gate.status, { error: gate.error });
+    const createdBy = gate.caller.profileId as string;
     const body = await req.json().catch(() => ({}));
     const action: string = body?.action;
 
@@ -142,7 +139,14 @@ Deno.serve(async (req) => {
       const studentId = String(body?.studentId ?? "");
       if (!studentId) return jsonResponse(400, { error: "studentId required" });
 
-      const { data: stu } = await supabase.from("students").select("id, name").eq("id", studentId).maybeSingle();
+      // Phase 1: scoped to the CALLER'S organization, resolved from membership
+      // rather than from the request. Without this, an admin of tenant B could
+      // provision a login for tenant A's student simply by passing their id —
+      // the service-role client bypasses RLS, so nothing else would stop it.
+      // A foreign studentId now simply resolves to no row → 404.
+      const { data: stu } = await scoped(
+        supabase.from("students").select("id, name"), gate.caller,
+      ).eq("id", studentId).maybeSingle();
       if (!stu) return jsonResponse(404, { ok: false, reason: "no_student", message: "Student not found" });
 
       const { data: existing } = await supabase.from("student_auth_accounts").select("id, user_id").eq("student_id", studentId).maybeSingle();

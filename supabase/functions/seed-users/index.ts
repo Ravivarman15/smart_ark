@@ -1,33 +1,41 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireRole } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // verify_jwt=true already enforces a signed-in caller, but any authenticated
-  // user can hit this endpoint. This is a one-time bootstrap function that
-  // creates admin/teacher accounts — gate it to the management role so a
-  // logged-in teacher cannot reset everyone's passwords to the defaults below.
   try {
-    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const token = authHeader.replace("Bearer ", "");
-    let callerUserId: string | null = null;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      callerUserId = payload.sub || null;
-    } catch { /* invalid token shape */ }
-    if (!callerUserId) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // ── PHASE 0: DISABLED BY DEFAULT ────────────────────────────────────────
+    // This is a first-run bootstrap that resets ten REAL staff accounts to
+    // hardcoded passwords. Those same passwords also sat in git-tracked root
+    // scripts (removed in Phase 0), so they must be treated as compromised.
+    //
+    // A permanently-live endpoint that rewrites production credentials is not
+    // acceptable in a product being sold to other organizations. It now
+    // requires an explicit, deliberately-set environment variable, so the
+    // default posture is "off" and re-enabling is a conscious operator act:
+    //
+    //     npx supabase secrets set SEED_USERS_ENABLED=true    # run it
+    //     npx supabase secrets unset SEED_USERS_ENABLED       # turn it off again
+    //
+    // Phase 1 replaces this entirely with tenant provisioning, at which point
+    // the function should be deleted.
+    if (Deno.env.get("SEED_USERS_ENABLED") !== "true") {
+      return json(410, {
+        error:
+          "seed-users is disabled. It resets live staff credentials to known " +
+          "passwords. Set SEED_USERS_ENABLED=true to run it, then unset it.",
       });
     }
 
@@ -36,16 +44,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: callerProfile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("user_id", callerUserId)
-      .maybeSingle();
-    if (!callerProfile || callerProfile.role !== "management") {
-      return new Response(JSON.stringify({ error: "Forbidden — management role required" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Phase 0: signature-verified caller. The previous base64 decode trusted
+    // the caller's own `sub`, so a forged token could have driven this
+    // service-role function. See _shared/auth.ts.
+    const gate = await requireRole(req, supabase, ["management"]);
+    if (!gate.ok) return json(gate.status, { error: gate.error });
 
     // NOTE: these default passwords are intentionally known — they exist only
     // for first-run bootstrap. Every seeded account MUST reset its password on

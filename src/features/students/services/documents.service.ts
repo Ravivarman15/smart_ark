@@ -1,5 +1,6 @@
 import { BaseService, AppError } from "@/shared/services";
 import type { DocumentUploadInput, StudentDocument } from "../types/student.types";
+import { orgPath } from "@/lib/orgStorage";
 
 const BUCKET = "student-documents";
 
@@ -68,7 +69,7 @@ class DocumentsService extends BaseService {
 
   /** Upload the binary then record metadata. Path: `<studentId>/<ts>_<name>`. */
   async upload(input: DocumentUploadInput, uploadedBy?: string): Promise<void> {
-    const path = `${input.studentId}/${Date.now()}_${slugifyFileName(input.file.name)}`;
+    const path = orgPath(`${input.studentId}/${Date.now()}_${slugifyFileName(input.file.name)}`);
     const up = await this.db.storage.from(BUCKET).upload(path, input.file, {
       cacheControl: "3600",
       upsert: false,

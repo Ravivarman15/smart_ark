@@ -62,7 +62,7 @@ class PayrollConfigService extends BaseService {
     };
     const { data, error } = await this.db
       .from("payroll_role_rates" as never)
-      .upsert(payload as never, { onConflict: "role" })
+      .upsert(payload as never, { onConflict: "organization_id,role" })
       .select("id")
       .single();
     if (error) throw AppError.fromSupabase(error, "payroll_role_rates");

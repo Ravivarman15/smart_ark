@@ -133,3 +133,20 @@ supabase/.branches/
 supabase/.temp/
 
 .vercel
+
+# ── Phase 0 security hardening ──────────────────────────────────────────────
+# Ad-hoc scripts at the repo root were how live credentials got committed:
+# try_logins.mjs and seed-users held real staff emails with their plaintext
+# passwords. Those files are deleted; these rules stop the pattern returning.
+# Anything genuinely reusable belongs in scripts/ and must read secrets from
+# the environment, never inline them.
+/*.mjs
+/*.py
+!eslint.config.js
+!postcss.config.js
+vite.config.ts.timestamp-*.mjs
+
+# Never commit a real environment file — .env.example is the template.
+.env
+.env.*
+!.env.example

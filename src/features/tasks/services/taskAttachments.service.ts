@@ -2,6 +2,7 @@ import { BaseService, AppError } from "@/shared/services";
 import { isTaskSchemaMissing } from "../utils/tasksSchema";
 import { taskActivityService } from "./taskActivity.service";
 import type { TaskAttachment } from "../types/tasks.types";
+import { orgPath } from "@/lib/orgStorage";
 
 const BUCKET = "task-attachments";
 
@@ -32,7 +33,7 @@ class TaskAttachmentsService extends BaseService {
 
   async upload(taskId: string, file: File, uploadedBy?: string): Promise<TaskAttachment> {
     const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, "_");
-    const path = `${taskId}/${crypto.randomUUID()}-${safeName}`;
+    const path = orgPath(`${taskId}/${crypto.randomUUID()}-${safeName}`);
     const up = await this.db.storage.from(BUCKET).upload(path, file, {
       cacheControl: "3600",
       upsert: false,

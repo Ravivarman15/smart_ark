@@ -37,6 +37,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { requireRole } from "../_shared/auth.ts";
 import { brevoConfigured, sendBrevoEmail } from "../_shared/brevo.ts";
 import { renderEmail } from "../_shared/email-templates.ts";
 
@@ -304,43 +305,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader =
-      req.headers.get("Authorization") || req.headers.get("authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return jsonResponse(401, { error: "Unauthorized" });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    let callerUserId: string | null = null;
-    try {
-      callerUserId = JSON.parse(atob(token.split(".")[1])).sub || null;
-    } catch {
-      /* invalid jwt shape */
-    }
-    if (!callerUserId) return jsonResponse(401, { error: "Unauthorized" });
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Role gate — only management or admin may provision staff accounts.
-    const { data: callerProfile } = await supabase
-      .from("profiles")
-      .select("id, role, name")
-      .eq("user_id", callerUserId)
-      .maybeSingle();
-    if (
-      !callerProfile ||
-      !["management", "admin"].includes(callerProfile.role as string)
-    ) {
-      return jsonResponse(403, {
-        error: "Forbidden — management or admin role required",
-      });
-    }
+    // Phase 0: signature-verified caller + role gate — only management or
+    // admin may provision staff accounts. The previous base64 decode of the
+    // JWT payload trusted whatever `sub` the caller supplied, which on a
+    // service-role function is full impersonation. See _shared/auth.ts.
+    const gate = await requireRole(req, supabase, ["management", "admin"]);
+    if (!gate.ok) return jsonResponse(gate.status, { error: gate.error });
     const actor = {
-      actor_profile_id: callerProfile.id as string,
-      actor_name: (callerProfile.name as string) ?? null,
+      actor_profile_id: gate.caller.profileId as string,
+      actor_name: gate.caller.name,
     };
 
     const body = (await req.json()) as InvitePayload;

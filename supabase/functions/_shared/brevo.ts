@@ -74,10 +74,24 @@ export const brevoConfigured = (): boolean =>
  */
 export const sendBrevoEmail = async (
   params: BrevoSendParams,
+  /**
+   * Phase 6 — OPTIONAL per-organization sender.
+   *
+   * Omitted (every existing caller): the platform's own Deno.env secrets are
+   * used, byte-for-byte as before. That backward compatibility is the point —
+   * invite-staff, payroll payslips and every other existing send keeps working
+   * with no change at all, and ARK is unaffected.
+   *
+   * Supplied: the organization's own verified Brevo account and sender.
+   * Resolution lives in _shared/integrations.ts, which falls back to the
+   * platform whenever a custom integration is absent, unverified or
+   * incomplete — so this parameter is never half-populated.
+   */
+  override?: { apiKey?: string; senderEmail?: string; senderName?: string },
 ): Promise<BrevoSendResult> => {
-  const apiKey = Deno.env.get("BREVO_API_KEY");
-  const senderEmail = Deno.env.get("SENDER_EMAIL");
-  const senderName = Deno.env.get("SENDER_NAME") ?? "The Ark Tuition";
+  const apiKey = override?.apiKey ?? Deno.env.get("BREVO_API_KEY");
+  const senderEmail = override?.senderEmail ?? Deno.env.get("SENDER_EMAIL");
+  const senderName = override?.senderName ?? Deno.env.get("SENDER_NAME") ?? "The Ark Tuition";
 
   if (!apiKey || !senderEmail) {
     return {

@@ -1,18 +1,20 @@
 import { BaseService } from "@/shared/services";
 import { emailService } from "@/features/staff/services/email.service";
+import { signedUrl, SIGNED_URL_TTL_EMAIL } from "@/lib/storageUrl";
 import { payrollRunService } from "./payrollRun.service";
 import { generatePayslipPdfBlob } from "../utils/payslipPdf";
 import { formatINR } from "../utils/payrollCalc";
 import type { PayrollItem, PayrollRun } from "../types/payroll.types";
+import { orgPath } from "@/lib/orgStorage";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Payslip email automation — after Management approves a run, each employee is
 // emailed THEIR OWN branded salary slip. The "Download Payslip" button is a
 // DIRECT link to that employee's PDF: at send time the slip is rendered to a
-// PDF, uploaded to the `payslips` storage bucket, and the public download URL is
-// embedded in the email so clicking it starts the download (no login / no app
-// redirect). If PDF generation or upload fails we fall back to the in-app My
-// Salary link so the email is still useful.
+// PDF, uploaded to the `payslips` storage bucket, and a 30-day SIGNED download
+// URL is embedded in the email so clicking it starts the download (no login /
+// no app redirect). If PDF generation or upload fails we fall back to the
+// in-app My Salary link so the email is still useful.
 //
 // Routes through the shared `send-email` edge function (Brevo) via the existing
 // emailService gateway, so the API key stays server-side and only the registered
@@ -48,9 +50,20 @@ class PayrollEmailService extends BaseService {
 
   /**
    * Render the employee's payslip to a PDF, upload it to the `payslips` bucket
-   * and return a forced-download public URL. Returns null on any failure so the
-   * caller can fall back to the in-app link. The object path is two random UUIDs
-   * (run id / item id) so the link is unguessable.
+   * and return a forced-download SIGNED URL. Returns null on any failure so the
+   * caller can fall back to the in-app link.
+   *
+   * Phase 0 security hardening: the `payslips` bucket used to be PUBLIC and
+   * this used getPublicUrl(). A public Supabase bucket is readable by anyone on
+   * the internet holding the URL — no auth, no RLS, no expiry — so every salary
+   * slip ever emailed stayed permanently exposed. "The path is two random
+   * UUIDs" is obscurity, not access control: URLs leak through forwarded mail,
+   * mail-scanner logs, and browser history.
+   *
+   * The link is now signed and expires after 30 days. That window is
+   * deliberately long: recipients open payroll mail days or weeks late, and a
+   * one-hour TTL would hand most of them a dead link. Finite and revocable
+   * beats permanent and public.
    */
   private async uploadPayslipPdf(
     item: PayrollItem,
@@ -59,16 +72,15 @@ class PayrollEmailService extends BaseService {
   ): Promise<string | null> {
     try {
       const blob = await generatePayslipPdfBlob(item, run);
-      const path = `${run.id}/${item.id}.pdf`;
+      const path = orgPath(`${run.id}/${item.id}.pdf`);
       const up = await this.db.storage
         .from("payslips")
         .upload(path, blob, { contentType: "application/pdf", upsert: true });
       if (up.error) return null;
       const fileName = `Payslip-${month.replace(/\s+/g, "-")}.pdf`;
-      const { data } = this.db.storage
-        .from("payslips")
-        .getPublicUrl(path, { download: fileName });
-      return data?.publicUrl ?? null;
+      return await signedUrl("payslips", path, SIGNED_URL_TTL_EMAIL, {
+        download: fileName,
+      });
     } catch {
       return null;
     }

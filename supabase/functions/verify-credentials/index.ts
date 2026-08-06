@@ -29,6 +29,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { requireRole } from "../_shared/auth.ts";
 
 // Readable 14-char alphanumeric temp password (no ambiguous glyphs, no special
 // chars — mirrors invite-staff's generator; special chars break copy/paste from
@@ -65,29 +66,17 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) return jsonResponse(401, { error: "Unauthorized" });
-    let callerUserId: string | null = null;
-    try {
-      callerUserId = JSON.parse(atob(authHeader.replace("Bearer ", "").split(".")[1])).sub || null;
-    } catch { /* invalid jwt */ }
-    if (!callerUserId) return jsonResponse(401, { error: "Unauthorized" });
-
     const url = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(url, serviceKey);
 
-    // Role gate — only admin/management may provision & send credentials.
-    const { data: caller } = await supabase
-      .from("profiles")
-      .select("id, role, name")
-      .eq("user_id", callerUserId)
-      .maybeSingle();
-    if (!caller || !["management", "admin"].includes(caller.role as string)) {
-      return jsonResponse(403, { error: "Forbidden — management or admin role required" });
-    }
-    const actorName = (caller.name as string) ?? undefined;
+    // Phase 0: signature-verified caller + role gate — only admin/management
+    // may provision & send credentials. See _shared/auth.ts for why the
+    // previous base64 decode of the JWT payload was unsafe.
+    const gate = await requireRole(req, supabase, ["management", "admin"]);
+    if (!gate.ok) return jsonResponse(gate.status, { error: gate.error });
+    const actorName = gate.caller.name ?? undefined;
 
     const body = await req.json().catch(() => ({}));
     const subject: string = body?.subject;

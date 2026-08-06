@@ -26,6 +26,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  resolveWhatsappCredentials,
+  type WhatsappCredentials,
+} from "../_shared/integrations.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -417,6 +421,10 @@ Deno.serve(async (req) => {
     let failed = 0;
     let retried = 0;
 
+    // Per-organization credential cache for this drain. A 200-message run
+    // must not make 200 identical lookups.
+    const orgCredsCache = new Map<string, WhatsappCredentials>();
+
     for (const row of queue) {
       // Mark processing so a concurrent invocation doesn't double-send.
       await supabase
@@ -446,13 +454,29 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const campaignName = row.template || defaultCampaign;
+      // ── Phase 6: per-organization WhatsApp sender ──────────────────────
+      // The queue spans organizations, so credentials are resolved PER ROW
+      // from the row's own organization_id — memoised, because a 200-message
+      // drain must not make 200 identical lookups.
+      //
+      // resolveWhatsappCredentials falls back to the platform AiSensy account
+      // whenever the organization has no integration, chose 'platform', or has
+      // a custom one that is unverified or missing its key. Every existing
+      // tenant therefore behaves exactly as before.
+      const rowOrg = (row as { organization_id?: string }).organization_id ?? null;
+      let rowCreds = orgCredsCache.get(rowOrg ?? "platform");
+      if (!rowCreds) {
+        rowCreds = await resolveWhatsappCredentials(supabase, rowOrg);
+        orgCredsCache.set(rowOrg ?? "platform", rowCreds);
+      }
+
+      const campaignName = row.template || rowCreds.defaultCampaign || defaultCampaign;
       const userName = row.recipient_name || "ARK LEARNING ARENA";
       const source = "ARK Lead CRM";
       // Official AiSensy Campaign API V2 body. apiKey goes IN THE BODY (no
       // Authorization header). Content-Type: application/json only.
       const requestBody = {
-        apiKey,
+        apiKey: rowCreds.apiKey || apiKey,
         campaignName,
         destination: dest,
         userName,

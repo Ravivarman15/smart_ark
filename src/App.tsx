@@ -8,12 +8,21 @@ import {
   type Role,
 } from "@/core";
 import { renderSharedRoutes } from "@/core/routing/sharedRoutes";
+// Platform control plane — a separate route tree, mounted whole. See
+// features/platform/routes.tsx for why it is not part of sharedRoutes.
+import { renderPlatformRoutes } from "@/features/platform/routes";
+// Public marketing site — see features/marketing/routes.tsx.
+import { renderMarketingRoutes } from "@/features/marketing/routes";
+import { MarketingLayout } from "@/features/marketing/components/MarketingShell";
+import { RootRoute } from "@/core/routing/RootRoute";
 
 import { Suspense } from "react";
 // Resilient lazy() — retries + reloads once on a stale chunk after a deploy.
 import { lazyWithRetry as lazy } from "@/lib/lazyWithRetry";
 
 const Login = lazy(() => import("./pages/Login"));
+const ImpersonateLanding = lazy(() => import("./pages/ImpersonateLanding"));
+const MarketingHome = lazy(() => import("./features/marketing/pages/HomePage"));
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
 const TeacherShellLayout = lazy(() => import("./pages/teacher/TeacherShellLayout"));
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
@@ -351,6 +360,8 @@ const AutoWhatsAppPage = lazy(() => import("./features/settings/pages/AutoWhatsA
 const MyPlanPage = lazy(() => import("./features/settings/pages/MyPlanPage"));
 const SmsPlanPage = lazy(() => import("./features/settings/pages/SmsPlanPage"));
 const MyReferralPage = lazy(() => import("./features/settings/pages/MyReferralPage"));
+const BillingPage = lazy(() => import("./features/billing/pages/BillingPage"));
+const BrandingPage = lazy(() => import("./features/branding/pages/BrandingPage"));
 
 // ProtectedRoute / AuthRedirect now live in @/core/routing.
 // Role[] cast is purely a type-narrowing aid — the array contents are
@@ -478,7 +489,36 @@ const AppRoutes: React.FC = () => (
       {/* Public, unauthenticated student exam kiosk — proctored entry point
           used by lab devices. Roster + identity selection happen in-page. */}
       <Route path="/exam" element={<StudentExamPage />} />
-      <Route path="/" element={<AuthRedirect />} />
+      {/* Impersonation landing — opened in a NEW TAB by the control plane. It
+          exchanges a single-use token for a session AS the target tenant user.
+          Holds no privilege of its own: the token is minted server-side only
+          after the edge function has verified capability, membership and
+          written the audit grant. */}
+      <Route path="/impersonate" element={<ImpersonateLanding />} />
+      {/* ── PLATFORM CONTROL PLANE ───────────────────────────────────────────
+          A SEPARATE route tree from the ERP, deliberately NOT mounted through
+          sharedRoutes: the blast radius of a mistake in that registry is every
+          customer, and the two surfaces must never be one edit away from each
+          other. Every child is capability-gated; a non-platform user is
+          redirected to "/" without confirming the control plane exists. */}
+      {renderPlatformRoutes()}
+      {/* ── PUBLIC MARKETING SITE ────────────────────────────────────────────
+          Unauthenticated routes under their own layout. Kept out of both
+          sharedRoutes (which mounts into the four tenant layouts) and the
+          platform tree, so a marketing page can never inherit an authenticated
+          shell — and so the prerenderer can enumerate exactly which routes
+          should exist as static HTML for crawlers. */}
+      {renderMarketingRoutes()}
+      {/* "/" shows the marketing home to signed-out visitors and defers to the
+          existing AuthRedirect for everyone else. AuthRedirect is unchanged. */}
+      <Route
+        path="/"
+        element={
+          <MarketingLayout>
+            <RootRoute marketingHome={<MarketingHome />} />
+          </MarketingLayout>
+        }
+      />
 
       {/* Teacher — nested under TeacherShellLayout. The shell renders the
           dashboard / leave / help routes standalone (preserving the existing
@@ -874,6 +914,10 @@ const AppRoutes: React.FC = () => (
         <Route path="my-plan" element={<MyPlanPage />} />
         <Route path="sms-plan" element={<SmsPlanPage />} />
         <Route path="my-referral" element={<MyReferralPage />} />
+        {/* Phase 5 / Phase 6. Mounted on the shared /settings shell; the
+            RBAC submodule gate on each menu item decides visibility. */}
+        <Route path="billing" element={<BillingPage />} />
+        <Route path="branding" element={<BrandingPage />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

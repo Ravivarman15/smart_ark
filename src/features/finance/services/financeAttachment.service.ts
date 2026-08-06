@@ -1,5 +1,7 @@
 import { BaseService, AppError } from "@/shared/services";
+import { signedUrlMap, objectPath } from "@/lib/storageUrl";
 import type { FinanceAttachment } from "../types/finance.types";
+import { orgPath } from "@/lib/orgStorage";
 
 const BUCKET = "finance-attachments";
 
@@ -9,6 +11,20 @@ const BUCKET = "finance-attachments";
 //
 // `upload()` writes the file then the row, returning the row. Failures roll
 // back the upload to keep storage tidy.
+//
+// PHASE 0 SECURITY HARDENING
+// --------------------------
+// The bucket was `public = true`, i.e. every bill and invoice was readable by
+// anyone on the internet holding the URL — no auth, no RLS. It is now private
+// and reads are gated to admin/management.
+//
+// Consequently `file_url` no longer holds a usable link:
+//   • NEW rows store the bare object path.
+//   • LEGACY rows store the old full public URL, which is now a dead link.
+// Both are resolved to a short-lived signed URL on read by `withSignedUrls()`,
+// so `FinanceAttachment.fileUrl` still means "a URL you can open" and no
+// consumer had to change. objectPath() handles both shapes, which is why no
+// data migration is needed.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Row = {
@@ -43,6 +59,18 @@ const toAttachment = (r: Row): FinanceAttachment => ({
 });
 
 class FinanceAttachmentService extends BaseService {
+  /**
+   * Replace each stored `fileUrl` with a freshly signed, openable URL.
+   * One batch request regardless of list length. An object that fails to sign
+   * keeps its stored value rather than throwing — a single bad attachment must
+   * not blank out the whole list.
+   */
+  private async withSignedUrls(items: FinanceAttachment[]): Promise<FinanceAttachment[]> {
+    if (items.length === 0) return items;
+    const map = await signedUrlMap(BUCKET, items.map((a) => a.fileUrl));
+    return items.map((a) => ({ ...a, fileUrl: map.get(a.fileUrl) ?? a.fileUrl }));
+  }
+
   async list(transactionId: string): Promise<FinanceAttachment[]> {
     const { data, error } = await this.db
       .from("finance_attachments")
@@ -50,7 +78,7 @@ class FinanceAttachmentService extends BaseService {
       .eq("transaction_id", transactionId)
       .order("uploaded_at", { ascending: false });
     if (error) return [];
-    return ((data as Row[]) ?? []).map(toAttachment);
+    return this.withSignedUrls(((data as Row[]) ?? []).map(toAttachment));
   }
 
   async upload(
@@ -60,18 +88,19 @@ class FinanceAttachmentService extends BaseService {
     uploadedBy?: { id?: string; name?: string },
   ): Promise<FinanceAttachment> {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
-    const path = `${transactionId}/${Date.now()}_${safeName}`;
+    const path = orgPath(`${transactionId}/${Date.now()}_${safeName}`);
     const up = await this.db.storage
       .from(BUCKET)
       .upload(path, file, { upsert: false, cacheControl: "3600" });
     if (up.error) throw AppError.fromSupabase(up.error, "attachment upload");
-    const { data: publicUrl } = this.db.storage.from(BUCKET).getPublicUrl(path);
-    const url = publicUrl?.publicUrl ?? path;
+    // Store the bucket-relative PATH, not a URL. The bucket is private, so a
+    // URL persisted here would either be dead (public form) or expired (signed
+    // form). Reads mint a fresh signed URL from this path.
     const ins = await this.db
       .from("finance_attachments")
       .insert({
         transaction_id: transactionId,
-        file_url: url,
+        file_url: path,
         file_name: file.name,
         file_size: file.size,
         mime_type: file.type || null,
@@ -86,7 +115,10 @@ class FinanceAttachmentService extends BaseService {
       await this.db.storage.from(BUCKET).remove([path]).catch(() => undefined);
       throw AppError.fromSupabase(ins.error, "attachment");
     }
-    return toAttachment(ins.data as unknown as Row);
+    // Sign before returning so the caller can open the file it just uploaded
+    // without a refetch — `list()` would otherwise be the only signed path.
+    const [signed] = await this.withSignedUrls([toAttachment(ins.data as unknown as Row)]);
+    return signed;
   }
 
   async remove(attachmentId: string): Promise<void> {
@@ -95,11 +127,8 @@ class FinanceAttachmentService extends BaseService {
       .select("file_url")
       .eq("id", attachmentId)
       .maybeSingle();
-    const fileUrl = (row as { file_url: string } | null)?.file_url ?? "";
-    // file_url may be a full public URL; recover the bucket-relative path.
-    const path = fileUrl.includes(`/${BUCKET}/`)
-      ? fileUrl.split(`/${BUCKET}/`)[1]
-      : fileUrl;
+    // Stored value is a bare path on new rows, a legacy full URL on old ones.
+    const path = objectPath(BUCKET, (row as { file_url: string } | null)?.file_url);
     if (path) {
       await this.db.storage.from(BUCKET).remove([path]).catch(() => undefined);
     }

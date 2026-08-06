@@ -83,6 +83,10 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "settings.my_plan", label: "My Plan" },
       { id: "settings.sms_plan", label: "SMS Plan" },
       { id: "settings.my_referral", label: "My Referral" },
+      // Phase 5 / Phase 6. Both act on the organization as a paying customer
+      // rather than on its academic data, so they sit beside "My Plan".
+      { id: "settings.billing",  label: "Billing & Subscription", route: "/settings/billing" },
+      { id: "settings.branding", label: "Branding & White Label", route: "/settings/branding" },
     ],
   },
   {

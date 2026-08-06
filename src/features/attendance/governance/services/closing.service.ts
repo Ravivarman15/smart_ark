@@ -52,7 +52,7 @@ class ClosingService extends BaseService {
       closed_by_name: marker?.name ?? null,
       closed_at: new Date().toISOString(),
     };
-    const res = await this.table().upsert(payload as never, { onConflict: "scope,month" });
+    const res = await this.table().upsert(payload as never, { onConflict: "organization_id,scope,month" });
     if (res.error) throw AppError.fromSupabase(res.error, "attendance_closings.close");
     await governanceAuditService.log(
       {

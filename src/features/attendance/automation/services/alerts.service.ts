@@ -91,7 +91,7 @@ class AlertsService extends BaseService {
       dedupe_key: a.dedupeKey,
     }));
     const res = await this.table()
-      .upsert(rows as never, { onConflict: "dedupe_key", ignoreDuplicates: true })
+      .upsert(rows as never, { onConflict: "organization_id,dedupe_key", ignoreDuplicates: true })
       .select("id");
     if (res.error) {
       if (isMissing(res.error)) return 0;

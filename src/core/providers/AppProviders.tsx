@@ -4,6 +4,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { OrganizationProvider } from "@/core/tenant/OrganizationProvider";
+import { PlatformAuthProvider } from "@/features/platform/context/PlatformAuthContext";
+import { OrganizationThemeProvider } from "@/core/theme/OrganizationThemeProvider";
 import { StaffRightsProvider } from "@/contexts/StaffRightsContext";
 import { AppDataProvider } from "@/contexts/AppDataContext";
 import { RbacRealtimeProvider } from "@/features/rbac/providers/RbacRealtimeProvider";
@@ -27,6 +30,14 @@ import { QueryProvider } from "./QueryProvider";
 // Ordering rationale:
 //   QueryProvider       → server state cache (must wrap anything that fetches)
 //   Auth                → user identity (required by StaffRights + AppData)
+//   Organization        → TENANT context. Sits directly under Auth (the org is
+//                         derived from the session) and ABOVE everything that
+//                         fetches, because it clears the entire React Query
+//                         cache when the organization changes. RLS cannot
+//                         protect data that never leaves the browser — a stale
+//                         cache entry under the same key would render the
+//                         previous tenant's rows with no request made and no
+//                         policy consulted.
 //   StaffRights         → legacy permissions (required by AppData mutations)
 //   RbacRealtime        → single supabase channel that invalidates RBAC queries
 //                         + nudges StaffRightsContext on DB changes. Must wrap
@@ -53,6 +64,9 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
         <Sonner />
         <ConfirmDialogProvider>
         <AuthProvider>
+          <PlatformAuthProvider>
+          <OrganizationProvider>
+          <OrganizationThemeProvider>
           <StaffRightsProvider>
             <RbacRealtimeProvider>
               <SetupRealtimeProvider>
@@ -80,6 +94,9 @@ export const AppProviders = ({ children }: { children: ReactNode }) => (
               </SetupRealtimeProvider>
             </RbacRealtimeProvider>
           </StaffRightsProvider>
+          </OrganizationThemeProvider>
+          </OrganizationProvider>
+          </PlatformAuthProvider>
         </AuthProvider>
         </ConfirmDialogProvider>
       </TooltipProvider>
