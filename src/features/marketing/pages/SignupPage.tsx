@@ -35,6 +35,13 @@ import { cn } from "@/lib/utils";
 
 type Step = "account" | "verify" | "organization" | "provisioning" | "done";
 
+/**
+ * Survives a reload of /signup so a half-finished signup resumes on "Check your
+ * email" rather than an empty account form. sessionStorage, not localStorage:
+ * this is scoped to the tab doing the signup and must not outlive it.
+ */
+const PENDING_EMAIL_KEY = "smartark.signup.pendingEmail";
+
 const INSTITUTION_TYPES = [
   { value: "coaching", label: "Coaching / tuition institute" },
   { value: "k12", label: "K-12 school" },
@@ -74,29 +81,66 @@ const SignupPage: React.FC = () => {
 
   const planCode = params.get("plan") ?? "trial";
 
+  /**
+   * Decide which step a returning visitor belongs on.
+   *
+   * Runs on mount AND behind the "I have verified" button, so both paths use
+   * one definition of "where is this person up to" — they used to disagree,
+   * and the button simply reloaded and hoped.
+   *
+   * Returns false when there is still no verified session, so the caller can
+   * say so instead of silently dropping the user back to step 1.
+   */
+  const resume = useCallback(async (): Promise<boolean> => {
+    const { data } = await supabase.auth.getSession();
+    const user = data.session?.user;
+
+    if (!user) {
+      // No session. If we know an email is pending, stay on the verify screen
+      // and keep showing it — landing back on "create your account" makes it
+      // look like the signup was thrown away.
+      const pending = sessionStorage.getItem(PENDING_EMAIL_KEY);
+      if (pending) {
+        setAccount((a) => ({ ...a, email: a.email || pending }));
+        setStep("verify");
+      }
+      return false;
+    }
+
+    const { data: membership } = await supabase
+      .from("organization_users" as never)
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    // Already provisioned — nothing to do here, send them to the app.
+    if (membership) { window.location.href = "/"; return true; }
+
+    setAccount((a) => ({ ...a, email: user.email ?? a.email }));
+    if (user.email_confirmed_at) {
+      sessionStorage.removeItem(PENDING_EMAIL_KEY);
+      setStep("organization");
+      return true;
+    }
+    setStep("verify");
+    return false;
+  }, []);
+
   // Resume: a verified user returning from the email link lands mid-wizard
   // rather than at step 1. Without this the link feels like it did nothing.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
-      if (cancelled || !user) return;
+    void resume();
 
-      const { data: membership } = await supabase
-        .from("organization_users" as never)
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      // Already provisioned — nothing to do here, send them to the app.
-      if (membership) { window.location.href = "/"; return; }
-
-      setAccount((a) => ({ ...a, email: user.email ?? a.email }));
-      setStep(user.email_confirmed_at ? "organization" : "verify");
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    // The session from the email link is parsed out of the URL asynchronously,
+    // so it can land AFTER the check above. Without this listener the user
+    // sits on "Check your email" even though they are already verified.
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+        void resume();
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [resume]);
 
   useEffect(() => {
     void marketingService.trackEvent("page_view", "/signup");
@@ -128,6 +172,9 @@ const SignupPage: React.FC = () => {
       void marketingService.trackSignup({
         email: account.email, name: account.name, planCode, stage: "started",
       });
+      // Remembered so a reload — or the confirmation link opening a fresh tab —
+      // resumes on "Check your email" instead of an empty account form.
+      sessionStorage.setItem(PENDING_EMAIL_KEY, account.email.trim().toLowerCase());
       setStep("verify");
     } catch (e) {
       setError((e as Error).message);
@@ -283,8 +330,57 @@ const SignupPage: React.FC = () => {
               Verification is required before we create your organization — it is how we
               keep the platform free of throwaway signups.
             </p>
-            <Button variant="outline" className="mt-6 w-full" onClick={() => window.location.reload()}>
-              I have verified — continue
+            {/* Was `window.location.reload()`. A reload throws away all wizard
+                state, and if the session had not been picked up the mount check
+                fell through to step 1 — so the button appeared to send people
+                back to "create your account". Re-check in place and SAY what
+                happened instead. */}
+            <Button
+              variant="outline"
+              className="mt-6 w-full"
+              disabled={busy}
+              onClick={async () => {
+                setError(null);
+                setBusy(true);
+                try {
+                  if (!(await resume())) {
+                    setError(
+                      "We still cannot see a verified session. Open the link from the " +
+                      "email in this same browser — if you opened it elsewhere, or the " +
+                      "link has expired, request a new one below.",
+                    );
+                  }
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? "Checking…" : "I have verified — continue"}
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="mt-2 w-full text-xs"
+              disabled={busy || !account.email}
+              onClick={async () => {
+                setError(null);
+                setBusy(true);
+                try {
+                  const { error: e } = await supabase.auth.resend({
+                    type: "signup",
+                    email: account.email.trim().toLowerCase(),
+                    options: { emailRedirectTo: `${window.location.origin}/signup` },
+                  });
+                  if (e) throw e;
+                  setError("Sent. Check your inbox — and your spam folder.");
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Resend the verification email
             </Button>
           </div>
         )}

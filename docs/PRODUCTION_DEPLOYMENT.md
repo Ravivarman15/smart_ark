@@ -419,7 +419,60 @@ destination becomes unservable.
 
 ---
 
-## 16. Command reference
+## 16. Signup could never complete (fixed, needs redeploy)
+
+**Symptom reported:** on "Check your email", clicking *I have verified — continue*
+returned to the account-creation step.
+
+**Cause — not the button.** `src/integrations/supabase/client.ts` set
+`detectSessionInUrl: false`, on the rationale that the app has no OAuth or magic
+links. True of the staff ERP; false the moment self-serve signup shipped.
+
+`signUp()` passes `emailRedirectTo`, and GoTrue returns the confirmed user with
+the session **in the URL** (`?code=` under PKCE). With detection off, supabase-js
+discarded it, so no session was ever created — in any tab. `getSession()`
+returned null, the wizard could not distinguish a verified user from a new one,
+and the button's `window.location.reload()` fell through to step 1. **No
+organization could ever be created by anyone.**
+
+**Fixed:**
+- `detectSessionInUrl: true`.
+- The button now re-checks the session in place and, if still unverified, says
+  so — instead of silently resetting. Added a *Resend verification email* action.
+- `onAuthStateChange` advances the wizard when the URL exchange resolves after
+  mount.
+- The pending email is kept in `sessionStorage`, so a reload resumes on "Check
+  your email" rather than an empty form.
+
+Six gates in `phase3.test.ts` cover this.
+
+### Before the first real signup — order matters
+
+Provisioning creates organization #2, which switches `fallback_org_id()` off for
+everyone (§11). Sequence:
+
+1. **Enable the Auth hook** — Dashboard → Authentication → Hooks → *Customize
+   Access Token* → `public.custom_access_token_hook`.
+2. **Re-authenticate existing ARK staff.** Their current tokens were issued
+   before the hook existed and carry no `organization_id`. The hook runs on every
+   token issuance, so a sign-out/sign-in fixes it immediately; otherwise they
+   inherit it on the next automatic refresh (≤1h). Verify one admin's JWT
+   contains `app_metadata.organization_id` **before** proceeding.
+3. **Check Auth → URL Configuration.** Site URL must be the production domain and
+   the redirect allowlist must include `https://<domain>/signup`, or the
+   confirmation link will not return to the wizard.
+4. Only then run a real signup.
+
+Verified safe: all 25 auth users already have an active `organization_users`
+row, so the hook will emit a claim for every existing login.
+
+> **Not verified end to end.** The client fix, the wizard logic and the DB guard
+> are verified; a live signup-through-provisioning run is not, because completing
+> it creates organization #2 and would black out ARK until step 2 above is done.
+
+---
+
+## 17. Command reference
 
 ```bash
 node scripts/deploy-migrations.mjs --dry-run    # preview

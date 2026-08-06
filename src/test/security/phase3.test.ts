@@ -96,6 +96,49 @@ describe("THE CORE INVARIANT — anonymous writes are never readable back", () =
   });
 });
 
+describe("The signup round-trip can actually complete", () => {
+  // Signup depends on the browser picking the session out of the URL GoTrue
+  // redirects back to. The client had `detectSessionInUrl: false` — correct for
+  // the staff ERP, and silently fatal once self-serve signup shipped: the
+  // confirmation link established no session, so the wizard could not tell a
+  // verified user from a new one and "I have verified" dropped people back to
+  // step 1. No organization could ever be created.
+  const client = read(join(ROOT, "src/integrations/supabase/client.ts"));
+  const page = read(join(ROOT, "src/features/marketing/pages/SignupPage.tsx"));
+
+  it("the Supabase client reads the session out of the redirect URL", () => {
+    expect(client).toMatch(/detectSessionInUrl:\s*true/);
+  });
+
+  it("signUp asks GoTrue to come back to /signup", () => {
+    expect(page).toMatch(/emailRedirectTo:\s*`\$\{window\.location\.origin\}\/signup`/);
+  });
+
+  it("the verify step re-checks the session instead of blindly reloading", () => {
+    // A reload discards wizard state; if the session is not there yet the mount
+    // check falls through to step 1, which is what looked like a broken button.
+    // Comments are stripped: the code explains the old behaviour by naming it.
+    const code = stripTsComments(page);
+    const verify = code.slice(code.indexOf('step === "verify"'));
+    expect(verify.slice(0, 2000)).not.toMatch(/window\.location\.reload\(\)/);
+    expect(verify.slice(0, 2000)).toMatch(/resume\(\)/);
+  });
+
+  it("a still-unverified re-check tells the user, rather than resetting", () => {
+    expect(page).toMatch(/We still cannot see a verified session/);
+  });
+
+  it("the session arriving late still advances the wizard", () => {
+    // The URL exchange resolves asynchronously and can land after mount.
+    expect(page).toMatch(/onAuthStateChange/);
+  });
+
+  it("a reload mid-signup resumes on the verify step, not an empty form", () => {
+    expect(page).toMatch(/PENDING_EMAIL_KEY/);
+    expect(page).toMatch(/sessionStorage\.setItem\(PENDING_EMAIL_KEY/);
+  });
+});
+
 describe("Self-service onboarding", () => {
   const fn = read(join(FUNCTIONS, "public-onboarding", "index.ts"));
 

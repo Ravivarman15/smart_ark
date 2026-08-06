@@ -29,8 +29,18 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    // Disable URL-session detection — we don't use OAuth/magic links and
-    // this prevents the client from trying to parse query params on boot.
-    detectSessionInUrl: false,
+    // MUST stay true. Public signup (/signup) calls signUp() with
+    // emailRedirectTo, and GoTrue sends the confirmed user back carrying the
+    // session in the URL — `?code=` under PKCE, or a `#access_token=` fragment.
+    // With this off the client discarded that entirely, so no session was ever
+    // established: getSession() returned null, the signup wizard could not tell
+    // a verified user from a brand-new one, and clicking "I have verified"
+    // dropped people back to step 1 forever. Nobody could ever create an
+    // organization.
+    //
+    // It was previously disabled on the rationale that the app has no OAuth or
+    // magic links. That was true of the staff ERP and stopped being true when
+    // self-serve signup shipped.
+    detectSessionInUrl: true,
   },
 });
