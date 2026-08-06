@@ -197,7 +197,7 @@ const SignupPage: React.FC = () => {
     }
     setBusy(true);
     try {
-      const { error: signUpErr } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
         email: account.email.trim().toLowerCase(),
         password: account.password,
         options: {
@@ -210,6 +210,20 @@ const SignupPage: React.FC = () => {
         },
       });
       if (signUpErr) throw signUpErr;
+
+      // ALREADY REGISTERED. To avoid leaking which addresses have accounts,
+      // GoTrue does not error here — it returns a decoy user with an EMPTY
+      // `identities` array and sends no email. Left unhandled, the wizard shows
+      // "Check your email" for a message that will never arrive, which is
+      // indistinguishable from a broken mail pipeline.
+      if (signUpData.user && (signUpData.user.identities?.length ?? 0) === 0) {
+        setError(
+          "An account already exists for this email. Sign in instead — if you " +
+          "never finished setting up your organization, signing in brings you " +
+          "straight back to that step.",
+        );
+        return;
+      }
 
       void marketingService.trackSignup({
         email: account.email, name: account.name, planCode, stage: "started",

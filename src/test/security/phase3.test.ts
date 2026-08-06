@@ -137,6 +137,31 @@ describe("The signup round-trip can actually complete", () => {
     expect(page).toMatch(/PENDING_EMAIL_KEY/);
     expect(page).toMatch(/sessionStorage\.setItem\(PENDING_EMAIL_KEY/);
   });
+
+  it("a failed confirmation link is explained, not swallowed", () => {
+    // GoTrue reports failures in the URL FRAGMENT (#error=…&error_code=…).
+    // Reading it in a useState initialiser matters: detectSessionInUrl strips
+    // the fragment once supabase-js has looked at it, so an effect is too late.
+    expect(page).toMatch(/window\.location\.hash/);
+    expect(page).toMatch(/otp_expired/);
+  });
+
+  it("an already-registered email is reported instead of promising an email", () => {
+    // GoTrue will not error for an existing account — it returns a decoy user
+    // with identities: [] and sends nothing, to avoid user enumeration. Showing
+    // "Check your email" there is a dead end with no recovery.
+    expect(page).toMatch(/identities\?\.length \?\? 0\) === 0/);
+    expect(page).toMatch(/An account already exists/);
+  });
+
+  it("a signed-in user with no organization is not stranded in a redirect loop", () => {
+    // No role → useHomeRoute() falls back to "/" → RootRoute renders
+    // AuthRedirect → "/" again. That is the exact state of a confirmed signup
+    // that never named its organization.
+    const redirect = read(join(ROOT, "src/core/routing/AuthRedirect.tsx"));
+    expect(redirect).toMatch(/home === "\/"/);
+    expect(redirect).toMatch(/Navigate to="\/signup"/);
+  });
 });
 
 describe("Self-service onboarding", () => {

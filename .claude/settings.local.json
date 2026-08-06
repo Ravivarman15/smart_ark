@@ -149,7 +149,10 @@
       "Bash(supabase projects *)",
       "Bash(powershell -NoProfile -Command \"cmdkey /list | Select-String -Pattern 'supabase' | Select-Object -First 5\")",
       "Bash(powershell -NoProfile -Command ' *)",
-      "Bash(powershell -NoProfile -Command \"Remove-Item \\\\\"\\\\$env:TEMP\\\\claude_sb_token.txt\\\\\" -Force -ErrorAction SilentlyContinue; if \\(Test-Path \\\\\"\\\\$env:TEMP\\\\claude_sb_token.txt\\\\\"\\) { 'still present' } else { 'token file removed' }\")"
+      "Bash(powershell -NoProfile -Command \"Remove-Item \\\\\"\\\\$env:TEMP\\\\claude_sb_token.txt\\\\\" -Force -ErrorAction SilentlyContinue; if \\(Test-Path \\\\\"\\\\$env:TEMP\\\\claude_sb_token.txt\\\\\"\\) { 'still present' } else { 'token file removed' }\")",
+      "Read(//c/Users/arrav/AppData/Local/Temp/**)",
+      "Bash(curl -s -X PATCH https://api.supabase.com/v1/projects/vxyshcucwdbpxrhddaeh/config/auth -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d '{\"site_url\":\"https://smart-ark-main.vercel.app\",\"uri_allow_list\":\"https://smart-ark-main.vercel.app/**,https://smart-ark-main-*.vercel.app/**,http://localhost:8080/**\"}' -o /dev/null -w 'PATCH HTTP %{http_code}\\\\n')",
+      "Bash(curl -s https://api.supabase.com/v1/projects/vxyshcucwdbpxrhddaeh/config/auth -H 'Authorization: Bearer __CMDSUB_OUTPUT__')"
     ]
   }
 }
