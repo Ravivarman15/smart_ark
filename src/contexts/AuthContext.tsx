@@ -166,28 +166,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     staleTime: 60_000,
   });
 
-  // Sign out on an unrecognised session — one that maps to neither a staff
-  // profile NOR an active parent account. Without this an orphaned auth.users
-  // row causes a silent redirect loop.
+  // ── A SESSION WITH NEITHER A PROFILE NOR A PARENT ACCOUNT IS NOT SIGNED OUT ─
   //
-  // The parent branch is what makes the portal possible at all: previously ANY
-  // session lacking a `profiles` row was force-signed-out, so a provisioned
-  // parent could authenticate and would then be ejected before reaching a page.
-  useEffect(() => {
-    if (!session) return;
-    if (profileQuery.isLoading || !profileQuery.isFetched) return;
-    if (profileQuery.data) return;                     // staff — fine
-    if (parentQuery.isLoading || !parentQuery.isFetched) return;
-    if (parentQuery.data) return;                      // parent — fine
-
-    console.error("[AuthContext] No profile or parent account for user", session.authUserId);
-    void supabase.auth.signOut();
-    setSession(null);
-  }, [
-    session,
-    profileQuery.data, profileQuery.isLoading, profileQuery.isFetched,
-    parentQuery.data, parentQuery.isLoading, parentQuery.isFetched,
-  ]);
+  // There used to be a force-signOut() here for exactly that case, on the
+  // reasoning that an orphaned auth.users row would otherwise cause a silent
+  // redirect loop.
+  //
+  // Self-serve signup creates precisely that shape ON PURPOSE. Phase 0's
+  // handle_new_user() gives a signup carrying no staff role NO profile, so
+  // every new customer is profile-less between confirming their email and
+  // naming their organization. The sign-out made provisioning impossible: login
+  // succeeded, this effect destroyed the session a moment later, and /signup —
+  // finding no session — restarted at step 1. From the outside it looked like
+  // the password was wrong, and no amount of fixing the wizard could help,
+  // because the wizard was being handed a signed-out client.
+  //
+  // Removing it is safe, verified against the live database rather than
+  // assumed: a session with no profiles row reads ZERO rows from students,
+  // profiles, fees, attendance, exam results, payroll, leads, message_queue,
+  // campuses, batches and organization_users. is_staff() is false, and every
+  // tenant policy carries a role check on top of the organization conjunct.
+  // The only readable row is the organization record itself.
+  //
+  // The redirect loop it guarded against is now prevented properly rather than
+  // by ejecting the user: RootRoute sends a profile-less session to /signup,
+  // which is a terminal destination, and ProtectedRoute still sends it to
+  // /login. Neither bounces back.
 
   const user = useMemo<User | null>(() => {
     if (!session || !profileQuery.data) return null;

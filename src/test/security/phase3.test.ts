@@ -183,6 +183,28 @@ describe("The signup round-trip can actually complete", () => {
     expect(ctx).toMatch(/noProfile && parentQuery\.isLoading/);
   });
 
+  it("a profile-less session is never force-signed-out", () => {
+    // AuthContext used to signOut() any session that mapped to neither a staff
+    // profile nor a parent account. Self-serve signup creates exactly that
+    // shape on purpose — handle_new_user() gives a signup with no staff role no
+    // profile — so this destroyed the session moments after login and made
+    // provisioning impossible for EVERY new customer. It presented as "login
+    // does nothing", and no fix to the wizard could help, because the wizard
+    // was handed a signed-out client.
+    //
+    // Safe to remove, verified against the live database: such a session reads
+    // zero rows from every business table (is_staff() is false, and every
+    // tenant policy carries a role check on top of the organization conjunct).
+    const ctx = stripTsComments(read(join(ROOT, "src/contexts/AuthContext.tsx")));
+    // The only legitimate signOut is the explicit logout() the user asks for.
+    const signOuts = [...ctx.matchAll(/supabase\.auth\.signOut\(\)/g)];
+    expect(signOuts.length, "unexpected signOut() in AuthContext").toBe(1);
+    const logoutFn = ctx.slice(ctx.indexOf("const logout"));
+    expect(logoutFn).toMatch(/supabase\.auth\.signOut\(\)/);
+    // And nothing may eject a session merely for lacking a profile.
+    expect(ctx).not.toMatch(/No profile or parent account/);
+  });
+
   it("a role with no home route still cannot loop at /", () => {
     // Defence in depth behind the above: profiles.role is a DB string, so a
     // value outside ROLE_HOME_ROUTE would resolve home to "/" and bounce
