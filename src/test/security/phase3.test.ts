@@ -333,9 +333,37 @@ describe("Accessibility & UX basics", () => {
   });
 
   it("the pricing billing toggle is a real switch", () => {
+    // Satisfied EITHER by the shared Radix <Switch> — which renders
+    // role="switch" plus aria-checked itself, and is now what the page uses —
+    // or by a hand-rolled control that sets both attributes explicitly.
+    //
+    // The page previously hand-rolled it, and the thumb was positioned
+    // `absolute` with no horizontal anchor: it laid out from the button's
+    // centre and translate-x threw it outside the track, over the "Annual"
+    // label. The primitive centres with flex and reserves the travel with
+    // border-2, so there is no absolute positioning to get wrong.
     const pricing = read(join(MARKETING, "pages", "PricingPage.tsx"));
-    expect(pricing).toMatch(/role="switch"/);
-    expect(pricing).toMatch(/aria-checked=\{yearly\}/);
+    const usesPrimitive =
+      /import \{ Switch \} from "@\/components\/ui\/switch"/.test(pricing) &&
+      /<Switch\b[\s\S]{0,300}?checked=\{yearly\}/.test(pricing);
+    const handRolled =
+      /role="switch"/.test(pricing) && /aria-checked=\{yearly\}/.test(pricing);
+    expect(usesPrimitive || handRolled, "billing toggle is not an accessible switch").toBe(true);
+    // Either way it must be labelled — the control has no visible text of its own.
+    expect(pricing).toMatch(/aria-label="Toggle annual billing"/);
+  });
+
+  it("a hand-rolled switch thumb is never positioned without a horizontal anchor", () => {
+    // The exact regression: `absolute top-… h-5 w-5 … translate-x-[22px]` with
+    // no left/right/inset. Cheap to re-introduce, and it looks fine at rest —
+    // the thumb only escapes the track in the ON state.
+    const pricing = read(join(MARKETING, "pages", "PricingPage.tsx"));
+    for (const m of pricing.matchAll(/className=\{cn\(([\s\S]{0,300}?)\)\}/g)) {
+      const cls = m[1];
+      if (!/\babsolute\b/.test(cls) || !/translate-x-/.test(cls)) continue;
+      expect(cls, "absolutely positioned thumb has no left/right/inset anchor")
+        .toMatch(/\b(left-|right-|inset-)/);
+    }
   });
 
   it("comparison tables have captions and row headers", () => {

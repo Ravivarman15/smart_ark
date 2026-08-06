@@ -68,6 +68,48 @@ const SignupPage: React.FC = () => {
   const [step, setStep] = useState<Step>("account");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Success/neutral feedback. Kept separate from `error`, which renders in a
+   *  destructive banner with a warning icon — "Sent, check your inbox" showing
+   *  up as an error is its own small bug report. */
+  const [notice, setNotice] = useState<string | null>(null);
+
+  /**
+   * GoTrue reports a failed confirmation by redirecting back with the reason in
+   * the URL — usually the HASH (`#error=access_denied&error_code=otp_expired`),
+   * occasionally the query string. Read it in a useState initialiser, which runs
+   * before any effect: `detectSessionInUrl` strips the fragment once supabase-js
+   * has looked at it, so an effect can arrive too late to see anything.
+   *
+   * Without this the page simply showed the verify step again with no
+   * explanation, which is indistinguishable from the button doing nothing.
+   */
+  const [linkError] = useState<{ code: string; description: string } | null>(() => {
+    if (typeof window === "undefined") return null;
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const query = new URLSearchParams(window.location.search);
+    const pick = (k: string) => hash.get(k) ?? query.get(k);
+    if (!pick("error") && !pick("error_code")) return null;
+    return {
+      code: pick("error_code") ?? pick("error") ?? "unknown",
+      description: (pick("error_description") ?? "").replace(/\+/g, " "),
+    };
+  });
+
+  /** Plain-English cause for the codes GoTrue actually emits here. */
+  const linkErrorHelp = (code: string): string => {
+    switch (code) {
+      case "otp_expired":
+        return (
+          "That link is no longer valid. Confirmation links are single-use and " +
+          "expire — and requesting a new one immediately invalidates the older " +
+          "email. Send a fresh link below and open the MOST RECENT message."
+        );
+      case "access_denied":
+        return "The link was rejected. Send a fresh one below and open the newest email.";
+      default:
+        return "Send a fresh verification link below and open the newest email.";
+    }
+  };
 
   const [account, setAccount] = useState({ name: "", email: "", password: "" });
   const [org, setOrg] = useState({
@@ -269,6 +311,13 @@ const SignupPage: React.FC = () => {
           </div>
         )}
 
+        {notice && (
+          <div className="mb-5 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm">
+            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <p>{notice}</p>
+          </div>
+        )}
+
         {/* ── Account ─────────────────────────────────────────────────── */}
         {step === "account" && (
           <div className="rounded-xl border border-border bg-card p-6">
@@ -330,6 +379,21 @@ const SignupPage: React.FC = () => {
               Verification is required before we create your organization — it is how we
               keep the platform free of throwaway signups.
             </p>
+
+            {linkError && (
+              <div
+                role="alert"
+                className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-left text-xs"
+              >
+                <p className="font-medium">That verification link did not work.</p>
+                <p className="mt-1 text-muted-foreground">{linkErrorHelp(linkError.code)}</p>
+                {linkError.description && (
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                    {linkError.code}: {linkError.description}
+                  </p>
+                )}
+              </div>
+            )}
             {/* Was `window.location.reload()`. A reload throws away all wizard
                 state, and if the session had not been picked up the mount check
                 fell through to step 1 — so the button appeared to send people
@@ -364,6 +428,7 @@ const SignupPage: React.FC = () => {
               disabled={busy || !account.email}
               onClick={async () => {
                 setError(null);
+                setNotice(null);
                 setBusy(true);
                 try {
                   const { error: e } = await supabase.auth.resend({
@@ -372,7 +437,13 @@ const SignupPage: React.FC = () => {
                     options: { emailRedirectTo: `${window.location.origin}/signup` },
                   });
                   if (e) throw e;
-                  setError("Sent. Check your inbox — and your spam folder.");
+                  // Say this explicitly: resending INVALIDATES the previous
+                  // link, so opening the older email is the most common way to
+                  // land on otp_expired straight after asking for a new one.
+                  setNotice(
+                    "Sent. Open the NEWEST email — requesting this one invalidated " +
+                    "any earlier link. Check spam too.",
+                  );
                 } catch (e) {
                   setError((e as Error).message);
                 } finally {

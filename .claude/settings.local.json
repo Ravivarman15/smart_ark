@@ -145,7 +145,11 @@
       "Bash(npx vercel *)",
       "Bash(curl -s -o /dev/null -w \"google fonts css: %{http_code}\\\\n\" \"https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap\" --max-time 20)",
       "Bash(npm view *)",
-      "Bash(awk '{print $5\" bytes\"}')"
+      "Bash(awk '{print $5\" bytes\"}')",
+      "Bash(supabase projects *)",
+      "Bash(powershell -NoProfile -Command \"cmdkey /list | Select-String -Pattern 'supabase' | Select-Object -First 5\")",
+      "Bash(powershell -NoProfile -Command ' *)",
+      "Bash(powershell -NoProfile -Command \"Remove-Item \\\\\"\\\\$env:TEMP\\\\claude_sb_token.txt\\\\\" -Force -ErrorAction SilentlyContinue; if \\(Test-Path \\\\\"\\\\$env:TEMP\\\\claude_sb_token.txt\\\\\"\\) { 'still present' } else { 'token file removed' }\")"
     ]
   }
 }

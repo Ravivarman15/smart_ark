@@ -30,5 +30,21 @@ export const AuthRedirect = () => {
 
   if (permissionsLoading) return <Splash />;
 
+  // A signed-in user with NO role has no home: useHomeRoute() falls back to
+  // "/", and "/" renders RootRoute → AuthRedirect → "/" again. An infinite
+  // redirect loop, not merely a dead end.
+  //
+  // Exactly one person is ever in that state: someone who signed up, confirmed
+  // their email, and never finished naming their organization. Phase 0's
+  // handle_new_user() deliberately creates NO profile for a signup that carries
+  // no staff role, so they have no role, no membership and nowhere to land.
+  // Before this, closing the tab mid-signup and logging back in later stranded
+  // them permanently.
+  //
+  // Safe for every existing user by construction: ROLE_HOME_ROUTE is a
+  // Record<Role, string> covering all four roles, so anyone WITH a role gets a
+  // real route and never reaches this line.
+  if (home === "/") return <Navigate to="/signup" replace />;
+
   return <Navigate to={home} replace />;
 };

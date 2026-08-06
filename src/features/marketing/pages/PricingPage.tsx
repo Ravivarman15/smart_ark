@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, Minus, ArrowRight } from "lucide-react";
 import { Section, SectionHeading, CtaBand } from "../components/MarketingShell";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useSeo } from "../seo/useSeo";
 import { ROUTE_SEO, faqJsonLd } from "../seo/seo";
 import { marketingService, type PublicPlan } from "../services/marketing.service";
@@ -61,28 +62,52 @@ const PricingPage: React.FC = () => {
           description="Every plan includes unlimited parent and student logins. No setup fee, no card for the trial, and your data is yours to export whenever you like."
         />
 
+        {/* Billing period switch.
+            The knob used to be `absolute` with NO horizontal anchor, so it was
+            laid out from its static position — the button's centre, since
+            buttons centre their content — and translate-x-[22px] then threw it
+            outside the track and over the "Annual" label. `left-0` gives it the
+            edge to travel from, which is what the 2px/22px offsets assume.
+            Also given a visible resting state: on a light page `bg-muted` alone
+            read as decoration, so first-time visitors never realised annual
+            pricing was one tap away. */}
         <div className="mt-8 flex items-center justify-center gap-3">
-          <span className={cn("text-sm", !yearly && "font-medium")}>Monthly</span>
           <button
             type="button"
-            role="switch"
-            aria-checked={yearly}
-            aria-label="Toggle annual billing"
-            onClick={() => setYearly((v) => !v)}
+            onClick={() => setYearly(false)}
             className={cn(
-              "relative h-6 w-11 rounded-full transition-colors",
-              yearly ? "bg-primary" : "bg-muted",
+              "rounded text-sm transition-colors hover:text-foreground",
+              !yearly ? "font-medium text-foreground" : "text-muted-foreground",
             )}
           >
-            <span
-              className={cn(
-                "absolute top-0.5 h-5 w-5 rounded-full bg-background shadow transition-transform",
-                yearly ? "translate-x-[22px]" : "translate-x-0.5",
-              )}
-            />
+            Monthly
           </button>
-          <span className={cn("text-sm", yearly && "font-medium")}>
-            Annual <span className="text-primary">· save 20%</span>
+
+          {/* The shared Radix switch, not a hand-rolled one: it centres the
+              thumb with flex and reserves the travel with border-2, so there is
+              no absolute positioning to get wrong. The only override is a
+              stronger unchecked background — the default `bg-input` is nearly
+              invisible on this page's near-white section. */}
+          <Switch
+            checked={yearly}
+            onCheckedChange={setYearly}
+            aria-label="Toggle annual billing"
+            className="data-[state=unchecked]:bg-muted-foreground/30"
+          />
+
+          <button
+            type="button"
+            onClick={() => setYearly(true)}
+            className={cn(
+              "rounded text-sm transition-colors hover:text-foreground",
+              yearly ? "font-medium text-foreground" : "text-muted-foreground",
+            )}
+          >
+            Annual
+          </button>
+
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            Save 20%
           </span>
         </div>
 
