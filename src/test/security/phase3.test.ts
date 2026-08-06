@@ -154,10 +154,39 @@ describe("The signup round-trip can actually complete", () => {
     expect(page).toMatch(/An account already exists/);
   });
 
-  it("a signed-in user with no organization is not stranded in a redirect loop", () => {
-    // No role → useHomeRoute() falls back to "/" → RootRoute renders
-    // AuthRedirect → "/" again. That is the exact state of a confirmed signup
-    // that never named its organization.
+  it("a confirmed signup that has not named its organization is not stranded", () => {
+    // `isAuthenticated` means "holds a profiles row". A confirmed signup has
+    // none — Phase 0's handle_new_user() deliberately creates no profile for a
+    // signup carrying no staff role — so RootRoute saw "signed out" and served
+    // the MARKETING PAGE to someone who had just logged in successfully.
+    // Reads as a silent login failure, with no route back to the wizard.
+    const root = read(join(ROOT, "src/core/routing/RootRoute.tsx"));
+    expect(root).toMatch(/hasSession/);
+    expect(root).toMatch(/Navigate to="\/signup"/);
+    // The flag must be real, not assumed present on the context.
+    const ctx = read(join(ROOT, "src/contexts/AuthContext.tsx"));
+    expect(ctx).toMatch(/hasSession: boolean/);
+    expect(ctx).toMatch(/hasSession: !!session/);
+  });
+
+  it("the pending-signup redirect cannot fire before identity resolves", () => {
+    // If it ran while the profile/parent lookups were still in flight, every
+    // ARK staff member would be bounced to /signup on each hard refresh.
+    const root = read(join(ROOT, "src/core/routing/RootRoute.tsx"));
+    const loadingGuard = root.indexOf("if (loading)");
+    const pendingRedirect = root.indexOf('Navigate to="/signup"');
+    expect(loadingGuard).toBeGreaterThan(-1);
+    expect(loadingGuard, "loading guard must precede the pending-signup redirect")
+      .toBeLessThan(pendingRedirect);
+    // And `loading` must actually cover the parent lookup, not just the profile.
+    const ctx = read(join(ROOT, "src/contexts/AuthContext.tsx"));
+    expect(ctx).toMatch(/noProfile && parentQuery\.isLoading/);
+  });
+
+  it("a role with no home route still cannot loop at /", () => {
+    // Defence in depth behind the above: profiles.role is a DB string, so a
+    // value outside ROLE_HOME_ROUTE would resolve home to "/" and bounce
+    // between RootRoute and AuthRedirect forever.
     const redirect = read(join(ROOT, "src/core/routing/AuthRedirect.tsx"));
     expect(redirect).toMatch(/home === "\/"/);
     expect(redirect).toMatch(/Navigate to="\/signup"/);

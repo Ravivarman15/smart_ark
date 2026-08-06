@@ -61,6 +61,19 @@ interface AuthContextType {
   isAuthenticated: boolean;
   /** True for a PARENT session only. */
   isParentAuthenticated: boolean;
+  /**
+   * A Supabase session exists, regardless of whether it resolved to a staff
+   * profile or a parent account.
+   *
+   * `isAuthenticated` means "holds a profiles row", which is right for every
+   * ERP call site but leaves one person invisible: someone who signed up and
+   * confirmed their email but has not yet named their organization. Phase 0's
+   * handle_new_user() deliberately creates NO profile for a signup carrying no
+   * staff role, so they are signed in at Supabase and "not authenticated" here
+   * — and "/" silently showed them the marketing page instead of the step they
+   * were mid-way through.
+   */
+  hasSession: boolean;
   loading: boolean;
 }
 
@@ -261,6 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         isAuthenticated: !!user,
         isParentAuthenticated: !!parent,
+        hasSession: !!session,
         loading,
       }}
     >

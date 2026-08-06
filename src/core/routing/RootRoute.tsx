@@ -16,6 +16,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import type { ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthRedirect } from "./AuthRedirect";
 
@@ -26,7 +27,7 @@ const Splash = () => (
 );
 
 export const RootRoute = ({ marketingHome }: { marketingHome: ReactNode }) => {
-  const { isAuthenticated, isParentAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isParentAuthenticated, hasSession, loading } = useAuth();
 
   // Wait rather than flashing the marketing page at a signed-in user on every
   // hard refresh — the session resolves asynchronously, and a visible flash of
@@ -34,6 +35,20 @@ export const RootRoute = ({ marketingHome }: { marketingHome: ReactNode }) => {
   if (loading) return <Splash />;
 
   if (isAuthenticated || isParentAuthenticated) return <AuthRedirect />;
+
+  // A Supabase session that resolved to NEITHER a staff profile nor a parent
+  // account is a signup that never finished: email confirmed, but no
+  // organization named yet, so handle_new_user() gave it no profile.
+  //
+  // Without this they log in successfully and land on the marketing page —
+  // the product they just paid attention to, advertising itself at them, with
+  // no route back to the half-finished wizard. It reads as "login silently
+  // failed".
+  //
+  // Safe by construction: `loading` above already waits for BOTH the profile
+  // and parent lookups to resolve, so this cannot fire mid-flight for an
+  // existing ARK user. Anyone with a profile takes the branch above.
+  if (hasSession) return <Navigate to="/signup" replace />;
 
   return <>{marketingHome}</>;
 };
