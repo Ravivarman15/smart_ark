@@ -161,7 +161,16 @@
       "Bash(cp /tmp/p.bak src/features/platform/providers/PlatformRealtimeProvider.tsx)",
       "Bash(cp /tmp/s.bak src/features/platform/services/platform.service.ts)",
       "Bash(cp supabase/migrations/20260909_phase2e_provisioning_claim_and_metrics_cron.sql /tmp/m.bak)",
-      "Bash(perl -0pi -e 's/AND pj\\\\.attempt < pj\\\\.max_attempts/AND attempt < pj.max_attempts/' supabase/migrations/20260909_phase2e_provisioning_claim_and_metrics_cron.sql)"
+      "Bash(perl -0pi -e 's/AND pj\\\\.attempt < pj\\\\.max_attempts/AND attempt < pj.max_attempts/' supabase/migrations/20260909_phase2e_provisioning_claim_and_metrics_cron.sql)",
+      "Bash(tee /tmp/t.txt)",
+      "Bash(perl -0pi -e ' *)",
+      "Bash(cp src/features/marketing/styles/marketing.css /tmp/c.bak)",
+      "Bash(cp src/features/marketing/components/Hero.tsx /tmp/h.bak)",
+      "Bash(perl -0pi -e 's/<m\\\\.h1/<motion.h1/' src/features/marketing/components/Hero.tsx)",
+      "Bash(curl -s -o /dev/null -w \"preview server: %{http_code}\\\\n\" http://localhost:4183/)",
+      "Bash(perl -0pi -e 's/text-\\\\[11px\\\\] font-semibold uppercase tracking-\\\\[0\\\\.08em\\\\]/text-[11px] font-semibold uppercase tracking-[0.08em]/' src/features/marketing/components/ui.tsx)",
+      "Bash(perl -0pi -e 's/text-\\\\[10px\\\\] font-semibold uppercase tracking-wide text-accent\\(\\\\s*\"\\)/text-[11px] font-semibold uppercase tracking-wide text-accent$1/' src/features/marketing/components/Hero.tsx)",
+      "Bash(kill %1)"
     ]
   }
 }

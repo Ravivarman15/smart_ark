@@ -449,8 +449,16 @@ describe("Accessibility & UX basics", () => {
   });
 
   it("the decorative dashboard mock is hidden from screen readers", () => {
-    const preview = read(join(MARKETING, "components", "DashboardPreview.tsx"));
+    // Repointed from DashboardPreview.tsx, which LiveDashboard replaced. The
+    // property is unchanged and the requirement is stronger than before: it is
+    // now asserted against the component that actually renders, so renaming
+    // the file again cannot quietly leave the gate reading a stale one.
+    const preview = read(join(MARKETING, "components", "LiveDashboard.tsx"));
     expect(preview).toMatch(/aria-hidden="true"/);
+    // The mock invents figures. It must say so on the page, not only in a
+    // source comment — this line is what keeps illustrative numbers from
+    // reading as customer data.
+    expect(preview).toMatch(/not customer data/i);
   });
 });
 
@@ -555,5 +563,195 @@ describe("Rollback", () => {
     // The one irreversible act this file could commit.
     const rb = read(join(ROLLBACKS, P3A.replace(".sql", "_rollback.sql")));
     expect(rb).not.toMatch(/DROP COLUMN is_demo/);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LANDING REDESIGN GATES
+//
+// The redesign added a design-token stylesheet and an animation library to a
+// repo whose portals are explicitly out of scope. Both are leak risks that
+// produce no error when they leak:
+//
+//   • Vite concatenates all imported CSS into ONE global sheet. A rule that
+//     escapes `.mk-root` retheme the admin, teacher and parent portals silently.
+//   • Importing `motion` instead of `m` reinstates Framer Motion's full bundle
+//     in the initial chunk, which nothing fails on — it just gets slower.
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("Marketing design system stays inside the marketing tree", () => {
+  const css = read(join(MARKETING, "styles", "marketing.css"));
+
+  it("declares no custom property outside the --mk- namespace", () => {
+    const props = [...css.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gim)].map((m) => m[1]);
+    const foreign = [...new Set(props)].filter((p) => !p.startsWith("--mk-"));
+    expect(
+      foreign,
+      `these would overwrite app-wide tokens and retheme every portal: ${foreign.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("scopes every rule under .mk-root", () => {
+    // Strip comments, at-rules and their braces, then check each selector.
+    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const selectors = [...withoutComments.matchAll(/(^|\})\s*([^{}@]+)\{/g)]
+      .map((m) => m[2].trim())
+      .filter(Boolean)
+      // Keyframe steps (`from`, `to`, `0%`, `50%, 100%`) are not selectors.
+      .filter((s) => !/^(from|to|[\d.]+%)(\s*,\s*(from|to|[\d.]+%))*$/.test(s));
+
+    const escaped = selectors.filter((sel) =>
+      sel.split(",").some((one) => !one.includes(".mk-root")),
+    );
+    expect(
+      escaped,
+      `unscoped selectors leak into the portals: ${escaped.join(" | ")}`,
+    ).toEqual([]);
+  });
+
+  it("the layout applies the .mk-root scope", () => {
+    // Without this class every token above resolves to nothing and the public
+    // site silently loses its styling.
+    const shell = read(join(MARKETING, "components", "MarketingShell.tsx"));
+    expect(shell).toMatch(/className="mk-root/);
+    expect(shell).toMatch(/import "\.\.\/styles\/marketing\.css"/);
+  });
+
+  it("honours prefers-reduced-motion for the infinite CSS animations", () => {
+    // Framer Motion's reducedMotion setting never sees these — they are pure
+    // CSS loops that would otherwise run forever.
+    const block = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(block).toContain("mk-marquee-track");
+    expect(block).toContain("mk-float");
+    expect(block).toContain("animation: none !important");
+  });
+});
+
+describe("Marketing motion stays cheap", () => {
+  const marketingFiles = walk(MARKETING);
+
+  it("uses LazyMotion's `m` rather than `motion`", () => {
+    // `motion.div` statically pulls the whole feature set into the initial
+    // chunk (~34 kB gz) and defeats the LazyMotion split entirely.
+    const offenders = marketingFiles.filter((f) =>
+      /\bmotion\.[a-z]/.test(stripTsComments(read(f))),
+    );
+    expect(
+      offenders.map((f) => f.replace(ROOT, "")),
+      "use <m.div> from ../components/motion, not <motion.div>",
+    ).toEqual([]);
+  });
+
+  it("imports framer-motion only through the motion module", () => {
+    // Two files may name the library: motion.tsx (the primitives) and
+    // motionFeatures.ts (the code-split boundary). Anywhere else and the
+    // component escapes MotionConfig, so prefers-reduced-motion stops applying
+    // to it — the failure is silent and only affects the people it hurts.
+    const posix = (p: string) => p.split("\\").join("/");
+    const allowed = ["components/motion.tsx", "components/motionFeatures.ts"];
+    const offenders = marketingFiles.filter(
+      (f) =>
+        /from "framer-motion"/.test(read(f)) &&
+        !allowed.some((a) => posix(f).endsWith(a)),
+    );
+    expect(offenders.map((f) => f.replace(ROOT, "")), "import from ./motion instead").toEqual([]);
+  });
+
+  it("loads the animation features as a separate chunk", () => {
+    const motion = read(join(MARKETING, "components", "motion.tsx"));
+    const features = read(join(MARKETING, "components", "motionFeatures.ts"));
+
+    // Must point at the boundary module. A dynamic import("framer-motion")
+    // here would collapse into motion.tsx's own static import of the same
+    // specifier — Rollup cannot put one module in two chunks — and the whole
+    // feature set silently rejoins the eager bundle. Build output confirms the
+    // split: motionFeatures lands in its own ~4.6 kB gzipped chunk.
+    expect(motion).toMatch(/import\("\.\/motionFeatures"\)/);
+    expect(motion).not.toMatch(/import\("framer-motion"\)/);
+    expect(motion).toMatch(/reducedMotion="user"/);
+
+    // The boundary only works while that file pulls in nothing else — one
+    // extra import drags its whole graph into the lazy chunk.
+    const imports = [...features.matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
+    expect(imports).toEqual(["framer-motion"]);
+    expect(features).toMatch(/domAnimation as default/);
+  });
+
+  it("every scroll reveal fires once", () => {
+    // Re-animating on scroll-back makes a page unusable for anyone who scrolls
+    // up to re-read something, and it is the fastest way to look cheap.
+    const motion = read(join(MARKETING, "components", "motion.tsx"));
+    const inViewCalls = [...motion.matchAll(/useInView\([^)]*\)/g)].map((m) => m[0]);
+    expect(inViewCalls.length).toBeGreaterThan(2);
+    for (const call of inViewCalls) {
+      expect(call, `useInView without once: ${call}`).toContain("once: true");
+    }
+  });
+});
+
+describe("Landing page is mobile-first and reachable", () => {
+  const files = walk(MARKETING);
+
+  it("no fixed pixel width can force horizontal scroll", () => {
+    // A `w-[420px]` on a 375px screen produces a horizontally scrolling page,
+    // which is the single most common mobile defect on a desktop-led design.
+    const offenders: string[] = [];
+    for (const f of files) {
+      for (const m of stripTsComments(read(f)).matchAll(/\bw-\[(\d+)px\]/g)) {
+        if (Number(m[1]) > 320) offenders.push(`${f.replace(ROOT, "")}: ${m[0]}`);
+      }
+    }
+    expect(offenders, `fixed widths wider than the smallest supported screen`).toEqual([]);
+  });
+
+  it("the mobile drawer keeps its actions reachable", () => {
+    const shell = read(join(MARKETING, "components", "MarketingShell.tsx"));
+    // Sticky footer inside a scrollable sheet — otherwise the CTAs sit below
+    // a long link list and are unreachable without scrolling a menu.
+    expect(shell).toMatch(/sticky bottom-0/);
+    // iOS home-indicator inset, or the last button sits under the gesture bar.
+    expect(shell).toMatch(/env\(safe-area-inset-bottom\)/);
+  });
+
+  it("the mega menu is operable by keyboard", () => {
+    const shell = read(join(MARKETING, "components", "MarketingShell.tsx"));
+    expect(shell).toMatch(/aria-expanded=\{open\}/);
+    expect(shell).toMatch(/aria-haspopup/);
+    expect(shell).toMatch(/e\.key === "Escape"/);
+  });
+
+  it("interactive marketing controls carry a visible focus ring", () => {
+    const ui = read(join(MARKETING, "components", "ui.tsx"));
+    expect(ui).toMatch(/focus-visible:ring-2/);
+  });
+});
+
+describe("Hero headline stays stable and readable", () => {
+  const hero = read(join(MARKETING, "components", "Hero.tsx"));
+  const css = read(join(MARKETING, "styles", "marketing.css"));
+
+  it("the CSS width sizer matches the longest rotating word", () => {
+    // If ROTATING gains a longer word and the sizer is not updated, the
+    // headline starts reflowing on every rotation — a CLS regression that is
+    // invisible in review and only shows up in field data.
+    const list = hero.slice(hero.indexOf("const ROTATING"), hero.indexOf("];", hero.indexOf("const ROTATING")));
+    const words = [...list.matchAll(/"([a-z]+)"/g)].map((m) => m[1]);
+    expect(words.length).toBeGreaterThan(2);
+    const longest = words.reduce((a, b) => (b.length > a.length ? b : a));
+
+    const sizer = css.match(/\.mk-word-sizer::before \{[^}]*content:\s*"([^"]+)"/);
+    expect(sizer, ".mk-word-sizer::before has no content declaration").toBeTruthy();
+    expect(
+      sizer![1].length,
+      `sizer "${sizer![1]}" is narrower than the longest word "${longest}"`,
+    ).toBeGreaterThanOrEqual(longest.length);
+  });
+
+  it("reserves that width with a pseudo-element, not a duplicate node", () => {
+    // A hidden <span> works visually but its text joins document.textContent,
+    // so the H1 read "…admissionsadmissions on one platform" to crawlers.
+    // Measured in a headless browser, not assumed.
+    expect(hero).toContain("mk-word-sizer");
+    expect(hero).not.toMatch(/aria-hidden[\s\S]{0,80}ROTATING\.reduce/);
   });
 });

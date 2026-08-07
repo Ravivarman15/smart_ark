@@ -1,0 +1,305 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   MARKETING DESIGN SYSTEM
+   ──────────────────────────────────────────────────────────────────────────
+   Tokens for the PUBLIC WEBSITE ONLY.
+
+   ┌── WHY EVERY RULE IS NESTED UNDER .mk-root ────────────────────────────┐
+   │ Vite concatenates all imported CSS into one global stylesheet — there │
+   │ is no module scoping here. A bare `:root { --radius: … }` in this     │
+   │ file would silently retheme the admin, management, teacher, parent    │
+   │ and platform portals, which are explicitly out of scope.              │
+   │                                                                       │
+   │ So: every custom property is namespaced `--mk-`, and every selector   │
+   │ is nested under `.mk-root`, which only MarketingLayout renders. Both  │
+   │ halves matter — the namespace stops a token collision, the nesting    │
+   │ stops a selector collision. A gate in phase3.test.ts enforces it.     │
+   └───────────────────────────────────────────────────────────────────────┘
+
+   The tokens READ the app's existing --primary / --accent / --background so
+   the marketing site inherits brand colour and light/dark theme rather than
+   forking them. Change the brand once, both surfaces follow.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.mk-root {
+  /* ── Spacing: strict 8px system. Named by step, not by pixel value, so a
+        density change is one edit here rather than a find-and-replace. ──── */
+  --mk-space-1: 0.5rem;   /*  8px */
+  --mk-space-2: 1rem;     /* 16px */
+  --mk-space-3: 1.5rem;   /* 24px */
+  --mk-space-4: 2rem;     /* 32px */
+  --mk-space-6: 3rem;     /* 48px */
+  --mk-space-8: 4rem;     /* 64px */
+  --mk-space-10: 5rem;    /* 80px */
+  --mk-space-14: 7rem;    /* 112px */
+
+  /* ── Radius scale. One step apart so nesting reads correctly: a control
+        inside a card inside a panel steps down, never up. ───────────────── */
+  --mk-radius-sm: 0.5rem;
+  --mk-radius-md: 0.75rem;
+  --mk-radius-lg: 1rem;
+  --mk-radius-xl: 1.5rem;
+  --mk-radius-2xl: 2rem;
+  --mk-radius-full: 999px;
+
+  /* ── Elevation. Layered, low-alpha shadows — a single hard shadow is the
+        fastest way to make a page look like a 2014 template. ────────────── */
+  --mk-shadow-xs: 0 1px 2px 0 hsl(var(--foreground) / 0.04);
+  --mk-shadow-sm:
+    0 1px 2px -1px hsl(var(--foreground) / 0.06),
+    0 2px 6px -1px hsl(var(--foreground) / 0.05);
+  --mk-shadow-md:
+    0 2px 4px -2px hsl(var(--foreground) / 0.06),
+    0 8px 16px -4px hsl(var(--foreground) / 0.08);
+  --mk-shadow-lg:
+    0 4px 8px -4px hsl(var(--foreground) / 0.07),
+    0 16px 32px -8px hsl(var(--foreground) / 0.10);
+  --mk-shadow-xl:
+    0 8px 16px -8px hsl(var(--foreground) / 0.08),
+    0 32px 64px -16px hsl(var(--foreground) / 0.14);
+  --mk-shadow-glow: 0 0 0 1px hsl(var(--accent) / 0.15), 0 8px 40px -8px hsl(var(--accent) / 0.25);
+
+  /* ── Brand gradients ────────────────────────────────────────────────── */
+  --mk-grad-brand: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  --mk-grad-text: linear-gradient(
+    120deg,
+    hsl(var(--foreground)) 0%,
+    hsl(var(--foreground)) 40%,
+    hsl(var(--accent)) 100%
+  );
+  --mk-grad-sheen: linear-gradient(
+    100deg,
+    transparent 20%,
+    hsl(var(--accent) / 0.10) 50%,
+    transparent 80%
+  );
+  /* Hairline that catches light along the top edge of a raised surface. */
+  --mk-grad-hairline: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--accent) / 0.45),
+    transparent
+  );
+
+  /* ── Glass ──────────────────────────────────────────────────────────── */
+  --mk-glass-bg: hsl(var(--card) / 0.72);
+  --mk-glass-border: hsl(var(--foreground) / 0.08);
+  --mk-glass-blur: 14px;
+
+  /* ── Motion. One easing curve for the whole site; durations by intent. ─ */
+  --mk-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --mk-dur-fast: 150ms;
+  --mk-dur: 260ms;
+  --mk-dur-slow: 520ms;
+}
+
+/* Dark theme needs stronger shadows and a dimmer glass fill — the same alpha
+   that reads as "lifted" on white reads as "smudge" on near-black. */
+.dark .mk-root {
+  --mk-shadow-sm:
+    0 1px 2px -1px hsl(0 0% 0% / 0.4),
+    0 2px 6px -1px hsl(0 0% 0% / 0.3);
+  --mk-shadow-md:
+    0 2px 4px -2px hsl(0 0% 0% / 0.4),
+    0 8px 16px -4px hsl(0 0% 0% / 0.35);
+  --mk-shadow-lg:
+    0 4px 8px -4px hsl(0 0% 0% / 0.45),
+    0 16px 32px -8px hsl(0 0% 0% / 0.4);
+  --mk-shadow-xl:
+    0 8px 16px -8px hsl(0 0% 0% / 0.5),
+    0 32px 64px -16px hsl(0 0% 0% / 0.55);
+  --mk-glass-bg: hsl(var(--card) / 0.62);
+  --mk-glass-border: hsl(0 0% 100% / 0.09);
+}
+
+/* ── Utilities ───────────────────────────────────────────────────────────
+   Deliberately few. Anything expressible in Tailwind stays in Tailwind; only
+   things Tailwind cannot express cleanly (background-clip text, mask-image,
+   keyframes) live here.
+   ─────────────────────────────────────────────────────────────────────── */
+
+.mk-root .mk-gradient-text {
+  background: var(--mk-grad-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Descenders (g, y, p) clip against a tight line-box when the paint source
+     is the background. A hair of padding-bottom restores them. */
+  padding-bottom: 0.08em;
+}
+
+/* Reserves the width of the longest rotating word so the headline cannot
+   reflow as the word changes.
+
+   A pseudo-element rather than a hidden <span>: pseudo content is absent from
+   document.textContent and from the accessibility tree, so the H1 still reads
+   as one clean sentence to a crawler and a screen reader. The literal must
+   match the longest entry of ROTATING in Hero.tsx — a gate asserts it does. */
+.mk-root .mk-word-sizer::before {
+  content: "admissions";
+  grid-area: 1 / 1;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.mk-root .mk-glass {
+  background: var(--mk-glass-bg);
+  border: 1px solid var(--mk-glass-border);
+  backdrop-filter: blur(var(--mk-glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--mk-glass-blur)) saturate(150%);
+}
+
+/* Gradient border without a wrapper element: paint the gradient as the
+   background, then mask out everything but a 1px frame. */
+.mk-root .mk-ring-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    hsl(var(--accent) / 0.5),
+    hsl(var(--accent) / 0) 40%,
+    hsl(var(--primary) / 0) 60%,
+    hsl(var(--accent) / 0.3)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--mk-dur) var(--mk-ease);
+  pointer-events: none;
+}
+
+.mk-root .mk-ring-gradient:hover::before,
+.mk-root .mk-ring-gradient:focus-within::before {
+  opacity: 1;
+}
+
+/* Top-edge hairline on raised surfaces. */
+.mk-root .mk-hairline::after {
+  content: "";
+  position: absolute;
+  inset-inline: 12%;
+  top: 0;
+  height: 1px;
+  background: var(--mk-grad-hairline);
+  pointer-events: none;
+}
+
+/* Fades a decorative layer out at the edges so it never collides with a
+   section boundary. */
+.mk-root .mk-fade-edges {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.mk-root .mk-fade-bottom {
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent);
+  mask-image: linear-gradient(180deg, #000 55%, transparent);
+}
+
+/* Grid backdrop. A background-image rather than an SVG asset: no request, and
+   it re-tints itself from the theme token. */
+.mk-root .mk-grid-bg {
+  background-image:
+    linear-gradient(hsl(var(--foreground) / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--foreground) / 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center;
+}
+
+/* ── Keyframes ─────────────────────────────────────────────────────────── */
+
+@keyframes mk-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes mk-sheen {
+  from { transform: translate3d(-120%, 0, 0); }
+  to   { transform: translate3d(220%, 0, 0); }
+}
+
+@keyframes mk-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(0, -8px, 0); }
+}
+
+@keyframes mk-pulse-ring {
+  0%   { transform: scale(0.85); opacity: 0.55; }
+  70%  { transform: scale(1.6);  opacity: 0; }
+  100% { transform: scale(1.6);  opacity: 0; }
+}
+
+/* Chart bars. scaleY from the bottom rather than animating `height`, so the
+   growth never triggers layout — the element's box is its final size from the
+   first frame and only the paint transform changes. */
+@keyframes mk-bar-grow {
+  from { transform: scaleY(0); opacity: 0.4; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes mk-fade-in {
+  from { opacity: 0; transform: translate3d(0, 4px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* Mobile drawer entrance. translate3d rather than `top`, so the sheet
+   composites on the GPU instead of relaying out a full-height fixed element
+   mid-animation. */
+@keyframes mk-slide-up {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.mk-root .mk-marquee-track {
+  animation: mk-marquee var(--mk-marquee-duration, 40s) linear infinite;
+  will-change: transform;
+}
+
+.mk-root .mk-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--mk-grad-sheen);
+  animation: mk-sheen 3.5s var(--mk-ease) infinite;
+  pointer-events: none;
+}
+
+.mk-root .mk-float { animation: mk-float 6s ease-in-out infinite; }
+.mk-root .mk-float-delayed { animation: mk-float 7s ease-in-out 1.2s infinite; }
+
+.mk-root .mk-pulse-ring { animation: mk-pulse-ring 2.4s var(--mk-ease) infinite; }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────
+   Not a nicety. Vestibular disorders are real, the marquee and float loops
+   run forever, and a user who has asked the OS for stillness must get it —
+   including from the infinite CSS animations, which Framer Motion's own
+   reduced-motion handling never sees.
+   ─────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .mk-root .mk-marquee-track,
+  .mk-root .mk-sheen::after,
+  .mk-root .mk-float,
+  .mk-root .mk-float-delayed,
+  .mk-root .mk-pulse-ring,
+  /* Belt and braces for the Tailwind arbitrary-animation utilities used by
+     LiveDashboard. Those are gated in JS too, but a CSS-level kill switch
+     survives a component that forgets to check. */
+  .mk-root [class*="animate-[mk-"] {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .mk-root * {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Respect the OS setting for in-page anchor scrolling too. */
+@media (prefers-reduced-motion: no-preference) {
+  .mk-root { scroll-behavior: smooth; }
+}
