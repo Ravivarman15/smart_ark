@@ -174,7 +174,17 @@
       "Bash(supabase.cmd functions *)",
       "Bash(supabase.cmd secrets *)",
       "Bash(cp vercel.json /tmp/v.bak)",
-      "Bash(perl -0pi -e 's/payment=\\\\\\(self \\\\\\\\\"https:\\\\/\\\\/checkout\\\\.razorpay\\\\.com\\\\\\\\\" \\\\\\\\\"https:\\\\/\\\\/api\\\\.razorpay\\\\.com\\\\\\\\\"\\\\\\)/payment=\\(\\)/' vercel.json)"
+      "Bash(perl -0pi -e 's/payment=\\\\\\(self \\\\\\\\\"https:\\\\/\\\\/checkout\\\\.razorpay\\\\.com\\\\\\\\\" \\\\\\\\\"https:\\\\/\\\\/api\\\\.razorpay\\\\.com\\\\\\\\\"\\\\\\)/payment=\\(\\)/' vercel.json)",
+      "Bash(perl -0pi -e 's/<CardGrid className=\"grid gap-4 sm:grid-cols-2\">\\\\n\\(\\\\s*\\)<div className=\"sm:col-span-2\">/<div className=\"grid gap-4 sm:grid-cols-2\">\\\\n$1<div className=\"sm:col-span-2\">/' src/features/marketing/pages/ContentPages.tsx)",
+      "Bash(perl -0pi -e 's/<CardGrid className=\"mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3\">\\\\n\\(\\\\s*\\)\\\\{\\\\[0, 1, 2\\\\]/<div className=\"mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3\">\\\\n$1\\\\{[0, 1, 2]/' src/features/marketing/pages/ContentPages.tsx)",
+      "Bash(perl -0pi -e 's/import \\\\{ Section, SectionHeading, FeatureCard, CtaBand, CheckList, ComingSoon \\\\} from \"\\\\.\\\\.\\\\/components\\\\/MarketingShell\";/import {\\\\n  Section, SectionHeading, FeatureCard, CtaBand, CheckList, ComingSoon, CardGrid,\\\\n} from \"..\\\\/components\\\\/MarketingShell\";/' src/features/marketing/pages/ProductPages.tsx)",
+      "Bash(perl -0pi -e 's/import \\\\{ Section, SectionHeading, CtaBand, ComingSoon, FeatureCard \\\\} from \"\\\\.\\\\.\\\\/components\\\\/MarketingShell\";/import {\\\\n  Section, SectionHeading, CtaBand, ComingSoon, FeatureCard, CardGrid,\\\\n} from \"..\\\\/components\\\\/MarketingShell\";/' src/features/marketing/pages/ContentPages.tsx)",
+      "Bash(perl -0pi -e 's/  Eyebrow, Card, IconChip, StatGrid, GradientText, CtaButton, AmbientBackdrop,\\\\n\\\\} from \"\\\\.\\\\/ui\";/  Eyebrow, Card, IconChip, StatGrid, GradientText, CtaButton, AmbientBackdrop,\\\\n  CardGrid,\\\\n} from \".\\\\/ui\";/' src/features/marketing/components/MarketingShell.tsx)",
+      "Bash(tee /tmp/t2.txt)",
+      "Bash(cp src/features/marketing/components/MarketingShell.tsx /tmp/s2.bak)",
+      "Bash(perl -0pi -e 's/\\\\{open && createPortal\\\\\\(/{open \\\\&\\\\& \\(/; s/<div className=\"mk-root\">\\\\n\\(\\\\s*\\)<div\\\\n\\(\\\\s*\\)className=\"fixed inset-0 top-16/<>\\\\n$1<div\\\\n$2className=\"fixed inset-0 top-16/' src/features/marketing/components/MarketingShell.tsx)",
+      "Bash(perl -0pi -e 's/<\\\\/div>\\\\n\\(\\\\s*\\)<\\\\/div>,\\\\n\\(\\\\s*\\)document\\\\.body,\\\\n\\(\\\\s*\\)\\\\\\)\\\\}/<\\\\/div>\\\\n$1<\\\\/>\\\\n$3\\)}/' src/features/marketing/components/MarketingShell.tsx)",
+      "Bash(pkill -f \"vite preview\")"
     ]
   }
 }

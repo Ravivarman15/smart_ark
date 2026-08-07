@@ -141,11 +141,22 @@
   white-space: nowrap;
 }
 
+/* Glass is for DECORATIVE surfaces only — never for anything carrying text
+   that must stay legible over arbitrary content. The default fill is opaque;
+   the translucent version is applied only where backdrop-filter is actually
+   supported, so a browser without it gets a readable panel rather than a
+   see-through one. */
 .mk-root .mk-glass {
-  background: var(--mk-glass-bg);
+  background: hsl(var(--card));
   border: 1px solid var(--mk-glass-border);
-  backdrop-filter: blur(var(--mk-glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--mk-glass-blur)) saturate(150%);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .mk-root .mk-glass {
+    background: var(--mk-glass-bg);
+    backdrop-filter: blur(var(--mk-glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--mk-glass-blur)) saturate(150%);
+  }
 }
 
 /* Gradient border without a wrapper element: paint the gradient as the

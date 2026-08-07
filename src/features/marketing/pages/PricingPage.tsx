@@ -55,7 +55,7 @@ const PricingPage: React.FC = () => {
 
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading
           eyebrow="Pricing"
           title="Priced per institution, not per headache"

@@ -755,3 +755,57 @@ describe("Hero headline stays stable and readable", () => {
     expect(hero).not.toMatch(/aria-hidden[\s\S]{0,80}ROTATING\.reduce/);
   });
 });
+
+describe("Navigation overlays escape the header's containing block", () => {
+  const shell = read(join(MARKETING, "components", "MarketingShell.tsx"));
+  const css = read(join(MARKETING, "styles", "marketing.css"));
+
+  // Both defects below had ONE cause: the sticky header sets backdrop-blur, and
+  // an element with a backdrop-filter becomes the containing block for its
+  // fixed-position descendants AND breaks a descendant's own backdrop-filter.
+  // Neither produces an error — the menu just renders wrong.
+
+  it("the mobile drawer is portalled out of the header", () => {
+    // Rendered inside <header>, `fixed inset-x-0 top-16 bottom-0` resolved
+    // against the header's 64px box instead of the viewport, so the sheet
+    // collapsed to a sliver and the menu looked like it never opened.
+    expect(shell).toMatch(/import \{ createPortal \} from "react-dom"/);
+    expect(shell).toMatch(/createPortal\(/);
+    expect(shell).toMatch(/document\.body,\s*\n\s*\)\}/);
+  });
+
+  it("the portalled drawer re-applies the .mk-root token scope", () => {
+    // The portal lands outside the layout's .mk-root, where every --mk-* token
+    // resolves to nothing: the drawer keeps its layout and silently loses its
+    // radii, shadows and easing.
+    const portal = shell.slice(shell.indexOf("createPortal("), shell.indexOf("document.body,"));
+    expect(portal).toMatch(/className="mk-root"/);
+  });
+
+  it("the mega menu panel is opaque, not glass", () => {
+    // A navigation menu sits over arbitrary article text. At 0.72 alpha — and
+    // with its backdrop-filter neutralised by the header's — the body copy
+    // underneath showed straight through the labels.
+    const menu = shell.slice(shell.indexOf("const MegaMenu"), shell.indexOf("// ── Header"));
+    expect(menu).toMatch(/bg-popover/);
+    expect(menu, "mega menu must not use translucent glass").not.toMatch(/mk-glass/);
+  });
+
+  it("glass degrades to an opaque fill where backdrop-filter is unsupported", () => {
+    const glass = css.slice(css.indexOf(".mk-root .mk-glass"));
+    // The base rule must be opaque; translucency only inside @supports.
+    expect(glass.slice(0, 200)).toMatch(/background:\s*hsl\(var\(--card\)\)/);
+    expect(glass).toMatch(/@supports \(\(backdrop-filter/);
+  });
+
+  it("no fixed-position element is rendered inside the blurred header", () => {
+    // The general form of the bug, so the next overlay added to the header
+    // fails here instead of shipping broken.
+    const header = shell.slice(shell.indexOf("const Header"), shell.indexOf("// ── Footer"));
+    const beforePortal = header.slice(0, header.indexOf("createPortal("));
+    expect(
+      /className=\{?["`][^"`]*\bfixed\b/.test(beforePortal),
+      "a fixed element inside the backdrop-blurred header positions against the header, not the viewport",
+    ).toBe(false);
+  });
+});

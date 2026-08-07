@@ -14,7 +14,9 @@ import {
   Search, Check, Minus, ShieldCheck, Database, KeyRound, FileLock2,
   Eye, ServerCog, Users, GraduationCap, Building, Briefcase, Landmark, ArrowRight,
 } from "lucide-react";
-import { Section, SectionHeading, FeatureCard, CtaBand, CheckList, ComingSoon } from "../components/MarketingShell";
+import {
+  Section, SectionHeading, FeatureCard, CtaBand, CheckList, ComingSoon, CardGrid,
+} from "../components/MarketingShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSeo } from "../seo/useSeo";
@@ -85,7 +87,7 @@ export const FeaturesPage: React.FC = () => {
 
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading
           eyebrow="Features"
           title="Everything an institution actually runs on"
@@ -100,11 +102,11 @@ export const FeaturesPage: React.FC = () => {
               <h2 className="text-xl font-semibold tracking-tight">{g.title}</h2>
               <p className="mt-2 text-sm text-muted-foreground">{g.blurb}</p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <CardGrid className="grid gap-4 sm:grid-cols-2">
               {g.items.map(([title, body]) => (
                 <FeatureCard key={title} title={title}>{body}</FeatureCard>
               ))}
-            </div>
+            </CardGrid>
           </div>
         </Section>
       ))}
@@ -157,7 +159,7 @@ export const ModulesPage: React.FC = () => {
 
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading
           eyebrow="Catalogue"
           title="Every module, searchable"
@@ -199,7 +201,7 @@ export const ModulesPage: React.FC = () => {
           {filtered.length} module{filtered.length === 1 ? "" : "s"}
         </p>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <CardGrid className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((m) => (
             <div key={m.id} className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center justify-between gap-3">
@@ -226,7 +228,7 @@ export const ModulesPage: React.FC = () => {
               </ul>
             </div>
           ))}
-        </div>
+        </CardGrid>
 
         {filtered.length === 0 && (
           <p className="mt-10 text-center text-sm text-muted-foreground">
@@ -298,7 +300,7 @@ export const SolutionsPage: React.FC = () => {
   useSeo(ROUTE_SEO["/solutions"]);
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading
           eyebrow="Solutions"
           title="Configured for how you actually operate"
@@ -361,7 +363,7 @@ export const ComparePage: React.FC = () => {
 
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading eyebrow="Compare" title="Every plan, side by side" />
         {isLoading ? (
           <div className="mt-10 h-80 animate-pulse rounded-xl border border-border bg-muted/40" />
@@ -408,7 +410,7 @@ export const SecurityPage: React.FC = () => {
   useSeo(ROUTE_SEO["/security"]);
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading
           eyebrow="Security"
           title="How your data is protected"
@@ -417,7 +419,7 @@ export const SecurityPage: React.FC = () => {
       </Section>
 
       <Section muted className="!py-12">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <CardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <FeatureCard icon={Database} title="Isolation in the database">
             Every record carries your organization identifier, and PostgreSQL row-level
             security filters every query. A mistake in the interface cannot expose another
@@ -443,7 +445,7 @@ export const SecurityPage: React.FC = () => {
             Aligned with India's DPDP Act. You can export everything at any time, and we
             never delete your data because of a missed payment.
           </FeatureCard>
-        </div>
+        </CardGrid>
       </Section>
 
       <Section>

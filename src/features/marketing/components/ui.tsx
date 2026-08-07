@@ -41,20 +41,63 @@ export const Section: React.FC<{
   id?: string;
   /** Removes the horizontal max-width — for full-bleed bands. */
   bleed?: boolean;
-}> = ({ children, className, tone = "default", muted, id, bleed }) => (
+  /**
+   * Marks this as the page's opening section: adds the ambient wash and grid
+   * the home hero uses, plus extra top padding.
+   *
+   * A prop rather than a separate <PageHero> component because every inner
+   * page already opens with `<Section className="pt-14">` + `<SectionHeading>`;
+   * this upgrades all eighteen of them without restructuring their JSX, and
+   * without a second heading component that would inevitably drift.
+   */
+  hero?: boolean;
+}> = ({ children, className, tone = "default", muted, id, bleed, hero }) => (
   <section
     id={id}
     className={cn(
       "relative",
+      hero && "isolate overflow-hidden",
       (tone === "muted" || muted) && "bg-muted/30",
       tone === "contrast" && "bg-foreground/[0.03]",
       className,
     )}
   >
-    <div className={cn(!bleed && "mx-auto max-w-6xl px-5 sm:px-6", "py-14 sm:py-24")}>
+    {hero && <AmbientBackdrop grid />}
+    <div
+      className={cn(
+        !bleed && "mx-auto max-w-6xl px-5 sm:px-6",
+        "relative py-14 sm:py-24",
+        hero && "pt-16 sm:pt-24",
+      )}
+    >
       {children}
     </div>
   </section>
+);
+
+/**
+ * Staggered card grid.
+ *
+ * Wraps each child in a StaggerItem automatically, so a page turns a plain
+ * `<div className="grid …">` into an animated grid by changing one tag. Doing
+ * it at the call site instead meant eighteen pages each remembering to import
+ * two components and nest them correctly — which is how half of them end up
+ * animated and half do not.
+ */
+export const CardGrid: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+  as?: "div" | "ul";
+}> = ({ children, className, as = "div" }) => (
+  <Stagger as={as} className={cn("grid gap-4", className)}>
+    {React.Children.map(children, (child) =>
+      React.isValidElement(child) ? (
+        <StaggerItem as={as === "ul" ? "li" : "div"}>{child}</StaggerItem>
+      ) : (
+        child
+      ),
+    )}
+  </Stagger>
 );
 
 // ── Typography ──────────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { Menu, X, ChevronRight, ChevronDown } from "lucide-react";
 import { ThemeToggle } from "@/core/theme";
@@ -165,12 +166,20 @@ const MegaMenu: React.FC<{
             "motion-safe:animate-[mk-fade-in_0.18s_var(--mk-ease)_both]",
           )}
         >
-          <div className="mk-glass overflow-hidden rounded-[--mk-radius-lg] p-2 shadow-[--mk-shadow-lg]">
+          {/* SOLID, not glass.
+              The header above already sets backdrop-blur-xl, and a
+              backdrop-filter on an ancestor establishes a containing block —
+              so this panel's own backdrop-filter sampled the header's backdrop
+              rather than the page, and the 0.72-alpha fill simply let the
+              article text underneath show straight through the menu labels.
+              Translucency is decoration; a navigation menu has to be legible
+              over arbitrary content, so it gets an opaque surface. */}
+          <div className="overflow-hidden rounded-[--mk-radius-lg] border border-border bg-popover p-2 text-popover-foreground shadow-[--mk-shadow-xl]">
             {items.map((i) => (
               <Link
                 key={i.to}
                 to={i.to}
-                className="flex items-start gap-3 rounded-[--mk-radius-md] p-3 transition-colors hover:bg-accent/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                className="flex items-start gap-3 rounded-[--mk-radius-md] p-3 transition-colors hover:bg-accent/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                 onClick={() => setOpen(false)}
               >
                 <div className="min-w-0">
@@ -294,9 +303,24 @@ const Header: React.FC = () => {
       {/* ── Mobile drawer ──────────────────────────────────────────────────
           A full-height sheet rather than an expanding accordion: on a 667px
           screen the expanded list ran past the fold, so the primary CTAs at
-          the bottom were unreachable without scrolling a menu. */}
-      {open && (
-        <>
+          the bottom were unreachable without scrolling a menu.
+
+          PORTALLED TO <body>, and that is load-bearing rather than tidiness.
+          This header sets `backdrop-blur` — and an element with a
+          backdrop-filter becomes the CONTAINING BLOCK for its fixed-position
+          descendants. Rendered inside the header, `fixed inset-x-0 top-16
+          bottom-0` resolved against the header's own 64px box instead of the
+          viewport, so the sheet collapsed to a sliver and the menu appeared
+          not to open. Same property that made the mega menu see-through.
+          A portal escapes the containing block entirely. */}
+      {open && createPortal(
+        // `mk-root` again, because the portal lands OUTSIDE the layout's own
+        // .mk-root and every --mk-* token is scoped to it. Without this the
+        // drawer keeps its layout but silently loses its radii, shadows and
+        // easing — the class of bug that looks like "someone forgot to style
+        // this" rather than a missing scope. A plain div creates no containing
+        // block, so the fixed positioning above is unaffected.
+        <div className="mk-root">
           <div
             className="fixed inset-0 top-16 z-40 bg-background/60 backdrop-blur-sm lg:hidden motion-safe:animate-[mk-fade-in_0.2s_var(--mk-ease)_both]"
             onClick={() => setOpen(false)}
@@ -369,7 +393,8 @@ const Header: React.FC = () => {
               </CtaButton>
             </div>
           </div>
-        </>
+        </div>,
+        document.body,
       )}
     </header>
   );
@@ -472,4 +497,5 @@ export const MarketingLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
 export {
   Section, SectionHeading, FeatureCard, CheckList, CtaBand, ComingSoon,
   Eyebrow, Card, IconChip, StatGrid, GradientText, CtaButton, AmbientBackdrop,
+  CardGrid,
 } from "./ui";

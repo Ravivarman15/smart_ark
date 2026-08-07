@@ -11,7 +11,9 @@ import {
   CalendarCheck, Loader2, CheckCircle2, CircleDot, AlertTriangle, Search,
   ArrowRight, Clock, Wrench,
 } from "lucide-react";
-import { Section, SectionHeading, CtaBand, ComingSoon, FeatureCard } from "../components/MarketingShell";
+import {
+  Section, SectionHeading, CtaBand, ComingSoon, FeatureCard, CardGrid,
+} from "../components/MarketingShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,7 +79,7 @@ export const DemoPage: React.FC = () => {
   }
 
   return (
-    <Section className="pt-14">
+    <Section hero>
       <div className="grid gap-10 lg:grid-cols-[1fr,1.2fr]">
         <div>
           <SectionHeading
@@ -200,7 +202,7 @@ export const ContactPage: React.FC = () => {
   };
 
   return (
-    <Section className="pt-14">
+    <Section hero>
       <div className="mx-auto max-w-lg">
         <SectionHeading title="Talk to us" description="Sales, support or partnerships — one form, routed by topic." />
         {sent ? (
@@ -269,7 +271,7 @@ export const StatusPage: React.FC = () => {
   const overall = STATUS_STYLE[data?.overall ?? "operational"] ?? STATUS_STYLE.operational;
 
   return (
-    <Section className="pt-14">
+    <Section hero>
       <div className="mx-auto max-w-2xl">
         <SectionHeading title="System status" />
 
@@ -371,7 +373,7 @@ export const ContentListPage: React.FC<{ kind: "blog" | "help" | "docs" }> = ({ 
   });
 
   return (
-    <Section className="pt-14">
+    <Section hero>
       <SectionHeading title={meta.heading} description={meta.blurb} />
 
       <div className="mx-auto mt-8 max-w-md">
@@ -395,7 +397,7 @@ export const ContentListPage: React.FC<{ kind: "blog" | "help" | "docs" }> = ({ 
             : `Nothing matches “${q}”.`}
         </div>
       ) : (
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <CardGrid className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
             <Link
               key={p.id}
@@ -416,7 +418,7 @@ export const ContentListPage: React.FC<{ kind: "blog" | "help" | "docs" }> = ({ 
               </p>
             </Link>
           ))}
-        </div>
+        </CardGrid>
       )}
     </Section>
   );
@@ -459,14 +461,14 @@ export const ContentDetailPage: React.FC<{ kind: "blog" | "help" | "docs" }> = (
 
   if (isLoading) {
     return (
-      <Section className="pt-14">
+      <Section hero>
         <div className="mx-auto h-64 max-w-2xl animate-pulse rounded-xl bg-muted/40" />
       </Section>
     );
   }
   if (!post) {
     return (
-      <Section className="pt-14">
+      <Section hero>
         <div className="mx-auto max-w-md text-center">
           <h1 className="text-xl font-semibold">Not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -481,7 +483,7 @@ export const ContentDetailPage: React.FC<{ kind: "blog" | "help" | "docs" }> = (
   }
 
   return (
-    <Section className="pt-14">
+    <Section hero>
       <article className="mx-auto max-w-2xl">
         <Link to={meta.route} className="text-xs text-primary hover:underline">
           ← {meta.heading}
@@ -513,7 +515,7 @@ export const CustomersPage: React.FC = () => {
   useSeo(ROUTE_SEO["/customers"]);
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading
           eyebrow="Customer stories"
           title="Built where it is used"
@@ -543,7 +545,7 @@ export const AboutPage: React.FC = () => {
   useSeo(ROUTE_SEO["/about"]);
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading
           eyebrow="About"
           title="We build the software we run our own institute on"
@@ -577,7 +579,7 @@ export const AboutPage: React.FC = () => {
 export const CareersPage: React.FC = () => {
   useSeo(ROUTE_SEO["/careers"]);
   return (
-    <Section className="pt-14">
+    <Section hero>
       <SectionHeading
         eyebrow="Careers"
         title="Help build the operating system for education"
@@ -599,7 +601,7 @@ export const PartnersPage: React.FC = () => {
   useSeo(ROUTE_SEO["/partners"]);
   return (
     <>
-      <Section className="pt-14">
+      <Section hero>
         <SectionHeading
           eyebrow="Partners"
           title="Implementation and reseller partnerships"
@@ -626,7 +628,7 @@ export const PartnersPage: React.FC = () => {
 export const ResourcesPage: React.FC = () => {
   useSeo(ROUTE_SEO["/resources"]);
   return (
-    <Section className="pt-14">
+    <Section hero>
       <SectionHeading
         eyebrow="Resources"
         title="Guides and playbooks"
@@ -696,7 +698,7 @@ export const LegalPage: React.FC<{ doc: "privacy" | "terms" | "cookies" }> = ({ 
   const d = LEGAL[doc];
   useSeo(ROUTE_SEO[`/${doc}`]);
   return (
-    <Section className="pt-14">
+    <Section hero>
       <article className="mx-auto max-w-2xl">
         <h1 className="text-3xl font-semibold tracking-tight">{d.title}</h1>
         <p className="mt-2 text-xs text-muted-foreground">Last updated {d.updated}</p>
