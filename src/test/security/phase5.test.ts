@@ -417,3 +417,78 @@ describe("Razorpay is allowed through the CSP", () => {
     expect(csp).toContain("frame-ancestors 'none'");
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GOING LIVE — the header that decides whether UPI and Google Pay work
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("Payment surface is reachable without weakening the policy", () => {
+  const vercel = JSON.parse(
+    readFileSync(join(__dirname, "..", "..", "..", "vercel.json"), "utf8"),
+  ) as { headers?: { headers: { key: string; value: string }[] }[] };
+
+  const header = (name: string) =>
+    vercel.headers
+      ?.flatMap((h) => h.headers)
+      .find((h) => h.key.toLowerCase() === name.toLowerCase())?.value ?? "";
+
+  const permissions = header("Permissions-Policy");
+  const payment = permissions.match(/payment=\(([^)]*)\)/)?.[1] ?? null;
+
+  it("the Permissions-Policy still exists and still locks down camera/mic/usb", () => {
+    expect(permissions).toContain("camera=()");
+    expect(permissions).toContain("microphone=()");
+    expect(permissions).toContain("usb=()");
+  });
+
+  it("payment is granted to self and named Razorpay origins only", () => {
+    // `payment=()` disables the Payment Request API for the document AND every
+    // nested frame, and no iframe `allow` attribute can re-grant what the
+    // top-level policy denied. Razorpay Checkout uses that API for Google Pay
+    // and UPI-intent — the dominant methods on Chrome Android, which is most
+    // of this product's market. Live keys plus `payment=()` is a checkout that
+    // loads, looks correct, and cannot take money on a phone.
+    expect(payment, "payment directive missing from Permissions-Policy").not.toBeNull();
+    expect(payment, "payment=() blocks Razorpay's Google Pay / UPI flows").not.toBe("");
+
+    const allowed = payment!.trim().split(/\s+/).filter(Boolean);
+    expect(allowed).toContain("self");
+    // Wildcards would hand the payment capability to any embedded origin.
+    expect(allowed, "payment must not be granted to *").not.toContain("*");
+    for (const origin of allowed) {
+      if (origin === "self") continue;
+      expect(origin, `unexpected payment origin: ${origin}`).toMatch(
+        /^"https:\/\/[a-z.]*razorpay\.com"$/,
+      );
+    }
+  });
+
+  it("CSP still permits the Checkout script and frame it needs", () => {
+    const csp = header("Content-Security-Policy");
+    expect(csp).toContain("https://checkout.razorpay.com");
+    expect(csp).toMatch(/frame-src[^;]*razorpay\.com/);
+    expect(csp).toMatch(/connect-src[^;]*razorpay\.com/);
+    // The secret must never be reachable from the browser, so no Razorpay
+    // origin belongs in form-action or as a script source beyond checkout.
+    expect(csp).not.toContain("api.razorpay.com/v1");
+  });
+
+  it("the key SECRET never reaches client code", () => {
+    const src = join(__dirname, "..", "..");
+    const offenders: string[] = [];
+    const scan = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { scan(p); continue; }
+        if (!/\.tsx?$/.test(e.name)) continue;
+        const body = readFileSync(p, "utf8");
+        if (/RAZORPAY_KEY_SECRET|RAZORPAY_WEBHOOK_SECRET/.test(body)) offenders.push(p);
+      }
+    };
+    scan(src);
+    expect(
+      offenders.filter((f) => !f.includes("test")),
+      "the Razorpay secret is referenced in browser-shipped code",
+    ).toEqual([]);
+  });
+});

@@ -170,7 +170,11 @@
       "Bash(curl -s -o /dev/null -w \"preview server: %{http_code}\\\\n\" http://localhost:4183/)",
       "Bash(perl -0pi -e 's/text-\\\\[11px\\\\] font-semibold uppercase tracking-\\\\[0\\\\.08em\\\\]/text-[11px] font-semibold uppercase tracking-[0.08em]/' src/features/marketing/components/ui.tsx)",
       "Bash(perl -0pi -e 's/text-\\\\[10px\\\\] font-semibold uppercase tracking-wide text-accent\\(\\\\s*\"\\)/text-[11px] font-semibold uppercase tracking-wide text-accent$1/' src/features/marketing/components/Hero.tsx)",
-      "Bash(kill %1)"
+      "Bash(kill %1)",
+      "Bash(supabase.cmd functions *)",
+      "Bash(supabase.cmd secrets *)",
+      "Bash(cp vercel.json /tmp/v.bak)",
+      "Bash(perl -0pi -e 's/payment=\\\\\\(self \\\\\\\\\"https:\\\\/\\\\/checkout\\\\.razorpay\\\\.com\\\\\\\\\" \\\\\\\\\"https:\\\\/\\\\/api\\\\.razorpay\\\\.com\\\\\\\\\"\\\\\\)/payment=\\(\\)/' vercel.json)"
     ]
   }
 }
