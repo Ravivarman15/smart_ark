@@ -13,6 +13,7 @@
 import { Route, Navigate } from "react-router-dom";
 import { lazyWithRetry as lazy } from "@/lib/lazyWithRetry";
 import { PlatformProtectedRoute, PlatformLayout } from "./components/PlatformShell";
+import { PlatformRealtimeProvider } from "./providers/PlatformRealtimeProvider";
 import type { PlatformCapability } from "./context/PlatformAuthContext";
 
 const DashboardPage = lazy(() => import("./pages/PlatformDashboardPage"));
@@ -104,13 +105,19 @@ export const PLATFORM_ROUTES: PlatformRoute[] = [
  * merely being an MFA-enrolled platform user gets you the shell; each child then
  * re-checks its own capability. Two layers, because a missing capability on one
  * route should never mean an unauthenticated visitor sees the chrome.
+ *
+ * PlatformRealtimeProvider sits INSIDE the guard, so the websocket only opens
+ * for a resolved platform session and closes when they navigate away — a tenant
+ * user never subscribes to a channel whose tables they cannot read.
  */
 export const renderPlatformRoutes = () => (
   <Route
     path="/platform"
     element={
       <PlatformProtectedRoute>
-        <PlatformLayout />
+        <PlatformRealtimeProvider>
+          <PlatformLayout />
+        </PlatformRealtimeProvider>
       </PlatformProtectedRoute>
     }
   >

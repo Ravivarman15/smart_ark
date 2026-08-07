@@ -4,9 +4,9 @@
 // backups · platform settings · platform users · feature flags
 // ──────────────────────────────────────────────────────────────────────────────
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, Plus } from "lucide-react";
+import { RefreshCw, Plus, Pencil } from "lucide-react";
 import {
   PageHeader, StatTile, StatusPill, LoadingBlock, EmptyState, ReservedNotice,
   formatBytes,
@@ -14,12 +14,13 @@ import {
 import {
   useUsageTrend, useSystemHealth, usePlatformAudit, useOrganizations,
   usePlatformSettings, usePlatformUsers, useInvitePlatformUser,
-  useImpersonationGrants, useRefreshMetrics,
+  useImpersonationGrants, useRefreshMetrics, useSaveSetting,
 } from "../hooks/usePlatform";
 import { usePlatformAuth } from "../context/PlatformAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -414,28 +415,117 @@ export const BackupsPage: React.FC = () => (
 
 // ── Platform settings ───────────────────────────────────────────────────────
 
+/**
+ * One editable setting row.
+ *
+ * The value is jsonb of no fixed shape, so the editor is a JSON textarea rather
+ * than a generated form — a form would have to guess at keys and would silently
+ * drop any it did not know about. Parsing is validated on every keystroke and
+ * Save is disabled while the text is invalid, because writing malformed config
+ * to a table the whole platform reads is not an error worth discovering later.
+ */
+const SettingRow: React.FC<{ row: Record<string, unknown>; editable: boolean }> = ({
+  row, editable,
+}) => {
+  const save = useSaveSetting();
+  const original = useMemo(() => JSON.stringify(row.value, null, 2), [row.value]);
+  const [draft, setDraft] = useState(original);
+  const [editing, setEditing] = useState(false);
+
+  // A realtime update from another operator must not be silently overwritten by
+  // a stale draft, so re-sync whenever the row changes while not being edited.
+  useEffect(() => {
+    if (!editing) setDraft(original);
+  }, [original, editing]);
+
+  const parsed = useMemo(() => {
+    try { return { ok: true as const, value: JSON.parse(draft) }; }
+    catch (e) { return { ok: false as const, message: (e as Error).message }; }
+  }, [draft]);
+
+  const dirty = draft !== original;
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-sm font-medium font-mono">{String(row.key)}</div>
+          <div className="text-[11px] text-muted-foreground">{String(row.description ?? "")}</div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {row.is_secret ? <StatusPill status="suspended" /> : null}
+          {editable && !editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {editing ? (
+        <div className="mt-2 space-y-2">
+          <Textarea
+            rows={Math.min(12, draft.split("\n").length + 1)}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="font-mono text-[11px]"
+            spellCheck={false}
+          />
+          {!parsed.ok && (
+            <p className="text-[11px] text-red-600 dark:text-red-400">
+              Invalid JSON — {parsed.message}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              disabled={!parsed.ok || !dirty || save.isPending}
+              onClick={() =>
+                save.mutate(
+                  { key: String(row.key), value: parsed.ok ? parsed.value : null },
+                  { onSuccess: () => setEditing(false) },
+                )
+              }
+            >
+              {save.isPending ? "Saving…" : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost"
+              onClick={() => { setDraft(original); setEditing(false); }}>
+              Cancel
+            </Button>
+            {dirty && <span className="text-[11px] text-muted-foreground">Unsaved changes</span>}
+          </div>
+        </div>
+      ) : (
+        <pre className="mt-2 rounded bg-muted/50 p-2 text-[11px] overflow-x-auto">
+          {original}
+        </pre>
+      )}
+    </div>
+  );
+};
+
 export const PlatformSettingsPage: React.FC = () => {
   const { data: settings, isLoading } = usePlatformSettings();
+  const { can } = usePlatformAuth();
   if (isLoading) return <LoadingBlock />;
+
+  const editable = can("settings.manage");
 
   return (
     <div>
-      <PageHeader title="Platform Settings" description="Global configuration" />
+      <PageHeader
+        title="Platform Settings"
+        description={
+          editable
+            ? "Global configuration — changes apply immediately across the platform"
+            : "Global configuration (read-only — requires `settings.manage`)"
+        }
+      />
       <div className="p-6 space-y-4">
         <div className="rounded-lg border border-border divide-y divide-border">
           {(settings ?? []).map((s) => (
-            <div key={String(s.key)} className="px-4 py-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium font-mono">{String(s.key)}</div>
-                  <div className="text-[11px] text-muted-foreground">{String(s.description ?? "")}</div>
-                </div>
-                {s.is_secret ? <StatusPill status="suspended" /> : null}
-              </div>
-              <pre className="mt-2 rounded bg-muted/50 p-2 text-[11px] overflow-x-auto">
-                {JSON.stringify(s.value, null, 2)}
-              </pre>
-            </div>
+            <SettingRow key={String(s.key)} row={s} editable={editable} />
           ))}
         </div>
         <div className="rounded-lg border border-border p-4 text-sm">

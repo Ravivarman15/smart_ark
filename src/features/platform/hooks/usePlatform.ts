@@ -19,6 +19,7 @@ export const platformKeys = {
   organization: (id: string) => [...platformKeys.all, "organization", id] as const,
   plans: () => [...platformKeys.all, "plans"] as const,
   planPrices: () => [...platformKeys.all, "plan-prices"] as const,
+  planFeatures: () => [...platformKeys.all, "plan-features"] as const,
   subscriptions: () => [...platformKeys.all, "subscriptions"] as const,
   coupons: () => [...platformKeys.all, "coupons"] as const,
   audit: (f?: Record<string, unknown>) => [...platformKeys.all, "audit", f ?? {}] as const,
@@ -63,11 +64,19 @@ export const useOrganizationDetail = (id: string | undefined) =>
     staleTime: 30_000,
   });
 
+// staleTime is short now that the catalogue is editable. PlatformRealtimeProvider
+// pushes the invalidation the instant a row changes, so this is only the
+// fallback for a session whose websocket dropped — five minutes of a wrong
+// price on screen was acceptable for read-only seed data and is not acceptable
+// for a number an operator is actively editing.
 export const usePlans = () =>
-  useQuery({ queryKey: platformKeys.plans(), queryFn: () => platformService.plans(), staleTime: 300_000 });
+  useQuery({ queryKey: platformKeys.plans(), queryFn: () => platformService.plans(), staleTime: 30_000 });
 
 export const usePlanPrices = () =>
-  useQuery({ queryKey: platformKeys.planPrices(), queryFn: () => platformService.planPrices(), staleTime: 300_000 });
+  useQuery({ queryKey: platformKeys.planPrices(), queryFn: () => platformService.planPrices(), staleTime: 30_000 });
+
+export const usePlanFeatures = () =>
+  useQuery({ queryKey: platformKeys.planFeatures(), queryFn: () => platformService.planFeatures(), staleTime: 30_000 });
 
 export const useSubscriptions = () =>
   useQuery({ queryKey: platformKeys.subscriptions(), queryFn: () => platformService.subscriptions(), staleTime: 60_000 });
@@ -153,6 +162,57 @@ export const useSavePlan = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: platformKeys.plans() });
       toast.success("Plan saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useSavePlanPrice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: Parameters<typeof platformService.savePlanPrice>[0]) =>
+      platformService.savePlanPrice(p),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.planPrices() });
+      toast.success("Price saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useDeletePlanPrice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => platformService.deletePlanPrice(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.planPrices() });
+      toast.success("Price removed");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useSetPlanFeature = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ planId, key, enabled }: { planId: string; key: string; enabled: boolean }) =>
+      platformService.setPlanFeature(planId, key, enabled),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: platformKeys.planFeatures() });
+      toast.success(`${v.key} ${v.enabled ? "included" : "excluded"}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useSaveSetting = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, value }: { key: string; value: unknown }) =>
+      platformService.saveSetting(key, value),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.settings() });
+      toast.success("Setting saved");
     },
     onError: (e: Error) => toast.error(e.message),
   });

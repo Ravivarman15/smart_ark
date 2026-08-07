@@ -388,3 +388,49 @@ describe("Rollbacks", () => {
     expect(rb).toMatch(/organization_onboarding is KEPT/);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PHASE 4C GATES — step handlers must match the LIVE schema
+//
+// Property 4, learned the hard way: a step handler that names a column which
+// does not exist creates cleanly and fails only when a real tenant is
+// provisioned. PL/pgSQL resolves column names at execution, so neither CREATE
+// nor any test that merely reads the migration text catches it — and because
+// academic_year is a critical step, the failure aborted the entire job for the
+// first customer who ever signed up.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const P4C = "20260910_phase4c_provisioning_step_column_fix.sql";
+
+describe("Phase 4C — the academic-year step targets real columns", () => {
+  it("the fix exists and is registered with the deploy runner", () => {
+    expect(existsSync(join(MIGRATIONS, P4C)), `${P4C} is missing`).toBe(true);
+    const runner = read(join(ROOT, "scripts", "deploy-migrations.mjs"));
+    expect(runner).toContain(P4C);
+  });
+
+  it("runs AFTER the 4B step definitions it replaces", () => {
+    const runner = read(join(ROOT, "scripts", "deploy-migrations.mjs"));
+    expect(runner.indexOf("20260820_phase4b_provisioning_steps.sql"))
+      .toBeLessThan(runner.indexOf(P4C));
+  });
+
+  it("writes academic_years.name, never year_label", () => {
+    const body = read(join(MIGRATIONS, P4C));
+    const fn = body.slice(body.indexOf("CREATE OR REPLACE FUNCTION"));
+    const insert = fn.slice(fn.indexOf("INSERT INTO public.academic_years"));
+    expect(insert.slice(0, 120)).toContain("name");
+    // `year_label` may appear in the explanatory comment above, never in SQL.
+    expect(/year_label/.test(insert.split(";")[0])).toBe(false);
+  });
+
+  it("stays idempotent and organization-scoped", () => {
+    const body = read(join(MIGRATIONS, P4C));
+    expect(body).toMatch(/IF NOT EXISTS \(\s*SELECT 1 FROM public\.academic_years/);
+    expect(body).toMatch(/WHERE organization_id = _org/);
+    // The whole point of the phase: no handler may infer the tenant from the
+    // session, or it provisions into whichever organization happens to be
+    // current.
+    expect(body).not.toContain("current_org_id()");
+  });
+});

@@ -63,6 +63,10 @@ export interface PlanPrice {
   amount: number; taxPercent: number; isActive: boolean;
 }
 
+export interface PlanFeature {
+  planId: string; featureKey: string; enabled: boolean; limitValue: number | null;
+}
+
 export interface Coupon {
   id: string; code: string; description: string | null;
   discountType: "percentage" | "fixed"; discountValue: number;
@@ -250,6 +254,16 @@ class PlatformService {
     }));
   }
 
+  /**
+   * Create or update a plan, keyed on `code`.
+   *
+   * `.select("id")` is not optional decoration. `plans` is FORCE-RLS with a
+   * write policy requiring `plans.manage`; PostgREST answers an UPDATE that
+   * matched zero rows with 204 and error === null, so a caller lacking the
+   * capability would see a green "Plan saved" toast over a database that
+   * changed nothing. Asking for the row back is the only way to tell the two
+   * apart.
+   */
   async savePlan(plan: Partial<Plan> & { code: string; name: string }): Promise<void> {
     const row = {
       code: plan.code, name: plan.name, description: plan.description ?? null,
@@ -264,12 +278,81 @@ class PlatformService {
       allow_white_label: plan.allowWhiteLabel ?? false,
       allow_custom_domain: plan.allowCustomDomain ?? false,
       allow_marketplace: plan.allowMarketplace ?? false,
-      updated_at: new Date().toISOString(),
     };
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("plans" as never)
-      .upsert(row as never, { onConflict: "code" });
+      .upsert(row as never, { onConflict: "code" })
+      .select("id");
     if (error) throw AppError.fromSupabase(error, "plans.save");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `plans.manage` capability.",
+      );
+    }
+  }
+
+  async savePlanPrice(price: {
+    id?: string; planId: string; currency: string; interval: string;
+    amount: number; taxPercent: number; isActive: boolean;
+  }): Promise<void> {
+    const row = {
+      plan_id: price.planId, currency: price.currency.toUpperCase(),
+      interval: price.interval, amount: price.amount,
+      tax_percent: price.taxPercent, is_active: price.isActive,
+    };
+    // UNIQUE (plan_id, currency, interval) is the natural key, so an upsert on
+    // it means "set the yearly INR price of Growth" is one idempotent call
+    // whether or not that price already existed.
+    const { data, error } = await supabase
+      .from("plan_prices" as never)
+      .upsert(row as never, { onConflict: "plan_id,currency,interval" })
+      .select("id");
+    if (error) throw AppError.fromSupabase(error, "plan_prices.save");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `plans.manage` capability.",
+      );
+    }
+  }
+
+  async deletePlanPrice(id: string): Promise<void> {
+    const { data, error } = await supabase
+      .from("plan_prices" as never)
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (error) throw AppError.fromSupabase(error, "plan_prices.delete");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was deleted — your platform role lacks the `plans.manage` capability.",
+      );
+    }
+  }
+
+  async planFeatures(): Promise<PlanFeature[]> {
+    const { data, error } = await supabase
+      .from("plan_features" as never)
+      .select("plan_id, feature_key, enabled, limit_value");
+    if (error) throw AppError.fromSupabase(error, "plan_features");
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      planId: String(r.plan_id), featureKey: String(r.feature_key),
+      enabled: Boolean(r.enabled),
+      limitValue: r.limit_value == null ? null : num(r.limit_value),
+    }));
+  }
+
+  async setPlanFeature(planId: string, featureKey: string, enabled: boolean): Promise<void> {
+    const { data, error } = await supabase
+      .from("plan_features" as never)
+      .upsert({ plan_id: planId, feature_key: featureKey, enabled } as never,
+              { onConflict: "plan_id,feature_key" })
+      .select("feature_key");
+    if (error) throw AppError.fromSupabase(error, "plan_features.set");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `plans.manage` capability.",
+      );
+    }
   }
 
   // ── Subscriptions ────────────────────────────────────────────────────────
@@ -295,10 +378,15 @@ class PlatformService {
       notes: input.notes ?? null, updated_at: new Date().toISOString(),
     };
     const q = input.id
-      ? supabase.from("subscriptions" as never).update(row as never).eq("id", input.id)
-      : supabase.from("subscriptions" as never).insert(row as never);
-    const { error } = await q;
+      ? supabase.from("subscriptions" as never).update(row as never).eq("id", input.id).select("id")
+      : supabase.from("subscriptions" as never).insert(row as never).select("id");
+    const { data, error } = await q;
     if (error) throw AppError.fromSupabase(error, "subscriptions.save");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `billing.manage` capability.",
+      );
+    }
   }
 
   // ── Coupons ──────────────────────────────────────────────────────────────
@@ -329,10 +417,16 @@ class PlatformService {
       max_per_organization: c.maxPerOrganization ?? 1,
       valid_until: c.validUntil ?? null, is_active: c.isActive ?? true,
     };
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("coupons" as never)
-      .upsert(row as never, { onConflict: "code" });
+      .upsert(row as never, { onConflict: "code" })
+      .select("id");
     if (error) throw AppError.fromSupabase(error, "coupons.save");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `coupons.manage` capability.",
+      );
+    }
   }
 
   // ── Feature flags ────────────────────────────────────────────────────────
@@ -350,14 +444,22 @@ class PlatformService {
   }
 
   async setFeature(orgId: string, featureKey: string, enabled: boolean, reason = "sales_override") {
-    const { error } = await supabase.from("organization_features" as never).upsert(
-      {
-        organization_id: orgId, feature_key: featureKey, enabled, reason,
-        updated_at: new Date().toISOString(),
-      } as never,
-      { onConflict: "organization_id,feature_key" },
-    );
+    const { data, error } = await supabase
+      .from("organization_features" as never)
+      .upsert(
+        {
+          organization_id: orgId, feature_key: featureKey, enabled, reason,
+          updated_at: new Date().toISOString(),
+        } as never,
+        { onConflict: "organization_id,feature_key" },
+      )
+      .select("feature_key");
     if (error) throw AppError.fromSupabase(error, "organization_features.set");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `feature_flags.manage` capability.",
+      );
+    }
   }
 
   // ── Audit ────────────────────────────────────────────────────────────────
@@ -402,11 +504,17 @@ class PlatformService {
   }
 
   async saveSetting(key: string, value: unknown): Promise<void> {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("platform_settings" as never)
-      .update({ value, updated_at: new Date().toISOString() } as never)
-      .eq("key", key);
+      .update({ value } as never)
+      .eq("key", key)
+      .select("key");
     if (error) throw AppError.fromSupabase(error, "platform_settings.save");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `settings.manage` capability.",
+      );
+    }
   }
 
   // ── Provisioning (Phase 4) ───────────────────────────────────────────────

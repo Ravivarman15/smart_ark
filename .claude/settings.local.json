@@ -152,7 +152,16 @@
       "Bash(powershell -NoProfile -Command \"Remove-Item \\\\\"\\\\$env:TEMP\\\\claude_sb_token.txt\\\\\" -Force -ErrorAction SilentlyContinue; if \\(Test-Path \\\\\"\\\\$env:TEMP\\\\claude_sb_token.txt\\\\\"\\) { 'still present' } else { 'token file removed' }\")",
       "Read(//c/Users/arrav/AppData/Local/Temp/**)",
       "Bash(curl -s -X PATCH https://api.supabase.com/v1/projects/vxyshcucwdbpxrhddaeh/config/auth -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d '{\"site_url\":\"https://smart-ark-main.vercel.app\",\"uri_allow_list\":\"https://smart-ark-main.vercel.app/**,https://smart-ark-main-*.vercel.app/**,http://localhost:8080/**\"}' -o /dev/null -w 'PATCH HTTP %{http_code}\\\\n')",
-      "Bash(curl -s https://api.supabase.com/v1/projects/vxyshcucwdbpxrhddaeh/config/auth -H 'Authorization: Bearer __CMDSUB_OUTPUT__')"
+      "Bash(curl -s https://api.supabase.com/v1/projects/vxyshcucwdbpxrhddaeh/config/auth -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(supabase.cmd db *)",
+      "Bash(cp src/features/platform/providers/PlatformRealtimeProvider.tsx /tmp/p.bak)",
+      "Bash(cp src/features/platform/services/platform.service.ts /tmp/s.bak)",
+      "Bash(perl -0pi -e 's/  coupons: \\\\\\(\\\\\\)/  students: \\(\\) => [platformKeys.all],\\\\n  coupons: \\(\\)/' src/features/platform/providers/PlatformRealtimeProvider.tsx)",
+      "Bash(perl -0pi -e 's/\\\\.upsert\\\\\\(row as never, \\\\{ onConflict: \"code\" \\\\}\\\\\\)\\\\n      \\\\.select\\\\\\(\"id\"\\\\\\);/.upsert\\(row as never, { onConflict: \"code\" }\\);/' src/features/platform/services/platform.service.ts)",
+      "Bash(cp /tmp/p.bak src/features/platform/providers/PlatformRealtimeProvider.tsx)",
+      "Bash(cp /tmp/s.bak src/features/platform/services/platform.service.ts)",
+      "Bash(cp supabase/migrations/20260909_phase2e_provisioning_claim_and_metrics_cron.sql /tmp/m.bak)",
+      "Bash(perl -0pi -e 's/AND pj\\\\.attempt < pj\\\\.max_attempts/AND attempt < pj.max_attempts/' supabase/migrations/20260909_phase2e_provisioning_claim_and_metrics_cron.sql)"
     ]
   }
 }

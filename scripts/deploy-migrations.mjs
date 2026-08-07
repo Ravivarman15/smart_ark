@@ -74,6 +74,14 @@ const ORDER = [
   // ── Phase 6: white label. Needs provisioning (4B writes defaults). ──────
   ["20260901_phase6a_white_label_core.sql", "domains/themes/integrations/secrets"],
   ["20260901_phase6b_marketplace_and_defaults.sql", "marketplace + platform-default seed; needs 6A's tables"],
+
+  // ── Phase 2D: live commerce editing. Deliberately LAST despite the phase
+  // number — it publishes and audits 2C's tables, so it must run after 2C, and
+  // its audit triggers reference platform_audit() from 2A. Ordering follows
+  // the dependency graph, not the filename.
+  ["20260908_phase2d_commerce_realtime_and_audit.sql", "realtime + change auditing for the 2C catalogue"],
+  ["20260909_phase2e_provisioning_claim_and_metrics_cron.sql", "fixes 42702 in 4A's claim function; schedules 2B's rollup"],
+  ["20260910_phase4c_provisioning_step_column_fix.sql", "academic_year step wrote to a non-existent column; must follow 4B"],
 ];
 
 const args = process.argv.slice(2);

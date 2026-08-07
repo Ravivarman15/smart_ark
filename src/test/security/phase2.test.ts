@@ -471,3 +471,206 @@ describe("ERP is untouched", () => {
     }
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PHASE 2D GATES — LIVE COMMERCE EDITING
+//
+// The catalogue became writable from the UI. Two failure modes matter and
+// neither announces itself at runtime:
+//
+//   1. A write that RLS filtered to zero rows. PostgREST answers with 204 and
+//      error === null, so the UI shows "Saved" over a database that did not
+//      change. Every write must ask for the row back and check it came.
+//   2. The realtime channel quietly reaching a tenant table. The provider
+//      enumerates table names as strings, so adding "students" there would be
+//      one edit — and would stream a customer's row changes into the control
+//      plane, defeating the aggregate-only boundary that all of Phase 2 rests on.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const P2D = "20260908_phase2d_commerce_realtime_and_audit.sql";
+
+describe("Phase 2D — commerce writes cannot fail silently", () => {
+  const svc = read(join(PLATFORM, "services", "platform.service.ts"));
+
+  it("every mutating statement asks for its rows back", () => {
+    // Statement-ish chunks. A chunk that both targets a table and mutates it
+    // must carry at least as many .select() calls as write verbs — the count
+    // rather than a boolean, so a ternary with one verified branch and one
+    // unverified branch cannot pass.
+    const offenders: string[] = [];
+    for (const chunk of stripTsComments(svc).split(";")) {
+      if (!chunk.includes(".from(")) continue;
+      const writes = chunk.match(/\.(upsert|update|insert|delete)\(/g)?.length ?? 0;
+      if (writes === 0) continue;
+      const selects = chunk.match(/\.select\(/g)?.length ?? 0;
+      if (selects < writes) offenders.push(chunk.trim().slice(0, 120));
+    }
+    expect(
+      offenders,
+      "these writes cannot distinguish success from an RLS-filtered no-op:\n" +
+        offenders.join("\n"),
+    ).toEqual([]);
+  });
+
+  it("a zero-row write is reported as an error, not a success", () => {
+    // Asking for the rows back is worthless if nobody looks at them.
+    const guards = svc.match(/if \(!data\?\.length\)/g)?.length ?? 0;
+    const writes =
+      stripTsComments(svc).match(/\.(upsert|update|insert|delete)\(/g)?.length ?? 0;
+    // saveSubscription's ternary is two write verbs guarded once, after the
+    // branches converge — hence >= writes - 1 rather than >= writes.
+    expect(guards).toBeGreaterThanOrEqual(writes - 1);
+  });
+});
+
+describe("Phase 2D — realtime never reaches tenant data", () => {
+  const provider = read(join(PLATFORM, "providers", "PlatformRealtimeProvider.tsx"));
+
+  it("subscribes only to platform-owned tables", () => {
+    // The keys of AFFECTS are the subscribed tables.
+    const block = provider.slice(
+      provider.indexOf("const AFFECTS"),
+      provider.indexOf("const TABLES"),
+    );
+    const tables = [...block.matchAll(/^\s{2}([a-z_]+):/gm)].map((m) => m[1]);
+    expect(tables.length, "AFFECTS parsed as empty — gate is not testing anything")
+      .toBeGreaterThan(4);
+
+    const tenant = tables.filter((t) => !isPlatformOwned(t));
+    expect(
+      tenant,
+      `PlatformRealtimeProvider subscribes to tenant table(s): ${tenant.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("opens no channel for a non-platform session", () => {
+    expect(provider).toMatch(/if \(!isPlatformUser\) return;/);
+    // …and the guard must come BEFORE the channel is created, not after.
+    expect(provider.indexOf("if (!isPlatformUser) return;"))
+      .toBeLessThan(provider.indexOf("supabase.channel("));
+  });
+
+  it("is mounted inside the platform route guard", () => {
+    const routes = read(join(PLATFORM, "routes.tsx"));
+    expect(routes.indexOf("<PlatformProtectedRoute>"))
+      .toBeLessThan(routes.indexOf("<PlatformRealtimeProvider>"));
+  });
+});
+
+describe("Phase 2D — migration is additive and audits every catalogue edit", () => {
+  const body = migration(P2D);
+  const stripped = stripSqlComments(body);
+
+  it("publishes the commerce tables for realtime", () => {
+    for (const t of ["plans", "plan_prices", "plan_features", "subscriptions",
+                     "coupons", "platform_settings"]) {
+      expect(stripped, `${t} is not published`).toContain(`'${t}'`);
+    }
+  });
+
+  it("installs a change-audit trigger on every editable catalogue table", () => {
+    for (const t of ["plans", "plan_prices", "coupons", "platform_settings"]) {
+      expect(stripped).toContain(`ARRAY['${t}'`);
+    }
+    expect(stripped).toContain("AFTER INSERT OR UPDATE OR DELETE");
+  });
+
+  it("destroys nothing", () => {
+    expect(/\bTRUNCATE\b/i.test(stripped), "truncates").toBe(false);
+    expect(/\bDELETE FROM\b/i.test(stripped), "deletes").toBe(false);
+    expect(/DROP COLUMN/i.test(stripped), "drops a column").toBe(false);
+    expect(/DROP TABLE/i.test(stripped), "drops a table").toBe(false);
+    // DROP POLICY would silently remove an access control written in 2C.
+    expect(/DROP POLICY/i.test(stripped), "drops a policy").toBe(false);
+  });
+
+  it("touches no tenant table", () => {
+    const alters = [...stripDynamicSql(stripped).matchAll(/ALTER TABLE public\."?([a-z_]+)"?/gi)]
+      .map((x) => x[1]);
+    expect(alters.filter((t) => !isPlatformOwned(t))).toEqual([]);
+  });
+});
+
+describe("Phase 2D — every write surface is capability-gated", () => {
+  const commerce = read(join(PLATFORM, "pages", "CommercePages.tsx"));
+  const ops = read(join(PLATFORM, "pages", "OperationsPages.tsx"));
+
+  it("plan and price editing requires plans.manage", () => {
+    expect(commerce).toMatch(/can\("plans\.manage"\)/);
+  });
+
+  it("subscription editing requires billing.manage", () => {
+    expect(commerce).toMatch(/can\("billing\.manage"\)/);
+  });
+
+  it("coupon editing requires coupons.manage", () => {
+    expect(commerce).toMatch(/can\("coupons\.manage"\)/);
+  });
+
+  it("settings editing requires settings.manage", () => {
+    expect(ops).toMatch(/can\("settings\.manage"\)/);
+  });
+
+  it("a plan's code is immutable once created", () => {
+    // `code` is the join key for subscriptions and provisioning. Renaming it
+    // in place would orphan them, so the input is disabled when editing.
+    expect(commerce).toMatch(/id="pcode"[\s\S]{0,120}disabled=\{!!plan\}/);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PHASE 2E GATES — two defects that returned HTTP 200 while doing nothing
+// ══════════════════════════════════════════════════════════════════════════════
+
+const P2E = "20260909_phase2e_provisioning_claim_and_metrics_cron.sql";
+
+describe("Phase 2E — the provisioning queue actually dispatches", () => {
+  const body = stripSqlComments(migration(P2E));
+  const fn = body.slice(
+    body.indexOf("FUNCTION public.claim_provisioning_job"),
+    body.indexOf("COMMENT ON FUNCTION public.claim_provisioning_job"),
+  );
+
+  it("every column in the claim query is table-qualified", () => {
+    // The OUT parameters job_id / organization_id / attempt shadow columns of
+    // the same name. An unqualified reference raises 42702 at RUNTIME — the
+    // function still creates cleanly, so only a gate on the text catches it.
+    const where = fn.slice(fn.indexOf("WHERE"), fn.indexOf("ORDER BY"));
+    for (const col of ["status", "attempt", "max_attempts", "lease_until"]) {
+      // String.raw, because in a plain template literal `\w` degrades to `w`
+      // and `\b` becomes a backspace character — a regex that matches nothing,
+      // which would make this gate pass no matter what the migration says.
+      const bare = new RegExp(String.raw`(?<![.\w])${col}\b`);
+      expect(bare.test(where), `${col} is unqualified in the claim WHERE clause`).toBe(false);
+    }
+  });
+
+  it("assigns the OUT parameters rather than RETURN QUERY over shadowed names", () => {
+    expect(fn).toMatch(/job_id\s*:=/);
+    expect(fn).toMatch(/RETURN NEXT/);
+  });
+});
+
+describe("Phase 2E — the metrics rollup is scheduled", () => {
+  const body = stripSqlComments(migration(P2E));
+
+  it("schedules refresh_organization_metrics", () => {
+    expect(body).toContain("organization-metrics-rollup");
+    expect(body).toContain("refresh_organization_metrics");
+  });
+
+  it("runs before the billing sweep that reads the same rollup", () => {
+    // billing-lifecycle is scheduled at 02:15; the rollup must precede it or
+    // the sweep bills against yesterday's numbers.
+    const m = body.match(/'organization-metrics-rollup',\s*'(\d+) (\d+) /);
+    expect(m, "schedule not parseable").toBeTruthy();
+    const [, minute, hour] = m!;
+    expect(Number(hour) * 60 + Number(minute)).toBeLessThan(2 * 60 + 15);
+  });
+
+  it("destroys nothing", () => {
+    for (const pat of [/\bTRUNCATE\b/i, /\bDELETE FROM\b/i, /DROP TABLE/i, /DROP POLICY/i]) {
+      expect(pat.test(body), `${pat} present`).toBe(false);
+    }
+  });
+});
