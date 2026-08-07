@@ -809,3 +809,78 @@ describe("Navigation overlays escape the header's containing block", () => {
     ).toBe(false);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// THE SITE ORIGIN IS CONFIGURED, NOT ASSUMED
+//
+// Every canonical URL, og:url and sitemap entry was built from
+// "https://smartark.ai" — a domain the project does not own. Canonical tags
+// naming a dead host tell Google the real pages are duplicates of nothing, and
+// every shared link previews as broken. Nothing errors; the damage is entirely
+// in someone else's index.
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("Public origin is a single configurable value", () => {
+  const seo = read(join(MARKETING, "seo", "seo.ts"));
+  const prerender = read(join(ROOT, "scripts", "prerender-marketing.mjs"));
+
+  const defaultIn = (src: string) =>
+    src.match(/DEFAULT_SITE_ORIGIN\s*=\s*"([^"]+)"/)?.[1] ?? null;
+
+  it("both the runtime hook and the prerenderer declare a default", () => {
+    expect(defaultIn(seo), "seo.ts has no DEFAULT_SITE_ORIGIN").toBeTruthy();
+    expect(defaultIn(prerender), "prerenderer has no DEFAULT_SITE_ORIGIN").toBeTruthy();
+  });
+
+  it("the two defaults are identical", () => {
+    // A mismatch emits canonical tags for one host while the runtime claims
+    // another — invisible except in search console, months later.
+    expect(defaultIn(prerender)).toBe(defaultIn(seo));
+  });
+
+  it("the default is a domain this deployment actually answers on", () => {
+    const origin = defaultIn(seo)!;
+    expect(origin).toMatch(/^https:\/\//);
+    expect(origin, "default points at an unowned domain").not.toMatch(/smartark\.ai/);
+  });
+
+  it("both read the same environment variable", () => {
+    expect(seo).toMatch(/VITE_PUBLIC_SITE_URL/);
+    expect(prerender).toMatch(/VITE_PUBLIC_SITE_URL/);
+    // Trailing slashes would produce "https://host//pricing" in canonicals.
+    // String.raw so the assertion reads as the source it is matching, rather
+    // than four levels of backslash escaping nobody can verify by eye.
+    const stripTrailingSlash = String.raw`replace(/\/+$/, "")`;
+    expect(seo).toContain(stripTrailingSlash);
+    expect(prerender).toContain(stripTrailingSlash);
+  });
+
+  it("the variable is documented in .env.example", () => {
+    const example = read(join(ROOT, ".env.example"));
+    expect(example).toMatch(/VITE_PUBLIC_SITE_URL/);
+  });
+
+  it("no user-facing string promises an unowned hostname", () => {
+    // The signup wizard told every new customer "{slug}.smartark.ai is
+    // available", the welcome email linked to it, and the branding page said
+    // it "works fully". It resolved to nothing. Comments and security
+    // guards may still NAME the domain — a guard that rejects tenants
+    // claiming it stays correct whether or not we own it — so only rendered
+    // strings are checked.
+    const surfaces = [
+      join(MARKETING, "pages", "SignupPage.tsx"),
+      join(MARKETING, "components", "LiveDashboard.tsx"),
+      join(ROOT, "src", "features", "branding", "pages", "BrandingPage.tsx"),
+      join(ROOT, "src", "features", "platform", "pages", "OrganizationsPage.tsx"),
+      join(ROOT, "supabase", "functions", "provisioning-worker", "index.ts"),
+    ];
+    const offenders: string[] = [];
+    for (const f of surfaces) {
+      for (const line of stripTsComments(read(f)).split("\n")) {
+        if (/smartark\.ai/.test(line)) offenders.push(`${f.replace(ROOT, "")}: ${line.trim().slice(0, 70)}`);
+      }
+    }
+    expect(offenders, `these render a hostname the platform does not own:\n${offenders.join("\n")}`)
+      .toEqual([]);
+  });
+});

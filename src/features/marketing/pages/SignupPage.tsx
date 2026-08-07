@@ -496,27 +496,35 @@ const SignupPage: React.FC = () => {
                 />
               </div>
 
+              {/* Workspace ID, not "web address".
+                  This field used to be suffixed ".smartark.ai" and told people
+                  that address "is available" — a domain the platform does not
+                  own, so the first thing every new customer learned about the
+                  product was something that turned out not to be true. The
+                  identifier is real and does have to be unique; the subdomain
+                  is not, so it is not promised. */}
               <div>
-                <Label htmlFor="slug">Your web address</Label>
-                <div className="flex items-center gap-1">
-                  <Input
-                    id="slug" value={org.slug}
-                    onChange={(e) => setOrg({ ...org, slug: slugify(e.target.value) })}
-                    aria-describedby="slug-help"
-                  />
-                  <span className="shrink-0 text-sm text-muted-foreground">.smartark.ai</span>
-                </div>
+                <Label htmlFor="slug">Workspace ID</Label>
+                <Input
+                  id="slug" value={org.slug}
+                  onChange={(e) => setOrg({ ...org, slug: slugify(e.target.value) })}
+                  aria-describedby="slug-help"
+                />
                 <p id="slug-help" className="mt-1 text-[11px]">
                   {slugState.checking ? (
                     <span className="text-muted-foreground">Checking availability…</span>
                   ) : slugState.available === true ? (
                     <span className="text-emerald-600 dark:text-emerald-400">
-                      {org.slug}.smartark.ai is available
+                      “{org.slug}” is available
                     </span>
                   ) : slugState.reason ? (
                     <span className="text-destructive">{slugState.reason}</span>
                   ) : (
-                    <span className="text-muted-foreground">Lowercase letters, digits and hyphens.</span>
+                    <span className="text-muted-foreground">
+                      Lowercase letters, digits and hyphens. Identifies your institution
+                      in exports, receipts and support — a dedicated subdomain can be
+                      added later.
+                    </span>
                   )}
                 </p>
               </div>
@@ -611,8 +619,12 @@ const SignupPage: React.FC = () => {
             <PartyPopper className="mx-auto h-8 w-8 text-primary" />
             <h1 className="mt-4 text-xl font-semibold tracking-tight">Your ERP is ready</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              <strong>{result.slug}.smartark.ai</strong> is live, with your branch, academic
-              year, roles and templates already in place.
+              <strong>{org.legalName || result.slug}</strong> is live, with your branch, academic year,
+              roles and templates already in place. Sign in at{" "}
+              <span className="whitespace-nowrap font-medium text-foreground">
+                {window.location.host}/login
+              </span>
+              .
             </p>
             <div className="mt-6 rounded-lg border border-border bg-muted/40 p-4 text-left text-sm">
               <p className="font-medium">First three things to do</p>

@@ -46,7 +46,31 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST = join(ROOT, "dist");
-const SITE = "https://smartark.ai";
+/**
+ * Public origin, matching src/features/marketing/seo/seo.ts.
+ *
+ * Node does not see Vite's env loading, so .env is read directly here. The
+ * default MUST stay identical to DEFAULT_SITE_ORIGIN in seo.ts — a mismatch
+ * would emit canonical tags pointing at one host while the runtime hook claims
+ * another, which is exactly the kind of thing nobody notices until search
+ * console does. A gate in phase3.test.ts asserts they agree.
+ */
+const DEFAULT_SITE_ORIGIN = "https://smart-ark-main.vercel.app";
+
+function siteOrigin() {
+  if (process.env.VITE_PUBLIC_SITE_URL) {
+    return process.env.VITE_PUBLIC_SITE_URL.replace(/\/+$/, "");
+  }
+  const envFile = join(ROOT, ".env");
+  if (existsSync(envFile)) {
+    const m = readFileSync(envFile, "utf8")
+      .match(/^\s*VITE_PUBLIC_SITE_URL\s*=\s*["']?([^"'\r\n]+)/m);
+    if (m && m[1].trim()) return m[1].trim().replace(/\/+$/, "");
+  }
+  return DEFAULT_SITE_ORIGIN;
+}
+
+const SITE = siteOrigin();
 
 /**
  * Route metadata.

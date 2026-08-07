@@ -29,6 +29,17 @@ import { resolveCaller } from "../_shared/auth.ts";
 /** Edge functions have a hard wall-clock limit; stop well before it. */
 const MAX_RUNTIME_MS = 50_000;
 const LEASE_SECONDS = 120;
+
+/**
+ * Public origin used in customer-facing emails.
+ *
+ * Trailing slashes are stripped so `${SITE_ORIGIN}/login` cannot become
+ * `//login`. Set PUBLIC_SITE_URL as an edge secret when a real domain is
+ * purchased; until then the default is the deployment that answers today.
+ */
+const SITE_ORIGIN = (
+  Deno.env.get("PUBLIC_SITE_URL") ?? "https://smart-ark-main.vercel.app"
+).replace(/\/+$/, "");
 const STORAGE_FOLDERS = [
   "students", "staff", "certificates", "reports", "receipts", "uploads", "communication",
 ];
@@ -78,9 +89,18 @@ async function sendWelcomeEmail(db: Db, orgId: string): Promise<Record<string, u
       to: { email: admin.email, name: admin.name },
       params: {
         organizationName: org.display_name,
-        loginUrl: `https://${org.slug}.smartark.ai`,
+        // The welcome email is the FIRST thing a new customer receives, and
+        // its login link was pointing at `{slug}.smartark.ai` — a subdomain of
+        // a domain the platform does not own. Every new customer's first
+        // action was a dead link.
+        //
+        // PUBLIC_SITE_URL is set once as an edge secret; the default is the
+        // deployment that actually answers today. Tenants are separated by the
+        // organization claim in their JWT, not by hostname, so one origin
+        // serves every institution correctly.
+        loginUrl: `${SITE_ORIGIN}/login`,
         adminName: admin.name ?? "there",
-        docsUrl: "https://smartark.ai/docs",
+        docsUrl: `${SITE_ORIGIN}/docs`,
       },
     },
   });

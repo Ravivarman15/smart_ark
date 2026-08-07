@@ -184,7 +184,11 @@
       "Bash(cp src/features/marketing/components/MarketingShell.tsx /tmp/s2.bak)",
       "Bash(perl -0pi -e 's/\\\\{open && createPortal\\\\\\(/{open \\\\&\\\\& \\(/; s/<div className=\"mk-root\">\\\\n\\(\\\\s*\\)<div\\\\n\\(\\\\s*\\)className=\"fixed inset-0 top-16/<>\\\\n$1<div\\\\n$2className=\"fixed inset-0 top-16/' src/features/marketing/components/MarketingShell.tsx)",
       "Bash(perl -0pi -e 's/<\\\\/div>\\\\n\\(\\\\s*\\)<\\\\/div>,\\\\n\\(\\\\s*\\)document\\\\.body,\\\\n\\(\\\\s*\\)\\\\\\)\\\\}/<\\\\/div>\\\\n$1<\\\\/>\\\\n$3\\)}/' src/features/marketing/components/MarketingShell.tsx)",
-      "Bash(pkill -f \"vite preview\")"
+      "Bash(pkill -f \"vite preview\")",
+      "Bash(cp src/pages/Login.tsx /tmp/l.bak)",
+      "Bash(perl -0pi -e 's/name: \"Smart ARK\",/name: \"ARK Learning Arena\",/' src/pages/Login.tsx)",
+      "Bash(cp src/features/marketing/seo/seo.ts /tmp/seo.bak)",
+      "Bash(perl -0pi -e 's|DEFAULT_SITE_ORIGIN = \"https://smart-ark-main.vercel.app\"|DEFAULT_SITE_ORIGIN = \"https://smartark.ai\"|' src/features/marketing/seo/seo.ts)"
     ]
   }
 }

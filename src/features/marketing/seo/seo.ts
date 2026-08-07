@@ -26,9 +26,35 @@
 // └────────────────────────────────────────────────────────────────────────┘
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The public origin this deployment actually answers on.
+ *
+ * ┌── WHY THIS IS NOT A LITERAL ───────────────────────────────────────────┐
+ * │ It used to be "https://smartark.ai", a domain the project does not own.│
+ * │ That is not a cosmetic error: this constant is what builds every       │
+ * │ canonical URL, og:url and sitemap entry. Google was being told the     │
+ * │ canonical version of every page lives on a host that does not resolve, │
+ * │ and every WhatsApp or LinkedIn share pointed at nothing.               │
+ * │                                                                        │
+ * │ So it is an env var with the CURRENT deployment as the default.        │
+ * │ Buying a domain later is one line in .env and a redeploy — no code     │
+ * │ change, no chance of half the URLs moving and half staying.            │
+ * │                                                                        │
+ * │ scripts/prerender-marketing.mjs reads the same variable and falls back │
+ * │ to the same default; a gate asserts the two defaults stay identical,   │
+ * │ because a mismatch shows up only as a wrong <link rel="canonical"> in  │
+ * │ static HTML nobody reads by hand.                                      │
+ * └────────────────────────────────────────────────────────────────────────┘
+ */
+export const DEFAULT_SITE_ORIGIN = "https://smart-ark-main.vercel.app";
+
+const siteOrigin = (
+  import.meta.env?.VITE_PUBLIC_SITE_URL || DEFAULT_SITE_ORIGIN
+).replace(/\/+$/, "");
+
 export const SITE = {
   name: "Smart ARK",
-  domain: "https://smartark.ai",
+  domain: siteOrigin,
   tagline: "The operating system for your institution",
   description:
     "Run admissions, attendance, fees, exams, payroll and parent communication on one platform. Built by people who run an institute.",

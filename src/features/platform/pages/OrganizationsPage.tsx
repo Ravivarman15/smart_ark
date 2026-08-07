@@ -186,8 +186,14 @@ const OrganizationsPage: React.FC = () => {
                 onChange={(e) => setForm({ ...form, slug: e.target.value })}
                 placeholder="acme-academy"
               />
+              {/* Shows the identifier, not a subdomain preview. The platform
+                  owns no domain yet, and every tenant is served from the one
+                  origin — separation comes from the organization claim in the
+                  JWT, not the hostname. */}
               <p className="text-[11px] text-muted-foreground mt-1">
-                {form.slug ? `${form.slug.toLowerCase()}.smartark.ai` : "Lowercase letters, digits and hyphens."}
+                {form.slug
+                  ? `Workspace ID: ${form.slug.toLowerCase()}`
+                  : "Lowercase letters, digits and hyphens."}
               </p>
             </div>
             <div>

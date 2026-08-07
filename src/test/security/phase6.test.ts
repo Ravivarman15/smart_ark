@@ -407,3 +407,74 @@ describe("Rollbacks", () => {
       .toBeLessThan(rb.indexOf("DROP TABLE"));
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// THE SIGN-IN SCREEN IS NOT ONE CUSTOMER'S
+//
+// Login is the highest-traffic unauthenticated page in the product and the one
+// place every tenant's staff and parents look at daily. It hardcoded ARK's logo
+// and name, which meant every new customer typed their password under a
+// competitor's brand, and the platform's own domain advertised one customer to
+// every prospect. Nothing failed — it just quietly stopped being a SaaS.
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("Login is tenant-neutral", () => {
+  const login = readFileSync(
+    join(__dirname, "..", "..", "pages", "Login.tsx"), "utf8",
+  );
+  const code = login.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  it("imports no tenant-specific asset", () => {
+    expect(code, "login imports a specific customer's logo file").not.toMatch(/from "@\/assets\//);
+    expect(code).not.toMatch(/arkLogo/);
+  });
+
+  it("hardcodes no tenant name in rendered output", () => {
+    // The platform's own name is fine and expected; a customer's is not.
+    expect(code, "a customer name is hardcoded on the sign-in screen")
+      .not.toMatch(/ARK Learning Arena|Institutional Intelligence System/);
+  });
+
+  it("resolves branding from the hostname before authentication", () => {
+    expect(code).toMatch(/public_branding_for_host/);
+    expect(code).toMatch(/window\.location\.hostname/);
+  });
+
+  it("falls back to the PLATFORM on any failure, never to a tenant", () => {
+    // An unreachable lookup means we do not know whose door this is. Defaulting
+    // to the last-known tenant would show a stranger someone else's brand.
+    const fallback = code.slice(code.indexOf("catch {"), code.indexOf("finally"));
+    expect(fallback).toMatch(/setBranding\(null\)/);
+    expect(code).toMatch(/name:\s*"Smart ARK"/);
+  });
+
+  it("offers self-serve signup on the platform host, and not inside a tenant", () => {
+    // A trial link on a customer's own portal is an invitation for their staff
+    // to leave; on the platform domain its absence is a dead end.
+    expect(code).toMatch(/!isTenant[\s\S]{0,400}to="\/signup"/);
+  });
+
+  it("cannot paint an unvalidated colour into the page", () => {
+    // primary_color is tenant-controlled input reaching a style attribute.
+    // hexToHslTriple returns null for anything that is not #rrggbb.
+    expect(code).toMatch(/hexToHslTriple/);
+    expect(code).toMatch(/if \(primary\) style\["--primary"\]/);
+  });
+
+  it("keeps the authentication call unchanged", () => {
+    // This page was restyled, not rewired. If these three lines move, the
+    // change stopped being cosmetic and needs a different review.
+    expect(code).toMatch(/const success = await login\(email, password\)/);
+    expect(code).toMatch(/navigate\("\/"\)/);
+    expect(code).toMatch(/Invalid credentials\. Please try again\./);
+  });
+
+  it("the white-label opt-out is entitlement-gated in the database", () => {
+    // powered_by_hidden is a plain boolean column; the RPC ANDs it with the
+    // plan's allow_white_label so a tenant cannot remove attribution by
+    // editing a row on a plan that does not include it.
+    const fn = b.slice(b.indexOf("FUNCTION public.public_branding_for_host"));
+    const body = fn.slice(0, fn.indexOf("$$;"));
+    expect(body).toMatch(/powered_by_hidden[\s\S]{0,200}allow_white_label/);
+  });
+});

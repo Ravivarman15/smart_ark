@@ -167,7 +167,10 @@ export const LiveDashboard: React.FC<{ className?: string }> = ({ className }) =
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
           </span>
           <span className="ml-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-background px-2.5 py-1 text-[10px] text-muted-foreground sm:text-[11px]">
-            <span className="truncate">your-institute.smartark.ai</span>
+            {/* Illustrative, and deliberately not a subdomain: the platform
+                owns no domain yet, and a mock advertising one would be the
+                page making a promise the product cannot keep. */}
+            <span className="truncate">smart-ark · your institution</span>
           </span>
           <span className="hidden items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 sm:flex">
             <span className="relative grid h-1.5 w-1.5 place-items-center">

@@ -530,10 +530,14 @@ const DomainTab: React.FC<{ bundle: BrandingBundle; canCustomDomain: boolean }> 
       <div className="rounded-lg border border-border p-6 text-center">
         <Globe className="mx-auto h-7 w-7 text-muted-foreground" />
         <h2 className="mt-3 font-medium">Custom domains are a Professional feature</h2>
+        {/* Was: "reachable at {slug}.smartark.ai, which works fully" — a
+            subdomain of a domain the platform does not own, described as
+            working. It resolved to nothing. */}
         <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-          Your organization is currently reachable at{" "}
-          <strong>{bundle.organization.slug}.smartark.ai</strong>, which works fully.
-          Upgrade to use your own hostname.
+          Your organization is reachable at{" "}
+          <strong className="whitespace-nowrap">{window.location.host}</strong>, where
+          your own branding already applies. Upgrade to serve it from your own
+          hostname instead.
         </p>
       </div>
     );
