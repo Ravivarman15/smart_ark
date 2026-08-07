@@ -82,6 +82,7 @@ const ORDER = [
   ["20260908_phase2d_commerce_realtime_and_audit.sql", "realtime + change auditing for the 2C catalogue"],
   ["20260909_phase2e_provisioning_claim_and_metrics_cron.sql", "fixes 42702 in 4A's claim function; schedules 2B's rollup"],
   ["20260910_phase4c_provisioning_step_column_fix.sql", "academic_year step wrote to a non-existent column; must follow 4B"],
+  ["20260911_phase5c_usage_status_null_fix.sql", "usage_status emitted null used, crashing the Settings module; must follow 5A"],
 ];
 
 const args = process.argv.slice(2);

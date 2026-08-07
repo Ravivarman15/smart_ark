@@ -284,9 +284,17 @@ const BillingPage: React.FC = () => {
               <div key={metric} className="rounded-lg border border-border p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{METRIC_LABEL[metric] ?? metric}</span>
+                  {/* `used` was assumed non-null and arrived as null from
+                      usage_status(), which crashed the whole Settings module
+                      through the error boundary. The database is fixed
+                      (20260911_phase5c), but a settings screen must not be one
+                      unexpected null away from white-screening — a missing
+                      number is a dash, not an outage. */}
                   <span className="tabular-nums text-muted-foreground">
-                    {u.used.toLocaleString("en-IN")}
-                    {u.limit != null ? ` / ${u.limit.toLocaleString("en-IN")}` : " · unlimited"}
+                    {typeof u?.used === "number" ? u.used.toLocaleString("en-IN") : "—"}
+                    {typeof u?.limit === "number"
+                      ? ` / ${u.limit.toLocaleString("en-IN")}`
+                      : " · unlimited"}
                   </span>
                 </div>
                 {u.limit != null && (
