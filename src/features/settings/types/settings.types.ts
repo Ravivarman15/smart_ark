@@ -124,21 +124,38 @@ export interface PlanSummary {
   smsUsed?: number;
 }
 
-export interface SmsPlanSummary {
-  balance: number;
-  monthlyUsage: number;
-  lifetimeUsage: number;
-  lowBalanceThreshold: number;
-  lastRechargeAt?: string;
-  history: SmsPlanHistoryEntry[];
+export interface MessagingChannelUsage {
+  channel: string;
+  sentThisMonth: number;
+  sentLifetime: number;
+  failedThisMonth: number;
+  /** undefined = unlimited (plans model NULL as unlimited). */
+  allowance?: number;
 }
 
-export interface SmsPlanHistoryEntry {
+export interface MessagingHistoryEntry {
   id: string;
-  type: "recharge" | "spend";
-  amount: number;
+  channel: string;
+  status: string;
+  label: string;
+  recipient?: string;
   occurredAt: string;
-  note?: string;
+  error?: string;
+}
+
+/**
+ * Replaces SmsPlanSummary, which modelled a prepaid credit ledger
+ * (balance / recharge / lifetime) that this product does not have and that no
+ * table ever backed. Messaging is plan-allowance based: an entitlement from
+ * `plans`, consumed by real sends recorded in `message_queue`.
+ */
+export interface MessagingUsageSummary {
+  planName?: string;
+  /** ISO start of the current allowance window. */
+  periodStart: string;
+  channels: MessagingChannelUsage[];
+  queued: number;
+  history: MessagingHistoryEntry[];
 }
 
 // ── Referral ────────────────────────────────────────────────────────────────

@@ -76,7 +76,10 @@ class ReferralService extends BaseService {
       if (isTableMissing(existing.error)) return null;
       throw AppError.fromSupabase(existing.error, "settings_referrals");
     }
-    if (existing.data) return toSummary(existing.data as unknown as SummaryRow);
+    if (existing.data) {
+      const row = toSummary(existing.data as unknown as SummaryRow);
+      return { ...row, ...(await this.derivedTotals(profileId)) };
+    }
 
     // No row yet — create one with a fresh code. Retry once on collision.
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -93,6 +96,40 @@ class ReferralService extends BaseService {
       }
     }
     throw AppError.validation("Could not allocate a unique referral code");
+  }
+
+  /**
+   * Totals derived from the events themselves.
+   *
+   * `settings_referrals.total_referrals` and `.total_rewards` are stored
+   * columns with NO trigger maintaining them — verified against the live
+   * database. They are 0 today only because there are no events yet; the first
+   * real referral would leave the page showing a stored 0 beside a populated
+   * history, which is the same class of bug as a hardcoded figure.
+   *
+   * Deriving is cheap here (one indexed read the page already performs) and
+   * cannot drift. Reversed events are excluded from both counts, and only
+   * CREDITED rewards are summed — a pending reward has not been paid, and
+   * showing it as earned would overstate what the user is owed.
+   */
+  async derivedTotals(
+    profileId: string,
+  ): Promise<{ totalReferrals: number; totalRewards: number }> {
+    const res = await this.db
+      .from("settings_referral_events" as never)
+      .select("reward_amount, status")
+      .eq("referrer_profile_id", profileId);
+    if (res.error) {
+      if (isTableMissing(res.error)) return { totalReferrals: 0, totalRewards: 0 };
+      throw AppError.fromSupabase(res.error, "settings_referral_events.totals");
+    }
+    const rows = (res.data ?? []) as unknown as { reward_amount: number; status: string }[];
+    return {
+      totalReferrals: rows.filter((r) => r.status !== "reversed").length,
+      totalRewards: rows
+        .filter((r) => r.status === "credited")
+        .reduce((sum, r) => sum + (Number(r.reward_amount) || 0), 0),
+    };
   }
 
   async listEvents(profileId: string, limit = 25): Promise<ReferralEvent[]> {
