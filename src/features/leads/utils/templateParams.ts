@@ -130,7 +130,55 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "student_name"),
     val(p, "attendance_date", "date"),
   ],
+  // ── MULTI-TENANT FAMILY (Phase E) ─────────────────────────────────────────
+  // Each appends org_name to the END of the legacy order, so the existing
+  // positional mapping is preserved verbatim and only a new trailing parameter
+  // is added. Inserting it anywhere else would shift every later parameter and
+  // send a date where a name belongs.
+  //
+  // These campaigns only receive traffic once their status is ACTIVE in
+  // providerTemplates.ts — see resolveCampaign().
+  smartark_attendance_absent: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "class", "class_name", "batch_name"),
+    val(p, "section"),
+    val(p, "attendance_date", "date"),
+    val(p, "org_name"),
+  ],
+  smartark_attendance_corrected: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "attendance_date", "date"),
+    val(p, "org_name"),
+  ],
+  smartark_staff_credentials: (p) => [
+    val(p, "staff_name"),
+    val(p, "role"),
+    val(p, "login_email"),
+    val(p, "password"),
+    val(p, "login_url"),
+    val(p, "org_name"),
+  ],
+  smartark_student_credentials: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "login_email"),
+    val(p, "password"),
+    val(p, "login_url"),
+    val(p, "org_name"),
+  ],
+  smartark_fee_receipt: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "class", "class_name"),
+    val(p, "receipt_no"),
+    val(p, "amount_paid"),
+    val(p, "pending_balance"),
+    val(p, "org_name"),
+  ],
 };
+
 
 /** Templates that use ordered positional params (vs the single-body fallback). */
 export const POSITIONAL_TEMPLATES = Object.keys(SPECS);

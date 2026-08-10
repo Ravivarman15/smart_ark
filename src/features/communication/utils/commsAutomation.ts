@@ -33,6 +33,14 @@ export interface AutomatedBatchInput {
   /** Auto-resolves variables from each candidate's ERP `meta`. */
   resolve?: VariableResolver;
   branchName?: string;
+  /**
+   * Organization identity — {{org_name}}, {{org_phone}}, … — resolved ONCE by
+   * the caller (orgContextService) and applied to every recipient.
+   *
+   * Passed in rather than fetched here because this module is deliberately
+   * pure: no Supabase, no React, so it stays unit-testable without mocks.
+   */
+  orgVars?: Record<string, string>;
   audienceKind?: string;
   channel?: CommsChannel;
   scheduledAt?: string;
@@ -71,10 +79,16 @@ export interface AutomatedBatch {
 function resolveVars(
   c: RecipientCandidate,
   resolve: VariableResolver | undefined,
-  branchName: string | undefined
+  branchName: string | undefined,
+  orgVars: Record<string, string> | undefined,
 ): Record<string, string | number | undefined> {
   const recipientVars = resolve?.(c) ?? {};
   return {
+    // Organization identity FIRST, so a per-recipient resolver can override a
+    // specific field (a branch with its own phone number, say) but nothing has
+    // to remember to supply {{org_name}} — which is exactly how five templates
+    // ended up with a competitor's name baked into them.
+    ...(orgVars ?? {}),
     branch_name: branchName ?? "",
     ...recipientVars,
     student_name: String(recipientVars.student_name ?? c.name),
@@ -96,7 +110,7 @@ export function buildAutomatedBatch(input: AutomatedBatchInput): AutomatedBatch 
   let emptyBody = 0;
 
   for (const c of input.candidates) {
-    const vars = resolveVars(c, input.resolve, input.branchName);
+    const vars = resolveVars(c, input.resolve, input.branchName, input.orgVars);
     const rendered = renderMessage(input.template, vars);
     const check = validateEnqueue({
       channel,

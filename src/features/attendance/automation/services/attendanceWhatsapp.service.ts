@@ -57,8 +57,12 @@ import { isWithinQuietHours } from "@/features/communication/utils/automationRul
 import { normalizePhone, validateEnqueue } from "@/features/communication/utils/commsValidation";
 import { buildTemplateParams } from "@/features/leads/utils/templateParams";
 import type { AutomationSetting } from "@/features/communication/types/communication.types";
+import { orgContextService } from "@/features/communication/services/orgContext.service";
 
-const ORG_NAME = "ARK Learning Arena";
+// Was `const ORG_NAME = "ARK Learning Arena"` — one tenant's name, sent to
+// every tenant's parents. Absence alerts are the highest-volume automation in
+// the product, so this was the single widest branding leak. Resolved per
+// organization instead; see orgContext.service.ts.
 
 /** Notice types. These are the `context_type` values on the ledger row. */
 export const ABSENT_CONTEXT = "attendance_absent";
@@ -191,14 +195,17 @@ class AttendanceWhatsappService extends BaseService {
     userName?: string;
   }): Promise<DirectResult> {
     try {
+      // Cached in orgContextService, so a 130-student absence run resolves the
+      // organization once rather than 130 times.
+      const orgVars = await orgContextService.vars();
       const res = await supabase.functions.invoke("send-aisensy", {
         body: {
           direct: {
             campaignName: params.campaignName,
             destination: params.destination,
             templateParams: params.templateParams,
-            userName: params.userName ?? ORG_NAME,
-            source: "ARK Attendance Automation",
+            userName: params.userName ?? orgVars.org_name,
+            source: "Attendance Automation",
           },
         },
       });
@@ -551,13 +558,17 @@ class AttendanceWhatsappService extends BaseService {
     // 2. Render. `section` is optional — Meta rejects an empty positional param,
     //    so a section-less student sends "-" rather than failing validation.
     const template = asCommsTemplate(BUILTIN_TEMPLATES_BY_KEY[contextType]);
+    const orgVars = await orgContextService.vars();
     const variables = {
       parent_name: parentName,
       student_name: studentName,
       class: facts.className ?? "-",
       section: facts.section ?? "-",
       attendance_date: formatDate(date),
-      branch_name: ORG_NAME,
+      // Org identity spread LAST-but-overridable: {{org_name}} for the sign-off
+      // plus branch_name for templates that still reference it.
+      ...orgVars,
+      branch_name: orgVars.org_name,
     };
     const rendered = renderMessage(template, variables);
 

@@ -45,7 +45,7 @@ export const LEAD_TEMPLATES: Record<LeadTemplateKey, LeadTemplate> = {
   lead_welcome: def(
     "lead_welcome",
     "Hi {{student_name}}\n\n" +
-      "Thank you for your interest in ARK Learning Arena.\n\n" +
+      "Thank you for your interest in {{org_name}}.\n\n" +
       "We have successfully received your enquiry for {{course_name}}.",
   ),
   // {{1}} counselor_name, {{2}} student_name, {{3}} course_name, {{4}} mobile_number
@@ -67,7 +67,7 @@ export const LEAD_TEMPLATES: Record<LeadTemplateKey, LeadTemplate> = {
   // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time, {{5}} faculty_name
   lead_demo_scheduled_v2: def(
     "lead_demo_scheduled_v2",
-    "Hi {{student_name}},\n\nYour demo session for {{course_name}} is confirmed.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\nFaculty: {{faculty_name}}\n\nWe look forward to seeing you at ARK Learning Arena!",
+    "Hi {{student_name}},\n\nYour demo session for {{course_name}} is confirmed.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\nFaculty: {{faculty_name}}\n\nWe look forward to seeing you at {{org_name}}!",
   ),
   // Approved AiSensy Utility template (v2). Positional params (order is FINAL):
   // {{1}} parent_name, {{2}} student_name, {{3}} course_name
@@ -75,15 +75,15 @@ export const LEAD_TEMPLATES: Record<LeadTemplateKey, LeadTemplate> = {
     "lead_admission_completed_v2",
     "Hi {{parent_name}},\n\n" +
       "We are pleased to inform you that the admission of {{student_name}} for {{course_name}} has been successfully completed.\n\n" +
-      "Welcome to ARK Learning Arena.\n\n" +
+      "Welcome to {{org_name}}.\n\n" +
       "We look forward to supporting your academic journey.\n\n" +
-      "Thank you,\nARK Learning Arena",
+      "Thank you,\n{{org_name}}",
   ),
   // Approved AiSensy Utility template (v2). Positional params:
   // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time
   lead_demo_reminder_v2: def(
     "lead_demo_reminder_v2",
-    "Hi {{student_name}},\n\nThis is a reminder for your upcoming demo session for {{course_name}}.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\n\nSee you soon at ARK Learning Arena!",
+    "Hi {{student_name}},\n\nThis is a reminder for your upcoming demo session for {{course_name}}.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\n\nSee you soon at {{org_name}}!",
   ),
   lead_low_performance: def(
     "lead_low_performance",

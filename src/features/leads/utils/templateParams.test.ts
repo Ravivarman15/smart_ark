@@ -125,6 +125,16 @@ describe("buildTemplateParams", () => {
       "parent_credentials",
       "attendance_absent",
       "attendance_corrected",
+      // ── Multi-tenant family (Phase E) ─────────────────────────────────
+      // New campaigns, each appending org_name as the LAST positional
+      // parameter. They receive no traffic until their status is ACTIVE in
+      // providerTemplates.ts — resolveCampaign() returns the legacy campaign
+      // for every other status.
+      "smartark_attendance_absent",
+      "smartark_attendance_corrected",
+      "smartark_staff_credentials",
+      "smartark_student_credentials",
+      "smartark_fee_receipt",
     ]);
   });
 

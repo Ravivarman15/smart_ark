@@ -22,6 +22,10 @@ import { commsTemplatesService } from "./commsTemplates.service";
 import { commsRecipientsService } from "./commsRecipients.service";
 import { commsAutomationSettingsService } from "./commsAutomationSettings.service";
 import { commsAuditService } from "./commsAudit.service";
+import { orgContextService } from "./orgContext.service";
+import { automationResolverService } from "./automationResolvers";
+import { decideChannel } from "../utils/communicationPreference";
+import { applyFamilyGrouping, supportsFamilyGrouping } from "../utils/familyGrouping";
 import { buildAutomatedBatch, type VariableResolver } from "../utils/commsAutomation";
 import {
   resolveChannels,
@@ -39,14 +43,28 @@ import type {
 } from "../types/communication.types";
 
 export interface DispatchContext {
-  /** Recipients already resolved by the caller (trigger sites pass their data). */
-  recipients: RecipientCandidate[];
+  /**
+   * Recipients already resolved by the caller — the ORIGINAL mode.
+   *
+   * Now optional. When omitted, the dispatcher asks the resolver registry to
+   * derive both the audience and its variables from `entityId`/`date`, which
+   * is what removes manual student selection and manual variable entry. Every
+   * existing caller that passes recipients keeps working byte-for-byte.
+   */
+  recipients?: RecipientCandidate[];
   /** Per-recipient variable resolver (the page's perRecipientDefaults). */
   resolve?: VariableResolver;
   branchName?: string;
   actorId?: string;
   /** Override the context_type used for dedupe/audit (defaults to the event key). */
   contextType?: string;
+
+  /** The business row that triggered this — an exam id, a student id, … */
+  entityId?: string;
+  /** ISO date for scheduled events. Defaults to today inside the resolver. */
+  date?: string;
+  /** Extra facts the trigger site already held. */
+  triggerData?: Record<string, unknown>;
 }
 
 const isMissingTable = (err: { message?: string } | null | undefined): boolean => {
@@ -114,13 +132,14 @@ class CommsDispatcherService extends BaseService {
     recipients: RecipientCandidate[],
     resolve: VariableResolver | undefined,
     branchName: string | undefined,
+    orgVars: Record<string, string>,
   ): Promise<number> {
     const invoke = this.functions();
     if (!invoke) return 0;
     let emailed = 0;
     for (const c of recipients) {
       if (!c.email) continue;
-      const batch = buildAutomatedBatch({ template, candidates: [c], resolve, branchName });
+      const batch = buildAutomatedBatch({ template, candidates: [c], resolve, branchName, orgVars });
       const body = batch.requests[0]?.rendered.body;
       if (!body) continue; // unresolved → skip (validation already rejected it)
       try {
@@ -155,9 +174,59 @@ class CommsDispatcherService extends BaseService {
 
       const contextType = ctx.contextType ?? eventKey;
 
+      // ── AUDIENCE ────────────────────────────────────────────────────────
+      // Caller-supplied recipients win, preserving every existing call site.
+      // Only when they are absent does the registry derive the audience and
+      // its variables from the entity — the path that removes manual student
+      // selection and manual variable entry.
+      let recipients = ctx.recipients ?? [];
+      let resolveVars = ctx.resolve;
+
+      if (!ctx.recipients) {
+        const resolved = await automationResolverService.resolve(eventKey, {
+          entityId: ctx.entityId,
+          date: ctx.date,
+          triggerData: ctx.triggerData,
+        });
+        if (!resolved) return empty(eventKey, "no resolver and no recipients");
+        recipients = resolved.recipients;
+        // Variables were resolved per recipient ONCE, above. This closure is a
+        // lookup, not a query — buildAutomatedBatch calls it per row and it
+        // must stay synchronous.
+        let vars = resolved.variablesByRecipient;
+
+        // ── FAMILY GROUPING ───────────────────────────────────────────────
+        // Only for events whose message is about the family's day rather than
+        // one student's record. Collapses siblings sharing a parent number
+        // BEFORE dedupe and preference run, so those still see one row per
+        // family — which is also the correct dedupe unit.
+        if (supportsFamilyGrouping(eventKey)) {
+          const grouped = applyFamilyGrouping(recipients, vars);
+          recipients = grouped.recipients;
+          vars = grouped.variablesByRecipient;
+        }
+
+        resolveVars = (c) => vars[c.id] ?? {};
+        if (recipients.length === 0) {
+          return empty(eventKey, resolved.notes?.[0] ?? "no recipients resolved");
+        }
+      }
+
+      // ── COMMUNICATION PREFERENCE ────────────────────────────────────────
+      // communicationPreference.ts existed, was unit-tested, and was called by
+      // NO send path — so a student set to NONE was still messaged. Enforced
+      // here, once, for every automated event.
+      const primaryChannel = setting.channel === "email" ? "email" : "whatsapp";
+      const beforePreference = recipients.length;
+      recipients = recipients.filter((c) => {
+        const pref = c.meta?.communication_preference;
+        return decideChannel(primaryChannel, pref == null ? undefined : String(pref)).allowed;
+      });
+      const preferenceSkipped = beforePreference - recipients.length;
+
       // Duplicate protection — drop recipients already queued today for this event.
       const existing = await this.queuedTodaySet(contextType);
-      const { fresh, duplicates } = partitionDuplicates(ctx.recipients, existing, (c) => c.id);
+      const { fresh, duplicates } = partitionDuplicates(recipients, existing, (c) => c.id);
       if (fresh.length === 0) {
         return { eventKey, skipped: false, reason: "all duplicates", queued: 0, emailed: 0, invalid: 0, duplicates };
       }
@@ -168,6 +237,11 @@ class CommsDispatcherService extends BaseService {
         scheduledAt = `${todayIso()}T${setting.quietEnd.slice(0, 5)}:00`;
       }
 
+      // ONE lookup per dispatch, not one per recipient. Every channel below
+      // renders from the same bag, so a WhatsApp message and its email twin
+      // cannot disagree about who sent them.
+      const orgVars = await orgContextService.vars();
+
       const channels = resolveChannels(setting.channel);
       let queued = 0;
       let emailed = 0;
@@ -177,8 +251,9 @@ class CommsDispatcherService extends BaseService {
         const batch = buildAutomatedBatch({
           template,
           candidates: fresh,
-          resolve: ctx.resolve,
+          resolve: resolveVars,
           branchName: ctx.branchName,
+          orgVars,
           contextType,
           scheduledAt,
           createdBy: ctx.actorId,
@@ -192,7 +267,7 @@ class CommsDispatcherService extends BaseService {
       }
 
       if (channels.includes("email")) {
-        emailed = await this.sendEmails(template, fresh, ctx.resolve, ctx.branchName);
+        emailed = await this.sendEmails(template, fresh, resolveVars, ctx.branchName, orgVars);
       }
 
       await commsAuditService.log({
@@ -200,7 +275,7 @@ class CommsDispatcherService extends BaseService {
         entityId: eventKey,
         action: "send",
         actorId: ctx.actorId,
-        payload: { eventKey, queued, emailed, invalid, duplicates, channel: setting.channel },
+        payload: { eventKey, queued, emailed, invalid, duplicates, preferenceSkipped, channel: setting.channel },
       });
 
       return { eventKey, skipped: false, queued, emailed, invalid, duplicates };
@@ -243,6 +318,11 @@ class CommsDispatcherService extends BaseService {
     // Fee-due reminders.
     try {
       const recipients = await commsRecipientsService.studentsWithFeeStatus("due");
+      // Resolved BEFORE the resolver closure: VariableResolver is synchronous
+      // by contract (it runs once per recipient inside the pure batch builder),
+      // so an await inside it is both a type error and, if it compiled, one
+      // network round trip per parent.
+      const payUrl = (await orgContextService.vars()).org_website;
       out.push(
         await this.dispatch("fee_due", {
           recipients,
@@ -252,7 +332,10 @@ class CommsDispatcherService extends BaseService {
             batch_name: c.meta?.batch_name ?? "",
             amount_pending: String(c.meta?.amount_pending ?? ""),
             due_date: String(c.meta?.due_date ?? ""),
-            pay_url: "https://thearktuition.com/pay",
+            // Was hardcoded to thearktuition.com — ARK's own domain, sent to
+            // every tenant's parents. The org's published website is the only
+            // correct source; blank is better than a competitor's URL.
+            pay_url: payUrl,
           }),
         }),
       );

@@ -34,6 +34,7 @@ import type {
 import type { RenderedMessage } from "../utils/whatsappTemplates";
 import { safeInsert, safeInsertBatch } from "../utils/safeInsert";
 import { validateEnqueue, dedupeKey, dropDuplicates, normalizePhone } from "../utils/commsValidation";
+import { resolveCampaign } from "../constants/providerTemplates";
 
 // FK-bearing columns on `message_queue`. Order matters — `created_by` is
 // stripped first because it's the most common offender (auth uid vs profile id).
@@ -116,7 +117,16 @@ class AiSensyService extends BaseService {
     return {
       channel: input.channel ?? "whatsapp",
       provider: input.provider ?? "aisensy",
-      template: r.providerName ?? r.templateKey,
+      // THE CUTOVER POINT.
+      //
+      // resolveCampaign() returns the organization-neutral campaign ONLY once a
+      // human has marked it ACTIVE — meaning Meta approved it and a test send
+      // was verified. Every other status returns the legacy ARK campaign, so
+      // production traffic is unchanged until that single deliberate edit.
+      //
+      // Falls through to the template's own providerName when no multi-tenant
+      // template is registered, which keeps every other template working.
+      template: resolveCampaign(r.templateKey)?.campaign ?? r.providerName ?? r.templateKey,
       template_id: input.templateId ?? null,
       template_key: r.templateKey,
       language: r.language,

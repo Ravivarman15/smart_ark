@@ -23,25 +23,37 @@ import type {
 // resolution or a disabled event never breaks the publish action.
 const notifyResultsPublished = async (exam: Exam, actorId?: string) => {
   try {
-    if (!exam.batchId) return;
-    const recipients = await commsRecipientsService.students({
-      batchIds: [exam.batchId],
-    });
-    if (recipients.length === 0) return;
+    // Was: resolve recipients here, then hand-build a variable bag. Both now
+    // come from the resolver registry keyed on the exam id — which is also why
+    // an exam scheduled against a STANDARD (no batch) now notifies anyone at
+    // all. The old `if (!exam.batchId) return` silently sent nothing for those.
     await commsDispatcherService.dispatch("exam_published", {
-      recipients,
+      entityId: exam.id,
       actorId,
       contextType: `exam_published:${exam.id}`,
-      resolve: (c) => ({
-        student_name: c.name,
-        parent_name: c.meta?.parent_name ?? c.name,
-        exam_name: exam.title,
-        subject_name: exam.subjectName ?? "",
-        batch_name: c.meta?.batch_name ?? exam.batchName ?? "",
-      }),
     });
   } catch {
     /* best-effort — never throw into the publish mutation */
+  }
+};
+
+/**
+ * Upcoming-exam reminder, fired when an exam is created or scheduled.
+ *
+ * This is the event the brief singles out: an administrator previously opened
+ * "Send Upcoming Exam SMS", selected every affected student and typed the exam
+ * name, date, time and venue by hand. All four are columns on the row that was
+ * just written.
+ */
+const notifyExamScheduled = async (exam: Exam, actorId?: string) => {
+  try {
+    await commsDispatcherService.dispatch("exam_scheduled", {
+      entityId: exam.id,
+      actorId,
+      contextType: `exam_scheduled:${exam.id}`,
+    });
+  } catch {
+    /* best-effort — never throw into the create mutation */
   }
 };
 
@@ -67,6 +79,11 @@ export const useCreateExam = () => {
     onSuccess: (exam) => {
       examAuditService.log(exam.id, "created", `Exam "${exam.title}" created`, actor);
       invalidate(qc);
+      // Fired AFTER the write succeeded, and deliberately not awaited: a
+      // messaging failure must never roll back or delay a created exam. The
+      // dispatcher records its own outcome in comms_audit, so a failure is
+      // logged rather than swallowed.
+      void notifyExamScheduled(exam, actor.actorId);
     },
   });
 };

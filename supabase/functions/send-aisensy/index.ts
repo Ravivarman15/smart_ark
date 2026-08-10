@@ -158,6 +158,74 @@ const TEMPLATE_PARAM_SPECS: Record<string, (p: Record<string, unknown>) => strin
 };
 TEMPLATE_PARAM_SPECS["ark_attendance_absent"] = TEMPLATE_PARAM_SPECS["attendance_absent"];
 TEMPLATE_PARAM_SPECS["ark_attendance_corrected"] = TEMPLATE_PARAM_SPECS["attendance_corrected"];
+
+// ── MULTI-TENANT FAMILY (Phase E) ───────────────────────────────────────────
+// org_name appended as the LAST positional parameter of each legacy order, so
+// the existing mapping is preserved and only a trailing param is introduced.
+// KEEP IN LOCKSTEP with src/features/leads/utils/templateParams.ts.
+TEMPLATE_PARAM_SPECS["smartark_attendance_absent"] = (p) => [
+  val(p, "parent_name"),
+  val(p, "student_name"),
+  val(p, "class", "class_name", "batch_name"),
+  val(p, "section"),
+  val(p, "attendance_date", "date"),
+  val(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_attendance_corrected"] = (p) => [
+  val(p, "parent_name"),
+  val(p, "student_name"),
+  val(p, "attendance_date", "date"),
+  val(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_staff_credentials"] = (p) => [
+  val(p, "staff_name"),
+  val(p, "role"),
+  val(p, "login_email"),
+  val(p, "password"),
+  val(p, "login_url"),
+  val(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_student_credentials"] = (p) => [
+  val(p, "parent_name"),
+  val(p, "student_name"),
+  val(p, "login_email"),
+  val(p, "password"),
+  val(p, "login_url"),
+  val(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_fee_receipt"] = (p) => [
+  val(p, "parent_name"),
+  val(p, "student_name"),
+  val(p, "class", "class_name"),
+  val(p, "receipt_no"),
+  val(p, "amount_paid"),
+  val(p, "pending_balance"),
+  val(p, "org_name"),
+];
+// ── Credential redaction ────────────────────────────────────────────────────
+// A credential message must carry the password to be rendered and posted, so it
+// is necessarily present in message_queue.payload while the row is queued. Once
+// the message is SENT that value has served its only purpose and must not
+// remain at rest — message_queue is readable by every staff member with comms
+// access, and a password sitting there indefinitely is a standing breach.
+//
+// The row itself is kept: delivery status, provider id and the audit trail all
+// hang off it. Only the secret-bearing keys are cleared, and `__body` with
+// them, because the rendered body contains the password in plain sight.
+const SECRET_KEYS = ["password", "temporary_password", "temp_password", "otp"];
+
+const redactSecrets = (
+  payload: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null => {
+  if (!payload) return null;
+  const hasSecret = SECRET_KEYS.some((k) => payload[k] !== undefined);
+  if (!hasSecret) return null; // nothing to do — leave the row untouched
+  const out: Record<string, unknown> = { ...payload };
+  for (const k of SECRET_KEYS) if (k in out) out[k] = "[redacted]";
+  if ("__body" in out) out["__body"] = "[redacted — credential message]";
+  return out;
+};
+
 const buildTemplateParams = (templateName: string, payload: Record<string, unknown>): string[] => {
   const spec = TEMPLATE_PARAM_SPECS[templateName];
   if (spec) return spec(payload || {});
@@ -281,7 +349,7 @@ Deno.serve(async (req) => {
         apiKey,
         campaignName: direct.campaignName,
         destination: dest,
-        userName: direct.userName || "ARK LEARNING ARENA",
+        userName: direct.userName || "Smart ARK",
         source: direct.source || "ARK Attendance Automation",
         templateParams,
         tags: [] as string[],
@@ -351,7 +419,7 @@ Deno.serve(async (req) => {
         apiKey,
         campaignName: debug.campaignName ?? "",
         destination: dest,
-        userName: debug.userName || "ARK LEARNING ARENA",
+        userName: debug.userName || "Smart ARK",
         source: debug.source || "ARK Lead CRM Debug",
         templateParams,
         tags: [] as string[],
@@ -471,7 +539,7 @@ Deno.serve(async (req) => {
       }
 
       const campaignName = row.template || rowCreds.defaultCampaign || defaultCampaign;
-      const userName = row.recipient_name || "ARK LEARNING ARENA";
+      const userName = row.recipient_name || "Smart ARK";
       const source = "ARK Lead CRM";
       // Official AiSensy Campaign API V2 body. apiKey goes IN THE BODY (no
       // Authorization header). Content-Type: application/json only.
@@ -547,6 +615,19 @@ Deno.serve(async (req) => {
           sent_at: sentAt,
           error: null,
         });
+        // Clear the secret now that it has been delivered. Best-effort: a
+        // failed redaction must not turn a successful send into an error, but
+        // it is logged so it is not silent.
+        const redacted = redactSecrets(row.payload as Record<string, unknown> | null);
+        if (redacted) {
+          const { error: redactErr } = await supabase
+            .from("message_queue")
+            .update({ payload: redacted })
+            .eq("id", row.id);
+          if (redactErr) {
+            console.error("[send-aisensy] payload redaction failed", row.id, redactErr.message);
+          }
+        }
         await audit(supabase, row, "send", { providerMessageId: providerMsgId });
         sent += 1;
         continue;

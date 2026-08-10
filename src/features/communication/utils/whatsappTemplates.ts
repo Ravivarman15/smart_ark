@@ -137,7 +137,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "staff_credentials",
     "credentials",
     "Staff credentials",
-    "Dear {{staff_name}},\n\nYour ARK Learning Arena staff portal account has been created.\n\nRole: {{role}}\nLogin Email: {{login_email}}\nTemporary Password: {{password}}\nPortal: {{login_url}}\n\nPlease sign in and change your password after the first login. Keep these details confidential.\n\nThank you,\nARK Learning Arena",
+    "Dear {{staff_name}},\n\nYour {{org_name}} staff portal account has been created.\n\nRole: {{role}}\nLogin Email: {{login_email}}\nTemporary Password: {{password}}\nPortal: {{login_url}}\n\nPlease sign in and change your password after the first login. Keep these details confidential.\n\nThank you,\n{{org_name}}",
     {
       // Same reasoning as parent_credentials: the org name is static text, and
       // the portal link is a body variable rather than a URL button so a
@@ -201,7 +201,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "attendance_absent",
     "attendance",
     "Attendance — absent",
-    "Dear {{parent_name}},\n\nThis is to inform you that {{student_name}} (Class {{class}} - {{section}}) was marked ABSENT on {{attendance_date}}.\n\nIf your child was present or if this attendance was marked incorrectly, please contact the school office.\n\nThank you,\nARK Learning Arena",
+    "Dear {{parent_name}},\n\nThis is to inform you that {{student_name}} (Class {{class}} - {{section}}) was marked ABSENT on {{attendance_date}}.\n\nIf your child was present or if this attendance was marked incorrectly, please contact the school office.\n\nThank you,\n{{org_name}}",
     {
       variables: ["parent_name", "student_name", "class", "attendance_date"],
       providerName: "ark_attendance_absent",
@@ -212,7 +212,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "attendance_corrected",
     "attendance",
     "Attendance — corrected to present",
-    "Dear {{parent_name}},\n\nThis is to inform you that the attendance for {{student_name}} on {{attendance_date}} has been corrected to PRESENT.\n\nThank you.\n\nARK Learning Arena",
+    "Dear {{parent_name}},\n\nThis is to inform you that the attendance for {{student_name}} on {{attendance_date}} has been corrected to PRESENT.\n\nThank you.\n\n{{org_name}}",
     {
       variables: ["parent_name", "student_name", "attendance_date"],
       providerName: "ark_attendance_corrected",
@@ -243,7 +243,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "fee_receipt",
     "fee",
     "Fee payment receipt",
-    "Dear {{parent_name}}, we have received a fee payment for {{student_name}} (Class {{class}}).\nReceipt No: {{receipt_no}}\nAmount Paid: ₹{{amount_paid}}\nPending Balance: ₹{{pending_balance}}\nThank you. — ARK Learning Arena",
+    "Dear {{parent_name}}, we have received a fee payment for {{student_name}} (Class {{class}}).\nReceipt No: {{receipt_no}}\nAmount Paid: ₹{{amount_paid}}\nPending Balance: ₹{{pending_balance}}\nThank you. — {{org_name}}",
     {
       buttons: [{ type: "url", label: "View Receipt", value: "{{receipt_url}}" }],
       media: { type: "pdf", url: "{{receipt_url}}" },
@@ -268,7 +268,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "parent_credentials",
     "credentials",
     "Parent portal credentials",
-    "Dear {{parent_name}},\n\nThe ARK Learning Arena Parent Portal account for {{student_name}} has been created.\n\nLogin Email: {{login_email}}\nTemporary Password: {{password}}\nPortal: {{login_url}}\n\nPlease sign in and change your password after the first login. Keep these details confidential.\n\nThank you,\nARK Learning Arena",
+    "Dear {{parent_name}},\n\nThe {{org_name}} Parent Portal account for {{student_name}} has been created.\n\nLogin Email: {{login_email}}\nTemporary Password: {{password}}\nPortal: {{login_url}}\n\nPlease sign in and change your password after the first login. Keep these details confidential.\n\nThank you,\n{{org_name}}",
     {
       // The org name is deliberately STATIC text, not `{{branch_name}}`. Every
       // variable in this body is a positional Meta param; adding a sixth for a

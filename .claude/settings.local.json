@@ -190,7 +190,10 @@
       "Bash(cp src/features/marketing/seo/seo.ts /tmp/seo.bak)",
       "Bash(perl -0pi -e 's|DEFAULT_SITE_ORIGIN = \"https://smart-ark-main.vercel.app\"|DEFAULT_SITE_ORIGIN = \"https://smartark.ai\"|' src/features/marketing/seo/seo.ts)",
       "Bash(perl -0pi -e 's/    const recent = await this\\\\.db\\\\n      \\\\.from\\\\\\(\"message_queue\"\\\\\\)/    const recent = await this.db\\\\n      .from\\(\"message_queue\" as never\\)/' src/features/settings/services/smsPlan.service.ts)",
-      "Bash(perl -0pi -e 's/    if \\\\\\(existing\\\\.data\\\\\\) return toSummary\\\\\\(existing\\\\.data as unknown as SummaryRow\\\\\\);/    if \\(existing.data\\) {\\\\n      const row = toSummary\\(existing.data as unknown as SummaryRow\\);\\\\n      return { ...row, ...\\(await this.derivedTotals\\(profileId\\)\\) };\\\\n    }/' src/features/settings/services/referral.service.ts)"
+      "Bash(perl -0pi -e 's/    if \\\\\\(existing\\\\.data\\\\\\) return toSummary\\\\\\(existing\\\\.data as unknown as SummaryRow\\\\\\);/    if \\(existing.data\\) {\\\\n      const row = toSummary\\(existing.data as unknown as SummaryRow\\);\\\\n      return { ...row, ...\\(await this.derivedTotals\\(profileId\\)\\) };\\\\n    }/' src/features/settings/services/referral.service.ts)",
+      "Bash(curl -s -o /dev/null http://localhost:4186/pricing)",
+      "Bash(perl -0pi -e 's/        <div className=\"mt-10 grid gap-4 lg:grid-cols-4\">/        <div className=\"mt-10 grid gap-4 lg:grid-cols-4\" aria-busy={isLoading}>/' src/features/marketing/pages/PricingPage.tsx)",
+      "Bash(grep -oE 'def\\\\\\(\\\\s*$|\"[a-z_0-9]+\",$' src/features/communication/utils/whatsappTemplates.ts)"
     ]
   }
 }

@@ -4,8 +4,10 @@ import { CommsPageShell } from "../components/CommsPageShell";
 import { SendCampaignPanel } from "../components/SendCampaignPanel";
 import { useInquiryCandidates } from "../hooks/useRecipientCandidates";
 import type { AudienceFilter } from "../types/communication.types";
+import { useOrgCommsVars } from "@/features/communication/hooks/useOrgCommsVars";
 
 const SendInquiryPage = () => {
+  const orgVars = useOrgCommsVars();
   const [filter, setFilter] = useState<AudienceFilter>({});
   const { data = [], isLoading } = useInquiryCandidates(filter);
 
@@ -28,7 +30,7 @@ const SendInquiryPage = () => {
         perRecipientDefaults={(c) => ({
           name: c.name,
           parent_name: c.name,
-          cta_url: "https://thearktuition.com/book",
+          cta_url: orgVars.org_website,
         })}
       />
     </CommsPageShell>

@@ -7,7 +7,7 @@ import { UsageStatCard } from "../components/UsageStatCard";
 import { useReferralData } from "../hooks/useReferralData";
 
 const buildShareUrl = (code: string) => {
-  if (typeof window === "undefined") return `https://thearktuition.com/?ref=${code}`;
+  if (typeof window === "undefined") return `?ref=${code}`;
   return `${window.location.origin}/?ref=${code}`;
 };
 

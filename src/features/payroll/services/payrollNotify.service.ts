@@ -1,4 +1,5 @@
 import { BaseService } from "@/shared/services";
+import { orgContextService } from "@/features/communication/services/orgContext.service";
 import { sendWhatsApp, CAMPAIGNS } from "@/lib/aisensyApi";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ class PayrollNotifyService extends BaseService {
       `Dear ${contact.name ?? "Team Member"},\n\n` +
       `Your working hours have been updated.\n\n` +
       `New Shift:\n${args.startTime} – ${args.endTime}\n\n` +
-      `ARK Learning Arena`;
+      `${(await orgContextService.vars()).org_name}`;
     const res = await sendWhatsApp({
       campaignName: CAMPAIGNS.BROADCAST,
       destination: contact.mobile,
@@ -81,7 +82,7 @@ class PayrollNotifyService extends BaseService {
       `Dear ${contact.name ?? "Team Member"},\n\n` +
       `Your salary for ${args.period} has been approved.\n\n` +
       `Net Salary: ${args.netSalary}\n\n` +
-      `Your payslip is now available in the ARK app.\n\nARK Learning Arena`;
+      `Your payslip is now available.\n\n${(await orgContextService.vars()).org_name}`;
     const res = await sendWhatsApp({
       campaignName: CAMPAIGNS.BROADCAST,
       destination: contact.mobile,
@@ -110,7 +111,7 @@ class PayrollNotifyService extends BaseService {
       `Dear ${contact.name ?? "Team Member"},\n\n` +
       `Your salary for ${args.period} has been processed.\n\n` +
       `Net Salary: ${args.netSalary}\n\n` +
-      `Your payslip is now available in the ARK app.\n\nARK Learning Arena`;
+      `Your payslip is now available.\n\n${(await orgContextService.vars()).org_name}`;
     const res = await sendWhatsApp({
       campaignName: CAMPAIGNS.BROADCAST,
       destination: contact.mobile,

@@ -322,6 +322,10 @@ export const MODULE_CATALOG: ModuleDef[] = [
     icon: "Bell",
     defaultRoles: mgmtAdmin,
     submodules: [
+      // The automation control surface. Listed FIRST because it is now the
+      // primary way to work with communication — the individual Send pages
+      // below are manual overrides, not the default workflow.
+      { id: "whatsapp.center", label: "Communication Center", route: "/management/communication" },
       { id: "whatsapp.send_inquiry",    label: "Send SMS To Inquiry" },
       { id: "whatsapp.send_student",    label: "Send SMS To Student" },
       { id: "whatsapp.send_staff",      label: "Send SMS To Staff" },

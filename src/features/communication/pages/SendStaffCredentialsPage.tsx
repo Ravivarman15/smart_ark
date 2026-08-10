@@ -23,7 +23,7 @@ const SendStaffCredentialsPage = () => {
         candidates={data}
         loadingCandidates={isLoading}
         filterFields={["role", "campus", "search"]}
-        loginUrl="https://thearktuition.com/login"
+        loginUrl={`${window.location.origin}/login`}
       />
     </CommsPageShell>
   );

@@ -101,10 +101,32 @@ class MarketingService {
    * next load, which is the entire reason plans are data and not code.
    */
   async plans(): Promise<PublicPlan[]> {
+    // Explicit column lists, not `select("*")`.
+    //
+    // This is the first paint of the pricing page for an anonymous visitor, so
+    // every byte is on the critical path. `plan_features` alone is 126 rows;
+    // `*` shipped `limit_value` and any column added later to all of them, for
+    // three fields the page actually reads. Naming the columns also means a
+    // future column cannot silently enlarge this response.
     const [plansRes, pricesRes, featuresRes] = await Promise.all([
-      supabase.from("plans" as never).select("*").eq("is_public", true).eq("is_active", true).order("tier_order"),
-      supabase.from("plan_prices" as never).select("*").eq("is_active", true),
-      supabase.from("plan_features" as never).select("*"),
+      supabase
+        .from("plans" as never)
+        .select(
+          "id, code, name, description, tier_order, trial_days, support_level, " +
+            "max_students, max_staff, max_branches, max_storage_mb, " +
+            "whatsapp_credits, email_credits, " +
+            "allow_white_label, allow_custom_domain, allow_marketplace",
+        )
+        .eq("is_public", true)
+        .eq("is_active", true)
+        .order("tier_order"),
+      supabase
+        .from("plan_prices" as never)
+        .select("plan_id, interval, amount, currency, tax_percent")
+        .eq("is_active", true),
+      supabase
+        .from("plan_features" as never)
+        .select("plan_id, feature_key, enabled"),
     ]);
     if (plansRes.error) throw AppError.fromSupabase(plansRes.error, "plans");
 

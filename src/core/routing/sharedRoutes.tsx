@@ -124,6 +124,7 @@ const ManageActionRights = lazy(() => import("@/features/rbac/pages/ManageAction
 const TimetableView = lazy(() => import("@/pages/shared/TimetableView"));
 
 // Communication module
+const CommCenter = lazy(() => import("@/features/communication/pages/CommunicationCenterPage"));
 const CommSendInquiry = lazy(() => import("@/features/communication/pages/SendInquiryPage"));
 const CommSendStudent = lazy(() => import("@/features/communication/pages/SendStudentPage"));
 const CommSendStaff = lazy(() => import("@/features/communication/pages/SendStaffPage"));
@@ -872,6 +873,15 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
   },
 
   // ── Communication / WhatsApp SMS (coordinator + teacher) ──────────────
+  {
+    // The Communication Center. An exact path, so it does not shadow the
+    // `communication/send-*` children below.
+    path: "communication",
+    element: <CommCenter />,
+    submodule: "whatsapp.center",
+    label: "Communication Center",
+    layouts: ["coordinator", "teacher"],
+  },
   {
     path: "communication/send-inquiry",
     element: <CommSendInquiry />,

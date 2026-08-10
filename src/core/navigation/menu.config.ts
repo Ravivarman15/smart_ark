@@ -490,6 +490,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: adminMgmt,
     items: [
+      ...sub("whatsapp.center",              "Communication Center",            { admin: "/admin/communication",                          management: "/management/communication" },                          adminMgmt),
       ...sub("whatsapp.send_inquiry",        "Send SMS To Inquiry",             { admin: "/admin/communication/send-inquiry",             management: "/management/communication/send-inquiry" },             adminMgmt),
       ...sub("whatsapp.send_student",        "Send SMS To Student",             { admin: "/admin/communication/send-student",             management: "/management/communication/send-student" },             adminMgmt),
       ...sub("whatsapp.send_staff",          "Send SMS To Staff",               { admin: "/admin/communication/send-staff",               management: "/management/communication/send-staff" },               adminMgmt),

@@ -70,12 +70,70 @@ class CommsRecipientsService extends BaseService {
     }));
   }
 
+  /**
+   * Students affected by an exam.
+   *
+   * The audience an administrator was previously reproducing by hand: an exam
+   * is scheduled against a standard and/or a batch, so "who sits it" is a
+   * property of the exam row, not an operator decision.
+   *
+   * ACTIVE students only. A message to the parent of a student who left in
+   * March about an exam in August is worse than no message at all.
+   *
+   * Filtering happens in the DATABASE, not after fetching every student —
+   * this has to hold at 50,000 students, where pulling the roster into the
+   * browser to filter it would be both slow and a needless data exposure.
+   */
+  async studentsForExam(scope: {
+    standardId?: string;
+    batchId?: string;
+  }): Promise<RecipientCandidate[]> {
+    // Neither dimension set would select the entire school. An exam with no
+    // standard and no batch is a data problem, not an instruction to message
+    // every parent, so it resolves to nobody.
+    if (!scope.standardId && !scope.batchId) return [];
+
+    let q = this.db
+      .from("students" as never)
+      .select(
+        "id, name, parent_name, parent_contact, parent_email, student_email, student_contact, communication_preference, batch_id, campus_id, standard_id, batches(name), campuses(name)"
+      )
+      .eq("is_active", true)
+      .order("name", { ascending: true })
+      .limit(5000);
+
+    // Batch is the narrower dimension; when the exam names one, it wins.
+    if (scope.batchId) q = q.eq("batch_id", scope.batchId);
+    else if (scope.standardId) q = q.eq("standard_id", scope.standardId);
+
+    const res = await q;
+    if (res.error) {
+      if (tableMissing(res.error)) return [];
+      throw AppError.fromSupabase(res.error, "students.forExam");
+    }
+    type Row = StudentRow & { communication_preference: string | null };
+    return ((res.data as unknown as Row[]) ?? []).map((s) => ({
+      id: s.id,
+      kind: "student" as RecipientKind,
+      name: s.name,
+      phone: s.parent_contact ?? s.student_contact ?? undefined,
+      email: s.parent_email ?? s.student_email ?? undefined,
+      meta: {
+        batch_name: pickName(s.batches),
+        campus_name: pickName(s.campuses),
+        parent_name: s.parent_name ?? undefined,
+        // Carried so the dispatcher can honour it without a second query.
+        communication_preference: s.communication_preference ?? undefined,
+      },
+    }));
+  }
+
   // ── Today's absentees ────────────────────────────────────────────────────
   async absentToday(date: string): Promise<RecipientCandidate[]> {
     const res = await this.db
       .from("student_attendance" as never)
       .select(
-        "student_id, students!inner(id, name, parent_contact, parent_name, batches(name))"
+        "student_id, students!inner(id, name, parent_contact, parent_name, section, communication_preference, batches(name), standards(name))"
       )
       .eq("date", date)
       .eq("status", "absent")
@@ -91,7 +149,10 @@ class CommsRecipientsService extends BaseService {
         name: string;
         parent_contact: string | null;
         parent_name: string | null;
+        section: string | null;
+        communication_preference: string | null;
         batches: { name: string | null } | { name: string | null }[] | null;
+        standards: { name: string | null } | { name: string | null }[] | null;
       } | null;
     };
     const rows = (res.data as unknown as Row[]) ?? [];
@@ -106,7 +167,12 @@ class CommsRecipientsService extends BaseService {
           batch_name: pickName(
             r.students!.batches as unknown as StudentRow["batches"]
           ),
+          class_name: pickName(
+            r.students!.standards as unknown as StudentRow["batches"]
+          ),
+          section: r.students!.section ?? undefined,
           parent_name: r.students!.parent_name ?? undefined,
+          communication_preference: r.students!.communication_preference ?? undefined,
           date,
         },
       }));
@@ -250,7 +316,10 @@ class CommsRecipientsService extends BaseService {
         name: string;
         parent_contact: string | null;
         parent_name: string | null;
+        section: string | null;
+        communication_preference: string | null;
         batches: { name: string | null } | { name: string | null }[] | null;
+        standards: { name: string | null } | { name: string | null }[] | null;
       } | null;
     };
     const rows = (res.data as unknown as Row[]) ?? [];

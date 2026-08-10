@@ -8,6 +8,7 @@ import { aisensyService, commsAuditService } from "@/features/communication";
 import { renderLeadMessage, type LeadTemplateKey } from "../utils/leadWhatsappTemplates";
 import { buildTemplateParams } from "../utils/templateParams";
 import { isSchemaMissing } from "./leadMappers";
+import { orgContextService } from "@/features/communication/services/orgContext.service";
 
 export interface SendLeadWhatsappInput {
   leadId: string;
@@ -44,7 +45,11 @@ class LeadWhatsappService extends BaseService {
    * Returns whether a message was queued.
    */
   async send(input: SendLeadWhatsappInput): Promise<boolean> {
-    const rendered = renderLeadMessage(input.templateKey, input.vars);
+    // Lead templates sign off with {{org_name}} like every other canonical
+    // template, and this is the ONLY path that renders them — so the org bag is
+    // merged here. Caller vars win, so an explicit override still applies.
+    const orgVars = await orgContextService.vars();
+    const rendered = renderLeadMessage(input.templateKey, { ...orgVars, ...input.vars });
     // Ordered positional params the drainer will post to AiSensy — recorded in
     // comms_audit for traceability (the drainer recomputes the same from payload).
     const templateParams = buildTemplateParams(input.templateKey, {

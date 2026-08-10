@@ -884,3 +884,73 @@ describe("Public origin is a single configurable value", () => {
       .toEqual([]);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// A LOADING STATE MUST LOOK LIKE LOADING, NOT LIKE A BROKEN PAGE
+//
+// The pricing cards were `h-96 animate-pulse bg-muted/40` — four featureless
+// slabs. On a light background that is a faint outline containing nothing, and
+// it was reported as a bug ("fix that blank pricing") by someone who had simply
+// caught the page mid-load. Measured, the window is 383 ms unthrottled and
+// 675 ms on 4G: the data was always arriving.
+//
+// So the defect was never the query. It was that the brief moment before the
+// data lands did not look like the product.
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("Pricing loads visibly, not blankly", () => {
+  const page = read(join(MARKETING, "pages", "PricingPage.tsx"));
+  const service = read(join(MARKETING, "services", "marketing.service.ts"));
+
+  it("the loading branch actually renders the structured skeleton", () => {
+    // Checking only that PlanCardSkeleton is DEFINED let a mutation that
+    // reverted the render back to a bare slab pass, because the unused
+    // component stayed in the file. Caught by mutation-testing this gate.
+    const loading = page.slice(page.indexOf("{isLoading"), page.indexOf(": visible.map"));
+    expect(loading, "loading branch does not render PlanCardSkeleton")
+      .toMatch(/<PlanCardSkeleton/);
+    expect(loading, "the featureless grey slab is back")
+      .not.toMatch(/animate-pulse[^"]*bg-muted/);
+  });
+
+  it("the plan skeleton has real structure", () => {
+    // An element with no children is the empty slab this replaced.
+    expect(page).toMatch(/const PlanCardSkeleton/);
+    const skel = page.slice(
+      page.indexOf("const PlanCardSkeleton"),
+      page.indexOf("const PricingPage"),
+    );
+    // Name, description, price, spec rows, entitlement rows, button.
+    expect((skel.match(/<Bar\b/g) ?? []).length, "skeleton is too sparse to read as a card")
+      .toBeGreaterThanOrEqual(6);
+    expect(skel, "skeleton must mirror the card's spec rows").toMatch(/length: 6/);
+    expect(skel, "skeleton must mirror the entitlement rows").toMatch(/length: 3/);
+    expect(skel, "no longer the fixed-height empty slab").not.toMatch(/h-96/);
+  });
+
+  it("the loading grid announces itself as busy", () => {
+    expect(page).toMatch(/aria-busy=\{isLoading\}/);
+    // The placeholders themselves are decorative — announcing eight rows of
+    // fake bars to a screen reader is noise.
+    expect(page).toMatch(/PlanCardSkeleton[\s\S]{0,400}aria-hidden/);
+  });
+
+  it("a failed plans query says so instead of skeletoning forever", () => {
+    // Verified by blocking the request in a headless browser: the page
+    // switches to the notice rather than holding the placeholders.
+    expect(page).toMatch(/isError &&/);
+    expect(page).toMatch(/Pricing is temporarily unavailable/);
+  });
+
+  it("the public plans query names its columns", () => {
+    // First paint for an anonymous visitor. plan_features alone is 126 rows,
+    // and select("*") shipped every column of every one of them for the three
+    // fields the page reads — and would silently grow with the schema.
+    const fn = service.slice(service.indexOf("async plans()"), service.indexOf("async posts") + 1);
+    const stars = fn.match(/\.select\("\*"\)/g) ?? [];
+    expect(stars, "select(\"*\") on the pricing critical path").toEqual([]);
+    for (const table of ["plans", "plan_prices", "plan_features"]) {
+      expect(fn, `${table} query missing`).toContain(`from("${table}" as never)`);
+    }
+  });
+});

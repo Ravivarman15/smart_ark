@@ -36,7 +36,9 @@ import { buildReceipt, receiptToPdfBlob } from "../utils/receipt";
 import { formatINR } from "../utils/feeCalc";
 import { orgPath } from "@/lib/orgStorage";
 
-const ORG_NAME = "ARK Learning Arena";
+// Was a hardcoded constant. Fee receipts go to every tenant's parents, so
+// the sending institution has to be resolved, not assumed.
+import { orgContextService } from "@/features/communication/services/orgContext.service";
 const RECEIPTS_BUCKET = "receipts";
 const SIGNED_URL_TTL = 60 * 60 * 24 * 7; // 7 days
 
@@ -132,7 +134,7 @@ class FeeReceiptDeliveryService extends BaseService {
           notes: r.notes,
         },
       );
-      const blob = await receiptToPdfBlob(receipt, ORG_NAME);
+      const blob = await receiptToPdfBlob(receipt, (await orgContextService.vars()).org_name);
       const safeReceipt = receiptNo.replace(/[^a-zA-Z0-9_-]/g, "_");
       const path = orgPath(`${studentFeeId}/${safeReceipt}.pdf`);
       const up = await this.db.storage
@@ -308,7 +310,7 @@ class FeeReceiptDeliveryService extends BaseService {
         } else {
           const template = asCommsTemplate(BUILTIN_TEMPLATES_BY_KEY.fee_receipt);
           const rendered = renderMessage(template, {
-            branch_name: ORG_NAME,
+            branch_name: (await orgContextService.vars()).org_name,
             parent_name: parentName ?? fee.studentName ?? "",
             student_name: fee.studentName ?? "",
             class: className ?? "",
@@ -369,7 +371,7 @@ class FeeReceiptDeliveryService extends BaseService {
           };
           const fallback = {
             recipientName: parentName,
-            heading: "ARK Learning Arena Fee Payment Receipt",
+            heading: `${(await orgContextService.vars()).org_name} Fee Payment Receipt`,
             paragraphs: [
               `Dear ${parentName ?? "Parent"}, we have received your fee payment for ${fee.studentName ?? "your ward"}.`,
               `Receipt No: ${input.receiptNo}`,

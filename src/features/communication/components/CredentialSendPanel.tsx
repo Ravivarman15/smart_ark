@@ -57,7 +57,7 @@ export const CredentialSendPanel = ({
   candidates,
   loadingCandidates,
   branchName,
-  loginUrl = "https://thearktuition.com/login",
+  loginUrl = `${window.location.origin}/login`,
   filterFields = ["role", "campus", "search"],
 }: CredentialSendPanelProps) => {
   const { user } = useAuth();

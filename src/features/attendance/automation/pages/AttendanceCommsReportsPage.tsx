@@ -12,6 +12,7 @@ import { today } from "../../utils/dates";
 import { useAttendanceNotices } from "../hooks";
 import type { ExportRequest } from "../../utils/exportData";
 import type { AttendanceNotice } from "../services/attendanceComms.service";
+import { useOrgCommsVars } from "@/features/communication/hooks/useOrgCommsVars";
 
 type ReportKey = "all" | "failed" | "missing" | "audit";
 
@@ -25,6 +26,7 @@ const REPORTS: { key: ReportKey; label: string; title: string }[] = [
 const fmt = (iso?: string): string => (iso ? new Date(iso).toLocaleString("en-IN") : "");
 
 const AttendanceCommsReportsPage = () => {
+  const orgVars = useOrgCommsVars();
   const [from, setFrom] = useState(today());
   const [to, setTo] = useState(today());
   const [report, setReport] = useState<ReportKey>("all");
@@ -77,7 +79,7 @@ const AttendanceCommsReportsPage = () => {
     return {
       reportKey: `attendance_whatsapp_${report}`,
       title: meta.title,
-      subtitle: `${from} → ${to} · ARK Learning Arena`,
+      subtitle: `${from} → ${to}${orgVars.org_name ? ` · ${orgVars.org_name}` : ""}`,
       columns,
       rows,
       kpis: [
