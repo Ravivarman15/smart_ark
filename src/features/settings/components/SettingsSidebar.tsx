@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   User, KeyRound, MessageSquare, BellRing, MessageCircle,
-  BadgeCheck, Gauge, Gift, CreditCard, Palette,
+  BadgeCheck, Gauge, Gift, CreditCard, Palette, MapPin,
 } from "lucide-react";
 import { useSidebarAccess } from "@/features/rbac";
 
@@ -39,6 +39,7 @@ const SECTIONS: Section[] = [
   { path: "/settings/my-referral",        label: "My Referral",             submodule: "settings.my_referral",        icon: Gift,          group: "Plan & billing" },
   { path: "/settings/billing",            label: "Billing & Subscription",  submodule: "settings.billing",            icon: CreditCard,    group: "Plan & billing" },
   { path: "/settings/branding",           label: "Branding & White Label",  submodule: "settings.branding",           icon: Palette,       group: "Plan & billing" },
+  { path: "/settings/check-in",           label: "Check-in & Check-out",    submodule: "settings.checkin",            icon: MapPin,        group: "Organisation" },
 ];
 
 const GROUP_ORDER: Section["group"][] = ["Account", "Automation", "Plan & billing"];

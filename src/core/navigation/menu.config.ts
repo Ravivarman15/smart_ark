@@ -170,6 +170,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       { path: "/settings/my-referral",        label: "My Referral",                 roles: all, submodule: "settings.my_referral" },
       { path: "/settings/billing",            label: "Billing & Subscription",      roles: adminMgmt, submodule: "settings.billing" },
       { path: "/settings/branding",           label: "Branding & White Label",      roles: adminMgmt, submodule: "settings.branding" },
+      { path: "/settings/check-in",           label: "Check-in & Check-out",        roles: adminMgmt, submodule: "settings.checkin" },
     ],
   },
 

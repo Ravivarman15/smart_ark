@@ -362,6 +362,7 @@ const SmsPlanPage = lazy(() => import("./features/settings/pages/SmsPlanPage"));
 const MyReferralPage = lazy(() => import("./features/settings/pages/MyReferralPage"));
 const BillingPage = lazy(() => import("./features/billing/pages/BillingPage"));
 const BrandingPage = lazy(() => import("./features/branding/pages/BrandingPage"));
+const CheckinSettingsPage = lazy(() => import("./features/settings/pages/CheckinSettingsPage"));
 
 // ProtectedRoute / AuthRedirect now live in @/core/routing.
 // Role[] cast is purely a type-narrowing aid — the array contents are
@@ -924,6 +925,7 @@ const AppRoutes: React.FC = () => (
             RBAC submodule gate on each menu item decides visibility. */}
         <Route path="billing" element={<BillingPage />} />
         <Route path="branding" element={<BrandingPage />} />
+        <Route path="check-in" element={<CheckinSettingsPage />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

@@ -87,6 +87,9 @@ export const MODULE_CATALOG: ModuleDef[] = [
       // rather than on its academic data, so they sit beside "My Plan".
       { id: "settings.billing",  label: "Billing & Subscription", route: "/settings/billing" },
       { id: "settings.branding", label: "Branding & White Label", route: "/settings/branding" },
+      // Phase 8. Staff check-in verification mode + the organization's own
+      // verified locations — replaces two GPS coordinates that were hardcoded.
+      { id: "settings.checkin",  label: "Check-in & Check-out",   route: "/settings/check-in" },
     ],
   },
   {
