@@ -5,6 +5,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Organization display name, memoised for the lifetime of one cron run.
+ *
+ * The SLA sweep touches many leads across (eventually) many tenants, and each
+ * outbound message has to be signed with the right institution. Without the
+ * cache that is one query per message.
+ */
+const ORG_NAME_CACHE = new Map<string, string>();
+async function orgNameFor(supabase: any, orgId: string | null | undefined): Promise<string> {
+  if (!orgId) return "";
+  const hit = ORG_NAME_CACHE.get(orgId);
+  if (hit !== undefined) return hit;
+  const { data } = await supabase
+    .from("organizations").select("display_name").eq("id", orgId).maybeSingle();
+  const name = (data?.display_name as string) ?? "";
+  ORG_NAME_CACHE.set(orgId, name);
+  return name;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -431,7 +450,7 @@ Deno.serve(async (req) => {
           .eq("id", s.id);
         const { data: lead } = await supabase
           .from("leads")
-          .select("id, student_name, phone, course, assigned_to")
+          .select("id, student_name, phone, course, assigned_to, organization_id")
           .eq("id", s.lead_id)
           .maybeSingle();
         if (lead) {
@@ -446,7 +465,11 @@ Deno.serve(async (req) => {
                 message: lead.student_name,
               }))
             );
-          // WhatsApp the SLA breach to the assigned counselor + management.
+          // The institution this lead belongs to. Signs the breach alert, which
+          // goes to a counselor on WhatsApp — it used to say "ARK CRM" to every
+          // organization's staff. Cached per run below, so a sweep over 200
+          // breaches performs one lookup per organization, not 200.
+          const orgName = await orgNameFor(supabase, lead.organization_id);
           let breachCounselorPhone: string | null = null;
           let breachCounselorName: string | null = null;
           if (lead.assigned_to) {
@@ -460,7 +483,7 @@ Deno.serve(async (req) => {
           }
           const breachBody =
             `SLA BREACH\n\nLead: ${lead.student_name}\nStage: ${s.stage}\n` +
-            `Mobile: ${lead.phone || ""}\n\nThis lead has crossed its response SLA. Immediate action required.\n\nARK CRM`;
+            `Mobile: ${lead.phone || ""}\n\nThis lead has crossed its response SLA. Immediate action required.\n\n${orgName}`;
           // Positional vars for sla_breach_alert: [counselor_name, student_name, course_name].
           const breachVars = {
             counselor_name: breachCounselorName || "Counselor",

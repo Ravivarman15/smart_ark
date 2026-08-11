@@ -45,7 +45,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { OrgLogo } from "@/features/branding/components/OrgLogo";
 import { useActiveChild } from "../providers/ActiveChildProvider";
 import { useChildSummary } from "../hooks/useChildData";
 import type { ChildSummary } from "../types/parentPortal.types";
@@ -406,7 +406,7 @@ const Footer = ({
 
 const Brand = () => (
   <div className="flex items-center gap-2.5 px-4 h-16 border-b border-border shrink-0">
-    <img src={arkLogo} alt="" className="w-8 h-8 rounded-lg" />
+    <OrgLogo className="w-8 h-8 rounded-lg" decorative />
     <div className="leading-tight min-w-0">
       <p className="text-sm font-display font-bold text-foreground truncate">ARK</p>
       <p className="text-[9px] uppercase tracking-widest text-accent">Parent Portal</p>
@@ -505,7 +505,7 @@ export const ParentSidebarDrawer = ({
       >
         <div className="flex items-center justify-between border-b border-border h-16 px-4 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <img src={arkLogo} alt="" className="w-8 h-8 rounded-lg" />
+            <OrgLogo className="w-8 h-8 rounded-lg" decorative />
             <div className="leading-tight min-w-0">
               <p className="text-sm font-display font-bold text-foreground truncate">ARK</p>
               <p className="text-[9px] uppercase tracking-widest text-accent">Parent Portal</p>

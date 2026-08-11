@@ -36,6 +36,39 @@ describe("Parameter order is append-only", () => {
     }
   });
 
+  it("no parameter is used more than once", () => {
+    // META REJECTED smartark_staff_credentials and smartark_student_credentials
+    // for exactly this. Both bodies named the organization mid-sentence AND in
+    // the sign-off, so {{6}} appeared twice. Meta requires each parameter to
+    // appear exactly once.
+    for (const t of PROVIDER_TEMPLATES) {
+      const used = [...t.body.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1]));
+      const dupes = [...new Set(used.filter((n) => used.filter((x) => x === n).length > 1))];
+      expect(dupes, `${t.campaign} repeats {{${dupes.join("}}, {{")}}} — Meta rejects this`)
+        .toEqual([]);
+    }
+  });
+
+  it("parameters appear in ascending order", () => {
+    // The second half of the same rejection: the bodies ran 1, 6, 2, 3, 4, 5, 6.
+    // Meta requires the placeholders to appear in sequence, so a body that
+    // jumps forward and back is rejected even without a repeat.
+    for (const t of PROVIDER_TEMPLATES) {
+      const used = [...t.body.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1]));
+      expect(used, `${t.campaign} parameters are out of order: ${used.join(", ")}`)
+        .toEqual([...used].sort((a, b) => a - b));
+    }
+  });
+
+  it("parameter numbering starts at 1 with no gaps", () => {
+    // {{1}}, {{2}}, {{4}} is rejected too — Meta expects a contiguous run.
+    for (const t of PROVIDER_TEMPLATES) {
+      const used = [...new Set([...t.body.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])))];
+      expect(used.sort((a, b) => a - b), `${t.campaign} has gaps in its numbering`)
+        .toEqual(Array.from({ length: used.length }, (_, i) => i + 1));
+    }
+  });
+
   it("the submitted body references every parameter exactly once, in order", () => {
     for (const t of PROVIDER_TEMPLATES) {
       for (let i = 1; i <= t.params.length; i++) {

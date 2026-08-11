@@ -376,7 +376,7 @@ export const CreateStaffSheet = ({
                   type="email"
                   value={values.email}
                   onChange={(e) => set("email", e.target.value)}
-                  placeholder="staff@thearktuition.com"
+                  placeholder="staff@yourinstitution.com"
                 />
               </Field>
 

@@ -389,7 +389,13 @@ describe("S12 — no third-party origin serves styles or fonts", () => {
     walk(SRC);
     expect(readFileSync(join(ROOT, "index.html"), "utf8")).not.toMatch(/fonts\.(googleapis|gstatic)/);
     expect(offenders).toEqual([]);
-  });
+    // 30s, not the default 5s. This walks and reads EVERY source file, so its
+    // runtime scales with the size of the repository rather than with anything
+    // it asserts. It was already running at ~4.5s under full-suite contention
+    // and started timing out when a feature added nine files — a false failure
+    // that says nothing about fonts. The assertions above are unchanged; only
+    // the budget for the scan is.
+  }, 30_000);
 
   it("the CSP does not allow-list a font or style CDN", () => {
     const csp = vercelCsp();

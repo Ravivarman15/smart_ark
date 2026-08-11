@@ -9,7 +9,9 @@ import {
   User,
   Users,
 } from "lucide-react";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { useParams } from "react-router-dom";
+import { monogramOf } from "@/features/branding/documents";
+import { PLATFORM_PUBLIC_IDENTITY, usePublicTenant } from "@/features/branding/publicTenant";
 import { leadsService } from "../services/leads.service";
 import { leadCoursesService } from "../services/leadCourses.service";
 import { publicLeadSchema } from "../schemas/lead.schema";
@@ -67,6 +69,14 @@ const PublicLeadFormPage = () => {
   const [done, setDone] = useState(false);
   const [courses, setCourses] = useState<string[]>([]);
 
+  // ── Whose form is this? ───────────────────────────────────────────────────
+  // Resolved from the host (a verified custom domain) or the :orgSlug path
+  // segment. `unknown` is a real, distinct outcome and is rendered as such —
+  // never as a default institution.
+  const { orgSlug } = useParams<{ orgSlug?: string }>();
+  const { status, tenant } = usePublicTenant(orgSlug ?? null);
+  const orgName = tenant?.organizationName ?? PLATFORM_PUBLIC_IDENTITY.name;
+
   // Load the admin-managed course list (anon RLS allows reading active courses).
   useEffect(() => {
     leadCoursesService.listActiveNames().then(setCourses).catch(() => setCourses([]));
@@ -82,6 +92,17 @@ const PublicLeadFormPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+
+    // Refuse to submit an enquiry we cannot address. Previously this was
+    // impossible to get wrong because the institution was hardcoded; now the
+    // form must not silently post into whichever tenant the database happens
+    // to resolve for an anonymous caller.
+    if (!tenant) {
+      setFormError(
+        "This enquiry link is not linked to an institution. Please use the link your institution gave you.",
+      );
+      return;
+    }
 
     const parsed = publicLeadSchema.safeParse(form);
     if (!parsed.success) {
@@ -103,6 +124,10 @@ const PublicLeadFormPage = () => {
         standard: parsed.data.standard || undefined,
         message: parsed.data.message || undefined,
         source: "landing",
+        // The SLUG, never an organization id. The database resolves it, so a
+        // visitor cannot steer an enquiry into another institution's pipeline
+        // by editing a query string.
+        orgSlug: tenant.slug,
       });
       setDone(true);
     } catch (err) {
@@ -117,6 +142,31 @@ const PublicLeadFormPage = () => {
     }
   };
 
+  // No institution resolved. Showing the form anyway would collect a parent's
+  // phone number with nowhere to send it — and, before this change, would have
+  // shown them ARK Learning Arena regardless of who they were trying to reach.
+  if (status === "unknown") {
+    return (
+      <div className="min-h-screen gradient-navy flex items-center justify-center p-4">
+        <div className="glass-card w-full max-w-md p-8 text-center relative z-10">
+          <div className="w-14 h-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center text-lg font-bold mx-auto mb-4">
+            {PLATFORM_PUBLIC_IDENTITY.monogram}
+          </div>
+          <h1 className="text-lg font-display font-semibold text-foreground">
+            Institution not found
+          </h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            This enquiry link is not connected to an institution. Please use the link your
+            institution shared with you, or contact them directly.
+          </p>
+          <p className="text-[11px] text-muted-foreground/70 mt-6">
+            Powered by {PLATFORM_PUBLIC_IDENTITY.name}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen gradient-navy flex items-center justify-center p-4 py-10">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -125,10 +175,23 @@ const PublicLeadFormPage = () => {
       </div>
 
       <div className="glass-card w-full max-w-2xl p-6 sm:p-8 animate-slide-up relative z-10">
-        {/* Header */}
+        {/* Header — the institution this enquiry actually reaches. */}
         <div className="flex flex-col items-center text-center mb-6">
-          <img src={arkLogo} alt="ARK Learning Arena" className="w-20 h-20 rounded-2xl mb-3 shadow-lg" />
-          <h1 className="text-xl sm:text-2xl font-display font-bold text-foreground">ARK Learning Arena</h1>
+          {tenant?.logoUrl ? (
+            <img
+              src={tenant.logoUrl}
+              alt={orgName}
+              className="w-20 h-20 rounded-2xl mb-3 shadow-lg object-cover bg-background"
+            />
+          ) : (
+            <div
+              className="w-20 h-20 rounded-2xl mb-3 shadow-lg bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold"
+              aria-hidden="true"
+            >
+              {monogramOf(orgName)}
+            </div>
+          )}
+          <h1 className="text-xl sm:text-2xl font-display font-bold text-foreground">{orgName}</h1>
           <p className="text-muted-foreground text-sm mt-1">Admission Enquiry Form</p>
         </div>
 
@@ -232,7 +295,8 @@ const PublicLeadFormPage = () => {
             </button>
 
             <p className="text-[11px] text-muted-foreground text-center">
-              By submitting, you agree to be contacted by ARK Learning Arena regarding your admission enquiry.
+              By submitting, you agree to be contacted by {orgName} regarding your
+              admission enquiry.
             </p>
           </form>
         )}

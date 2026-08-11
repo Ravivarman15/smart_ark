@@ -14,7 +14,7 @@ import type { Role } from "@/core/constants/roles";
 import { useTheme } from "@/core/theme";
 import { AccessSyncIndicator } from "@/features/rbac";
 import { resolveIcon } from "@/shared/icons";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { OrgLogo } from "@/features/branding/components/OrgLogo";
 
 interface Props {
   collapsed: boolean;
@@ -123,7 +123,7 @@ export const RoleSidebar = ({ collapsed, onToggle, onNavigate }: Props) => {
     >
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-sidebar-border min-h-[60px]">
-        <img src={arkLogo} alt="ARK" className="w-8 h-8 rounded-lg flex-shrink-0" />
+        <OrgLogo className="w-8 h-8 rounded-lg flex-shrink-0" />
         {!collapsed && brand && (
           <div className="min-w-0">
             <span className="font-display font-bold text-foreground text-sm block truncate">

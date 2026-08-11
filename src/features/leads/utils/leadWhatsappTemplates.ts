@@ -51,7 +51,7 @@ export const LEAD_TEMPLATES: Record<LeadTemplateKey, LeadTemplate> = {
   // {{1}} counselor_name, {{2}} student_name, {{3}} course_name, {{4}} mobile_number
   lead_assigned_counselor: def(
     "lead_assigned_counselor",
-    "Hi {{counselor_name}}\n\nNew Lead Assigned\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nMobile:\n{{mobile_number}}\n\nPlease contact within 15 minutes.\n\nARK CRM",
+    "Hi {{counselor_name}}\n\nNew Lead Assigned\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nMobile:\n{{mobile_number}}\n\nPlease contact within 15 minutes.\n\n{{org_name}}",
   ),
   // {{1}} counselor_name, {{2}} student_name, {{3}} course_name
   lead_followup_reminder: def(
@@ -61,7 +61,7 @@ export const LEAD_TEMPLATES: Record<LeadTemplateKey, LeadTemplate> = {
   // {{1}} counselor_name, {{2}} student_name, {{3}} course_name
   sla_breach_alert: def(
     "sla_breach_alert",
-    "Hi {{counselor_name}}\n\nSLA BREACH\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nThis lead has crossed its response SLA. Immediate action required.\n\nARK CRM",
+    "Hi {{counselor_name}}\n\nSLA BREACH\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nThis lead has crossed its response SLA. Immediate action required.\n\n{{org_name}}",
   ),
   // Approved AiSensy Utility template (v2). Positional params:
   // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time, {{5}} faculty_name

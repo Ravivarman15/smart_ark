@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { OrgLogo } from "@/features/branding/components/OrgLogo";
 import {
   LayoutDashboard, Users, GraduationCap, ShieldCheck,
   Bell, LogOut, RotateCcw, BookOpen, ShieldAlert, CalendarDays, PhoneCall, MessageSquare, BarChart2, UserCheck,
@@ -148,7 +148,7 @@ const ManagementSidebar: React.FC<Props> = ({ collapsed, onToggle, onNavigate })
     <aside className={`h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-sidebar-border min-h-[60px]">
-        <img src={arkLogo} alt="ARK" className="w-8 h-8 rounded-lg flex-shrink-0" />
+        <OrgLogo className="w-8 h-8 rounded-lg flex-shrink-0" />
         {!collapsed && (
           <div className="min-w-0">
             <span className="font-display font-bold text-foreground text-sm block truncate">ARK Intelligence</span>

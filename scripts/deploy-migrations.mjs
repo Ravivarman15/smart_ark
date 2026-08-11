@@ -83,6 +83,8 @@ const ORDER = [
   ["20260909_phase2e_provisioning_claim_and_metrics_cron.sql", "fixes 42702 in 4A's claim function; schedules 2B's rollup"],
   ["20260910_phase4c_provisioning_step_column_fix.sql", "academic_year step wrote to a non-existent column; must follow 4B"],
   ["20260911_phase5c_usage_status_null_fix.sql", "usage_status emitted null used, crashing the Settings module; must follow 5A"],
+  ["20260912_phase7a_document_branding.sql", "document branding columns + ARK identity seed; must follow 6A, which added the last organization_branding columns"],
+  ["20260913_phase7b_public_tenant_context.sql", "public tenant resolution + submit_public_lead; must follow 7A, whose receipt_* columns it returns"],
 ];
 
 const args = process.argv.slice(2);

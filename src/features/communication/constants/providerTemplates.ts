@@ -120,12 +120,24 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     key: "staff_credentials",
     eventKey: "staff_credentials",
     legacyCampaign: "staff_credentials",
-    campaign: "smartark_staff_credentials",
+    // Suffixed `1` because `smartark_staff_credentials` was REJECTED by Meta
+    // and a rejected campaign name cannot be reused for a resubmission. The
+    // suffix is not a version number — it is a fresh identifier. If this one is
+    // also rejected the next attempt needs another new name, not an edit.
+    campaign: "smartark_staff_credentials1",
     category: "UTILITY",
     params: ["staff_name", "role", "login_email", "password", "login_url", "org_name"],
+    // REJECTED BY META, then rewritten. The original body was
+    //   Dear {{1}} … Your {{6}} staff portal account … {{2}}{{3}}{{4}}{{5}} … {{6}}
+    // which broke two Meta rules at once: {{6}} appeared TWICE, and the
+    // parameters ran 1, 6, 2, 3, 4, 5, 6 — not ascending.
+    //
+    // Fixed by naming the organization ONLY in the sign-off. Every parameter
+    // now appears exactly once, in sequence, and org_name stays in the last
+    // position so the append-only ordering rule still holds.
     body:
       "Dear {{1}},\n\n" +
-      "Your {{6}} staff portal account has been created.\n\n" +
+      "Your staff portal account has been created.\n\n" +
       "Role: {{2}}\nLogin Email: {{3}}\nTemporary Password: {{4}}\nPortal: {{5}}\n\n" +
       "Please sign in and change your password after the first login. Keep these details confidential.\n\n" +
       "Thank you,\n{{6}}",
@@ -136,12 +148,16 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     key: "student_credentials",
     eventKey: "student_credentials",
     legacyCampaign: "parent_credentials",
-    campaign: "smartark_student_credentials",
+    // Suffixed `1` for the same reason as the staff template — the original
+    // name was rejected and cannot be resubmitted.
+    campaign: "smartark_student_credentials1",
     category: "UTILITY",
     params: ["parent_name", "student_name", "login_email", "password", "login_url", "org_name"],
+    // REJECTED BY META, then rewritten — the same two violations as
+    // smartark_staff_credentials: {{6}} used twice, parameters out of order.
     body:
       "Dear {{1}},\n\n" +
-      "The {{6}} Parent Portal account for {{2}} has been created.\n\n" +
+      "The Parent Portal account for {{2}} has been created.\n\n" +
       "Login Email: {{3}}\nTemporary Password: {{4}}\nPortal: {{5}}\n\n" +
       "Please sign in and change your password after the first login. Keep these details confidential.\n\n" +
       "Thank you,\n{{6}}",

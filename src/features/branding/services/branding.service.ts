@@ -12,6 +12,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { AppError } from "@/shared/services";
+import { invalidateDocumentBranding } from "../documents/documentBranding.service";
 
 export interface BrandingBundle {
   organization: { id: string; name: string; slug: string };
@@ -72,6 +73,12 @@ class BrandingService {
     // The database trigger rejects a bad colour or font before storage; its
     // message names the offending value, so surface it verbatim.
     if (error) throw AppError.fromSupabase(error, "branding");
+
+    // Documents cache branding for the session so a bulk send is one lookup
+    // rather than N. Without this, a tenant fixing a typo in its own address
+    // keeps printing the old one until a full reload — and would reasonably
+    // conclude the save had failed.
+    invalidateDocumentBranding();
   }
 
   // ── Themes ─────────────────────────────────────────────────────────────

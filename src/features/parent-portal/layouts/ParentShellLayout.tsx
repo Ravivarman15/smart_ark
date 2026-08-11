@@ -22,7 +22,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/core/theme";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { OrgLogo } from "@/features/branding/components/OrgLogo";
 import { ActiveChildProvider, useActiveChild } from "../providers/ActiveChildProvider";
 import { ParentRealtimeProvider } from "../providers/ParentRealtimeProvider";
 import { ChildSwitcher } from "../components/ChildSwitcher";
@@ -114,7 +114,7 @@ const Shell = () => {
               {/* Mobile shows the page name; desktop's sidebar already
                   highlights it, so there it yields to the child switcher. */}
               <div className="md:hidden flex items-center gap-2 min-w-0">
-                <img src={arkLogo} alt="" className="w-7 h-7 rounded-lg shrink-0" />
+                <OrgLogo className="w-7 h-7 rounded-lg shrink-0" decorative />
                 <span className="text-sm font-semibold text-foreground truncate">{pageLabel}</span>
               </div>
 

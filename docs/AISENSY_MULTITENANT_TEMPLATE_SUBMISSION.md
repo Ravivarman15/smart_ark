@@ -176,7 +176,7 @@ ABC Academy
 
 | | |
 |---|---|
-| **Campaign name** | `smartark_staff_credentials` |
+| **Campaign name** | `smartark_staff_credentials1` |
 | **Category** | UTILITY |
 | **Language** | English |
 | Replaces (keep live) | `staff_credentials` |
@@ -188,7 +188,7 @@ ABC Academy
 ```
 Dear {{1}},
 
-Your {{6}} staff portal account has been created.
+Your staff portal account has been created.
 
 Role: {{2}}
 Login Email: {{3}}
@@ -226,7 +226,7 @@ Thank you,
 ```
 Dear Priya S,
 
-Your ARK Learning Arena staff portal account has been created.
+Your staff portal account has been created.
 
 Role: Teacher
 Login Email: priya@example.com
@@ -244,7 +244,7 @@ ARK Learning Arena
 ```
 Dear Priya S,
 
-Your ABC Academy staff portal account has been created.
+Your staff portal account has been created.
 
 Role: Teacher
 Login Email: priya@example.com
@@ -263,7 +263,7 @@ ABC Academy
 
 | | |
 |---|---|
-| **Campaign name** | `smartark_student_credentials` |
+| **Campaign name** | `smartark_student_credentials1` |
 | **Category** | UTILITY |
 | **Language** | English |
 | Replaces (keep live) | `parent_credentials` |
@@ -275,7 +275,7 @@ ABC Academy
 ```
 Dear {{1}},
 
-The {{6}} Parent Portal account for {{2}} has been created.
+The Parent Portal account for {{2}} has been created.
 
 Login Email: {{3}}
 Temporary Password: {{4}}
@@ -312,7 +312,7 @@ Thank you,
 ```
 Dear Mr. Kumar,
 
-The ARK Learning Arena Parent Portal account for Arjun has been created.
+The Parent Portal account for Arjun has been created.
 
 Login Email: priya@example.com
 Temporary Password: Tmp#4821
@@ -329,7 +329,7 @@ ARK Learning Arena
 ```
 Dear Mr. Kumar,
 
-The ABC Academy Parent Portal account for Arjun has been created.
+The Parent Portal account for Arjun has been created.
 
 Login Email: priya@example.com
 Temporary Password: Tmp#4821
@@ -414,8 +414,8 @@ Thank you. — ABC Academy
 |---|---|---|---|
 | `ark_attendance_absent` | `smartark_attendance_absent` | READY_FOR_SUBMISSION | **LEGACY** |
 | `ark_attendance_corrected` | `smartark_attendance_corrected` | READY_FOR_SUBMISSION | **LEGACY** |
-| `staff_credentials` | `smartark_staff_credentials` | READY_FOR_SUBMISSION | **LEGACY** |
-| `parent_credentials` | `smartark_student_credentials` | READY_FOR_SUBMISSION | **LEGACY** |
+| `staff_credentials` | `smartark_staff_credentials1` | READY_FOR_SUBMISSION | **LEGACY** |
+| `parent_credentials` | `smartark_student_credentials1` | READY_FOR_SUBMISSION | **LEGACY** |
 | `fee_receipt` | `smartark_fee_receipt` | READY_FOR_SUBMISSION | **LEGACY** |
 
 ---

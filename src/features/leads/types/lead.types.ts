@@ -102,6 +102,18 @@ export interface PublicLeadInput {
   source?: LeadSource;
   message?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Which institution this enquiry is for, as a SLUG.
+   *
+   * Required for the unauthenticated form. `leads.organization_id` defaults to
+   * `current_org_id()`, which is NULL for an anonymous visitor once more than
+   * one organization exists — so before this field the insert failed the NOT
+   * NULL constraint and every public enquiry was lost.
+   *
+   * A slug, never an organization id: the database resolves it, so a visitor
+   * cannot choose which tenant their enquiry lands in.
+   */
+  orgSlug?: string;
 }
 
 export interface LeadFilters {

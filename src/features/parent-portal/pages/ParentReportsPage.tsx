@@ -6,6 +6,11 @@
 // No parallel report generator, no new PDF dependency.
 
 import { useState } from "react";
+import {
+  buildReceiptTheme,
+  useDocumentBranding,
+  type DocumentBranding,
+} from "@/features/branding/documents";
 import { FileBarChart, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { generateStudent360 } from "@/features/students/services";
@@ -23,11 +28,14 @@ const esc = (s: unknown) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
   );
 
-const shell = (title: string, student: Student, body: string) => `<!doctype html><html><head>
+// branding is a required parameter, not an optional with a default: this is a
+// PARENT-facing document, and it previously printed "ARK LEARNING ARENA" to
+// every tenant's parents. A default is how that comes back.
+const shell = (title: string, student: Student, body: string, branding: DocumentBranding) => `<!doctype html><html><head>
 <meta charset="utf-8"><title>${esc(title)} — ${esc(student.name)}</title><style>
   body{font-family:ui-sans-serif,system-ui,Segoe UI,sans-serif;color:#0f172a;margin:0}
   .page{max-width:794px;margin:0 auto;padding:40px 34px}
-  .brand{font-weight:800;letter-spacing:.12em;color:#4f46e5;font-size:13px}
+  .brand{font-weight:800;letter-spacing:.12em;color:${buildReceiptTheme(branding).primaryOnWhite};font-size:13px}
   h1{font-size:21px;margin:5px 0 4px}
   .sub{color:#64748b;font-size:12px;margin:0 0 18px}
   table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
@@ -37,11 +45,11 @@ const shell = (title: string, student: Student, body: string) => `<!doctype html
   .foot{margin-top:26px;font-size:10px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px}
   @media print{@page{size:A4;margin:15mm}}
 </style></head><body><div class="page">
-  <div class="brand">ARK LEARNING ARENA</div>
+  <div class="brand">${esc(branding.organizationName.toUpperCase())}</div>
   <h1>${esc(title)}</h1>
   <p class="sub">${esc(student.name)} · ${esc([student.standardName, student.section, student.batch].filter(Boolean).join(" · "))} · Generated ${formatDate(new Date().toISOString())}</p>
   ${body}
-  <p class="foot">ARK Learning Arena · Parent Portal · Confidential</p>
+  <p class="foot">${esc(branding.organizationName)} · Parent Portal · Confidential</p>
 </div>
 <script>window.addEventListener('load',function(){setTimeout(function(){window.print()},300)})</script>
 </body></html>`;
@@ -53,6 +61,9 @@ export const ParentReportsPage = () => {
   const { data: days = [] } = useChildAttendance(student?.id);
   const { data: insights } = useChildInsights(student?.id);
   const [busy, setBusy] = useState<string | null>(null);
+  // The institution the parent's child actually attends. Resolved once for the
+  // page; both report builders below print it as the letterhead.
+  const { branding } = useDocumentBranding();
 
   const audit = (detail: string) => {
     if (!parent || !student) return;
@@ -102,6 +113,7 @@ export const ParentReportsPage = () => {
         "Attendance Report",
         student,
         `<table><thead><tr><th>Month</th><th class="r">Present</th><th class="r">Late</th><th class="r">Absent</th><th class="r">Total</th><th class="r">%</th></tr></thead><tbody>${rows}</tbody></table>`,
+        branding,
       ),
       win,
     );
@@ -135,6 +147,7 @@ export const ParentReportsPage = () => {
         </tbody></table>
         <h3 style="font-size:13px;margin:18px 0 4px">Payment history</h3>
         ${receipts ? `<table><thead><tr><th>Receipt</th><th>Date</th><th>Method</th><th class="r">Amount</th></tr></thead><tbody>${receipts}</tbody></table>` : "<p style='font-size:12px;color:#64748b'>No payments recorded.</p>"}`,
+        branding,
       ),
       win,
     );

@@ -39,8 +39,14 @@ const row = (label: string, value: string): string =>
 /**
  * Render a receipt as a fully self-contained HTML document — suitable for
  * `printWindow.document.write()` or as an email body. Pure string, no DOM.
+ *
+ * `orgName` has NO default. It previously defaulted to "ARK School", which
+ * meant every caller that omitted it stamped one tenant's name onto another
+ * tenant's receipt — silently, because a default parameter never errors. An
+ * empty string renders the receipt without a name, which is wrong but honest;
+ * a competitor's name is wrong and convincing.
  */
-export const receiptToHtml = (r: ReceiptData, orgName = "ARK School"): string => `
+export const receiptToHtml = (r: ReceiptData, orgName: string): string => `
 <!doctype html><html><head><meta charset="utf-8"/>
 <title>Receipt ${r.receiptNo}</title></head>
 <body style="font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#0f172a;margin:0;padding:24px;">
@@ -76,7 +82,7 @@ export const receiptToHtml = (r: ReceiptData, orgName = "ARK School"): string =>
 </body></html>`;
 
 /** Open the receipt in a new window and trigger the print dialog. */
-export const printReceipt = (r: ReceiptData, orgName?: string): void => {
+export const printReceipt = (r: ReceiptData, orgName: string): void => {
   const win = window.open("", "_blank", "width=420,height=640");
   if (!win) return;
   win.document.write(receiptToHtml(r, orgName));
@@ -85,8 +91,8 @@ export const printReceipt = (r: ReceiptData, orgName?: string): void => {
   win.print();
 };
 
-/** Resolve once every <img> under `root` (the ARK logo) has loaded, so the
- * html2canvas raster isn't captured before the branding paints. */
+/** Resolve once every <img> under `root` (the organization logo) has loaded, so
+ * the html2canvas raster isn't captured before the branding paints. */
 const waitForImages = (root: HTMLElement, timeoutMs = 4000): Promise<void> =>
   new Promise((resolve) => {
     const start = Date.now();
@@ -103,17 +109,20 @@ const waitForImages = (root: HTMLElement, timeoutMs = 4000): Promise<void> =>
 
 /**
  * Render the receipt to an A4 PDF Blob for emailing / archival. Renders the SAME
- * branded `ReceiptBody` the on-screen receipt dialog uses (ARK logo + navy/accent
- * header, meta grid, amount band, signatory) — one receipt design, identical to
- * the on-screen download and mirroring the payroll salary slip. Exactly the
- * payslipPdf pattern: mount the component off-screen, wait for the logo, raster
- * with html2canvas, wrap in jsPDF. Dynamic imports keep React-DOM / jsPDF /
- * html2canvas / the dialog chunk out of the main bundle until a receipt is sent.
+ * branded `ReceiptBody` the on-screen receipt dialog uses (organization logo +
+ * its own header colours, meta grid, amount band, signatory) — one receipt
+ * design, identical to the on-screen download and mirroring the payroll salary
+ * slip. Exactly the payslipPdf pattern: mount the component off-screen, wait for
+ * the logo, raster with html2canvas, wrap in jsPDF. Dynamic imports keep
+ * React-DOM / jsPDF / html2canvas / the dialog chunk out of the main bundle
+ * until a receipt is sent.
+ *
+ * BRANDING: resolved and awaited BEFORE the off-screen render. `ReceiptBody`
+ * takes it as a prop rather than reading a hook, because a fetch after mount
+ * would race `waitForImages` and intermittently rasterise an unbranded receipt.
+ * The resolver is session-cached, so a bulk send is one lookup.
  */
-export const receiptToPdfBlob = async (
-  r: ReceiptData,
-  _orgName?: string,
-): Promise<Blob> => {
+export const receiptToPdfBlob = async (r: ReceiptData): Promise<Blob> => {
   if (typeof document === "undefined") {
     throw new Error("Receipt PDF generation requires a browser environment.");
   }
@@ -123,13 +132,17 @@ export const receiptToPdfBlob = async (
     { default: jsPDF },
     { default: html2canvas },
     { ReceiptBody },
+    { resolveDocumentBranding },
   ] = await Promise.all([
     import("react"),
     import("react-dom/client"),
     import("jspdf"),
     import("html2canvas"),
     import("../components/FeeReceiptDialog"),
+    import("@/features/branding/documents"),
   ]);
+
+  const branding = await resolveDocumentBranding();
 
   const host = document.createElement("div");
   host.style.position = "fixed";
@@ -141,7 +154,7 @@ export const receiptToPdfBlob = async (
 
   const root = createRoot(host);
   try {
-    root.render(createElement(ReceiptBody, { receipt: r }));
+    root.render(createElement(ReceiptBody, { receipt: r, branding }));
     await waitForImages(host);
 
     const node = (host.querySelector("#fee-receipt") as HTMLElement) ?? host;

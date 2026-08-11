@@ -134,7 +134,12 @@ class FeeReceiptDeliveryService extends BaseService {
           notes: r.notes,
         },
       );
-      const blob = await receiptToPdfBlob(receipt, (await orgContextService.vars()).org_name);
+      // The org name is no longer threaded through here: receiptToPdfBlob
+      // resolves the FULL document branding itself (logo, address, colours,
+      // signatory), from the same session cache orgContextService uses. Passing
+      // a name would have branded only one line of a document whose every other
+      // line was still hardcoded.
+      const blob = await receiptToPdfBlob(receipt);
       const safeReceipt = receiptNo.replace(/[^a-zA-Z0-9_-]/g, "_");
       const path = orgPath(`${studentFeeId}/${safeReceipt}.pdf`);
       const up = await this.db.storage

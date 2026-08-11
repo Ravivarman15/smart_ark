@@ -152,7 +152,7 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "attendance_date", "date"),
     val(p, "org_name"),
   ],
-  smartark_staff_credentials: (p) => [
+  smartark_staff_credentials1: (p) => [
     val(p, "staff_name"),
     val(p, "role"),
     val(p, "login_email"),
@@ -160,7 +160,7 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "login_url"),
     val(p, "org_name"),
   ],
-  smartark_student_credentials: (p) => [
+  smartark_student_credentials1: (p) => [
     val(p, "parent_name"),
     val(p, "student_name"),
     val(p, "login_email"),

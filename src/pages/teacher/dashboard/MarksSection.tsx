@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useDocumentBranding } from "@/features/branding/documents";
 import { toast } from "sonner";
 import {
   FileText, Search, Award, MessageCircle, CheckCircle2, ChevronDown,
@@ -37,6 +38,8 @@ const MarksSection: React.FC<Props> = ({ ws }) => {
   });
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState<string | null>(null);
+  // Signs the marks report that goes to a parent on WhatsApp.
+  const { branding } = useDocumentBranding();
 
   useEffect(() => {
     if (teacherInfo?.subject) setForm((p) => ({ ...p, subject: teacherInfo.subject }));
@@ -92,6 +95,8 @@ const MarksSection: React.FC<Props> = ({ ws }) => {
       examType: entry.examType,
       remarks: entry.remarks,
       teacherName: entry.teacherName,
+      // The school the parent actually deals with, not a hardcoded one.
+      orgName: branding.organizationName,
     };
 
     if (!parentPhone) {

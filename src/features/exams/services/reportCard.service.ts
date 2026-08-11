@@ -1,4 +1,5 @@
 import { BaseService } from "@/shared/services";
+import { resolveDocumentBranding, type DocumentBranding } from "@/features/branding/documents";
 import { renderReportWindow } from "@/lib/reportWindow";
 import { buildAiSummary } from "@/features/students/utils/student360";
 import { gradeFor, round2 } from "../utils/grading";
@@ -62,6 +63,8 @@ export interface ReportCard {
   weakSubjects: string[];
   ai: ReturnType<typeof buildAiSummary>;
   generatedAt: string;
+  /** Issuing institution — resolved per tenant, never hardcoded. */
+  branding: DocumentBranding;
 }
 
 export type ReportCardFormat = "pdf" | "print" | "xlsx";
@@ -108,7 +111,10 @@ class ReportCardService extends BaseService {
 
   /** Build the report card by reusing the class/month result sheet aggregation. */
   async build(params: ReportCardParams): Promise<ReportCard> {
-    const [student, sheet] = await Promise.all([
+    // Resolved in the SAME Promise.all as the data, so a report card costs one
+    // extra round trip on a cold cache and zero on every later one — a class of
+    // 40 cards resolves branding once.
+    const [student, sheet, branding] = await Promise.all([
       this.studentInfo(params.studentId),
       resultSheetService.build({
         standardId: params.standardId,
@@ -118,6 +124,7 @@ class ReportCardService extends BaseService {
         academicYearName: params.academicYearName,
         batchId: params.batchId,
       }),
+      resolveDocumentBranding(),
     ]);
 
     const row = sheet.rows.find((r) => r.studentId === params.studentId);
@@ -184,6 +191,7 @@ class ReportCardService extends BaseService {
       weakSubjects,
       ai,
       generatedAt: new Date().toISOString(),
+      branding,
     };
   }
 
@@ -233,7 +241,7 @@ class ReportCardService extends BaseService {
   }
 </style></head><body>
   <div class="hd">
-    <div class="brand"><h1>ARK Learning Arena</h1><p>${esc(card.params.academicYearName ?? "")} · ${esc(monthLabel(card.params.month))} Examination</p></div>
+    <div class="brand"><h1>${esc(card.branding.organizationName)}</h1><p>${esc(card.params.academicYearName ?? "")} · ${esc(monthLabel(card.params.month))} Examination</p></div>
     <img src="${qrUrl(s.id, 84)}" width="84" height="84" alt="QR">
   </div>
   <div class="who">

@@ -39,27 +39,66 @@ export interface Branding {
   websiteUrl?: string;
 }
 
+/**
+ * The PLATFORM's own identity — the fallback when no tenant branding is
+ * supplied.
+ *
+ * ┌── WHAT THIS USED TO BE ────────────────────────────────────────────────┐
+ * │   orgName: "The Ark Tuition"                                           │
+ * │   productName: "Ark ERP"                                               │
+ * │   supportEmail: "support@thearktuition.com"                            │
+ * │   websiteUrl: "https://thearktuition.com"                              │
+ * │                                                                        │
+ * │ BRANDING_BY_BRANCH was empty and nothing ever passed an override, so   │
+ * │ EVERY email the platform sent — staff welcome, password reset, payslip,│
+ * │ fee receipt — reached every tenant's staff and parents signed "The Ark │
+ * │ Tuition", with ARK's support address for replies.                      │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * These values are now the platform's, so an unbranded email is merely
+ * generic rather than attributed to a competitor.
+ */
 export const DEFAULT_BRANDING: Branding = {
-  orgName: "The Ark Tuition",
-  productName: "Ark ERP",
-  primaryColor: "#0f2942",
+  orgName: "Smart ARK",
+  productName: "Smart ARK",
+  primaryColor: "#0B2D56",
   accentColor: "#2563eb",
-  supportEmail: "support@thearktuition.com",
+  supportEmail: "",
   supportPhone: "",
-  websiteUrl: "https://thearktuition.com",
+  websiteUrl: "",
 };
 
 // Per-branch overrides — merged over DEFAULT_BRANDING. Add a branch by adding
 // a key here; unknown / missing branch keys fall back to the default.
-export const BRANDING_BY_BRANCH: Record<string, Partial<Branding>> = {
-  // "north-campus": { orgName: "The Ark Tuition — North", primaryColor: "#1e3a5f" },
-};
+export const BRANDING_BY_BRANCH: Record<string, Partial<Branding>> = {};
 
-/** Resolve the branding for a branch, merged over the default. */
-export const getBranding = (branch?: string): Branding => ({
-  ...DEFAULT_BRANDING,
-  ...(branch ? BRANDING_BY_BRANCH[branch] ?? {} : {}),
-});
+/**
+ * Resolve the branding for an email.
+ *
+ * `override` carries the SENDING ORGANIZATION's own identity, resolved by the
+ * caller from the verified JWT — never from the request body. It wins over
+ * both the branch map and the platform default, so a tenant's parents see
+ * that tenant's name.
+ *
+ * Empty-string fields in the override are ignored rather than blanking the
+ * default: an organization that has not set a support email should fall back
+ * to something, not to nothing.
+ */
+export const getBranding = (
+  branch?: string,
+  override?: Partial<Branding>,
+): Branding => {
+  const merged: Branding = {
+    ...DEFAULT_BRANDING,
+    ...(branch ? BRANDING_BY_BRANCH[branch] ?? {} : {}),
+  };
+  for (const [k, v] of Object.entries(override ?? {})) {
+    if (typeof v === "string" ? v.trim() !== "" : v != null) {
+      (merged as unknown as Record<string, unknown>)[k] = v;
+    }
+  }
+  return merged;
+};
 
 // ── Shared HTML shell ───────────────────────────────────────────────────────
 const esc = (s: string): string =>
@@ -399,7 +438,9 @@ const renderSalarySlip = (p: SalarySlipParams, b: Branding): RenderedEmail => {
 // the full payment detail; the PDF receipt is attached to the email (and linked
 // via the secure download button when a signed URL is available).
 const renderFeeReceipt = (p: FeeReceiptParams, b: Branding): RenderedEmail => {
-  const subject = "ARK Learning Arena Fee Payment Receipt";
+  // The issuing institution, not a hardcoded one — this subject line lands in
+  // a parent's inbox and is the first thing they read.
+  const subject = `${b.orgName} Fee Payment Receipt`;
   const detail = (label: string, value: string): string =>
     `<tr>
       <td style="padding:8px 0;color:#64748b;font-size:13px;width:160px;">${esc(label)}</td>
@@ -431,7 +472,7 @@ const renderFeeReceipt = (p: FeeReceiptParams, b: Branding): RenderedEmail => {
       <a href="mailto:${esc(b.supportEmail)}" style="color:${b.accentColor};">${esc(b.supportEmail)}</a>${b.supportPhone ? ` or ${esc(b.supportPhone)}` : ""}.
     </p>`;
   const text = [
-    `ARK Learning Arena — Fee Payment Receipt`,
+    `${b.orgName} — Fee Payment Receipt`,
     ``,
     `Dear ${p.recipientName || "Parent"}, we have received your fee payment for ${p.studentName}.`,
     ``,
@@ -485,8 +526,10 @@ export const renderEmail = (
   templateId: EmailTemplateId,
   params: Record<string, unknown>,
   branch?: string,
+  /** The sending organization's identity, resolved from the VERIFIED caller. */
+  override?: Partial<Branding>,
 ): RenderedEmail => {
-  const branding = getBranding(branch);
+  const branding = getBranding(branch, override);
   switch (templateId) {
     case "staff-welcome":
       return renderStaffWelcome(params as unknown as StaffWelcomeParams, branding);

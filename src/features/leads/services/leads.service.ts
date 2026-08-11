@@ -261,6 +261,10 @@ class LeadsService extends BaseService {
             campus: input.campus?.trim() || undefined,
             message: input.message?.trim() || undefined,
             source: input.source ?? "landing",
+            // The tenant this enquiry belongs to. Without it the function
+            // inserts with no organization_id and hits the same NOT NULL
+            // failure the direct insert did.
+            org_slug: input.orgSlug,
           },
         });
         // Success → the pipeline ran (WhatsApp queued, counselor assigned).
@@ -281,22 +285,35 @@ class LeadsService extends BaseService {
     }
 
     // 2. Fallback — capture the lead so it is never lost (no automation).
-    const payload: Row = {
-      student_name: input.studentName.trim(),
-      parent_name: input.parentName?.trim() || null,
-      phone: input.phone.trim(),
-      email: input.email?.trim() || null,
-      source: input.source ?? "landing",
-      course: input.course?.trim() || null,
-      standard: input.standard?.trim() || null,
-      campus: input.campus?.trim() || null,
-      status: "new",
-      assigned_to: null,
-      assignment_state: "unassigned",
-      notes: input.message?.trim() || null,
-      metadata: input.metadata ?? {},
-    };
-    const res = await this.db.from("leads").insert(payload as never);
+    //
+    // Goes through `submit_public_lead`, NOT a direct insert. A direct anon
+    // insert cannot succeed any more: `leads.organization_id` defaults to
+    // `current_org_id()`, which is NULL for an anonymous caller now that more
+    // than one organization exists, and the anon RLS policy independently
+    // requires `organization_id = current_org_id()`. Both fail.
+    //
+    // The RPC takes the SLUG and resolves the organization server-side, so the
+    // browser still never chooses which tenant a lead lands in. It is
+    // SECURITY DEFINER and re-implements every guard the RLS policy enforced.
+    if (!input.orgSlug) {
+      throw AppError.validation(
+        "This enquiry form is not linked to an institution, so the enquiry cannot be delivered.",
+      );
+    }
+    const res = await this.db.rpc("submit_public_lead" as never, {
+      _slug: input.orgSlug,
+      _payload: {
+        student_name: input.studentName.trim(),
+        parent_name: input.parentName?.trim() || null,
+        phone: input.phone.trim(),
+        email: input.email?.trim() || null,
+        source: input.source ?? "landing",
+        course: input.course?.trim() || null,
+        standard: input.standard?.trim() || null,
+        campus: input.campus?.trim() || null,
+        message: input.message?.trim() || null,
+      },
+    } as never);
     if (res.error) throw AppError.fromSupabase(res.error, "leads.submitPublic");
   }
 }

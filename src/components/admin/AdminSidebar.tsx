@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStaffRights, ModuleKey } from "@/contexts/StaffRightsContext";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { OrgLogo } from "@/features/branding/components/OrgLogo";
 import {
   LayoutDashboard, Users, GraduationCap,
   LogOut, ClipboardCheck, PhoneCall, Calendar, ClipboardList, UserCheck,
@@ -185,7 +185,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed, onToggle, onNavi
     <aside className={`h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-sidebar-border min-h-[60px]">
-        <img src={arkLogo} alt="ARK" className="w-8 h-8 rounded-lg flex-shrink-0" />
+        <OrgLogo className="w-8 h-8 rounded-lg flex-shrink-0" />
         {!collapsed && (
           <div className="min-w-0">
             <span className="font-display font-bold text-foreground text-sm block truncate">ARK Admin</span>

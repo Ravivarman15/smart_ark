@@ -177,7 +177,7 @@ TEMPLATE_PARAM_SPECS["smartark_attendance_corrected"] = (p) => [
   val(p, "attendance_date", "date"),
   val(p, "org_name"),
 ];
-TEMPLATE_PARAM_SPECS["smartark_staff_credentials"] = (p) => [
+TEMPLATE_PARAM_SPECS["smartark_staff_credentials1"] = (p) => [
   val(p, "staff_name"),
   val(p, "role"),
   val(p, "login_email"),
@@ -185,7 +185,7 @@ TEMPLATE_PARAM_SPECS["smartark_staff_credentials"] = (p) => [
   val(p, "login_url"),
   val(p, "org_name"),
 ];
-TEMPLATE_PARAM_SPECS["smartark_student_credentials"] = (p) => [
+TEMPLATE_PARAM_SPECS["smartark_student_credentials1"] = (p) => [
   val(p, "parent_name"),
   val(p, "student_name"),
   val(p, "login_email"),

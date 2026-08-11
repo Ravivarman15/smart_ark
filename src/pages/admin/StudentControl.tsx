@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { monogramOf, resolveDocumentBranding } from "@/features/branding/documents";
 
 interface Standard { id: string; name: string; }
 interface Batch { id: string; name: string; standard_id: string | null; timing_start: string | null; timing_end: string | null; }
@@ -42,11 +42,15 @@ const riskLabel = (risk: string | null) => {
 };
 
 // ─── Async logo preloader ─────────────────────────────────────────────────────
-// Loads the ARK logo JPEG into a canvas and returns a base64 data-URI.
+// Loads the ORGANIZATION’s logo into a canvas and returns a base64 data-URI.
+// Resolves null for an empty url or a failed load — the header then draws a
+// monogram of the tenant’s initials rather than any default image.
 // Must be awaited before calling generateStudentListPDF.
-const preloadLogo = (): Promise<string | null> =>
+const preloadLogo = (url: string): Promise<string | null> =>
   new Promise(resolve => {
+    if (!url) return resolve(null);
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
@@ -57,7 +61,7 @@ const preloadLogo = (): Promise<string | null> =>
       } catch { resolve(null); }
     };
     img.onerror = () => resolve(null);
-    img.src = arkLogo;
+    img.src = url;
   });
 
 // ─── Professional PDF Generator (Portrait A4) ────────────────────────────────
@@ -72,7 +76,8 @@ const generateStudentListPDF = (
   filterStandard: string,
   filterRisk: string,
   search: string,
-  logoData: string | null   // pre-loaded base64 JPEG from preloadLogo()
+  logoData: string | null,  // pre-loaded base64 JPEG from preloadLogo()
+  orgName: string,          // issuing institution — required, never defaulted
 ) => {
   // ── Document ────────────────────────────────────────────────────────────────
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -184,7 +189,9 @@ const generateStudentListPDF = (
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(...C.white);
-      doc.text("ARK", LOGO_X + LOGO_SZ / 2, LOGO_Y + 14, { align: "center" });
+      // The tenant’s own initials. There is no default logo image, because the
+      // only one available would be another tenant’s mark.
+      doc.text(monogramOf(orgName), LOGO_X + LOGO_SZ / 2, LOGO_Y + 14, { align: "center" });
     }
 
     // ── School name + tagline ─────────────────────────────────────────────────
@@ -192,7 +199,7 @@ const generateStudentListPDF = (
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
     doc.setTextColor(...C.white);
-    doc.text("ARK LEARNING ARENA", TEXT_X, 12);
+    doc.text(orgName.toUpperCase(), TEXT_X, 12);
 
     // Gold underline accent below school name
     doc.setFillColor(...C.gold);
@@ -391,7 +398,7 @@ const generateStudentListPDF = (
     doc.setDrawColor(...C.navy); doc.setLineWidth(0.6);
     doc.line(ML, fy, PW - MR, fy);
     doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(...C.gray6);
-    doc.text("ARK Learning Arena  ·  Confidential — For Authorised Internal Use Only", ML, fy + 5);
+    doc.text(orgName + "  ·  Confidential — For Authorised Internal Use Only", ML, fy + 5);
     doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(...C.navy);
     doc.text("Page " + pg + " / " + tPages, PW - MR, fy + 5, { align: "right" });
   };
@@ -425,7 +432,10 @@ const generateStudentListPDF = (
   // ── Save ──────────────────────────────────────────────────────────────────────
   const slug    = filterLabel().replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_").slice(0, 40);
   const dateFmt = now.toISOString().split("T")[0];
-  doc.save("ARK_StudentList_" + slug + "_" + dateFmt + ".pdf");
+  // Filename carries the issuing institution, so two tenants’ exports do not
+  // collide in a shared downloads folder.
+  const orgSlug = orgName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "StudentList";
+  doc.save(orgSlug + "_StudentList_" + slug + "_" + dateFmt + ".pdf");
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -669,8 +679,13 @@ const StudentControl: React.FC = () => {
     }
     setDownloadingPDF(true);
     try {
-      const logoData = await preloadLogo();
-      generateStudentListPDF(filtered, standards, allBatches, courseTypes, filterStandard, filterRisk, search, logoData);
+      // One branding resolution for the whole export, not one per student.
+      const branding = await resolveDocumentBranding();
+      const logoData = await preloadLogo(branding.logoUrl);
+      generateStudentListPDF(
+        filtered, standards, allBatches, courseTypes,
+        filterStandard, filterRisk, search, logoData, branding.organizationName,
+      );
       toast.success(`PDF exported — ${filtered.length} student${filtered.length !== 1 ? "s" : ""} included`);
     } catch (e: any) {
       toast.error("Failed to generate PDF: " + e.message);

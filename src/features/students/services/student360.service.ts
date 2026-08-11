@@ -19,6 +19,11 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { supabase } from "@/integrations/supabase/client";
+import {
+  NEUTRAL_DOCUMENT_BRANDING,
+  resolveDocumentBranding,
+  type DocumentBranding,
+} from "@/features/branding/documents";
 import { commsTimelineService } from "@/features/communication/services";
 import type { TimelineEntry } from "@/features/communication/types/communication.types";
 import {
@@ -65,6 +70,8 @@ export interface Student360Data {
   activity: ActivityItem[];
   health: HealthScores;
   ai: AiSummary;
+  /** Issuing institution — resolved per tenant, never hardcoded. */
+  branding: DocumentBranding;
 }
 
 const inr = (n: number): string => `₹${Math.round(n || 0).toLocaleString("en-IN")}`;
@@ -119,11 +126,15 @@ const buildActivity = (s: Student, insights: StudentInsights): ActivityItem[] =>
 export const gatherStudent360 = async (student: Student): Promise<Student360Data> => {
   const insights = await fetchStudentInsights(student.id);
   const phone = student.parentContact || student.studentContact;
-  const [comm, docs, monthly] = await Promise.allSettled([
+  // Branding joins the SAME settled batch as the data. allSettled, so a
+  // branding failure degrades the letterhead instead of failing the report.
+  const [comm, docs, monthly, brand] = await Promise.allSettled([
     commsTimelineService.forRecipient({ studentId: student.id, phone }, 100),
     documentsService.list({ studentId: student.id }),
     monthlyAttendance(student.id),
+    resolveDocumentBranding(),
   ]);
+  const branding = brand.status === "fulfilled" ? brand.value : NEUTRAL_DOCUMENT_BRANDING;
   const communication = comm.status === "fulfilled" ? comm.value : [];
   const documents = docs.status === "fulfilled" ? docs.value : [];
   const monthlyRows = monthly.status === "fulfilled" ? monthly.value : [];
@@ -151,6 +162,7 @@ export const gatherStudent360 = async (student: Student): Promise<Student360Data
 
   return {
     student,
+    branding,
     generatedAt: new Date().toISOString(),
     insights,
     monthly: monthlyRows,
@@ -218,7 +230,7 @@ const buildReportHtml = (d: Student360Data): string => {
 
   // Section 1 — Cover
   const cover = `<section class="cover">
-    <div class="brand">ARK LEARNING ARENA</div>
+    <div class="brand">${esc(d.branding.organizationName.toUpperCase())}</div>
     <div class="cover-grid">
       <div>${photo}</div>
       <div class="cover-meta">
@@ -508,7 +520,7 @@ const buildReportHtml = (d: Student360Data): string => {
     ${ai}
     ${management}
   </div>
-  <div class="footer">ARK Learning Arena · Student 360° Report · ${esc(s.name)} · Confidential · ${formatDate(d.generatedAt)}</div>
+  <div class="footer">${esc(d.branding.organizationName)} · Student 360° Report · ${esc(s.name)} · Confidential · ${formatDate(d.generatedAt)}</div>
   <script>window.addEventListener('load',function(){setTimeout(function(){window.print()},350)})</script>
 </body></html>`;
 };

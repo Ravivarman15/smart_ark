@@ -68,7 +68,42 @@ Deno.serve(async (req) => {
       });
     }
 
-    const mail = renderEmail(body.templateId, body.params ?? {}, body.branch);
+    // ── Sender identity ────────────────────────────────────────────────────
+    // Resolved from the VERIFIED caller's organization, exactly like the
+    // credentials below — never from the request body, which would let one
+    // tenant send mail signed with another tenant's name.
+    //
+    // Service role, so RLS does not apply: the org id comes from `gate.caller`,
+    // which requireRole() derived from a signature-verified JWT.
+    //
+    // A failed lookup degrades to the PLATFORM default, which is generic. It
+    // does not degrade to a tenant.
+    let orgBranding: Record<string, string> | undefined;
+    try {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("display_name, organization_branding(app_name, support_email, support_phone, website_url, primary_color, accent_color, logo_url)")
+        .eq("id", gate.caller.organizationId)
+        .maybeSingle();
+      if (org) {
+        const b = (Array.isArray(org.organization_branding)
+          ? org.organization_branding[0]
+          : org.organization_branding) as Record<string, string> | null;
+        orgBranding = {
+          orgName: (b?.app_name || org.display_name || "") as string,
+          supportEmail: (b?.support_email ?? "") as string,
+          supportPhone: (b?.support_phone ?? "") as string,
+          websiteUrl: (b?.website_url ?? "") as string,
+          primaryColor: (b?.primary_color ?? "") as string,
+          accentColor: (b?.accent_color ?? "") as string,
+          logoUrl: (b?.logo_url ?? "") as string,
+        };
+      }
+    } catch (e) {
+      console.warn("[send-email] branding lookup failed; using platform default:", e);
+    }
+
+    const mail = renderEmail(body.templateId, body.params ?? {}, body.branch, orgBranding);
 
     // ── Phase 6: per-organization sender, platform by default ──────────────
     // The organization is taken from the VERIFIED caller, never from the

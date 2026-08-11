@@ -135,10 +135,42 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Duplicate check.
+    // ── 0. WHICH TENANT? ────────────────────────────────────────────────────
+    // This function runs as SERVICE ROLE, so `current_org_id()` — the default
+    // for leads.organization_id — is NULL. That default resolved to the only
+    // organization while there was only one; since a second was created it
+    // returns NULL and every insert here failed the NOT NULL constraint.
+    //
+    // The tenant therefore has to be named explicitly. A SLUG, resolved here,
+    // never an organization_id from the request body: a Meta Ads webhook is
+    // an unauthenticated caller, and one that could pick an organization_id
+    // could post leads into any tenant's pipeline.
+    const orgSlug = pick(body, ["org_slug", "orgSlug", "organization", "tenant"]);
+    if (!orgSlug) {
+      return json({ error: "org_slug is required — which institution is this enquiry for?" }, 422);
+    }
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id, display_name, status")
+      .ilike("slug", orgSlug)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!org) return json({ error: "Unknown organization" }, 404);
+    if (org.status === "suspended") {
+      return json({ error: "This organization is not accepting enquiries" }, 403);
+    }
+    const organizationId = org.id as string;
+    const orgName = (org.display_name as string) ?? "";
+
+    // 1. Duplicate check — SCOPED TO THIS TENANT.
+    //    Unscoped, a service-role query sees every organization's leads, so an
+    //    ABC Academi enquiry from a phone number ARK already had would be
+    //    flagged `is_duplicate` and linked via `duplicate_of` to a row in
+    //    another tenant — a cross-tenant reference written into ABC's data.
     const { data: dup } = await supabase
       .from("leads")
       .select("id")
+      .eq("organization_id", organizationId)
       .is("deleted_at", null)
       .or(`phone.eq.${phone}${email ? `,email.ilike.${email}` : ""}`)
       .limit(1)
@@ -162,6 +194,10 @@ Deno.serve(async (req) => {
     const { data: lead, error: insErr } = await supabase
       .from("leads")
       .insert({
+        // Explicit, resolved from the slug above. The column default
+        // (`current_org_id()`) is NULL under service role and would fail the
+        // NOT NULL constraint.
+        organization_id: organizationId,
         student_name: studentName,
         parent_name: parentName ?? null,
         phone,
@@ -251,7 +287,7 @@ Deno.serve(async (req) => {
           recipientName: counselorName, recipientKind: "counselor",
           body:
             `Hi ${counselorName}\n\nNew Lead Assigned\n\nStudent:\n${studentName}\n\n` +
-            `Course:\n${course ?? "—"}\n\nMobile:\n${phone}\n\nPlease contact within 15 minutes.\n\nARK CRM`,
+            `Course:\n${course ?? "—"}\n\nMobile:\n${phone}\n\nPlease contact within 15 minutes.\n\n${orgName}`,
           vars: {
             counselor_name: counselorName, student_name: studentName,
             course_name: course ?? "—", mobile_number: phone,
@@ -281,8 +317,11 @@ Deno.serve(async (req) => {
     await enqueueWa(supabase, {
       leadId: lead.id, template: "lead_welcome", phone,
       recipientName: parentName ?? studentName, recipientKind: "lead",
+      // The institution the enquiry was actually made to — resolved above, not
+      // hardcoded. This message goes to a prospective parent on WhatsApp, so a
+      // wrong name here reaches a stranger under a number they trust.
       body:
-        `Hi ${studentName}\n\nThank you for your interest in ARK Learning Arena.\n\n` +
+        `Hi ${studentName}\n\nThank you for your interest${orgName ? ` in ${orgName}` : ""}.\n\n` +
         `We have successfully received your enquiry for ${courseName}.`,
       vars: { student_name: studentName, course_name: courseName },
     });

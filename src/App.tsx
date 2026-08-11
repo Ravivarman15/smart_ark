@@ -485,7 +485,13 @@ const AppRoutes: React.FC = () => (
           (single canonical public form: dynamic course dropdown + automation). */}
       <Route path="/admissions/apply" element={<Navigate to="/leads/apply" replace />} />
       {/* Public, unauthenticated lead capture form for Meta Ads / landing pages. */}
+      {/* Public enquiry form. The :orgSlug form is what a tenant shares —
+          /leads/apply/abc-academi. The bare path still works when the HOST
+          identifies the tenant (a verified custom domain or subdomain); on the
+          shared platform host it resolves to nothing and renders an
+          "institution not found" state rather than defaulting to a tenant. */}
       <Route path="/leads/apply" element={<PublicLeadFormPage />} />
+      <Route path="/leads/apply/:orgSlug" element={<PublicLeadFormPage />} />
       {/* Public, unauthenticated student exam kiosk — proctored entry point
           used by lab devices. Roster + identity selection happen in-page. */}
       <Route path="/exam" element={<StudentExamPage />} />

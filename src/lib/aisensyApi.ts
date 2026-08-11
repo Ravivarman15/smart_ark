@@ -205,6 +205,12 @@ export function formatMarksMessage(params: {
   examType:    string;
   remarks:     string;
   teacherName: string;
+  /**
+   * The issuing institution. REQUIRED — this message is pasted into WhatsApp
+   * and sent to a parent, and it used to be signed "ARK Learning Arena" for
+   * every tenant. An optional parameter with a default is how that returns.
+   */
+  orgName:     string;
 }): string {
   const pct = Math.round((params.marks / params.totalMarks) * 100);
   let grade = "Excellent";
@@ -219,7 +225,7 @@ export function formatMarksMessage(params: {
 
   return [
     "----------------------------------",
-    "   ARK LEARNING ARENA",
+    "   " + params.orgName.toUpperCase(),
     "   Student Performance Report",
     "----------------------------------",
     "",
@@ -245,7 +251,7 @@ export function formatMarksMessage(params: {
     "",
     "----------------------------------",
     "Regards,",
-    "ARK Learning Arena",
+    params.orgName,
     "----------------------------------",
   ].join("\n");
 }

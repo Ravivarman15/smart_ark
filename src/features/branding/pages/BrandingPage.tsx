@@ -30,6 +30,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ReceiptBrandingPreview, useDocumentBranding } from "../documents";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -67,6 +68,7 @@ const BrandingPage: React.FC = () => {
         <TabsList>
           <TabsTrigger value="identity">Identity</TabsTrigger>
           <TabsTrigger value="theme">Theme</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="senders">Email &amp; WhatsApp</TabsTrigger>
           <TabsTrigger value="domain">Domain</TabsTrigger>
           <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
@@ -78,6 +80,9 @@ const BrandingPage: React.FC = () => {
         <TabsContent value="theme" className="mt-4">
           <ThemeTab />
         </TabsContent>
+        <TabsContent value="documents" className="mt-4">
+          <DocumentBrandingTab bundle={bundle} />
+        </TabsContent>
         <TabsContent value="senders" className="mt-4">
           <SendersTab bundle={bundle} />
         </TabsContent>
@@ -88,6 +93,254 @@ const BrandingPage: React.FC = () => {
           <MarketplaceTab onInstalled={() => qc.invalidateQueries({ queryKey: ["branding"] })} />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+};
+
+// ── Document branding ───────────────────────────────────────────────────────
+//
+// Everything that lands on a printed receipt or payslip. Split out from
+// Identity because those fields configure the APP and these configure a
+// document a parent keeps — and because the receipt colours must not be
+// confused with the theme colours on the Theme tab, which re-skin every portal.
+
+const ColorField: React.FC<{
+  label: string;
+  role: string;
+  value: string;
+  placeholder: string;
+  onChange: (v: string) => void;
+}> = ({ label, role, value, placeholder, onChange }) => {
+  const valid = value === "" || HEX.test(value);
+  return (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          type="color"
+          aria-label={`${label} colour picker`}
+          // A native colour input has no "unset" state, so an empty field shows
+          // the default it will actually render with rather than black.
+          value={HEX.test(value) ? value : placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-9 w-12 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+        />
+        <Input
+          value={value}
+          placeholder={`${placeholder} (default)`}
+          onChange={(e) => onChange(e.target.value.trim())}
+          className={cn("font-mono text-xs", !valid && "border-destructive")}
+        />
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground">{role}</p>
+      {!valid && (
+        <p className="mt-1 text-[11px] text-destructive">Use #rrggbb, or leave blank for the default.</p>
+      )}
+    </div>
+  );
+};
+
+const DocumentBrandingTab: React.FC<{ bundle: BrandingBundle }> = ({ bundle }) => {
+  const qc = useQueryClient();
+  const b = (bundle.branding ?? {}) as Record<string, unknown>;
+  // The SAVED, resolved branding — real organization name, address and phone,
+  // so the preview shows this tenant's actual letterhead rather than a mock.
+  const { branding: resolved } = useDocumentBranding();
+
+  const [form, setForm] = useState({
+    logo_url: String(b.logo_url ?? ""),
+    support_address: String(b.support_address ?? ""),
+    tax_id: String(b.tax_id ?? ""),
+    authorized_signatory: String(b.authorized_signatory ?? ""),
+    document_footer_note: String(b.document_footer_note ?? ""),
+    receipt_primary_color: String(b.receipt_primary_color ?? ""),
+    receipt_secondary_color: String(b.receipt_secondary_color ?? ""),
+    receipt_accent_color: String(b.receipt_accent_color ?? ""),
+  });
+
+  const colorsValid = (
+    [form.receipt_primary_color, form.receipt_secondary_color, form.receipt_accent_color] as const
+  ).every((c) => c === "" || HEX.test(c));
+
+  const persist = useMutation({
+    // Blank means "not configured" and must reach the database as NULL, not as
+    // "". An empty string is a value: it would pass the hex check (which skips
+    // NULL) on some future write path and read back as a configured colour.
+    mutationFn: (patch: Record<string, string>) =>
+      brandingService.saveBranding(
+        Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === "" ? null : v])),
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["branding"] });
+      qc.invalidateQueries({ queryKey: ["organization-branding"] });
+      toast.success("Document branding saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetColors = () => {
+    const cleared = {
+      receipt_primary_color: "",
+      receipt_secondary_color: "",
+      receipt_accent_color: "",
+    };
+    setForm({ ...form, ...cleared });
+    // Scoped by RLS to this organization's own row — resetting here cannot
+    // touch another tenant's colours, and it clears ONLY the three receipt
+    // colours, never the identity fields above them.
+    persist.mutate({ ...form, ...cleared });
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-4 rounded-lg border border-border p-5">
+        <div>
+          <h2 className="text-sm font-semibold">Document identity</h2>
+          <p className="text-xs text-muted-foreground">
+            Printed on every fee receipt and salary slip your organization generates.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Label htmlFor="logo_url">Logo URL</Label>
+            <Input
+              id="logo_url"
+              value={form.logo_url}
+              placeholder="https://… or /your-logo.png"
+              onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Left blank, documents show your initials in a monogram — never another
+              organization&rsquo;s mark.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="support_address">Address</Label>
+            <Input
+              id="support_address"
+              value={form.support_address}
+              placeholder="No 2/31, Example Street, City"
+              onChange={(e) => setForm({ ...form, support_address: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="tax_id">GST / Tax number</Label>
+            <Input
+              id="tax_id"
+              value={form.tax_id}
+              onChange={(e) => setForm({ ...form, tax_id: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">Shown only when set.</p>
+          </div>
+          <div>
+            <Label htmlFor="authorized_signatory">Authorized signatory</Label>
+            <Input
+              id="authorized_signatory"
+              value={form.authorized_signatory}
+              placeholder={resolved.organizationName}
+              onChange={(e) => setForm({ ...form, authorized_signatory: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Defaults to your organization name.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="document_footer_note">Footer note</Label>
+            <Input
+              id="document_footer_note"
+              value={form.document_footer_note}
+              placeholder="Generated by Smart ARK"
+              onChange={(e) => setForm({ ...form, document_footer_note: e.target.value })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-lg border border-border p-5">
+        <div>
+          <h2 className="text-sm font-semibold">Receipt colours</h2>
+          <p className="text-xs text-muted-foreground">
+            These colours are used for payment receipts generated by your organization.
+            They are separate from your app theme &mdash; changing them will not re-skin
+            your portals.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <ColorField
+            label="Primary"
+            role="Header band, amount panel, section headings."
+            placeholder="#0B2D56"
+            value={form.receipt_primary_color}
+            onChange={(v) => setForm({ ...form, receipt_primary_color: v })}
+          />
+          <ColorField
+            label="Secondary"
+            role="Header and amount gradient mid-tone."
+            placeholder="#13406F"
+            value={form.receipt_secondary_color}
+            onChange={(v) => setForm({ ...form, receipt_secondary_color: v })}
+          />
+          <ColorField
+            label="Accent"
+            role="Highlighted values and the gradient far tone."
+            placeholder="#479EF5"
+            value={form.receipt_accent_color}
+            onChange={(v) => setForm({ ...form, receipt_accent_color: v })}
+          />
+        </div>
+
+        <p className="rounded-md border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
+          Text colours are chosen automatically for readability. A light header gets dark
+          text, a dark header gets light text &mdash; so no colour you pick can make a
+          receipt unreadable.
+        </p>
+
+        <div>
+          <Label className="text-xs">Live preview</Label>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-border bg-white p-3">
+            <div className="min-w-[620px]">
+              <ReceiptBrandingPreview
+                // Real organization identity, overlaid with whatever is in the
+                // form right now — so the preview reflects unsaved edits.
+                branding={{
+                  ...resolved,
+                  logoUrl: form.logo_url,
+                  address: form.support_address,
+                  taxId: form.tax_id,
+                  // Blank is passed through deliberately: DocumentFooter falls
+                  // back to the organization name itself, so the preview shows
+                  // exactly what an unset signatory will actually print.
+                  authorizedSignatory: form.authorized_signatory,
+                  footerNote: form.document_footer_note,
+                }}
+                overrides={{
+                  receiptPrimaryColor: form.receipt_primary_color,
+                  receiptSecondaryColor: form.receipt_secondary_color,
+                  receiptAccentColor: form.receipt_accent_color,
+                }}
+              />
+            </div>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Your real organization details with a sample transaction.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={() => persist.mutate(form)} disabled={persist.isPending || !colorsValid}>
+          {persist.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Save branding
+        </Button>
+        <Button variant="outline" onClick={resetColors} disabled={persist.isPending}>
+          <RefreshCw className="mr-2 h-4 w-4" /> Reset colours to default
+        </Button>
+        {!colorsValid && (
+          <span className="text-xs text-destructive">Fix the highlighted colour before saving.</span>
+        )}
+      </div>
     </div>
   );
 };

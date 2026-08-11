@@ -12,7 +12,7 @@
 //   supabase secrets set BREVO_API_KEY=xkeysib-xxxxxxxxxxxxxxxx
 //   supabase secrets set SENDER_EMAIL=no-reply@thearktuition.com
 // OPTIONAL:
-//   supabase secrets set SENDER_NAME="The Ark Tuition"
+//   supabase secrets set SENDER_NAME="Your Institution"
 //
 // GRACEFUL DEGRADATION:
 //   If the secrets are not configured the client returns
@@ -91,7 +91,11 @@ export const sendBrevoEmail = async (
 ): Promise<BrevoSendResult> => {
   const apiKey = override?.apiKey ?? Deno.env.get("BREVO_API_KEY");
   const senderEmail = override?.senderEmail ?? Deno.env.get("SENDER_EMAIL");
-  const senderName = override?.senderName ?? Deno.env.get("SENDER_NAME") ?? "The Ark Tuition";
+  // Platform default, not a tenant. This is the FROM name on every email the
+  // platform sends; defaulting it to one customer signed every other customer’s
+  // mail with that customer’s name. A tenant with its own verified sender
+  // overrides it; a tenant without one is now merely generic.
+  const senderName = override?.senderName ?? Deno.env.get("SENDER_NAME") ?? "Smart ARK";
 
   if (!apiKey || !senderEmail) {
     return {

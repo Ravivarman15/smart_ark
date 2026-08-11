@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useDocumentBranding } from "@/features/branding/documents";
 import { useSearchParams } from "react-router-dom";
 import { FileSpreadsheet, FileText, Download, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -43,6 +44,9 @@ const SalaryRegisterPage = () => {
   const { data: detail } = usePayrollRun(runId);
   const [search, setSearch] = useState("");
   const [slipItem, setSlipItem] = useState<PayrollItem | null>(null);
+  // Letterhead for the printed register — the same resolver the payslips use,
+  // so a register and the slips inside it always name the same institution.
+  const { branding } = useDocumentBranding();
 
   const items = useMemo(() => {
     const list = detail?.items ?? [];
@@ -126,7 +130,7 @@ const SalaryRegisterPage = () => {
         `table{width:100%;border-collapse:collapse;font-size:11.5px}th{background:#0B2D56;color:#fff;text-align:left;padding:7px 8px}` +
         `td{padding:6px 8px;border-bottom:1px solid #e2e8f0}tfoot td{font-weight:700;border-top:2px solid #0B2D56}` +
         `@media print{body{padding:0}}</style></head><body>` +
-        `<h1>ARK Learning Arena — Salary Register</h1>` +
+        `<h1>${branding.organizationName} — Salary Register</h1>` +
         `<p>${detail.title} · ${detail.periodStart} → ${detail.periodEnd} · ${items.length} staff · Status: ${detail.status}</p>` +
         `<table><thead><tr><th>Staff</th><th>Role</th><th>Department</th><th>Att%</th>` +
         `<th>Gross</th><th>Overtime</th><th>Deductions</th><th>Net</th><th>Status</th></tr></thead>` +

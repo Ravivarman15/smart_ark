@@ -15,137 +15,56 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import {
+  AmountBand,
+  buildReceiptTheme,
+  DocumentBody,
+  DocumentFooter,
+  DocumentFrame,
+  DocumentGrid,
+  DocumentHeader,
+  HeaderMeta,
+  LineRow,
+  MetaCell,
+  SectionTitle,
+  TotalRule,
+  amountInWords,
+  useDocumentBranding,
+  type DocumentBranding,
+} from "@/features/branding/documents";
 import { formatINR, formatMinutes, minutesToHours } from "../utils/payrollCalc";
 import type { BreakdownLine, PayrollItem, PayrollRun } from "../types/payroll.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ARK-branded salary slip — print-ready + multi-format download (PDF / PNG).
+// SALARY SLIP — tenant-branded, print-ready, multi-format download (PDF / PNG).
 //
-// The printable markup uses *inline styles* (not Tailwind classes) so it renders
-// identically in three contexts: the on-screen preview, the html2canvas raster
-// (PDF / PNG), and the standalone print window built from `innerHTML`. This
-// mirrors the fee ReceiptGenerator, which the org already prints from.
+// The organization's identity used to be a `const ORG = { name: "ARK Learning
+// Arena", … }` in this file, which meant every tenant's employees received a
+// payslip on ARK's letterhead. It now arrives as a REQUIRED prop resolved from
+// the caller's own organization.
+//
+// `branding` is required, not optional-with-a-default. An optional prop is how
+// the original bug survives a refactor: every call site that forgets it
+// silently gets the default. TypeScript refuses to build instead.
+//
+// Layout, spacing, typography and figures are unchanged — this document is
+// structurally identical to the one in production, with the identity resolved
+// rather than hardcoded. No payroll number is touched: every value still comes
+// straight off `PayrollItem`, which the payroll engine computed.
 // ─────────────────────────────────────────────────────────────────────────────
-
-const BRAND = {
-  navy: "#0B2D56", // --primary 213 77% 19%
-  navySoft: "#13406F",
-  accent: "#479EF5", // --accent 210 90% 62%
-  ink: "#0f172a",
-  muted: "#64748b",
-  faint: "#94a3b8",
-  line: "#e2e8f0",
-  lineSoft: "#eef2f7",
-  red: "#dc2626",
-  panel: "#f8fafc",
-};
-
-const ORG = {
-  name: "ARK Learning Arena",
-  address: "No 2/31, Mugappair West, Chennai",
-  contact: "Phone: 7358199217  |  www.arklearning.com",
-};
-
-// ── Amount → words (Indian numbering, INR) ───────────────────────────────────
-const ONES = [
-  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
-  "Seventeen", "Eighteen", "Nineteen",
-];
-const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-
-const twoDigits = (n: number): string =>
-  n < 20 ? ONES[n] : `${TENS[Math.floor(n / 10)]}${n % 10 ? " " + ONES[n % 10] : ""}`;
-
-const threeDigits = (n: number): string => {
-  const h = Math.floor(n / 100);
-  const r = n % 100;
-  return `${h ? ONES[h] + " Hundred" : ""}${h && r ? " " : ""}${r ? twoDigits(r) : ""}`;
-};
-
-const amountInWords = (value: number): string => {
-  const rupees = Math.floor(Math.abs(value));
-  const paise = Math.round((Math.abs(value) - rupees) * 100);
-  if (rupees === 0 && paise === 0) return "Zero Rupees Only";
-  const crore = Math.floor(rupees / 10000000);
-  const lakh = Math.floor((rupees % 10000000) / 100000);
-  const thousand = Math.floor((rupees % 100000) / 1000);
-  const hundred = rupees % 1000;
-  const parts: string[] = [];
-  if (crore) parts.push(`${twoDigits(crore)} Crore`);
-  if (lakh) parts.push(`${twoDigits(lakh)} Lakh`);
-  if (thousand) parts.push(`${twoDigits(thousand)} Thousand`);
-  if (hundred) parts.push(threeDigits(hundred));
-  let words = parts.join(" ").trim() + " Rupees";
-  if (paise) words += ` and ${twoDigits(paise)} Paise`;
-  return `${words} Only`;
-};
-
-// ── Presentational primitives (inline-styled) ────────────────────────────────
-const LineRow = ({
-  label,
-  value,
-  sub,
-  strong,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  strong?: boolean;
-  accent?: string;
-}) => (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "baseline",
-      padding: "5px 0",
-      fontSize: 12.5,
-    }}
-  >
-    <span style={{ color: strong ? BRAND.ink : BRAND.muted, fontWeight: strong ? 700 : 400 }}>
-      {label}
-      {sub ? <span style={{ color: BRAND.faint, fontWeight: 400 }}> · {sub}</span> : null}
-    </span>
-    <span style={{ fontWeight: strong ? 700 : 600, color: accent ?? BRAND.ink }}>{value}</span>
-  </div>
-);
-
-const MetaCell = ({ label, value }: { label: string; value: string }) => (
-  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12.5 }}>
-    <span style={{ color: BRAND.muted }}>{label}</span>
-    <span style={{ fontWeight: 600, color: BRAND.ink, textAlign: "right" }}>{value}</span>
-  </div>
-);
-
-const SectionTitle = ({ children }: { children: string }) => (
-  <div
-    style={{
-      fontSize: 10.5,
-      textTransform: "uppercase",
-      letterSpacing: 1.2,
-      fontWeight: 700,
-      color: BRAND.navy,
-      borderBottom: `2px solid ${BRAND.navy}`,
-      paddingBottom: 4,
-      marginBottom: 6,
-    }}
-  >
-    {children}
-  </div>
-);
 
 export const SlipBody = ({
   item,
   run,
+  branding,
   innerRef,
 }: {
   item: PayrollItem;
   run: PayrollRun;
+  branding: DocumentBranding;
   innerRef?: React.Ref<HTMLDivElement>;
 }) => {
+  const theme = buildReceiptTheme(branding);
   const breakdown = item.breakdown ?? [];
   const linesOf = (...types: BreakdownLine["type"][]) =>
     breakdown.filter((b) => types.includes(b.type) && Math.abs(b.amount) > 0);
@@ -156,110 +75,56 @@ export const SlipBody = ({
   const totalDeductions = item.deductions + item.penalties;
 
   return (
-    <div
-      ref={innerRef}
-      id="payroll-slip"
-      style={{
-        background: "#ffffff",
-        color: BRAND.ink,
-        fontFamily: "'Segoe UI', Roboto, Arial, sans-serif",
-        width: "100%",
-        padding: 0,
-        position: "relative",
-        overflow: "hidden",
-        border: `1px solid ${BRAND.line}`,
-        borderRadius: 14,
-      }}
-    >
-      {/* ── Header band ── */}
-      <div
-        style={{
-          background: `linear-gradient(135deg, ${BRAND.navy} 0%, ${BRAND.navySoft} 60%, ${BRAND.accent} 160%)`,
-          color: "#fff",
-          padding: "20px 26px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <img
-            src={arkLogo}
-            alt="ARK"
-            crossOrigin="anonymous"
-            style={{
-              width: 56,
-              height: 56,
-              objectFit: "cover",
-              borderRadius: 10,
-              background: "#fff",
-              padding: 3,
-            }}
-          />
-          <div>
-            <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase" }}>
-              {ORG.name}
-            </div>
-            <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 2 }}>{ORG.address}</div>
-            <div style={{ fontSize: 11.5, opacity: 0.85 }}>{ORG.contact}</div>
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div
-            style={{
-              display: "inline-block",
-              background: "rgba(255,255,255,0.18)",
-              border: "1px solid rgba(255,255,255,0.35)",
-              padding: "5px 14px",
-              borderRadius: 6,
-              fontSize: 12.5,
-              fontWeight: 700,
-              letterSpacing: 1,
-              textTransform: "uppercase",
-            }}
-          >
-            Salary Slip
-          </div>
-          <div style={{ fontSize: 11.5, marginTop: 8, opacity: 0.9 }}>{run.title}</div>
-          <div style={{ fontSize: 11.5, opacity: 0.9 }}>
-            {run.periodStart} → {run.periodEnd}
-          </div>
-        </div>
-      </div>
+    <DocumentFrame theme={theme} domId="payroll-slip" innerRef={innerRef}>
+      <DocumentHeader
+        branding={branding}
+        theme={theme}
+        documentType="Salary Slip"
+        meta={
+          <>
+            <HeaderMeta>{run.title}</HeaderMeta>
+            <HeaderMeta>
+              {run.periodStart} → {run.periodEnd}
+            </HeaderMeta>
+          </>
+        }
+      />
 
-      <div style={{ padding: "20px 26px 24px" }}>
-        {/* ── Meta grid ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 26, marginBottom: 18 }}>
+      <DocumentBody>
+        <DocumentGrid marginBottom={18}>
           <div>
-            <SectionTitle>Employee</SectionTitle>
-            <MetaCell label="Name" value={item.staffName ?? "—"} />
-            <MetaCell label="Role" value={item.role ?? "—"} />
-            <MetaCell label="Department" value={item.department ?? "—"} />
-            <MetaCell label="Hourly Rate" value={`${formatINR(item.hourlyRate)}/hr`} />
-            <MetaCell label="Status" value={item.status.toUpperCase()} />
+            <SectionTitle theme={theme}>Employee</SectionTitle>
+            <MetaCell theme={theme} label="Name" value={item.staffName ?? "—"} />
+            <MetaCell theme={theme} label="Role" value={item.role ?? "—"} />
+            <MetaCell theme={theme} label="Department" value={item.department ?? "—"} />
+            <MetaCell theme={theme} label="Hourly Rate" value={`${formatINR(item.hourlyRate)}/hr`} />
+            <MetaCell theme={theme} label="Status" value={item.status.toUpperCase()} />
           </div>
           <div>
-            <SectionTitle>Pay Period &amp; Attendance</SectionTitle>
-            <MetaCell label="Worked Hours" value={formatMinutes(item.workedMinutes)} />
-            <MetaCell label="Overtime" value={formatMinutes(item.overtimeMinutes)} />
-            <MetaCell label="Attendance" value={`${item.attendancePct}%`} />
-            <MetaCell label="Present Days" value={String(item.presentDays)} />
-            <MetaCell label="Late Count" value={String(item.lateCount)} />
+            <SectionTitle theme={theme}>Pay Period &amp; Attendance</SectionTitle>
+            <MetaCell theme={theme} label="Worked Hours" value={formatMinutes(item.workedMinutes)} />
+            <MetaCell theme={theme} label="Overtime" value={formatMinutes(item.overtimeMinutes)} />
+            <MetaCell theme={theme} label="Attendance" value={`${item.attendancePct}%`} />
+            <MetaCell theme={theme} label="Present Days" value={String(item.presentDays)} />
+            <MetaCell theme={theme} label="Late Count" value={String(item.lateCount)} />
           </div>
-        </div>
+        </DocumentGrid>
 
-        {/* ── Earnings / Deductions ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 26 }}>
+        <DocumentGrid>
           <div>
-            <SectionTitle>Earnings</SectionTitle>
-            {item.basicSalary > 0 && <LineRow label="Basic Salary" value={formatINR(item.basicSalary)} />}
+            <SectionTitle theme={theme}>Earnings</SectionTitle>
+            {item.basicSalary > 0 && (
+              <LineRow theme={theme} label="Basic Salary" value={formatINR(item.basicSalary)} />
+            )}
             <LineRow
+              theme={theme}
               label="Regular Hours"
               sub={`${minutesToHours(item.workedMinutes - item.overtimeMinutes)} hrs`}
               value={formatINR(item.hourlyEarnings)}
             />
             {item.overtimeEarnings > 0 && (
               <LineRow
+                theme={theme}
                 label="Overtime"
                 sub={`${minutesToHours(item.overtimeMinutes)} hrs`}
                 value={formatINR(item.overtimeEarnings)}
@@ -267,88 +132,113 @@ export const SlipBody = ({
             )}
             {incentiveLines.length > 0
               ? incentiveLines.map((b, i) => (
-                  <LineRow key={`inc-${i}`} label={b.label} value={formatINR(b.amount)} accent={BRAND.accent} />
+                  <LineRow
+                    key={`inc-${i}`}
+                    theme={theme}
+                    label={b.label}
+                    value={formatINR(b.amount)}
+                    accent={theme.accentOnWhite}
+                  />
                 ))
-              : item.incentives > 0 && <LineRow label="Incentives" value={formatINR(item.incentives)} accent={BRAND.accent} />}
+              : item.incentives > 0 && (
+                  <LineRow
+                    theme={theme}
+                    label="Incentives"
+                    value={formatINR(item.incentives)}
+                    accent={theme.accentOnWhite}
+                  />
+                )}
             {allowanceLines.length > 0
               ? allowanceLines.map((b, i) => (
-                  <LineRow key={`alw-${i}`} label={b.label} value={formatINR(b.amount)} accent={BRAND.accent} />
+                  <LineRow
+                    key={`alw-${i}`}
+                    theme={theme}
+                    label={b.label}
+                    value={formatINR(b.amount)}
+                    accent={theme.accentOnWhite}
+                  />
                 ))
-              : item.allowances > 0 && <LineRow label="Allowances" value={formatINR(item.allowances)} accent={BRAND.accent} />}
-            <div style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 6, paddingTop: 2 }}>
-              <LineRow label="Gross Earnings" value={formatINR(item.grossEarnings)} strong />
-            </div>
+              : item.allowances > 0 && (
+                  <LineRow
+                    theme={theme}
+                    label="Allowances"
+                    value={formatINR(item.allowances)}
+                    accent={theme.accentOnWhite}
+                  />
+                )}
+            <TotalRule theme={theme}>
+              <LineRow theme={theme} label="Gross Earnings" value={formatINR(item.grossEarnings)} strong />
+            </TotalRule>
           </div>
 
           <div>
-            <SectionTitle>Deductions</SectionTitle>
+            <SectionTitle theme={theme}>Deductions</SectionTitle>
             {deductionLines.length > 0
               ? deductionLines.map((b, i) => (
-                  <LineRow key={`ded-${i}`} label={b.label} value={formatINR(b.amount)} accent={BRAND.red} />
+                  <LineRow
+                    key={`ded-${i}`}
+                    theme={theme}
+                    label={b.label}
+                    value={formatINR(b.amount)}
+                    accent={theme.danger}
+                  />
                 ))
-              : item.deductions > 0 && <LineRow label="Deductions" value={formatINR(item.deductions)} accent={BRAND.red} />}
+              : item.deductions > 0 && (
+                  <LineRow
+                    theme={theme}
+                    label="Deductions"
+                    value={formatINR(item.deductions)}
+                    accent={theme.danger}
+                  />
+                )}
             {penaltyLines.length > 0
               ? penaltyLines.map((b, i) => (
-                  <LineRow key={`pen-${i}`} label={b.label} value={formatINR(b.amount)} accent={BRAND.red} />
+                  <LineRow
+                    key={`pen-${i}`}
+                    theme={theme}
+                    label={b.label}
+                    value={formatINR(b.amount)}
+                    accent={theme.danger}
+                  />
                 ))
-              : item.penalties > 0 && <LineRow label="Penalties" value={formatINR(item.penalties)} accent={BRAND.red} />}
+              : item.penalties > 0 && (
+                  <LineRow
+                    theme={theme}
+                    label="Penalties"
+                    value={formatINR(item.penalties)}
+                    accent={theme.danger}
+                  />
+                )}
             {totalDeductions === 0 && (
-              <div style={{ fontSize: 12, color: BRAND.faint, padding: "5px 0" }}>No deductions</div>
+              <div style={{ fontSize: 12, color: theme.faint, padding: "5px 0" }}>No deductions</div>
             )}
-            <div style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 6, paddingTop: 2 }}>
-              <LineRow label="Total Deductions" value={formatINR(totalDeductions)} strong accent={totalDeductions > 0 ? BRAND.red : undefined} />
-            </div>
+            <TotalRule theme={theme}>
+              <LineRow
+                theme={theme}
+                label="Total Deductions"
+                value={formatINR(totalDeductions)}
+                strong
+                accent={totalDeductions > 0 ? theme.danger : undefined}
+              />
+            </TotalRule>
           </div>
-        </div>
+        </DocumentGrid>
 
-        {/* ── Net salary band ── */}
-        <div
-          style={{
-            marginTop: 18,
-            background: BRAND.navy,
-            color: "#fff",
-            borderRadius: 10,
-            padding: "14px 20px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.8 }}>
-              Net Salary Payable
-            </div>
-            <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 3, maxWidth: 360 }}>
-              {amountInWords(item.netSalary)}
-            </div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: 0.3 }}>{formatINR(item.netSalary)}</div>
-        </div>
+        <AmountBand
+          theme={theme}
+          caption="Net Salary Payable"
+          words={amountInWords(item.netSalary)}
+          amount={formatINR(item.netSalary)}
+        />
 
-        {/* ── Footer ── */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            marginTop: 34,
-          }}
-        >
-          <div style={{ fontSize: 10.5, color: BRAND.faint, lineHeight: 1.7 }}>
-            <div>• This is a computer-generated salary slip.</div>
-            <div>• No physical signature is required.</div>
-            <div style={{ marginTop: 8, fontStyle: "italic", color: BRAND.muted, fontWeight: 500 }}>
-              Generated by ARK ERP · Payroll
-            </div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ width: 170, borderBottom: `1px solid ${BRAND.faint}`, marginBottom: 6 }} />
-            <div style={{ fontSize: 12, fontWeight: 700, color: BRAND.ink }}>Authorized Signatory</div>
-            <div style={{ fontSize: 10.5, color: BRAND.faint }}>{ORG.name}</div>
-          </div>
-        </div>
-      </div>
-    </div>
+        <DocumentFooter
+          branding={branding}
+          theme={theme}
+          documentNoun="salary slip"
+          module="Payroll"
+        />
+      </DocumentBody>
+    </DocumentFrame>
   );
 };
 
@@ -365,6 +255,9 @@ export const SalarySlipDialog = ({
 }) => {
   const slipRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<null | "pdf" | "png">(null);
+  // Resolved here rather than at each of the three call sites, so opening a
+  // slip from the register, the approval centre or My Salary is identical.
+  const { branding } = useDocumentBranding();
 
   if (!item || !run) return null;
 
@@ -440,7 +333,7 @@ export const SalarySlipDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <SlipBody item={item} run={run} innerRef={slipRef} />
+        <SlipBody item={item} run={run} branding={branding} innerRef={slipRef} />
 
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button variant="outline" onClick={handlePrint}>

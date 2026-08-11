@@ -61,7 +61,7 @@ export const exportCsv = <T>(req: ExportRequest<T>): void => {
 };
 
 // ── Excel (HTML-table flavoured, .xls — Excel opens it cleanly) ─────────────
-export const exportExcel = <T>(req: ExportRequest<T>): void => {
+export const exportExcel = <T>(req: ExportRequest<T>, orgName?: string): void => {
   const head = req.columns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join("");
   const body = req.rows
     .map(
@@ -74,7 +74,7 @@ export const exportExcel = <T>(req: ExportRequest<T>): void => {
   const html =
     `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">` +
     `<head><meta charset="utf-8"><title>${escapeHtml(req.title)}</title></head>` +
-    `<body><h3>${escapeHtml(req.title)}</h3>` +
+    (orgName ? `<body><p><b>${escapeHtml(orgName)}</b></p><h3>${escapeHtml(req.title)}</h3>` : `<body><h3>${escapeHtml(req.title)}</h3>`) +
     (req.subtitle ? `<p>${escapeHtml(req.subtitle)}</p>` : "") +
     `<table border="1"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` +
     `</body></html>`;
@@ -84,7 +84,20 @@ export const exportExcel = <T>(req: ExportRequest<T>): void => {
 // ── Print / PDF ─────────────────────────────────────────────────────────────
 // Opens the browser print dialog with a stylesheet tuned for reports.
 // The user picks "Save as PDF" to get a PDF.
-export const exportPdf = <T>(req: ExportRequest<T>, win?: Window | null): void => {
+export const exportPdf = <T>(
+  req: ExportRequest<T>,
+  win?: Window | null,
+  /**
+   * Issuing institution. Every report in the app funnels through this one
+   * function, so branding it here brands attendance reports, fee statements,
+   * exam status, admission analysis and every future report at once — rather
+   * than each page growing its own letterhead and its own way to get it wrong.
+   *
+   * Optional and omitted-safe: with no name the report simply prints its title,
+   * which is what it did before. It never falls back to a tenant.
+   */
+  orgName?: string,
+): void => {
   const head = req.columns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join("");
   const body = req.rows
     .map(
@@ -108,6 +121,7 @@ export const exportPdf = <T>(req: ExportRequest<T>, win?: Window | null): void =
 <html><head><meta charset="utf-8"><title>${escapeHtml(req.title)}</title>
 <style>
   body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;color:#0f172a;margin:24px}
+  .org{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#0B2D56;margin:0 0 6px}
   h1{font-size:18px;margin:0 0 4px}
   .sub{color:#64748b;font-size:12px;margin:0 0 16px}
   .kpis{display:flex;gap:12px;margin:0 0 16px;flex-wrap:wrap}
@@ -121,6 +135,7 @@ export const exportPdf = <T>(req: ExportRequest<T>, win?: Window | null): void =
   @media print {.no-print{display:none}}
 </style></head>
 <body>
+  ${orgName ? `<div class="org">${escapeHtml(orgName)}</div>` : ""}
   <h1>${escapeHtml(req.title)}</h1>
   ${req.subtitle ? `<p class="sub">${escapeHtml(req.subtitle)}</p>` : ""}
   ${kpis ? `<div class="kpis">${kpis}</div>` : ""}

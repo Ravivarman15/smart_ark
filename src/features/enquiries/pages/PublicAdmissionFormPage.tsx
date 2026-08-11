@@ -9,7 +9,9 @@ import {
   User,
   Users,
 } from "lucide-react";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { useParams } from "react-router-dom";
+import { monogramOf } from "@/features/branding/documents";
+import { PLATFORM_PUBLIC_IDENTITY, usePublicTenant } from "@/features/branding/publicTenant";
 import { publicEnquirySchema } from "../schemas/enquiry.schema";
 import { enquiriesService } from "../services";
 
@@ -73,6 +75,14 @@ const PublicAdmissionFormPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  // NOTE: this page is currently NOT ROUTED — /admissions/apply redirects to
+  // /leads/apply, which is the WhatsApp-enabled capture form. It is branded
+  // here anyway rather than left with ARK's identity baked in, because an
+  // unrouted page is one route line away from being served to the public.
+  const { orgSlug } = useParams<{ orgSlug?: string }>();
+  const { tenant } = usePublicTenant(orgSlug ?? null);
+  const orgName = tenant?.organizationName ?? PLATFORM_PUBLIC_IDENTITY.name;
+
   const set = (key: keyof FormState) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -123,13 +133,22 @@ const PublicAdmissionFormPage = () => {
       <div className="glass-card w-full max-w-2xl p-6 sm:p-8 animate-slide-up relative z-10">
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <img
-            src={arkLogo}
-            alt="ARK Learning Arena"
-            className="w-20 h-20 rounded-2xl mb-3 shadow-lg"
-          />
+          {tenant?.logoUrl ? (
+            <img
+              src={tenant.logoUrl}
+              alt={orgName}
+              className="w-20 h-20 rounded-2xl mb-3 shadow-lg object-cover bg-background"
+            />
+          ) : (
+            <div
+              className="w-20 h-20 rounded-2xl mb-3 shadow-lg bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold"
+              aria-hidden="true"
+            >
+              {monogramOf(orgName)}
+            </div>
+          )}
           <h1 className="text-xl sm:text-2xl font-display font-bold text-foreground">
-            ARK Learning Arena
+            {orgName}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Admission Enquiry Form
@@ -267,8 +286,8 @@ const PublicAdmissionFormPage = () => {
             </button>
 
             <p className="text-[11px] text-muted-foreground text-center">
-              By submitting, you agree to be contacted by ARK Learning Arena
-              regarding your admission enquiry.
+              By submitting, you agree to be contacted by {orgName} regarding
+              your admission enquiry.
             </p>
           </form>
         )}

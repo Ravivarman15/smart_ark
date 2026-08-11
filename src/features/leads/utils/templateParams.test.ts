@@ -132,8 +132,8 @@ describe("buildTemplateParams", () => {
       // for every other status.
       "smartark_attendance_absent",
       "smartark_attendance_corrected",
-      "smartark_staff_credentials",
-      "smartark_student_credentials",
+      "smartark_staff_credentials1",
+      "smartark_student_credentials1",
       "smartark_fee_receipt",
     ]);
   });

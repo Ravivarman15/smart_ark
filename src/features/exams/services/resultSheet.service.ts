@@ -1,4 +1,5 @@
 import { BaseService } from "@/shared/services";
+import { resolveDocumentBranding, type DocumentBranding } from "@/features/branding/documents";
 import { renderReportWindow } from "@/lib/reportWindow";
 import { round2 } from "../utils/grading";
 import { monthLabel, type Exam, type ExamMonth } from "../types/exam.types";
@@ -61,6 +62,8 @@ export interface ResultSheet {
   exams: Exam[];
   rows: ResultSheetRow[];
   generatedAt: string;
+  /** Issuing institution — resolved per tenant, never hardcoded. */
+  branding: DocumentBranding;
 }
 
 export type ResultSheetFormat = "csv" | "pdf" | "print" | "xlsx";
@@ -216,7 +219,10 @@ class ResultSheetService extends BaseService {
       row.rank = rank;
     }
 
-    return { params, exams, rows, generatedAt: new Date().toISOString() };
+    // Session-cached: a sheet per class across a whole standard resolves the
+    // institution once, not once per sheet.
+    const branding = await resolveDocumentBranding();
+    return { params, exams, rows, generatedAt: new Date().toISOString(), branding };
   }
 
   // ── CSV ────────────────────────────────────────────────────────────────────
@@ -308,7 +314,7 @@ class ResultSheetService extends BaseService {
 </style></head><body>
   <h1>${esc(title)}</h1><p class="sub">${esc(sub)}</p>
   <table><thead>${head}</thead><tbody>${body || `<tr><td colspan="99">No results recorded for this month.</td></tr>`}</tbody></table>
-  <div class="footer">ARK Learning Arena · Monthly Result Sheet · Generated ${esc(sheet.generatedAt.slice(0, 10))} · Confidential</div>
+  <div class="footer">${esc(sheet.branding.organizationName)} · Monthly Result Sheet · Generated ${esc(sheet.generatedAt.slice(0, 10))} · Confidential</div>
   <script>window.addEventListener('load',function(){setTimeout(function(){window.print()},350)})</script>
 </body></html>`;
   }

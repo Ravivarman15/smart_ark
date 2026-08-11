@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { SlipBody } from "../components/SalarySlip";
+import { resolveDocumentBranding } from "@/features/branding/documents";
 import type { PayrollItem, PayrollRun } from "../types/payroll.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -13,6 +14,16 @@ import type { PayrollItem, PayrollRun } from "../types/payroll.types";
 // an A4 jsPDF — identical output to the in-app "Download PDF", but produced in
 // the background at approval time so the file can be uploaded + emailed as a
 // direct download link. Browser-only (uses the DOM + react-dom/client).
+//
+// BRANDING: resolved and AWAITED before the render, deliberately. `SlipBody`
+// takes branding as a prop rather than reading a hook, because this off-screen
+// root races `waitForImages` — a hook that fetched after mount would rasterise
+// an unbranded slip roughly half the time, and the failure would be
+// intermittent rather than reproducible. Resolving first makes the first paint
+// the correct one.
+//
+// `resolveDocumentBranding` is session-cached, so a payroll run emailing 200
+// payslips performs ONE lookup, not 200.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const waitForImages = (root: HTMLElement, timeoutMs = 4000): Promise<void> =>
@@ -37,6 +48,8 @@ export const generatePayslipPdfBlob = async (
     throw new Error("Payslip PDF generation requires a browser environment.");
   }
 
+  const branding = await resolveDocumentBranding();
+
   const host = document.createElement("div");
   host.style.position = "fixed";
   host.style.left = "-99999px";
@@ -47,7 +60,7 @@ export const generatePayslipPdfBlob = async (
 
   const root = createRoot(host);
   try {
-    root.render(createElement(SlipBody, { item, run }));
+    root.render(createElement(SlipBody, { item, run, branding }));
     await waitForImages(host);
 
     const node = (host.querySelector("#payroll-slip") as HTMLElement) ?? host;

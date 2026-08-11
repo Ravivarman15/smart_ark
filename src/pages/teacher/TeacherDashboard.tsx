@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import arkLogo from "@/assets/ark-logo.jpeg";
+import { OrgLogo } from "@/features/branding/components/OrgLogo";
 import { ThemeToggle } from "@/core/theme";
 import { RoleSidebar } from "@/shared/layouts";
 import { useNavigation } from "@/core/navigation";
@@ -159,7 +159,7 @@ const TeacherDashboard: React.FC = () => {
             )}
           </button>
           <div className="relative flex-shrink-0">
-            <img src={arkLogo} alt="ARK" className="w-9 h-9 rounded-lg" />
+            <OrgLogo className="w-9 h-9 rounded-lg" />
             <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-sidebar ${
               shift.phase === "working" ? "bg-ark-success" : shift.phase === "done" ? "bg-muted-foreground" : "bg-ark-warning"
             }`} />

@@ -1,0 +1,500 @@
+# Dynamic Multi-Tenant Document Branding
+
+Salary slips and fee receipts are the two documents Smart ARK puts in a **human
+being's hands** — an employee's payslip, a parent's receipt. They are the last
+place a tenant's identity is allowed to be wrong, and until this change every one
+of them said *ARK Learning Arena* regardless of which organization generated it.
+
+This document is the audit that preceded the change, the architecture that
+replaced it, and the proof that ARK's own output did not move.
+
+---
+
+## 1. Current architecture
+
+Both documents are built the same way, and it is a good pattern worth keeping:
+
+```
+  React component (inline styles, no Tailwind)
+        │
+        ├──► on-screen preview        (Dialog)
+        ├──► print                    (outerHTML → new window → print())
+        ├──► PNG / PDF download       (html2canvas → jsPDF)
+        └──► headless PDF Blob        (off-screen React root → html2canvas → jsPDF)
+                                       for email attachment / storage upload
+```
+
+The markup uses **inline styles rather than Tailwind classes** deliberately: the
+print window and the off-screen raster host have no stylesheet, so a class-based
+document would render unstyled in exactly the two contexts that matter most.
+
+There is **one** document engine and it stays. Nothing here introduces a second
+PDF library, a second queue, or a parallel branding table.
+
+### The duplication that was actually there
+
+`SalarySlip.tsx` (473 lines) and `FeeReceiptDialog.tsx` (425 lines) were **~85%
+identical** — not similar, *copy-pasted*:
+
+| Duplicated in both files | Lines |
+|---|---|
+| `BRAND` palette constant | 12 × 2 |
+| `ORG` hardcoded ARK identity | 5 × 2 |
+| `amountInWords()` + `ONES`/`TENS`/`twoDigits`/`threeDigits` | 34 × 2 |
+| `LineRow`, `MetaCell`, `SectionTitle` | 53 × 2 |
+| Header band, amount band, footer, signature block | ~90 × 2 |
+| `handlePrint`, `rasterize`, `handleDownloadPdf`, `handleDownloadPng` | ~60 × 2 |
+
+Making branding dynamic in two copy-pasted files means making *every future
+change* twice, and the second copy is the one that gets forgotten. So the shared
+half was extracted first. **This is not a new engine — it is the one engine,
+written once.**
+
+---
+
+## 2. Existing salary-slip flow
+
+| Stage | File |
+|---|---|
+| Data | `payroll.service` → `PayrollItem` + `PayrollRun` |
+| Calculation | `payrollCalc.ts` (`formatINR`, `formatMinutes`, `minutesToHours`) |
+| Document | `features/payroll/components/SalarySlip.tsx` → `SlipBody` |
+| Dialog | `SalarySlipDialog` — print / PDF / PNG |
+| Headless PDF | `features/payroll/utils/payslipPdf.ts` → `generatePayslipPdfBlob` |
+| Email | `payrollEmail.service.ts` → uploads to the private `payslips` bucket |
+
+Call sites: `MySalaryPage`, `PayrollApprovalCenterPage`, `SalaryRegisterPage`.
+
+**No value on the slip is fabricated.** Every number comes off `PayrollItem`,
+which the payroll engine computed. That property is preserved exactly — this
+change touched branding only, never a figure.
+
+## 3. Existing receipt flow
+
+There were **four** receipt renderers, which the audit found and this document
+records because only one of them was on anybody's radar:
+
+| # | Path | Status found | Outcome |
+|---|---|---|---|
+| 1 | `FeeReceiptDialog.tsx` → `ReceiptBody` | **live**, the screenshot design | now dynamic |
+| 2 | `fee/utils/receipt.ts` → `receiptToHtml` / `printReceipt` | live, plain-text style, `orgName = "ARK School"` default | now dynamic |
+| 3 | `parent-portal/pages/ParentFeesPage.tsx` → `receiptHtml` | **live and parent-facing**, hardcoded ARK twice | now dynamic |
+| 4 | `components/ReceiptGenerator.tsx` | **dead** — zero importers | left untouched, documented |
+
+Path 3 is the one that mattered most and was least visible. It is what a **parent
+of an ABC Academi student** downloads from their own portal, and it printed
+`ARK LEARNING ARENA` in the brand slot and `Computer-generated receipt · ARK
+Learning Arena` in the footer. Same class of outward-facing tenant leak as the
+WhatsApp template bug, in a different channel.
+
+Path 4, `ReceiptGenerator.tsx`, is imported by nothing. It reads from
+`AppDataContext` (the legacy mock data layer) and could not render live data if
+it were mounted. **It was deliberately left alone** — deleting a file is outside
+the scope of a branding task, and it is unreachable either way. It is excluded
+from the reusable-path gate by name, with the reason recorded in the test.
+
+Headless path: `receiptToPdfBlob` mounts the *same* `ReceiptBody` off-screen, so
+the emailed PDF is identical to the on-screen receipt. Called by
+`feeReceiptDelivery.service` — the legacy working fee_paid flow that the
+communication brief said to preserve. It is preserved; it gained a branding
+argument and nothing else.
+
+---
+
+## 4. Hardcoded branding inventory (before)
+
+| File | Hardcoded | Reachable by another tenant? |
+|---|---|---|
+| `SalarySlip.tsx` | `ORG.name`, `ORG.address`, `ORG.contact`, `arkLogo` import, `"Generated by ARK ERP · Payroll"`, signatory | **YES** — every tenant's payslip |
+| `FeeReceiptDialog.tsx` | same six | **YES** — every tenant's receipt |
+| `ParentFeesPage.tsx` | `ARK LEARNING ARENA` ×2 | **YES** — every tenant's parents |
+| `fee/utils/receipt.ts` | `orgName = "ARK School"` default | **YES** — via default parameter |
+| `ReceiptGenerator.tsx` | name, address, phone, website, logo, signatory, "Thank you for choosing…" | No — dead code |
+
+Nothing in this list was a bug *when it was written*. ARK was the only tenant, so
+a constant and a lookup were the same value. The second organization is what
+turned all five into defects at once.
+
+---
+
+## 5. Existing organization branding source
+
+`organization_branding` — one row per organization, PK `organization_id`,
+RLS-scoped by `current_org_id()`. Built over three migrations:
+
+- `20260806_phase1a` — `app_name`, `logo_url`, `logo_dark_url`, `favicon_url`,
+  `primary_color`, `accent_color`, `theme_mode`, `support_email`
+- `20260820_phase4b` — `secondary_color`, `portal_name`, `email_*`,
+  `report_header_html`, `certificate_*`, `font_family`, `theme_tokens`
+- `20260901_phase6a` — `custom_footer`, `custom_copyright`, `support_phone`,
+  `support_address`, `website_url`, `login_greeting`, `help_url`, style options
+
+Read through `branding_bundle()` (one RPC: branding + assets + theme + domains +
+integration modes + entitlements). Written through `brandingService.saveBranding`.
+Validated by the `trg_validate_branding` trigger, which rejects any colour that
+is not `#rrggbb` — these values reach CSS custom properties, so an unvalidated
+string is a CSS-injection vector.
+
+`orgContextService` (`features/communication/services/orgContext.service.ts`)
+already resolves the **text** identity — name, phone, email, website, address —
+tenant-scoped, session-cached, with `invalidate()`. Built for WhatsApp templates.
+**Reused as-is.** The document resolver composes it rather than re-querying.
+
+---
+
+## 6. Fields already available
+
+`app_name` · `portal_name` · `logo_url` · `support_email` · `support_phone` ·
+`support_address` · `website_url` · `custom_footer` · `primary_color` ·
+`secondary_color` · `accent_color`
+
+Plus, from `organizations`: `display_name` · `legal_name` · `slug`.
+
+## 7. Fields missing
+
+| Needed | Existed? | Resolution |
+|---|---|---|
+| Authorized signatory | no | new column `authorized_signatory` |
+| GST / tax number | no | new column `tax_id` (rendered only when set) |
+| Receipt colour triple | *see below* | new columns `receipt_primary_color`, `receipt_secondary_color`, `receipt_accent_color` |
+| Document footer note | no | new column `document_footer_note` |
+
+### Why receipt colours are NOT `primary_color` / `secondary_color` / `accent_color`
+
+Those three already exist and reusing them was the first instinct. It is wrong,
+for two independent reasons:
+
+1. **They drive the entire application theme.** `OrganizationThemeProvider` reads
+   `primary_color`, `secondary_color` and `accent_color` and injects them as CSS
+   custom properties across every portal. A school nudging its receipt header to
+   a warmer navy would silently re-skin its admin sidebar, its buttons, and its
+   parent app. The brief asks for receipt colours; it does not ask to re-theme
+   the ERP, and one control must not do two jobs.
+
+2. **It would move ARK's receipt.** Verified against production — see §8.
+
+Four new nullable columns, `NULL` meaning "use the system default", keep the two
+concerns separate and leave every existing row untouched.
+
+---
+
+## 8. Backward compatibility strategy — and the finding that shaped it
+
+The plan was "read branding from the database instead of the constant". Querying
+production first is what stopped that from shipping a regression:
+
+```sql
+select o.display_name, b.logo_url, b.support_phone,
+       b.support_address, b.website_url, b.primary_color
+  from organizations o
+  left join organization_branding b on b.organization_id = o.id;
+```
+
+```
+ display_name       | logo_url | support_phone | support_address | website_url | primary_color
+--------------------+----------+---------------+-----------------+-------------+---------------
+ ARK Learning Arena |   NULL   |     NULL      |      NULL       |    NULL     |     NULL
+ ABC Academi        |   NULL   |     NULL      |      NULL       |    NULL     |     NULL
+```
+
+**ARK's branding row is empty except for `app_name`.** Every value on the receipt
+in the screenshot — the address, the phone, the website, the logo — exists *only*
+as a string constant in `SalarySlip.tsx` and `FeeReceiptDialog.tsx`. A purely
+dynamic resolver would have rendered ARK's next payslip with a blank address, no
+phone, no website and no logo, and the change would have looked correct in code
+review because the code *is* correct. The data was the problem.
+
+So making the code dynamic requires **moving ARK's identity out of the source and
+into ARK's own tenant row**, in the same change. That is a data migration, and it
+is bounded as tightly as it can be:
+
+- `UPDATE ... WHERE organization_id = (select id from organizations where slug = 'ark')`
+  — one row, named explicitly, cannot touch ABC Academi or any future tenant.
+- Every assignment is `COALESCE(column, 'value')` — it fills `NULL`s and
+  **overwrites nothing**. Re-running it is a no-op.
+- It writes only columns that are `NULL` today, so no existing value is at risk.
+- It inserts the row if absent, so an org provisioned without one is not skipped.
+
+`slug = 'ark'` is a hardcoded tenant identifier — the only one that survives this
+change, and it lives in a **one-time seed migration**, never in the document path.
+That distinction is the whole point: seeding a tenant's data with its own values
+is legitimate; a document that falls back to a tenant's name is not.
+
+### The colour default
+
+The system default palette is the navy in the screenshots (`#0B2D56` / `#13406F`
+/ `#479EF5`). That is the **Smart ARK design-system primary** — the source
+comments record it as `--primary 213 77% 19%` — not something specific to ARK
+Learning Arena. ARK receives it because ARK has configured no receipt colours,
+which is exactly the neutral-default path every new tenant takes. ARK is not
+special-cased anywhere in the resolver.
+
+### Rendering an absent logo
+
+When `logo_url` is unset the document renders a **monogram** — the organization's
+own initials in a rounded tile, in its own primary colour. It is tenant-correct
+by construction and cannot show another tenant's mark. ARK is seeded with a real
+`logo_url`, so ARK keeps its logo.
+
+---
+
+## 9. Proposed architecture
+
+```
+src/features/branding/documents/
+├── documentBranding.types.ts     DocumentBranding, ReceiptTheme — no imports
+├── receiptTheme.ts               buildReceiptTheme() + WCAG contrast maths
+├── amountInWords.ts              extracted from BOTH document files
+├── monogram.ts                   initials for a tenant with no logo
+├── documentBranding.service.ts   resolveDocumentBranding() — the ONE resolver
+├── useDocumentBranding.ts        React hook over the resolver
+├── DocumentShell.tsx             the shared document chrome
+├── ReceiptBrandingPreview.tsx    live preview for the settings page
+└── index.ts                      the only import surface consumers use
+```
+
+`monogram.ts` is a separate file for one reason worth recording: a module that
+exports both components and a plain function breaks React Fast Refresh for every
+component in it. One helper is not worth that.
+
+Placed **inside the existing `features/branding` module**, not beside it. The
+branding feature already owns `organization_branding`; documents are a consumer
+of branding, not a second branding system.
+
+### The contract
+
+```ts
+resolveDocumentBranding(): Promise<DocumentBranding>   // no organizationId parameter
+buildReceiptTheme(branding): ReceiptTheme              // pure
+<SlipBody    item run branding />                      // branding REQUIRED
+<ReceiptBody receipt  branding />                      // branding REQUIRED
+```
+
+**Document components never query Supabase.** Branding arrives as a required
+prop, which is what makes the documents unit-testable against three different
+tenants in the same test file — and what makes a document that renders the wrong
+tenant a *compile* error rather than a runtime one.
+
+`branding` is required, not optional. An optional prop with a fallback is how the
+original bug survives a refactor: every call site that forgets it silently gets
+the default. TypeScript now refuses to build instead.
+
+---
+
+## 10. Tenant isolation
+
+`resolveDocumentBranding()` **takes no `organizationId` argument.** This is the
+central decision and it is deliberate.
+
+RLS already filters `organizations` and `organization_branding` to
+`current_org_id()`. Accepting an id from the caller would add a second, weaker
+check that can disagree with the first — and a parameter that exists will
+eventually be passed a value from a URL, a form, or a JSON body. A function that
+cannot be told which tenant to resolve cannot be tricked into resolving the wrong
+one.
+
+The browser therefore has **no way to request another organization's branding**,
+by construction rather than by validation. Enforced by test, not just by comment.
+
+### Fallback hierarchy
+
+```
+organization_branding  →  organizations (display_name / legal_name / slug)  →  system default
+```
+
+There is no fourth step. A tenant with nothing configured gets a neutral Smart
+ARK-styled document with its own name — never ARK's. The resolver contains no
+literal `"ARK"`, and a test asserts that against the file's source text.
+
+---
+
+## 11. Historical documents — the decision, not a guess
+
+**Documents render with CURRENT branding. This preserves existing behaviour and
+is not a change.**
+
+Established by inspecting the data model:
+
+- `fee_installments` stores `receipt_no`, `amount`, `payment_date`, `notes`,
+  `payment_method`. No branding columns, no rendered-document blob.
+- `payroll_items` / `payroll_runs` store figures only.
+- `ReceiptData` and `PayrollItem` are **assembled from live rows on every open**.
+  `buildReceipt()` reads `StudentFee` + `FeeInstallment` at render time.
+
+So a receipt reprinted today already picks up whatever the organization's details
+are today — that is how the system behaves right now, before this change, because
+the branding constant was read at render time too. Nothing about that semantic
+moved.
+
+**Snapshot-at-issue was considered and rejected for now.** It is the more correct
+model for a financial document (a receipt reprinted after a school relocates
+arguably should show the address at time of payment) and it requires a
+`document_branding_snapshot` jsonb on the payment row plus a backfill decision
+for every historical row. That is a separate, larger change with real data
+implications. Recording it here as a known future decision rather than making it
+silently — §15.
+
+---
+
+## 12. Receipt colour architecture
+
+Three tenant-selectable colours with **fixed visual roles**. A tenant picks
+colours; it does not get arbitrary control over document styling.
+
+| Role | Where it is used |
+|---|---|
+| **Primary** | header band base, amount band, section-title text and rule |
+| **Secondary** | header gradient mid-stop, amount-band gradient |
+| **Accent** | header gradient far stop, highlight values |
+
+Every colour passes through `buildReceiptTheme()`, which resolves text colours
+rather than letting the tenant choose them:
+
+- `relativeLuminance()` / `contrastRatio()` — the WCAG 2.1 formulas. Not the
+  naive `(r+g+b)/3` brightness, which reports pure blue as mid-range and picks
+  dark text for a `#0000FF` header.
+- `readableOn(bg)` returns near-black ink or white, whichever has the higher
+  contrast ratio against that background. A pale yellow header gets dark text; a
+  deep navy header gets white.
+- `ensureContrast(c, bg)` darkens a colour by steps until it clears 4.5:1.
+  Section titles and rules sit on white, so a tenant choosing `#FFE95C` as
+  primary gets a readable darkened variant for text — while the header band
+  still uses their actual colour with dark text on it. Brand preserved where it
+  is legible, corrected only where it would not be.
+
+### The escalation step, and why the sweep test earned its place
+
+`#111827` is a *softened* black, easier on the eye in print than `#000000`. The
+contrast sweep found a case it cannot handle: against **pure red** it manages
+4.44:1 and misses AA, while true black reaches 5.25:1. Inspection would not have
+caught that — the colour looks obviously dark.
+
+So the softened ink is the preference and the pure extreme is the fallback:
+aesthetics until legibility is at stake, then legibility. Pure black or white
+always suffices, and that is provable rather than hopeful — the worst possible
+background is the luminance where both extremes are equally poor,
+`L + 0.05 = √0.0525`, and even there the better of the two yields **4.58:1**.
+
+**No background can defeat the resolver**, which is why the document components
+have no unreadable state to guard against. A test sweeps a wide sample of the
+sRGB cube and asserts the implementation matches the proof.
+
+Salary slips deliberately **do not** expose the colour selector — §15.
+
+---
+
+## 13. Performance
+
+`resolveDocumentBranding()` caches the resolved object in a module-level promise,
+exactly like `orgContextService.vars()`. A payroll run emailing 200 payslips
+performs **one** branding lookup, not 200. `invalidateDocumentBranding()` clears
+it — called by the branding save path so an edit takes effect without a reload,
+and it also invalidates `orgContextService`, since the two read overlapping rows
+and a stale name in one of them is the bug this whole area exists to prevent.
+
+---
+
+## 14. Test strategy
+
+| # | Test | Asserts |
+|---|---|---|
+| 1 | ARK receipt | ARK name, address, phone, website, logo, signatory |
+| 2 | ABC Academy | same structure, ABC values, ABC colours |
+| 3 | Missing branding | neutral fallback; **no** `ARK`, `arklearning`, ARK logo |
+| 4 | Tenant isolation | B's document contains no trace of A |
+| 5 | Salary slip per tenant | both documents resolve independently |
+| 6 | Colour rendering | changed hex values reach the output |
+| 7 | Contrast | every text/background pair clears WCAG AA |
+| 8 | Existing receipts | historical `ReceiptData` still renders |
+| 9 | Existing payroll | historical `PayrollItem` still renders |
+| 10 | Source gate | no ARK literal in any reusable document file |
+| 11 | Resolver signature | takes no `organizationId` — isolation by construction |
+| 12 | Visual regression | ARK output structurally identical to the screenshots |
+
+Tests 10–12 are the ones that catch a *future* regression rather than this one.
+Test 10 in particular re-runs the audit on every commit: it re-reads the document
+source files and fails if `ARK`, `arklearning`, `7358199217` or `Mugappair`
+reappears in any of them.
+
+---
+
+## 15. Known limitations and future extensions
+
+1. **Salary slips do not expose the colour selector.** The brief scoped the
+   three-colour system to receipts, and the slip is a payroll document whose
+   conservative appearance is arguably a feature. The slip resolves the same
+   `DocumentBranding` and uses the same theme builder, so enabling it later is a
+   prop change, not a rewrite. Deliberately not expanded here.
+2. **No logo *upload* UI.** The Document Branding section takes a logo URL, and
+   the resolver signs private storage paths via `signedUrl()` when given one. A
+   drag-and-drop uploader writing to a per-tenant bucket is a separate feature.
+3. **Branding snapshots** — §11.
+4. **`ReceiptGenerator.tsx` remains dead.** Unreachable, excluded from the gate
+   by name. Removing it is a cleanup task, not a branding one.
+5. **Other document surfaces are still ARK-branded** — report cards, ID cards,
+   certificates and the two public enquiry forms. They use different builders and
+   are out of this task's scope. They are now the *only* remaining surfaces, and
+   they can adopt `DocumentShell` directly.
+6. **ARK's logo is served from `public/ark-logo.jpeg`.** Same-origin so
+   `html2canvas` can rasterise it without a CORS round trip. Once a real upload
+   exists, ARK's `logo_url` should be repointed at tenant storage and the static
+   copy removed.
+
+---
+
+## 16. Results
+
+### Verification
+
+| Gate | Baseline | After | Introduced |
+|---|---|---|---|
+| `vitest run` | 1332 passed | **1407 passed, 0 failed** | +75 tests |
+| `tsc --noEmit -p tsconfig.app.json` | 527 errors | **527 errors** | **0** |
+| `eslint .` | 15 errors / 289 warnings | **15 errors / 289 warnings** | **0** |
+| `npm run build` | passes | **passes (45 s)** | — |
+
+The full suite was run twice to confirm no flake.
+
+Two things surfaced during verification and were fixed rather than worked around:
+
+- **`phase0.test.ts` "no source file references Google Fonts" began timing out.**
+  It walks and reads every source file, so its runtime scales with repository
+  size, not with anything it asserts — it was already at ~4.5 s against a 5 s
+  default and nine new files tipped it over. Its budget was raised to 30 s. **No
+  assertion was changed**, and it passes in 2.5 s in isolation.
+- **`scripts/deploy-migrations.mjs` did not list the new migration.** Caught by
+  an existing gate, which is exactly what that gate is for — the migration would
+  otherwise have been silently skipped on deploy.
+
+### Applied to production
+
+The migration was applied to the linked database and verified:
+
+```
+slug          app_name             support_address                     logo_url          receipt_primary_color
+ark           ARK Learning Arena   No 2/31, Mugappair West, Chennai    /ark-logo.jpeg    NULL
+abc-academi   ABC Academi          NULL                                NULL              NULL
+```
+
+ARK seeded; **ABC Academi untouched**, which is the bound the seed was written
+to hold. Re-running the migration changed nothing (idempotent). The hex trigger
+was confirmed to reject an injection attempt on a new colour column:
+
+```
+UPDATE … SET receipt_primary_color = 'red; background:url(//evil)'
+ERROR: Invalid colour "red; background:url(//evil)": use #rrggbb
+```
+
+### Deployment
+
+1. `node scripts/deploy-migrations.mjs` — already applied to the linked
+   database; the runner is idempotent, so re-running is safe.
+2. Deploy the frontend. `public/ark-logo.jpeg` must ship — ARK's seeded
+   `logo_url` points at it, and without it ARK's receipt degrades to a monogram.
+3. No edge-function change. No environment variable change.
+
+### Remaining ARK-branded surfaces
+
+Report cards, ID cards, certificates and the two public enquiry forms still
+carry ARK's name. They use different builders, were outside this task's scope,
+and are now the **only** remaining surfaces — see §15.5.
