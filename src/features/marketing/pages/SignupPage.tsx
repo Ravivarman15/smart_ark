@@ -60,6 +60,47 @@ const slugify = (s: string) =>
 
 const STEP_ORDER: Step[] = ["account", "verify", "organization", "provisioning", "done"];
 
+
+/**
+ * Turn a GoTrue signup failure into something the person reading it can act on.
+ *
+ * ┌── THE ONE THAT MATTERS ────────────────────────────────────────┐
+ * │ "email rate limit exceeded" is NOT about the address being used. It is  │
+ * │ Supabase's SHARED SMTP hourly cap on the whole project — a handful of  │
+ * │ messages per hour. Once spent, EVERY signup fails until the window     │
+ * │ rolls over, which is why trying different addresses does not help.     │
+ * │                                                                        │
+ * │ Showing GoTrue's raw string sends people off changing their email      │
+ * │ over and over, each attempt burning nothing (the request is rejected   │
+ * │ before the user is created) and teaching them the product is broken.   │
+ * │                                                                        │
+ * │ The permanent fix is project SMTP — see docs/SIGNUP_EMAIL_LIMIT.md.    │
+ * └─────────────────────────────────────────────────────────────┘
+ */
+export const signupErrorMessage = (e: Error): string => {
+  const raw = (e?.message ?? "").toLowerCase();
+
+  if (raw.includes("rate limit") || raw.includes("too many requests") || raw.includes("over_email_send_rate")) {
+    return (
+      "We could not send the confirmation email just now — our email service hit " +
+      "its hourly limit. This is on our side, not your address, so trying a " +
+      "different email will not help. Please wait about an hour and try again, " +
+      "or contact us and we will set your account up directly."
+    );
+  }
+  if (raw.includes("invalid") && raw.includes("email")) {
+    return "That email address does not look valid. Please check it and try again.";
+  }
+  if (raw.includes("password")) {
+    return "That password was rejected. Use at least 8 characters.";
+  }
+  if (raw.includes("already registered") || raw.includes("user already")) {
+    return "An account already exists for this email. Sign in instead.";
+  }
+  // Unrecognised: show the original rather than inventing a friendlier lie.
+  return e?.message || "Something went wrong. Please try again.";
+};
+
 const SignupPage: React.FC = () => {
   useSeo(ROUTE_SEO["/signup"]);
   const navigate = useNavigate();
@@ -233,7 +274,7 @@ const SignupPage: React.FC = () => {
       sessionStorage.setItem(PENDING_EMAIL_KEY, account.email.trim().toLowerCase());
       setStep("verify");
     } catch (e) {
-      setError((e as Error).message);
+      setError(signupErrorMessage(e as Error));
     } finally {
       setBusy(false);
     }

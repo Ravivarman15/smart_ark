@@ -201,9 +201,19 @@ class CheckinService extends BaseService {
     // RLS restricts the UPDATE to this organization's own singleton row, and a
     // PostgREST UPDATE that matches no row returns 204 with error:null — silent
     // success. `.select("organization_id")` makes a zero-row write detectable.
+    //
+    // The `.not(…is null)` filter is NOT tenant scoping — RLS already does that.
+    // PostgREST is configured to reject a filterless UPDATE outright:
+    //
+    //     21000: UPDATE requires a WHERE clause
+    //
+    // so a filter has to exist. This one is always true for the caller's own
+    // row and names no organization, which keeps the tenant decision with the
+    // database instead of handing the client an id to supply.
     const { data, error } = await this.db
       .from("attendance_settings" as never)
       .update({ ...payload, updated_at: new Date().toISOString() } as never)
+      .not("organization_id", "is", null)
       .select("organization_id");
 
     // The database trigger refuses geo mode with no configured location, and
@@ -244,13 +254,30 @@ class CheckinService extends BaseService {
   }
 
   async saveLocation(input: Partial<CheckinLocation> & { name: string }): Promise<void> {
-    // Coordinates are required for a check-in location and are never defaulted.
-    // The database CHECK enforces this too; failing here first produces a
-    // message about the form the user is looking at.
-    if (input.isCheckinLocation && (input.lat == null || input.lng == null)) {
-      throw AppError.validation(
-        "A verified location needs coordinates. Paste a Google Maps link, or enter latitude and longitude.",
-      );
+    // A verified location must carry ADDRESS + COORDINATES + RADIUS. All three
+    // are enforced by CHECK constraints as well; failing here first produces a
+    // message about the form the administrator is looking at.
+    //
+    // The address is not decoration. Coordinates alone are unreviewable —
+    // "13.0059109, 80.1961798" tells nobody whether the geofence is on the
+    // right building, and a wrong pin stays invisible until staff start
+    // failing verification. The address is what makes the radius auditable.
+    if (input.isCheckinLocation) {
+      if (!input.address?.trim()) {
+        throw AppError.validation(
+          "A verified location needs its address, so the geofence can be checked by a person.",
+        );
+      }
+      if (input.lat == null || input.lng == null) {
+        throw AppError.validation(
+          "A verified location needs coordinates. Paste a Google Maps link, or enter latitude and longitude.",
+        );
+      }
+      if (input.radiusMeters == null || !Number.isFinite(input.radiusMeters)) {
+        throw AppError.validation(
+          "A verified location needs an allowed radius in metres — staff within it are verified.",
+        );
+      }
     }
 
     const row: Record<string, unknown> = {

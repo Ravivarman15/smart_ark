@@ -9,6 +9,7 @@ import {
   useUpsertCounselorMapping,
   useRemoveCounselorMapping,
 } from "../hooks/useCounselorMapping";
+import { EnquiryLinkCard } from "../components/EnquiryLinkCard";
 import { useStaffOptions } from "../hooks/useStaffOptions";
 import { useLeadCourses, useCreateLeadCourse, useRemoveLeadCourse } from "../hooks/useLeadCourses";
 
@@ -74,6 +75,11 @@ const LeadConfigPage = () => {
           matching counselor with the fewest open leads (course-specific rules + higher priority win).
         </p>
       </div>
+
+      {/* The link that actually feeds this pipeline. First, because an
+          administrator setting up lead automation needs the URL before any of
+          the routing rules below matter. */}
+      <EnquiryLinkCard />
 
       {/* ── Course master ─────────────────────────────────────────────────── */}
       <div className="glass-card p-4">

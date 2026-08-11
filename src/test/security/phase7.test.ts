@@ -266,7 +266,7 @@ describe("Exemptions that depend on a fact still hold", () => {
       return /from\s+["'][^"']*ReceiptGenerator["']/.test(readFileSync(abs, "utf8"));
     });
     expect(importers.map((f) => relative(SRC, f))).toEqual([]);
-  });
+  }, 30_000);
 
   it("the dead geo helper still has no callers", () => {
     // features/staff/utils/geo.ts reads ARK's coordinates from config.ts. It is
@@ -279,7 +279,10 @@ describe("Exemptions that depend on a fact still hold", () => {
       return /from\s+["'].*staff\/utils\/geo["']/.test(src);
     });
     expect(callers.map((f) => relative(SRC, f))).toEqual([]);
-  });
+    // 30s, not the default 5s: this walks and READS every source file, so its
+    // runtime scales with repository size rather than with what it asserts.
+    // Phase 8 added enough files to tip it over. No assertion changed.
+  }, 30_000);
 });
 
 describe("Platform identity is not tenant identity", () => {

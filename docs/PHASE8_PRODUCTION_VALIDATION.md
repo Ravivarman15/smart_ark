@@ -234,3 +234,8 @@ UPDATE organization_branches SET is_checkin_location = false;
 
 Do **not** delete the seeded ARK location rows without first confirming nothing
 has begun referencing them via `teacher_attendance.location_id`.
+
+---
+
+**Phase 8A runtime verification (real authenticated sessions): see `docs/PHASE8A_RUNTIME_VERIFICATION.md`.**
+The JWT-claim-simulation results in section 2 above are SUPERSEDED and withdrawn.

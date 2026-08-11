@@ -12,6 +12,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { AppError } from "@/shared/services";
+import { orgPath } from "@/lib/orgStorage";
 import { invalidateDocumentBranding } from "../documents/documentBranding.service";
 
 export interface BrandingBundle {
@@ -265,3 +266,56 @@ class BrandingService {
 }
 
 export const brandingService = new BrandingService();
+
+/**
+ * Upload an organization logo and return a URL the documents can actually use.
+ *
+ * ┌── WHY UPLOAD RATHER THAN ACCEPT A LINK ────────────────────────────────┐
+ * │ Receipts and payslips are rasterised by html2canvas, which must READ   │
+ * │ the image pixels. A logo hosted anywhere without permissive CORS       │
+ * │ taints the canvas and vanishes from the PDF — silently, and only in    │
+ * │ the generated document, never in the settings preview. That is why a   │
+ * │ pasted URL "did not update" while looking perfectly correct.           │
+ * │                                                                        │
+ * │ Uploading puts the asset in a bucket we control, served with CORS      │
+ * │ headers that allow the read.                                           │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * The path is `{organization_id}/logo-{timestamp}.{ext}`:
+ *   • the org prefix is what the storage policy checks — it is the tenant
+ *     boundary, since storage policies can only inspect the object NAME;
+ *   • the timestamp defeats CDN caching. Overwriting a fixed `logo.png` leaves
+ *     every cache and every already-emailed PDF pointing at the old image.
+ */
+export async function uploadOrganizationLogo(file: File): Promise<string> {
+  const { data: org } = await supabase
+    .from("organizations" as never).select("id").limit(1).maybeSingle();
+  const orgId = (org as { id?: string } | null)?.id;
+  if (!orgId) throw AppError.validation("No organization context");
+
+  if (!/^image\/(png|jpe?g|webp|svg\+xml)$/.test(file.type)) {
+    throw AppError.validation("Use a PNG, JPG, WEBP or SVG image.");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw AppError.validation("Logo must be under 2 MB.");
+  }
+
+  const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // orgPath() is the ONE place tenant partitioning is applied. A hand-built
+  // `${orgId}/…` prefix does the same thing today and silently stops matching
+  // the storage policy the day that convention changes — which is exactly why
+  // a security gate refuses any upload site that skips it.
+  const path = orgPath(`logo-${Date.now()}.${ext}`);
+
+  const { error } = await supabase.storage
+    .from("branding")
+    .upload(path, file, { contentType: file.type, upsert: true });
+  if (error) throw AppError.validation(error.message);
+
+  const { data } = supabase.storage.from("branding").getPublicUrl(path);
+  const url = data?.publicUrl;
+  if (!url) throw AppError.validation("Upload succeeded but no public URL was returned.");
+
+  await brandingService.saveBranding({ logo_url: url });
+  return url;
+}

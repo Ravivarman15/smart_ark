@@ -139,6 +139,11 @@ const LocationDialog: React.FC<{
 
   const coordsOk = f.lat !== "" && f.lng !== "" &&
     Math.abs(Number(f.lat)) <= 90 && Math.abs(Number(f.lng)) <= 180;
+  const addressOk = f.address.trim() !== "";
+  const radiusOk = f.radius !== "" && Number.isFinite(Number(f.radius)) && Number(f.radius) >= 10;
+  // A verified location is only usable when all three are present. Saving two
+  // of the three would create a geofence nobody can audit.
+  const verifiedReady = !f.isCheckinLocation || (coordsOk && addressOk && radiusOk);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -154,9 +159,17 @@ const LocationDialog: React.FC<{
               onChange={(e) => setF({ ...f, name: e.target.value })} />
           </div>
           <div>
-            <Label htmlFor="loc-addr">Address</Label>
+            <Label htmlFor="loc-addr">
+              Address {f.isCheckinLocation && <span className="text-destructive">*</span>}
+            </Label>
             <Input id="loc-addr" value={f.address}
+              placeholder="No 12, Second Avenue, Anna Nagar, Chennai 600040"
               onChange={(e) => setF({ ...f, address: e.target.value })} />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Required for a verified location. Coordinates alone cannot be
+              reviewed by a person — the address is how you confirm the geofence
+              sits on the right building.
+            </p>
           </div>
 
           <div>
@@ -190,12 +203,15 @@ const LocationDialog: React.FC<{
           </div>
 
           <div>
-            <Label htmlFor="loc-radius">Allowed radius (metres)</Label>
+            <Label htmlFor="loc-radius">
+              Allowed radius (metres) {f.isCheckinLocation && <span className="text-destructive">*</span>}
+            </Label>
             <Input id="loc-radius" value={f.radius} inputMode="numeric"
               onChange={(e) => setF({ ...f, radius: e.target.value.trim() })} />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              A small campus might use 100 m; a large one 300 m. Leave blank to
-              use the organization default.
+              Staff standing within this many metres of the address above are
+              verified. 200 m means anyone inside a 200 m circle passes. A small
+              campus might use 100 m; a large one 300 m.
             </p>
           </div>
 
@@ -215,11 +231,19 @@ const LocationDialog: React.FC<{
             <Switch checked={f.isActive} onCheckedChange={(v) => setF({ ...f, isActive: v })} />
           </div>
 
-          {f.isCheckinLocation && !coordsOk && (
+          {f.isCheckinLocation && !verifiedReady && (
             <p className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              A check-in location needs valid coordinates. Nothing is estimated —
-              paste a Maps link, use your current location, or type them in.
+              <span>
+                A verified location needs
+                {!addressOk && <strong> its address</strong>}
+                {!addressOk && (!coordsOk || !radiusOk) && ","}
+                {!coordsOk && <strong> valid coordinates</strong>}
+                {!coordsOk && !radiusOk && " and"}
+                {!radiusOk && <strong> a radius of at least 10 m</strong>}.
+                Nothing is estimated — paste a Maps link, use your current
+                location, or type the values in.
+              </span>
             </p>
           )}
         </div>
@@ -228,7 +252,7 @@ const LocationDialog: React.FC<{
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button
             onClick={() => save.mutate()}
-            disabled={save.isPending || !f.name.trim() || (f.isCheckinLocation && !coordsOk)}
+            disabled={save.isPending || !f.name.trim() || !verifiedReady}
           >
             {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save location

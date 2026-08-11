@@ -229,9 +229,16 @@ Deno.serve(async (req) => {
     });
 
     // 4. Auto-assign — course-matching active counselor with fewest open leads.
+    //
+    //    SCOPED TO THIS TENANT. Unscoped, a service-role query returns every
+    //    organization's counselor mappings, so an ABC Academi enquiry could be
+    //    auto-assigned to an ARK counselor — who would then be notified on
+    //    WhatsApp about a child who is not their student, and the lead would
+    //    appear on the wrong institution's dashboard.
     const { data: mappings } = await supabase
       .from("counselor_course_mapping")
       .select("counselor_id, course, priority")
+      .eq("organization_id", organizationId)
       .eq("is_active", true)
       .is("deleted_at", null);
 
@@ -246,9 +253,13 @@ Deno.serve(async (req) => {
       const ids = [...new Set(pool.filter((m: any) => (m.priority ?? 0) === maxP).map((m: any) => m.counselor_id))];
       let best: { id: string; n: number } | null = null;
       for (const id of ids as string[]) {
+        // Workload is counted within THIS organization only. Counting a
+        // counselor's leads across tenants would balance ABC's queue against
+        // ARK's volume and starve the new tenant's counselors.
         const { count } = await supabase
           .from("leads")
           .select("id", { count: "exact", head: true })
+          .eq("organization_id", organizationId)
           .eq("assigned_to", id)
           .is("deleted_at", null)
           .neq("status", "closed");
@@ -269,10 +280,14 @@ Deno.serve(async (req) => {
       });
       // Staff numbers live in profiles.mobile (the Create/Edit Staff form writes
       // there); `phone` is a legacy column kept for older rows. Prefer mobile.
+      // Belt and braces: confirm the chosen counselor really belongs to this
+      // organization before writing the assignment. If the mapping table ever
+      // gains a stray row, this refuses rather than notifying a stranger.
       const { data: c } = await supabase
         .from("profiles")
         .select("name, mobile, phone")
         .eq("id", assignedTo)
+        .eq("organization_id", organizationId)
         .maybeSingle();
       counselorName = c?.name ?? counselorName;
       counselorPhone = c?.mobile ?? c?.phone ?? null;
@@ -297,7 +312,11 @@ Deno.serve(async (req) => {
     } else {
       // Unassigned → alert management/admin.
       const { data: mgmt } = await supabase
-        .from("profiles").select("id").in("role", ["management", "admin"]).eq("is_active", true);
+        // Scoped: an unassigned ABC enquiry must alert ABC's management, not
+        // every admin on the platform.
+        .from("profiles").select("id")
+        .eq("organization_id", organizationId)
+        .in("role", ["management", "admin"]).eq("is_active", true);
       const ids = (mgmt || []).map((p: any) => p.id);
       if (ids.length)
         await supabase.from("lead_notifications").insert(

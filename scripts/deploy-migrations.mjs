@@ -86,6 +86,9 @@ const ORDER = [
   ["20260912_phase7a_document_branding.sql", "document branding columns + ARK identity seed; must follow 6A, which added the last organization_branding columns"],
   ["20260913_phase7b_public_tenant_context.sql", "public tenant resolution + submit_public_lead; must follow 7A, whose receipt_* columns it returns"],
   ["20260914_phase8a_checkin_locations.sql", "multi-tenant check-in locations + ARK geofence moved from source into its own rows; must follow 4B, which created organization_branches"],
+  ["20260916_phase8c_branches_org_default.sql", "organization_branches.organization_id had no default, so no tenant could create a check-in location; must follow 8A"],
+  ["20260917_phase8d_branding_bucket.sql", "public branding bucket + org-prefixed write policies; logos could not be stored or rendered before this"],
+  ["20260915_phase8b_checkin_address_required.sql", "address + radius required on a verified location; NOT VALID so ARK's 8A-seeded rows are grandfathered"],
 ];
 
 const args = process.argv.slice(2);

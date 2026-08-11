@@ -333,10 +333,17 @@ Deno.serve(async (req) => {
         return jsonResponse(400, { error: "profile_id required for delete" });
       }
 
+      // SCOPED TO THE CALLER'S ORGANIZATION. This runs as service role, so
+      // without the filter a management user of one tenant could delete a
+      // staff profile of another simply by knowing its id — and the id is not
+      // a secret. The 404 is deliberate: a cross-tenant id must be
+      // indistinguishable from one that does not exist, or the response
+      // becomes an oracle for probing other tenants' profile ids.
       const { data: target } = await supabase
         .from("profiles")
         .select("id, user_id, name")
         .eq("id", profileId)
+        .eq("organization_id", gate.caller.organizationId)
         .maybeSingle();
       if (!target) {
         return jsonResponse(404, { error: "Staff record not found" });
@@ -359,7 +366,8 @@ Deno.serve(async (req) => {
       const { error: delProfErr } = await supabase
         .from("profiles")
         .delete()
-        .eq("id", profileId);
+        .eq("id", profileId)
+        .eq("organization_id", gate.caller.organizationId);
       if (delProfErr) {
         const fkBlocked =
           (delProfErr as { code?: string }).code === "23503" ||

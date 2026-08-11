@@ -20,7 +20,7 @@ import {
   Loader2, Lock, Copy, RefreshCw, Server,
 } from "lucide-react";
 import { toast } from "sonner";
-import { brandingService, type BrandingBundle } from "../services/branding.service";
+import { brandingService, uploadOrganizationLogo, type BrandingBundle } from "../services/branding.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -147,6 +147,7 @@ const DocumentBrandingTab: React.FC<{ bundle: BrandingBundle }> = ({ bundle }) =
   // so the preview shows this tenant's actual letterhead rather than a mock.
   const { branding: resolved } = useDocumentBranding();
 
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     logo_url: String(b.logo_url ?? ""),
     support_address: String(b.support_address ?? ""),
@@ -203,16 +204,65 @@ const DocumentBrandingTab: React.FC<{ bundle: BrandingBundle }> = ({ bundle }) =
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <Label htmlFor="logo_url">Logo URL</Label>
-            <Input
-              id="logo_url"
-              value={form.logo_url}
-              placeholder="https://… or /your-logo.png"
-              onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-            />
+            <Label>Logo</Label>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              {form.logo_url ? (
+                <img
+                  src={form.logo_url}
+                  alt="Organization logo"
+                  className="h-14 w-14 rounded-lg border border-border object-cover bg-background"
+                />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
+                  none
+                </div>
+              )}
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    setUploading(true);
+                    try {
+                      const url = await uploadOrganizationLogo(file);
+                      setForm((f) => ({ ...f, logo_url: url }));
+                      qc.invalidateQueries({ queryKey: ["branding"] });
+                      qc.invalidateQueries({ queryKey: ["organization-branding"] });
+                      toast.success("Logo uploaded");
+                    } catch (err) {
+                      toast.error((err as Error).message);
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                />
+                <span className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm hover:bg-muted/50">
+                  {uploading ? "Uploading…" : form.logo_url ? "Replace logo" : "Upload logo"}
+                </span>
+              </label>
+              {form.logo_url && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setForm({ ...form, logo_url: "" })}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              PNG, JPG, WEBP or SVG, under 2 MB. Uploading is required rather than
+              linking: receipts and payslips are rendered to an image, and a logo
+              hosted elsewhere is usually blocked by that host and disappears from
+              the PDF while still looking fine here.
+            </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Left blank, documents show your initials in a monogram — never another
-              organization&rsquo;s mark.
+              With no logo, documents show your initials in a monogram — never
+              another organization&rsquo;s mark.
             </p>
           </div>
           <div className="sm:col-span-2">

@@ -156,8 +156,23 @@ const PublicLeadFormPage = () => {
             Institution not found
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
-            This enquiry link is not connected to an institution. Please use the link your
-            institution shared with you, or contact them directly.
+            This enquiry link does not name an institution, so we cannot tell where
+            to send your enquiry.
+          </p>
+          <p className="text-sm text-muted-foreground mt-3">
+            Please use the link your institution shared with you &mdash; it ends in
+            their name, like{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+              /leads/apply/your-institution
+            </code>
+            .
+          </p>
+          {/* Staff arriving here from a stale bookmark need the fix, not just
+              the diagnosis. Administrators find their own link in
+              Leads → Automation Config. */}
+          <p className="text-xs text-muted-foreground/80 mt-3">
+            If you run an institution on Smart ARK, your enquiry link is under{" "}
+            <strong>Leads → Automation Config</strong>.
           </p>
           <p className="text-[11px] text-muted-foreground/70 mt-6">
             Powered by {PLATFORM_PUBLIC_IDENTITY.name}
