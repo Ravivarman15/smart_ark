@@ -363,6 +363,7 @@ const MyReferralPage = lazy(() => import("./features/settings/pages/MyReferralPa
 const BillingPage = lazy(() => import("./features/billing/pages/BillingPage"));
 const BrandingPage = lazy(() => import("./features/branding/pages/BrandingPage"));
 const CheckinSettingsPage = lazy(() => import("./features/settings/pages/CheckinSettingsPage"));
+const DocsPage = lazy(() => import("./features/docs/DocsPage"));
 
 // ProtectedRoute / AuthRedirect now live in @/core/routing.
 // Role[] cast is purely a type-narrowing aid — the array contents are
@@ -495,6 +496,12 @@ const AppRoutes: React.FC = () => (
           identifies the tenant (a verified custom domain or subdomain); on the
           shared platform host it resolves to nothing and renders an
           "institution not found" state rather than defaulting to a tenant. */}
+      {/* Documentation. Public: a prospective customer evaluating Smart ARK
+          needs to read the guides, and nothing here exposes tenant data —
+          articles are static content, not queries. */}
+      <Route path="/docs" element={<DocsPage />} />
+      <Route path="/docs/:slug" element={<DocsPage />} />
+
       <Route path="/leads/apply" element={<PublicLeadFormPage />} />
       <Route path="/leads/apply/:orgSlug" element={<PublicLeadFormPage />} />
       {/* Public, unauthenticated student exam kiosk — proctored entry point

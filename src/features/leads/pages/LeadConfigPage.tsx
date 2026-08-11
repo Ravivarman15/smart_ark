@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DocsLink } from "@/features/docs/DocsLink";
 import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ const LeadConfigPage = () => {
       {/* The link that actually feeds this pipeline. First, because an
           administrator setting up lead automation needs the URL before any of
           the routing rules below matter. */}
+      <div><DocsLink slug="enquiries-and-leads" label="Read the enquiries guide" /></div>
       <EnquiryLinkCard />
 
       {/* ── Course master ─────────────────────────────────────────────────── */}

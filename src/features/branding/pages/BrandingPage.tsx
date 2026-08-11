@@ -14,6 +14,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import React, { useState } from "react";
+import { DocsLink } from "@/features/docs/DocsLink";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Palette, Globe, Mail, MessageSquare, Store, CheckCircle2, AlertTriangle,
@@ -62,6 +63,7 @@ const BrandingPage: React.FC = () => {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Branding &amp; White Label</h1>
         <p className="text-sm text-muted-foreground">{bundle.organization.name}</p>
+        <DocsLink slug="document-branding" label="Read the branding guide" className="mt-2" />
       </div>
 
       <Tabs defaultValue="identity">

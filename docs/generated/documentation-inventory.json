@@ -1,0 +1,1863 @@
+{
+  "generatedFrom": [
+    "src/features/rbac/constants/catalog.ts",
+    "src/core/navigation/menu.config.ts",
+    "src/App.tsx",
+    "src/core/routing/sharedRoutes.tsx"
+  ],
+  "counts": {
+    "modules": 19,
+    "submodules": 203,
+    "shipped": 87,
+    "routeClaimedNotMounted": 0,
+    "legacyOnly": 1,
+    "aspirational": 115,
+    "menuItems": 11,
+    "featureDirs": 30,
+    "existingDocs": 38
+  },
+  "modules": [
+    {
+      "id": "settings",
+      "label": "Settings"
+    },
+    {
+      "id": "setup",
+      "label": "Setup"
+    },
+    {
+      "id": "staff_user",
+      "label": "Staff / User"
+    },
+    {
+      "id": "enquiry_leads",
+      "label": "Enquiry / Leads"
+    },
+    {
+      "id": "student",
+      "label": "Student"
+    },
+    {
+      "id": "attendance",
+      "label": "Attendance"
+    },
+    {
+      "id": "tasks",
+      "label": "Tasks"
+    },
+    {
+      "id": "academics",
+      "label": "Academics / Allocation"
+    },
+    {
+      "id": "live_class",
+      "label": "Live Class"
+    },
+    {
+      "id": "fee",
+      "label": "Fee"
+    },
+    {
+      "id": "exam",
+      "label": "Exam"
+    },
+    {
+      "id": "estudy",
+      "label": "eStudy"
+    },
+    {
+      "id": "certificate",
+      "label": "Certificate"
+    },
+    {
+      "id": "whatsapp",
+      "label": "WhatsApp SMS"
+    },
+    {
+      "id": "authentication",
+      "label": "Authentication"
+    },
+    {
+      "id": "expense_income",
+      "label": "Expense & Income"
+    },
+    {
+      "id": "payroll",
+      "label": "Payroll"
+    },
+    {
+      "id": "reports",
+      "label": "Reports"
+    },
+    {
+      "id": "help",
+      "label": "Help"
+    }
+  ],
+  "submodules": [
+    {
+      "id": "settings.change_password",
+      "label": "Change Password",
+      "route": null,
+      "legacyAction": null,
+      "module": "settings",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "settings.profile",
+      "label": "Profile Setting",
+      "route": null,
+      "legacyAction": null,
+      "module": "settings",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "settings.auto_sms",
+      "label": "Auto SMS Settings",
+      "route": null,
+      "legacyAction": null,
+      "module": "settings",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "settings.auto_notifications",
+      "label": "Auto Notifications Settings",
+      "route": null,
+      "legacyAction": null,
+      "module": "settings",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "settings.auto_whatsapp",
+      "label": "Auto WhatsApp Settings",
+      "route": null,
+      "legacyAction": null,
+      "module": "settings",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "settings.my_plan",
+      "label": "My Plan",
+      "route": null,
+      "legacyAction": null,
+      "module": "settings",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "settings.sms_plan",
+      "label": "SMS Plan",
+      "route": null,
+      "legacyAction": null,
+      "module": "settings",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "settings.my_referral",
+      "label": "My Referral",
+      "route": null,
+      "legacyAction": null,
+      "module": "settings",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "settings.billing",
+      "label": "Billing & Subscription",
+      "route": "/settings/billing",
+      "legacyAction": null,
+      "module": "settings",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "settings.branding",
+      "label": "Branding & White Label",
+      "route": "/settings/branding",
+      "legacyAction": null,
+      "module": "settings",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "settings.checkin",
+      "label": "Check-in & Check-out",
+      "route": "/settings/check-in",
+      "legacyAction": null,
+      "module": "settings",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.add_year",
+      "label": "Add Year",
+      "route": null,
+      "legacyAction": null,
+      "module": "setup",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "setup.manage_year",
+      "label": "Manage Year",
+      "route": "/admin/setup/years",
+      "legacyAction": "setup.years",
+      "module": "setup",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.assign_standard",
+      "label": "Assign Standard",
+      "route": "/admin/setup/standards",
+      "legacyAction": "setup.standards",
+      "module": "setup",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.assign_subject",
+      "label": "Assign Subject",
+      "route": "/admin/setup/subjects",
+      "legacyAction": "setup.subjects",
+      "module": "setup",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.add_course_type",
+      "label": "Add Course Type",
+      "route": null,
+      "legacyAction": null,
+      "module": "setup",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "setup.manage_course_type",
+      "label": "Manage Course Type",
+      "route": "/admin/setup/course-types",
+      "legacyAction": "setup.course_types",
+      "module": "setup",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.add_batch",
+      "label": "Add Class / Batch",
+      "route": null,
+      "legacyAction": null,
+      "module": "setup",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "setup.manage_batch",
+      "label": "Manage Class / Batch",
+      "route": "/admin/setup/batches",
+      "legacyAction": "setup.batches",
+      "module": "setup",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.timetable",
+      "label": "Manage Time Table",
+      "route": "/admin/timetable",
+      "legacyAction": "setup.timetable",
+      "module": "setup",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.add_tax",
+      "label": "Add Tax",
+      "route": null,
+      "legacyAction": null,
+      "module": "setup",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "setup.manage_tax",
+      "label": "Manage Tax",
+      "route": "/admin/setup/taxes",
+      "legacyAction": "setup.tax",
+      "module": "setup",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "staff.create",
+      "label": "Create Staff",
+      "route": "/admin/staff-manage",
+      "legacyAction": "staff.control",
+      "module": "staff_user",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "staff.manage",
+      "label": "Manage Staff",
+      "route": "/admin/staff-manage",
+      "legacyAction": "staff.control",
+      "module": "staff_user",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "staff.rights",
+      "label": "Manage Staff Rights",
+      "route": "/management/permissions",
+      "legacyAction": "staff.rights",
+      "module": "staff_user",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "staff.action_rights",
+      "label": "Manage Staff Action Rights",
+      "route": null,
+      "legacyAction": "staff.action_rights",
+      "module": "staff_user",
+      "status": "LEGACY_ONLY"
+    },
+    {
+      "id": "staff.attendance",
+      "label": "Staff Attendance",
+      "route": "/admin/teacher-checkins",
+      "legacyAction": "staff.attendance",
+      "module": "staff_user",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "enquiry.add",
+      "label": "Add Student Enquiry",
+      "route": "/admin/enquiries",
+      "legacyAction": "enquiry.manage",
+      "module": "enquiry_leads",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "enquiry.assign",
+      "label": "Assign Enquiry",
+      "route": "/admin/enquiries",
+      "legacyAction": "enquiry.manage",
+      "module": "enquiry_leads",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "enquiry.manage",
+      "label": "Manage Enquiry",
+      "route": "/admin/enquiries",
+      "legacyAction": "enquiry.manage",
+      "module": "enquiry_leads",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "lead.counselor_board",
+      "label": "My Leads (Counselor Board)",
+      "route": null,
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "lead.pipeline",
+      "label": "Lead Pipeline",
+      "route": null,
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "lead.management",
+      "label": "Lead Management Dashboard",
+      "route": null,
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "lead.demos",
+      "label": "Demo Classes",
+      "route": null,
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "lead.admissions",
+      "label": "Lead Admissions",
+      "route": null,
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "lead.analytics",
+      "label": "Lead Analytics",
+      "route": null,
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "lead.whatsapp",
+      "label": "WhatsApp Delivery Dashboard",
+      "route": null,
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "lead.config",
+      "label": "Lead Automation Config",
+      "route": null,
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "lead.bulk_import",
+      "label": "Bulk Import",
+      "route": "/admin/leads/bulk-import",
+      "legacyAction": null,
+      "module": "enquiry_leads",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "student.import",
+      "label": "Students Import",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.add",
+      "label": "Add Student Registration",
+      "route": "/admin/students",
+      "legacyAction": "student.control",
+      "module": "student",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "student.manage",
+      "label": "Manage Student",
+      "route": "/admin/students",
+      "legacyAction": "student.control",
+      "module": "student",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "student.assign_batch",
+      "label": "Assign Class / Batch",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.attendance",
+      "label": "Student Attendance",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.share_docs",
+      "label": "Share Documents",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.manage_shared_docs",
+      "label": "Manage Shared Documents",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.leave_request",
+      "label": "Manage Leave Request",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.year_transfer",
+      "label": "Student Year Transfer",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.untransfer",
+      "label": "Student Untransfer",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.chat",
+      "label": "Chat With Students",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.feedback",
+      "label": "Student Feedback",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.rights",
+      "label": "Student Rights",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.app_access",
+      "label": "App. Access Rights",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "student.attendance_history",
+      "label": "Attendance History",
+      "route": null,
+      "legacyAction": null,
+      "module": "student",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "attendance.dashboard",
+      "label": "Attendance Dashboard",
+      "route": "/admin/attendance/dashboard",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.student_mark",
+      "label": "Mark Student Attendance",
+      "route": "/admin/attendance/students/mark",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.student_register",
+      "label": "Student Attendance Register",
+      "route": "/admin/attendance/students/register",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.student_backdated",
+      "label": "Backdated Attendance",
+      "route": "/admin/attendance/students/backdated",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.student_corrections",
+      "label": "Attendance Corrections",
+      "route": "/admin/attendance/students/corrections",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.student_import",
+      "label": "Import Student Attendance",
+      "route": "/admin/attendance/students/import",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.staff_manual",
+      "label": "Staff Manual Attendance",
+      "route": "/admin/attendance/staff/manual",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.staff_checkin",
+      "label": "Check In / Check Out",
+      "route": "/admin/attendance/staff/check-in",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.staff_hours",
+      "label": "Work Hours Dashboard",
+      "route": "/admin/attendance/staff/work-hours",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.staff_register",
+      "label": "Staff Attendance Register",
+      "route": "/admin/attendance/staff/register",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.staff_corrections",
+      "label": "Staff Corrections",
+      "route": "/admin/attendance/staff/corrections",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.staff_import",
+      "label": "Import Staff Attendance",
+      "route": "/admin/attendance/staff/import",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.analytics_students",
+      "label": "Student Analytics",
+      "route": "/admin/attendance/analytics/students",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.analytics_staff",
+      "label": "Staff Analytics",
+      "route": "/admin/attendance/analytics/staff",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.analytics_trends",
+      "label": "Attendance Trends",
+      "route": "/admin/attendance/analytics/trends",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.analytics_risk",
+      "label": "Risk Analysis",
+      "route": "/admin/attendance/analytics/risk",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.analytics_hours",
+      "label": "Work Hours Analytics",
+      "route": "/admin/attendance/analytics/work-hours",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.reports",
+      "label": "Attendance Reports",
+      "route": "/admin/attendance/reports",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.gov_compliance",
+      "label": "Compliance Dashboard",
+      "route": "/admin/attendance/governance/compliance",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.gov_locks",
+      "label": "Lock Periods",
+      "route": "/admin/attendance/governance/locks",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.gov_closing",
+      "label": "Monthly Closing",
+      "route": "/admin/attendance/governance/closing",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.gov_reopen",
+      "label": "Reopen Requests",
+      "route": "/admin/attendance/governance/reopen",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.gov_approvals",
+      "label": "Approval Queue",
+      "route": "/admin/attendance/governance/approvals",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.gov_audit",
+      "label": "Audit Center",
+      "route": "/admin/attendance/governance/audit",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.gov_health",
+      "label": "Attendance Health",
+      "route": "/admin/attendance/governance/health",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.auto_center",
+      "label": "Automation Center",
+      "route": "/admin/attendance/automation",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.auto_students",
+      "label": "Attendance Alerts",
+      "route": "/admin/attendance/automation/students",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.auto_staff",
+      "label": "Staff Alerts",
+      "route": "/admin/attendance/automation/staff",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.comms_dashboard",
+      "label": "Communication Dashboard",
+      "route": "/admin/attendance/communication",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.comms_reports",
+      "label": "Attendance WhatsApp Reports",
+      "route": "/admin/attendance/communication/reports",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.settings",
+      "label": "Attendance Settings",
+      "route": "/admin/attendance/settings",
+      "legacyAction": null,
+      "module": "attendance",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "tasks.dashboard",
+      "label": "Task Dashboard",
+      "route": "/admin/tasks/dashboard",
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "tasks.my",
+      "label": "My Tasks",
+      "route": "/admin/tasks/my",
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "tasks.team",
+      "label": "Team Tasks",
+      "route": "/admin/tasks/team",
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "tasks.board",
+      "label": "Kanban Board",
+      "route": "/admin/tasks/board",
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "tasks.workload",
+      "label": "Team Workload",
+      "route": "/admin/tasks/workload",
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "tasks.analytics",
+      "label": "Task Analytics",
+      "route": null,
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "tasks.reports",
+      "label": "Task Reports",
+      "route": null,
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "tasks.templates",
+      "label": "Task Templates",
+      "route": null,
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "tasks.settings",
+      "label": "Task Settings",
+      "route": null,
+      "legacyAction": null,
+      "module": "tasks",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "academics.allocation",
+      "label": "Staff Allocation",
+      "route": "/management/allocation",
+      "legacyAction": null,
+      "module": "academics",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "academics.sections",
+      "label": "Manage Sections",
+      "route": null,
+      "legacyAction": null,
+      "module": "academics",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "academics.scheduling",
+      "label": "Class Scheduling",
+      "route": "/coordinator/scheduling",
+      "legacyAction": null,
+      "module": "academics",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "academics.workload",
+      "label": "Teacher Workload",
+      "route": "/coordinator/scheduling",
+      "legacyAction": null,
+      "module": "academics",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "academics.my_classes",
+      "label": "My Classes",
+      "route": "/teacher/my-classes",
+      "legacyAction": null,
+      "module": "academics",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "academics.monitor",
+      "label": "Class Control Center",
+      "route": "/coordinator/monitor",
+      "legacyAction": null,
+      "module": "academics",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "academics.analytics",
+      "label": "Faculty Analytics",
+      "route": "/management/faculty-analytics",
+      "legacyAction": null,
+      "module": "academics",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "academics.reports",
+      "label": "Faculty Reports",
+      "route": null,
+      "legacyAction": null,
+      "module": "academics",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "academics.audit",
+      "label": "Class Audit Trail",
+      "route": null,
+      "legacyAction": null,
+      "module": "academics",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "live.add",
+      "label": "Add Class",
+      "route": null,
+      "legacyAction": null,
+      "module": "live_class",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "live.manage",
+      "label": "Manage Class",
+      "route": null,
+      "legacyAction": null,
+      "module": "live_class",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "live.my",
+      "label": "My Class",
+      "route": null,
+      "legacyAction": null,
+      "module": "live_class",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "fee.create_structure",
+      "label": "Create Fee Structure",
+      "route": null,
+      "legacyAction": null,
+      "module": "fee",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "fee.manage_structure",
+      "label": "Manage Fee Structure",
+      "route": "/admin/setup/fee-structures",
+      "legacyAction": "fee.structures",
+      "module": "fee",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "fee.collection",
+      "label": "Fee Collection",
+      "route": "/admin/fees",
+      "legacyAction": "fee.collection",
+      "module": "fee",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "fee.manage",
+      "label": "Manage Fees",
+      "route": "/admin/fees-management",
+      "legacyAction": "fee.manage",
+      "module": "fee",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "fee.communication",
+      "label": "Fee Communication",
+      "route": null,
+      "legacyAction": null,
+      "module": "fee",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.create_manual",
+      "label": "Create Manual Exam",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.manage_manual",
+      "label": "Manage Manual Exam",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.smart_entry",
+      "label": "Smart Mark Entry",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.monthly_sheets",
+      "label": "Monthly Result Sheets",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.report_card",
+      "label": "Student Report Card",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.dashboard",
+      "label": "Examination Dashboard",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.analytics",
+      "label": "Exam Analytics",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.registers",
+      "label": "Exam Reports & Registers",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.import_marks",
+      "label": "Import Marks",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.paper_import",
+      "label": "Question Paper Import",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.create_mcq_paper",
+      "label": "Create MCQ Paper",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.manage_mcq_paper",
+      "label": "Manage MCQ Paper",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.create_mcq_exam",
+      "label": "Create MCQ Exam",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "exam.manage_mcq_exam",
+      "label": "Manage MCQ Exam",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "estudy.create",
+      "label": "Create Study Material",
+      "route": null,
+      "legacyAction": null,
+      "module": "estudy",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "estudy.manage",
+      "label": "Manage Study Material",
+      "route": null,
+      "legacyAction": null,
+      "module": "estudy",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "estudy.shared",
+      "label": "Manage Shared Study Material",
+      "route": null,
+      "legacyAction": null,
+      "module": "estudy",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "certificate.add",
+      "label": "Add Certificate",
+      "route": null,
+      "legacyAction": null,
+      "module": "certificate",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "certificate.manage",
+      "label": "Manage Certificate",
+      "route": null,
+      "legacyAction": null,
+      "module": "certificate",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.center",
+      "label": "Communication Center",
+      "route": "/management/communication",
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "whatsapp.send_inquiry",
+      "label": "Send SMS To Inquiry",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_student",
+      "label": "Send SMS To Student",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_staff",
+      "label": "Send SMS To Staff",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_staff_creds",
+      "label": "Send Staff ID / Password",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_student_creds",
+      "label": "Send Student ID / Password",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_upcoming_exam",
+      "label": "Send Upcoming Exam SMS",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_exam_marks",
+      "label": "Send Exam Marks SMS",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_fee_status",
+      "label": "Send Fee Status SMS",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_fee_due",
+      "label": "Send Fee Due Reminder SMS",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_absent",
+      "label": "Send Today Absent Attendance SMS",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.send_birthday",
+      "label": "Send Student Birthday SMS",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.credential_health",
+      "label": "Credential Health",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.deployment_manager",
+      "label": "Deployment Manager",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.automation_settings",
+      "label": "Communication Automation",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "whatsapp.communication_timeline",
+      "label": "Communication Timeline",
+      "route": null,
+      "legacyAction": null,
+      "module": "whatsapp",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "authentication.account_health",
+      "label": "Account Health",
+      "route": null,
+      "legacyAction": null,
+      "module": "authentication",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "authentication.student_accounts",
+      "label": "Student Accounts",
+      "route": null,
+      "legacyAction": null,
+      "module": "authentication",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "authentication.parent_accounts",
+      "label": "Parent Accounts",
+      "route": null,
+      "legacyAction": null,
+      "module": "authentication",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "authentication.credential_repair",
+      "label": "Credential Repair",
+      "route": null,
+      "legacyAction": null,
+      "module": "authentication",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "authentication.login_audit",
+      "label": "Login Audit",
+      "route": null,
+      "legacyAction": null,
+      "module": "authentication",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "expense.add_type",
+      "label": "Add Expense Type",
+      "route": null,
+      "legacyAction": null,
+      "module": "expense_income",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "expense.manage_type",
+      "label": "Manage Expense Type",
+      "route": "/admin/setup/expense-categories",
+      "legacyAction": "expense.categories",
+      "module": "expense_income",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "expense.add",
+      "label": "Add Expense",
+      "route": "/admin/expenses",
+      "legacyAction": "expense.manage",
+      "module": "expense_income",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "expense.manage",
+      "label": "Manage Expense",
+      "route": "/admin/expenses",
+      "legacyAction": "expense.manage",
+      "module": "expense_income",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "income.add_type",
+      "label": "Add Income Type",
+      "route": null,
+      "legacyAction": null,
+      "module": "expense_income",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "income.manage_type",
+      "label": "Manage Income Type",
+      "route": null,
+      "legacyAction": null,
+      "module": "expense_income",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "income.add",
+      "label": "Add Income",
+      "route": "/admin/expenses",
+      "legacyAction": "expense.manage",
+      "module": "expense_income",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "income.manage",
+      "label": "Manage Income",
+      "route": "/admin/expenses",
+      "legacyAction": "expense.manage",
+      "module": "expense_income",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.dashboard",
+      "label": "Payroll Dashboard",
+      "route": "/admin/payroll/dashboard",
+      "legacyAction": "payroll.dashboard",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.approval",
+      "label": "Approval Center",
+      "route": "/admin/payroll/approval",
+      "legacyAction": "payroll.approve",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.role_rates",
+      "label": "Role Wise Salary",
+      "route": "/admin/payroll/config/role-rates",
+      "legacyAction": "payroll.salary_configure",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.staff_rates",
+      "label": "Staff Wise Salary",
+      "route": "/admin/payroll/config/staff-rates",
+      "legacyAction": "payroll.salary_configure",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.shifts",
+      "label": "Shift Assignment",
+      "route": "/admin/payroll/config/shifts",
+      "legacyAction": "payroll.salary_configure",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.rules",
+      "label": "Overtime & Rules",
+      "route": "/admin/payroll/config/rules",
+      "legacyAction": "payroll.salary_configure",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.processing",
+      "label": "Salary Processing",
+      "route": "/admin/payroll/processing",
+      "legacyAction": "payroll.create",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.register",
+      "label": "Salary Register",
+      "route": "/admin/payroll/register",
+      "legacyAction": "payroll.salary_view_all",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.analytics",
+      "label": "Payroll Analytics",
+      "route": "/admin/payroll/analytics",
+      "legacyAction": "payroll.analytics",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.audit",
+      "label": "Payroll Audit",
+      "route": "/admin/payroll/audit",
+      "legacyAction": "payroll.audit",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.settings",
+      "label": "Payroll Settings",
+      "route": "/admin/payroll/settings",
+      "legacyAction": "payroll.settings",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "payroll.my_salary",
+      "label": "My Salary",
+      "route": "/admin/payroll/my-salary",
+      "legacyAction": "payroll.salary_view_self",
+      "module": "payroll",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "reports.timetable",
+      "label": "Time Table Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.student_inquiry",
+      "label": "Student Inquiry Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.student_detail",
+      "label": "Student Detail Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.mobile_status",
+      "label": "Mobile App. Status Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.id_card",
+      "label": "Student ID Card Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.qrcode_card",
+      "label": "Student QRCode Card",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.student_attendance",
+      "label": "Student Attendance Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.fee_due_reminder",
+      "label": "Fee Due Reminder Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.pending_fee",
+      "label": "Pending Fee Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.fee_status",
+      "label": "Fee Status Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.fee_collection",
+      "label": "Fee Collection Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.fee_collection_tax",
+      "label": "Fee Collection With Tax Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.fee_refund",
+      "label": "Fee Refund Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.exam_status",
+      "label": "Exam Status Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.student_exam_summary",
+      "label": "Student Exam Summary Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.student_performance",
+      "label": "Student Performance Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.expense",
+      "label": "Expense Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.income",
+      "label": "Income Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.payroll_expense",
+      "label": "Payroll Expense Register",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.profit_loss",
+      "label": "Profit / Loss Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.staff_attendance",
+      "label": "Staff Attendance Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.sms_status",
+      "label": "SMS Status Report",
+      "route": null,
+      "legacyAction": null,
+      "module": "reports",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "reports.inquiry_analysis",
+      "label": "Student Inquiry Analysis Report",
+      "route": "/admin/analysis",
+      "legacyAction": "reports.analysis",
+      "module": "reports",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "reports.admission_analysis",
+      "label": "Student Admission Analysis Report",
+      "route": "/admin/analysis",
+      "legacyAction": "reports.analysis",
+      "module": "reports",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "reports.fee_analysis",
+      "label": "Fee Analysis Report",
+      "route": "/admin/analysis",
+      "legacyAction": "reports.analysis",
+      "module": "reports",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "reports.profit_loss_analysis",
+      "label": "Profit Loss Analysis Report",
+      "route": "/admin/analysis",
+      "legacyAction": "reports.analysis",
+      "module": "reports",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "help.support_request",
+      "label": "Support Request",
+      "route": null,
+      "legacyAction": null,
+      "module": "help",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "help.support_history",
+      "label": "Support History",
+      "route": null,
+      "legacyAction": null,
+      "module": "help",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "help.feedback",
+      "label": "Feedback Board",
+      "route": null,
+      "legacyAction": null,
+      "module": "help",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "help.feedback_new",
+      "label": "Share Feedback",
+      "route": null,
+      "legacyAction": null,
+      "module": "help",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "help.triage",
+      "label": "Triage Inbox",
+      "route": null,
+      "legacyAction": null,
+      "module": "help",
+      "status": "ASPIRATIONAL"
+    },
+    {
+      "id": "help.analytics",
+      "label": "Ticket Analytics",
+      "route": null,
+      "legacyAction": null,
+      "module": "help",
+      "status": "ASPIRATIONAL"
+    }
+  ],
+  "menuItems": [
+    {
+      "path": "/settings/change-password",
+      "label": "Change Password",
+      "rolesExpr": "all",
+      "submodule": "settings.change_password"
+    },
+    {
+      "path": "/settings/profile",
+      "label": "Profile Setting",
+      "rolesExpr": "all",
+      "submodule": "settings.profile"
+    },
+    {
+      "path": "/settings/auto-sms",
+      "label": "Auto SMS Settings",
+      "rolesExpr": "adminMgmt",
+      "submodule": "settings.auto_sms"
+    },
+    {
+      "path": "/settings/auto-notifications",
+      "label": "Auto Notifications Settings",
+      "rolesExpr": "all",
+      "submodule": "settings.auto_notifications"
+    },
+    {
+      "path": "/settings/auto-whatsapp",
+      "label": "Auto WhatsApp Settings",
+      "rolesExpr": "adminMgmt",
+      "submodule": "settings.auto_whatsapp"
+    },
+    {
+      "path": "/settings/my-plan",
+      "label": "My Plan",
+      "rolesExpr": "[\"management\"]",
+      "submodule": "settings.my_plan"
+    },
+    {
+      "path": "/settings/sms-plan",
+      "label": "SMS Plan",
+      "rolesExpr": "adminMgmt",
+      "submodule": "settings.sms_plan"
+    },
+    {
+      "path": "/settings/my-referral",
+      "label": "My Referral",
+      "rolesExpr": "all",
+      "submodule": "settings.my_referral"
+    },
+    {
+      "path": "/settings/billing",
+      "label": "Billing & Subscription",
+      "rolesExpr": "adminMgmt",
+      "submodule": "settings.billing"
+    },
+    {
+      "path": "/settings/branding",
+      "label": "Branding & White Label",
+      "rolesExpr": "adminMgmt",
+      "submodule": "settings.branding"
+    },
+    {
+      "path": "/settings/check-in",
+      "label": "Check-in & Check-out",
+      "rolesExpr": "adminMgmt",
+      "submodule": "settings.checkin"
+    }
+  ],
+  "featureDirs": [
+    "allocation",
+    "attendance",
+    "auth-accounts",
+    "billing",
+    "branding",
+    "certificates",
+    "communication",
+    "dashboard",
+    "enquiries",
+    "estudy",
+    "exams",
+    "fee",
+    "fees",
+    "finance",
+    "help",
+    "leads",
+    "live-classes",
+    "liveclass",
+    "marketing",
+    "onboarding",
+    "parent-portal",
+    "payroll",
+    "platform",
+    "rbac",
+    "reports",
+    "settings",
+    "setup",
+    "staff",
+    "students",
+    "tasks"
+  ],
+  "existingDocs": [
+    "AISENSY_MULTITENANT_TEMPLATE_SUBMISSION.md",
+    "AISENSY_TEMPLATES.md",
+    "ARK_CHECKIN_COORDINATE_RECONCILIATION.md",
+    "ATTENDANCE_WHATSAPP_AUTOMATION.md",
+    "CHECKIN_GEOFENCE_MIGRATION.md",
+    "COMMUNICATION_AUTOMATION.md",
+    "COMMUNICATION_AUTOMATION_MATRIX.md",
+    "COMMUNICATION_CENTER.md",
+    "COMMUNICATION_CENTER_ENTERPRISE.md",
+    "COMMUNICATION_DEPLOYMENT_MANAGER.md",
+    "COMMUNICATION_EVENT_AUTOMATION.md",
+    "COMMUNICATION_VERIFICATION.md",
+    "DYNAMIC_DOCUMENT_BRANDING.md",
+    "MULTI_TENANT_ARCHITECTURE_REVIEW.md",
+    "PARENT_PORTAL.md",
+    "PHASE0_SECURITY_HARDENING.md",
+    "PHASE1E_COMPOSITE_UNIQUE_KEYS.md",
+    "PHASE1_MULTI_TENANT_FOUNDATION.md",
+    "PHASE2_PLATFORM_CONTROL_PLANE.md",
+    "PHASE3_PUBLIC_WEBSITE.md",
+    "PHASE4_PROVISIONING_AND_WHITE_LABEL.md",
+    "PHASE5_BILLING_RAZORPAY.md",
+    "PHASE6_WHITE_LABEL.md",
+    "PHASE8A_RUNTIME_VERIFICATION.md",
+    "PHASE8_PRODUCTION_BASELINE.md",
+    "PHASE8_PRODUCTION_VALIDATION.md",
+    "PRODUCTION_DEPLOYMENT.md",
+    "PRODUCT_TRANSFORMATION_BLUEPRINT.md",
+    "PROJECT_IMPACT_REPORT.md",
+    "SIGNUP_EMAIL_LIMIT.md",
+    "SMART_ARK_DOCUMENTATION_ARCHITECTURE.md",
+    "STUDENT_360_REPORT.md",
+    "STUDENT_IMPORT_ENTERPRISE.md",
+    "STUDENT_IMPORT_FAMILY_DEDUP.md",
+    "STUDENT_IMPORT_PRODUCTION.md",
+    "STUDENT_PROFILE_FOUNDATION.md",
+    "TENANT_BRANDING_SURFACE_AUDIT.md",
+    "academic-allocation.md"
+  ]
+}

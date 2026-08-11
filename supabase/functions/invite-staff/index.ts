@@ -321,6 +321,40 @@ Deno.serve(async (req) => {
       actor_name: gate.caller.name,
     };
 
+    // ── Sending organization ────────────────────────────────────────────────
+    // Staff welcome and password-reset emails must be signed with the
+    // institution the person is joining. Without this every email said
+    // "Smart ARK" — the platform default — so an ABC Academi teacher was
+    // welcomed to the wrong organization on their first day.
+    //
+    // Resolved from the VERIFIED caller, never from the request body.
+    // A failed lookup degrades to the platform default, which is generic; it
+    // never degrades to another tenant.
+    let orgBranding: Record<string, string> | undefined;
+    try {
+      const { data: orgRow } = await supabase
+        .from("organizations")
+        .select("display_name, organization_branding(app_name, support_email, support_phone, website_url, primary_color, accent_color, logo_url)")
+        .eq("id", gate.caller.organizationId)
+        .maybeSingle();
+      if (orgRow) {
+        const b = (Array.isArray(orgRow.organization_branding)
+          ? orgRow.organization_branding[0]
+          : orgRow.organization_branding) as Record<string, string> | null;
+        orgBranding = {
+          orgName: (b?.app_name || orgRow.display_name || "") as string,
+          supportEmail: (b?.support_email ?? "") as string,
+          supportPhone: (b?.support_phone ?? "") as string,
+          websiteUrl: (b?.website_url ?? "") as string,
+          primaryColor: (b?.primary_color ?? "") as string,
+          accentColor: (b?.accent_color ?? "") as string,
+          logoUrl: (b?.logo_url ?? "") as string,
+        };
+      }
+    } catch (e) {
+      console.warn("[invite-staff] branding lookup failed; using platform default:", e);
+    }
+
     const body = (await req.json()) as InvitePayload;
 
     // ── Action: delete ────────────────────────────────────────────────────
@@ -462,6 +496,7 @@ Deno.serve(async (req) => {
           tempPassword,
         },
         branch,
+        orgBranding,
       );
       const sent = await sendBrevoEmail({
         to: [{ email: resolved.authEmail, name: resolved.name }],
@@ -543,6 +578,7 @@ Deno.serve(async (req) => {
           tempPassword,
         },
         branch,
+        orgBranding,
       );
       const sent = await sendBrevoEmail({
         to: [{ email: resolved.authEmail, name: resolved.name }],
@@ -784,6 +820,24 @@ Deno.serve(async (req) => {
     // 2) Upsert the profile (the auth trigger may have created a bare row).
     const nowIso = new Date().toISOString();
     const profileRow: Record<string, unknown> = {
+      // ┌── WHY THIS IS EXPLICIT ────────────────────────────────────────────┐
+      // │ profiles.organization_id is NOT NULL DEFAULT current_org_id().     │
+      // │ This function runs as SERVICE ROLE, which carries no organization  │
+      // │ claim, so that default evaluates to NULL and the insert failed:    │
+      // │                                                                    │
+      // │   null value in column "organization_id" of relation "profiles"    │
+      // │   violates not-null constraint                                     │
+      // │                                                                    │
+      // │ It worked while one organization existed, because the fallback     │
+      // │ resolved to it. A second organization made the fallback NULL and   │
+      // │ staff creation broke for EVERY tenant at once — the same root      │
+      // │ cause as the public enquiry form.                                  │
+      // │                                                                    │
+      // │ Taken from the VERIFIED caller, never from the request body: a     │
+      // │ body-supplied organization would let one tenant create staff       │
+      // │ inside another.                                                    │
+      // └────────────────────────────────────────────────────────────────────┘
+      organization_id: gate.caller.organizationId,
       user_id: newUser.id,
       first_name: profile.first_name,
       middle_name: profile.middle_name ?? null,
@@ -839,6 +893,7 @@ Deno.serve(async (req) => {
           : undefined,
       },
       branch,
+      orgBranding,
     );
     const sent = await sendBrevoEmail({
       to: [{ email, name: fullName }],

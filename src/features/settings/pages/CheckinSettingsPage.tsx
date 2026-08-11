@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { DocsLink } from "@/features/docs/DocsLink";
 import {
   checkinService, parseMapsUrl, readDevicePosition, haversineMeters,
   DEFAULT_RADIUS_METERS,
@@ -405,6 +406,7 @@ export const CheckinSettingsPage: React.FC = () => {
         <p className="text-sm text-muted-foreground">
           How your staff record their attendance, and where they are allowed to do it.
         </p>
+        <DocsLink slug="checkin-setup" label="Read the check-in guide" className="mt-2" />
       </div>
 
       {/* ── Mode ── */}
