@@ -27,6 +27,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FeeCollectionChart } from "./FeeCollectionChart";
 import {
   Users, Wallet, CalendarCheck, TrendingUp, MessageSquare, Sparkles,
   IndianRupee, BellRing, ArrowUpRight,
@@ -57,8 +58,6 @@ const TILES: Tile[] = [
 ];
 
 /** Deterministic — no Math.random, so server-rendered and client markup agree. */
-const BARS = [38, 52, 44, 68, 57, 74, 63, 81, 70, 88, 76, 92];
-const MONTHS = ["A", "M", "J", "J", "A", "S", "O", "N", "D", "J", "F", "M"];
 
 const FEED = [
   { icon: Wallet,        text: "Fee receipt sent",        meta: "₹12,400 · Class X-B",   tone: "success" as const },
@@ -249,26 +248,7 @@ export const LiveDashboard: React.FC<{ className?: string }> = ({ className }) =
                     Last 12 months
                   </span>
                 </div>
-                <div className="flex h-20 items-end gap-1 sm:h-24 sm:gap-1.5">
-                  {BARS.map((h, i) => (
-                    <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                      <div
-                        className={cn(
-                          "w-full rounded-t bg-accent/70 origin-bottom",
-                          !reduced && "animate-[mk-bar-grow_0.7s_var(--mk-ease)_both]",
-                          i === BARS.length - 1 && "bg-accent",
-                        )}
-                        style={{
-                          height: `${h}%`,
-                          animationDelay: reduced ? undefined : `${i * 45}ms`,
-                        }}
-                      />
-                      <span className="text-[7px] text-muted-foreground sm:text-[8px]">
-                        {MONTHS[i]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <FeeCollectionChart reduced={reduced} />
               </div>
 
               {/* Activity feed */}
