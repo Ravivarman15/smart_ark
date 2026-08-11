@@ -15,6 +15,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { supabase } from "@/integrations/supabase/client";
+import { readEdgeError } from "@/lib/edgeError";
 import { AppError } from "@/shared/services";
 
 export interface BillingSummary {
@@ -56,10 +57,11 @@ async function invokeBilling<T>(action: string, payload: Record<string, unknown>
   });
   const body = data as { error?: string } | null;
   if (error || body?.error) {
-    // Prefer the function's own message: it names the actual problem
-    // ("No yearly price for growth", "Plan limit reached"), which a generic
-    // HTTP error never does.
-    throw AppError.validation(body?.error ?? error?.message ?? "Billing request failed");
+    // readEdgeError digs the function's own message out of error.context.
+    // Reading only `body.error` looks right but cannot work on a non-2xx:
+    // `data` is null there, so every real diagnosis collapsed into
+    // "Edge Function returned a non-2xx status code".
+    throw AppError.validation(await readEdgeError(error, data, "Billing request failed"));
   }
   return data as T;
 }

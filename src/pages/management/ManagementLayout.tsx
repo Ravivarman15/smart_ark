@@ -1,10 +1,14 @@
 import React, { useState } from "react";
+import { useOrganizationBranding } from "@/core/theme/OrganizationThemeProvider";
 import { Outlet } from "react-router-dom";
 import { RoleSidebar } from "@/shared/layouts";
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/core/theme";
 
 const ManagementLayout: React.FC = () => {
+  // The institution this portal belongs to — was a hardcoded "ARK Intelligence".
+  const { branding: orgBranding } = useOrganizationBranding();
+  const orgTitle = orgBranding?.appName || orgBranding?.portalName || "Smart ARK";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -22,7 +26,7 @@ const ManagementLayout: React.FC = () => {
             <Menu className="w-5 h-5 text-foreground" />
           </button>
           <div className="flex flex-col items-center">
-            <span className="font-display font-bold text-foreground text-sm">ARK Intelligence</span>
+            <span className="font-display font-bold text-foreground text-sm">{orgTitle}</span>
             <span className="text-[9px] text-accent uppercase tracking-widest">Executive Portal</span>
           </div>
           <ThemeToggle variant="icon" />

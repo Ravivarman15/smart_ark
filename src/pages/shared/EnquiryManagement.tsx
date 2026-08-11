@@ -63,6 +63,20 @@ const PRIORITY_MAP: Record<string, string> = {
 };
 
 const EnquiryManagement: React.FC = () => {
+  // This organization's own enquiry URL. The slug comes from the caller's own
+  // organizations row, which RLS scopes to their tenant — so these buttons
+  // cannot hand out another institution's link.
+  const [applyUrl, setApplyUrl] = useState("");
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const { data } = await supabase
+        .from("organizations" as never).select("slug").limit(1).maybeSingle();
+      const slug = (data as { slug?: string } | null)?.slug;
+      if (alive && slug) setApplyUrl(`${window.location.origin}/leads/apply/${slug}`);
+    })();
+    return () => { alive = false; };
+  }, []);
   const { user } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -308,15 +322,28 @@ const EnquiryManagement: React.FC = () => {
       <div className="flex justify-between items-center flex-wrap gap-2">
         <h1 className="text-xl md:text-2xl font-display font-bold text-foreground">Enquiry Management</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => {
-            navigator.clipboard.writeText(window.location.origin + "/admissions/apply");
-            toast.success("Form link copied!");
-          }}>
+          {/* Both buttons pointed at the fixed /admissions/apply, which
+              redirects to the bare /leads/apply — the address that cannot tell
+              which institution a visitor opened and now shows "Institution not
+              found". They resolve THIS organization's slug instead, so the link
+              copied here is the one that actually delivers enquiries. */}
+          <Button
+            variant="outline" size="sm" className="gap-2"
+            disabled={!applyUrl}
+            onClick={() => {
+              if (!applyUrl) return;
+              navigator.clipboard.writeText(applyUrl)
+                .then(() => toast.success("Enquiry link copied"))
+                .catch(() => toast.error("Could not copy — select the link and copy it manually."));
+            }}
+          >
             <Link2 className="w-4 h-4" /> Copy Form Link
           </Button>
-          <Button size="sm" className="gap-2" onClick={() => {
-            window.open(`${window.location.origin}/admissions/apply`, "_blank", "noopener,noreferrer");
-          }}>
+          <Button
+            size="sm" className="gap-2"
+            disabled={!applyUrl}
+            onClick={() => applyUrl && window.open(applyUrl, "_blank", "noopener,noreferrer")}
+          >
             <ExternalLink className="w-4 h-4" /> Open Apply Form
           </Button>
         </div>

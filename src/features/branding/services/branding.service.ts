@@ -13,6 +13,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { AppError } from "@/shared/services";
 import { orgPath } from "@/lib/orgStorage";
+import { readEdgeError } from "@/lib/edgeError";
 import { invalidateDocumentBranding } from "../documents/documentBranding.service";
 
 export interface BrandingBundle {
@@ -46,7 +47,7 @@ async function invokeDomain<T>(action: string, payload: Record<string, unknown> 
   });
   const body = data as { error?: string } | null;
   if (error || body?.error) {
-    throw AppError.validation(body?.error ?? error?.message ?? "Request failed");
+    throw AppError.validation(await readEdgeError(error, data, "Request failed"));
   }
   return data as T;
 }

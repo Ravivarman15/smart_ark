@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation, ROLE_BRAND } from "@/core/navigation";
+import { useOrganizationBranding } from "@/core/theme/OrganizationThemeProvider";
 import type { Role } from "@/core/constants/roles";
 import { useTheme } from "@/core/theme";
 import { AccessSyncIndicator } from "@/features/rbac";
@@ -47,6 +48,10 @@ export const RoleSidebar = ({ collapsed, onToggle, onNavigate }: Props) => {
   const location = useLocation();
   const role = user?.role as Role | undefined;
   const brand = role ? ROLE_BRAND[role] : null;
+  // The institution this portal belongs to. Was a hardcoded "ARK Intelligence",
+  // shown to every tenant's staff on every screen.
+  const { branding: orgBranding } = useOrganizationBranding();
+  const orgTitle = orgBranding?.appName || orgBranding?.portalName || "Smart ARK";
 
   // Accordion open-state map, per group key.
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
@@ -127,7 +132,7 @@ export const RoleSidebar = ({ collapsed, onToggle, onNavigate }: Props) => {
         {!collapsed && brand && (
           <div className="min-w-0">
             <span className="font-display font-bold text-foreground text-sm block truncate">
-              {brand.title}
+              {orgTitle}
             </span>
             <span className="text-[10px] text-accent uppercase tracking-widest">
               {brand.subtitle}

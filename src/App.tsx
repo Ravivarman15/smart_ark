@@ -484,7 +484,11 @@ const AppRoutes: React.FC = () => (
       <Route path="/login" element={<Login />} />
       {/* Legacy admission enquiry URL → the WhatsApp-enabled lead capture form
           (single canonical public form: dynamic course dropdown + automation). */}
+      {/* Legacy address. Kept so an old bookmark still lands somewhere that
+          explains itself, rather than 404ing. It cannot carry a tenant, so it
+          resolves to the same "which institution?" page as the bare path. */}
       <Route path="/admissions/apply" element={<Navigate to="/leads/apply" replace />} />
+      <Route path="/admissions/apply/:orgSlug" element={<PublicLeadFormPage />} />
       {/* Public, unauthenticated lead capture form for Meta Ads / landing pages. */}
       {/* Public enquiry form. The :orgSlug form is what a tenant shares —
           /leads/apply/abc-academi. The bare path still works when the HOST

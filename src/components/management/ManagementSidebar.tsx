@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { OrgLogo } from "@/features/branding/components/OrgLogo";
+import { useOrganizationBranding } from "@/core/theme/OrganizationThemeProvider";
 import {
   LayoutDashboard, Users, GraduationCap, ShieldCheck,
   Bell, LogOut, RotateCcw, BookOpen, ShieldAlert, CalendarDays, PhoneCall, MessageSquare, BarChart2, UserCheck,
@@ -84,6 +85,9 @@ const PREF_KEY = "mgmt_setup_open";
 interface Props { collapsed: boolean; onToggle: () => void; onNavigate?: () => void; }
 
 const ManagementSidebar: React.FC<Props> = ({ collapsed, onToggle, onNavigate }) => {
+  // The institution this portal belongs to — was a hardcoded "ARK Intelligence".
+  const { branding: orgBranding } = useOrganizationBranding();
+  const orgTitle = orgBranding?.appName || orgBranding?.portalName || "Smart ARK";
   const { logout, user } = useAuth();
   const location = useLocation();
 
@@ -151,7 +155,7 @@ const ManagementSidebar: React.FC<Props> = ({ collapsed, onToggle, onNavigate })
         <OrgLogo className="w-8 h-8 rounded-lg flex-shrink-0" />
         {!collapsed && (
           <div className="min-w-0">
-            <span className="font-display font-bold text-foreground text-sm block truncate">ARK Intelligence</span>
+            <span className="font-display font-bold text-foreground text-sm block truncate">{orgTitle}</span>
             <span className="text-[10px] text-accent uppercase tracking-widest">Executive Portal</span>
           </div>
         )}
