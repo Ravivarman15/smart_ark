@@ -90,6 +90,10 @@ const ORDER = [
   ["20260917_phase8d_branding_bucket.sql", "public branding bucket + org-prefixed write policies; logos could not be stored or rendered before this"],
   ["20260915_phase8b_checkin_address_required.sql", "address + radius required on a verified location; NOT VALID so ARK's 8A-seeded rows are grandfathered"],
   ["20261001_phase9a_platform_control_center.sql", "organization lifecycle (hold/archived), ARK protection trigger, module governance and the entitlement layers the tenant sidebar reads; must follow 2C, which created organization_features and plan_features, and 5A, which created subscriptions"],
+  ["20261002_phase9b_entitlement_history_dedup.sql", "9A's RPC and 2C's trigger both logged every entitlement change, so the history carried a duplicate anonymous row; must follow 9A, whose function body it replaces"],
+
+  // ── Phase 10: communication automation. ────────────────────────────────
+  ["20261003_phase10a_org_locality_columns.sql", "city/pincode for {{org_city}} and {{org_pincode}}; nullable, no backfill, never inferred from the free-text address"],
 ];
 
 const args = process.argv.slice(2);

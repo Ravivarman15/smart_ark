@@ -20,12 +20,20 @@ import { MODULE_IDS } from "@/features/platform/modules/moduleRegistry";
 // break if a module were added without metadata.
 // ──────────────────────────────────────────────────────────────────────────────
 
-const LAYERS = join(__dirname, "..", "..", "docs", "generated", "ARK_ENTITLEMENT_LAYERS.json");
+// Defaults to the ARK capture; scripts/entitlement-probe.mjs points it at any
+// other organization's captured layers so non-ARK tests resolve through this
+// same bridge rather than growing a second implementation.
+const LAYERS =
+  process.env.ENTITLEMENT_LAYERS_FILE ??
+  join(__dirname, "..", "..", "docs", "generated", "ARK_ENTITLEMENT_LAYERS.json");
 
 describe.skipIf(!existsSync(LAYERS))("ARK module snapshot bridge", () => {
   it("resolves the captured production layers through the shipped resolver", () => {
     const layers = JSON.parse(readFileSync(LAYERS, "utf8")) as EntitlementLayers;
-    const resolved = resolveEntitlements(layers);
+    // An evaluation clock, so a temporary override can be shown to lapse without
+    // backdating a row in a live database to prove it.
+    const now = process.env.ENTITLEMENT_NOW ? new Date(process.env.ENTITLEMENT_NOW) : undefined;
+    const resolved = resolveEntitlements(layers, now);
 
     // Every catalog module must resolve to something. A module present in the
     // catalog but missing here would be invisible to the sidebar gate.

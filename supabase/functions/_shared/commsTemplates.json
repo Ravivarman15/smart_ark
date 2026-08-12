@@ -1,0 +1,572 @@
+{
+  "templates": {
+    "inquiry_followup": {
+      "key": "inquiry_followup",
+      "title": "Inquiry follow-up",
+      "body": "Hi {{name}}, thanks for your enquiry at {{branch_name}}. Reply YES to schedule a campus visit, or click the link to book a slot.",
+      "variables": [
+        "name",
+        "branch_name"
+      ]
+    },
+    "student_welcome": {
+      "key": "student_welcome",
+      "title": "Student welcome",
+      "body": "Welcome to {{branch_name}}, {{student_name}}! Your admission is confirmed for {{batch_name}}. We look forward to a successful journey together.",
+      "variables": [
+        "branch_name",
+        "student_name",
+        "batch_name"
+      ]
+    },
+    "staff_welcome": {
+      "key": "staff_welcome",
+      "title": "Staff welcome",
+      "body": "Welcome aboard {{staff_name}}! You have joined {{branch_name}} as {{designation}}. Please complete your onboarding within 48 hours.",
+      "variables": [
+        "staff_name",
+        "branch_name",
+        "designation"
+      ]
+    },
+    "staff_credentials": {
+      "key": "staff_credentials",
+      "title": "Staff credentials",
+      "body": "Dear {{staff_name}},\n\nYour {{org_name}} staff portal account has been created.\n\nRole: {{role}}\nLogin Email: {{login_email}}\nTemporary Password: {{password}}\nPortal: {{login_url}}\n\nPlease sign in and change your password after the first login. Keep these details confidential.\n\nThank you,\n{{org_name}}",
+      "variables": [
+        "staff_name",
+        "role",
+        "login_email",
+        "password",
+        "login_url"
+      ]
+    },
+    "student_credentials": {
+      "key": "student_credentials",
+      "title": "Student app credentials",
+      "body": "Hi {{parent_name}}, the {{branch_name}} parent app credentials for {{student_name}} are:\nUser: {{username}}\nTemp Password: {{password}}",
+      "variables": [
+        "parent_name",
+        "branch_name",
+        "student_name",
+        "username",
+        "password"
+      ]
+    },
+    "exam_reminder": {
+      "key": "exam_reminder",
+      "title": "Upcoming exam reminder",
+      "body": "Reminder: {{student_name}} has {{exam_name}} on {{exam_date}} at {{exam_time}}. Venue: {{venue}}. All the best!",
+      "variables": [
+        "student_name",
+        "exam_name",
+        "exam_date",
+        "exam_time",
+        "venue"
+      ]
+    },
+    "exam_result": {
+      "key": "exam_result",
+      "title": "Exam result published",
+      "body": "{{student_name}}'s result for {{exam_name}} is now published. Score: {{marks}}/{{total}} ({{percentage}}%). Grade: {{grade}}.",
+      "variables": [
+        "student_name",
+        "exam_name",
+        "marks",
+        "total",
+        "percentage",
+        "grade"
+      ]
+    },
+    "fee_status": {
+      "key": "fee_status",
+      "title": "Fee status",
+      "body": "Hi {{parent_name}}, fee summary for {{student_name}} ({{batch_name}}):\nPaid: {{amount_paid}}\nPending: {{amount_pending}}\nNext Due: {{due_date}}",
+      "variables": [
+        "parent_name",
+        "student_name",
+        "batch_name",
+        "amount_paid",
+        "amount_pending",
+        "due_date"
+      ]
+    },
+    "fee_due_reminder": {
+      "key": "fee_due_reminder",
+      "title": "Fee due reminder",
+      "body": "Reminder: fee of {{amount_pending}} for {{student_name}} ({{batch_name}}) is due on {{due_date}}. Please pay to avoid late fee.",
+      "variables": [
+        "amount_pending",
+        "student_name",
+        "batch_name",
+        "due_date"
+      ]
+    },
+    "attendance_absent": {
+      "key": "attendance_absent",
+      "title": "Attendance — absent",
+      "body": "Dear {{parent_name}},\n\nThis is to inform you that {{student_name}} (Class {{class}} - {{section}}) was marked ABSENT on {{attendance_date}}.\n\nIf your child was present or if this attendance was marked incorrectly, please contact the school office.\n\nThank you,\n{{org_name}}",
+      "variables": [
+        "parent_name",
+        "student_name",
+        "class",
+        "section",
+        "attendance_date"
+      ]
+    },
+    "attendance_corrected": {
+      "key": "attendance_corrected",
+      "title": "Attendance — corrected to present",
+      "body": "Dear {{parent_name}},\n\nThis is to inform you that the attendance for {{student_name}} on {{attendance_date}} has been corrected to PRESENT.\n\nThank you.\n\n{{org_name}}",
+      "variables": [
+        "parent_name",
+        "student_name",
+        "attendance_date"
+      ]
+    },
+    "birthday_wish": {
+      "key": "birthday_wish",
+      "title": "Birthday wishes",
+      "body": "Wishing {{student_name}} a very happy birthday! 🎂 May the year ahead bring joy, growth and success. — Team {{branch_name}}",
+      "variables": [
+        "student_name",
+        "branch_name"
+      ]
+    },
+    "payment_received": {
+      "key": "payment_received",
+      "title": "Payment received",
+      "body": "Thank you {{parent_name}}! We have received {{amount}} for {{student_name}} ({{batch_name}}). Receipt: {{receipt_no}}.",
+      "variables": [
+        "parent_name",
+        "amount",
+        "student_name",
+        "batch_name",
+        "receipt_no"
+      ]
+    },
+    "fee_receipt": {
+      "key": "fee_receipt",
+      "title": "Fee payment receipt",
+      "body": "Dear {{parent_name}}, we have received a fee payment for {{student_name}} (Class {{class}}).\nReceipt No: {{receipt_no}}\nAmount Paid: ₹{{amount_paid}}\nPending Balance: ₹{{pending_balance}}\nThank you. — {{org_name}}",
+      "variables": [
+        "parent_name",
+        "student_name",
+        "class",
+        "receipt_no",
+        "amount_paid",
+        "pending_balance",
+        "org_name"
+      ]
+    },
+    "parent_credentials": {
+      "key": "parent_credentials",
+      "title": "Parent portal credentials",
+      "body": "Dear {{parent_name}},\n\nThe {{org_name}} Parent Portal account for {{student_name}} has been created.\n\nLogin Email: {{login_email}}\nTemporary Password: {{password}}\nPortal: {{login_url}}\n\nPlease sign in and change your password after the first login. Keep these details confidential.\n\nThank you,\n{{org_name}}",
+      "variables": [
+        "parent_name",
+        "student_name",
+        "login_email",
+        "password",
+        "login_url"
+      ]
+    },
+    "password_reset": {
+      "key": "password_reset",
+      "title": "Password reset",
+      "body": "Hi {{name}}, your {{branch_name}} login password has been reset.\nUser: {{username}}\nNew Temp Password: {{password}}\nPlease log in and change it.",
+      "variables": [
+        "name",
+        "branch_name",
+        "username",
+        "password"
+      ]
+    },
+    "account_activated": {
+      "key": "account_activated",
+      "title": "Account activated",
+      "body": "Hi {{name}}, your {{branch_name}} account ({{username}}) is now active. You can log in any time.",
+      "variables": [
+        "name",
+        "branch_name",
+        "username"
+      ]
+    },
+    "account_disabled": {
+      "key": "account_disabled",
+      "title": "Account disabled",
+      "body": "Hi {{name}}, your {{branch_name}} account ({{username}}) has been disabled. Contact the office if you believe this is a mistake.",
+      "variables": [
+        "name",
+        "branch_name",
+        "username"
+      ]
+    },
+    "live_class_notification": {
+      "key": "live_class_notification",
+      "title": "Live class notification",
+      "body": "Hi {{student_name}}, your {{subject_name}} live class with {{teacher_name}} starts at {{start_time}} on {{start_date}}. Join via the link below.",
+      "variables": [
+        "student_name",
+        "subject_name",
+        "teacher_name",
+        "start_time",
+        "start_date"
+      ]
+    },
+    "attendance_present": {
+      "key": "attendance_present",
+      "title": "Attendance — present",
+      "body": "Hi {{parent_name}}, {{student_name}} was marked PRESENT for {{batch_name}} on {{date}}. Thank you.",
+      "variables": [
+        "parent_name",
+        "student_name",
+        "batch_name",
+        "date"
+      ]
+    },
+    "holiday_notice": {
+      "key": "holiday_notice",
+      "title": "Holiday notice",
+      "body": "Dear {{recipient_name}}, {{branch_name}} will remain closed on {{holiday_date}} for {{holiday_name}}. Regular schedule resumes on {{resume_date}}.",
+      "variables": [
+        "recipient_name",
+        "branch_name",
+        "holiday_date",
+        "holiday_name",
+        "resume_date"
+      ]
+    },
+    "salary_slip": {
+      "key": "salary_slip",
+      "title": "Salary slip",
+      "body": "Hi {{staff_name}}, your salary slip for {{salary_month}} is ready. Net Salary: {{net_salary}}. Download your payslip below.",
+      "variables": [
+        "staff_name",
+        "salary_month",
+        "net_salary"
+      ]
+    },
+    "payroll_approved": {
+      "key": "payroll_approved",
+      "title": "Payroll approved",
+      "body": "Hi {{staff_name}}, payroll for {{salary_month}} has been approved. Net Salary: {{net_salary}} will be credited to your account on {{pay_date}}.",
+      "variables": [
+        "staff_name",
+        "salary_month",
+        "net_salary",
+        "pay_date"
+      ]
+    },
+    "task_assigned": {
+      "key": "task_assigned",
+      "title": "Task assigned",
+      "body": "Hi {{staff_name}}, a new task '{{task_name}}' has been assigned to you by {{assigned_by}}. Due: {{due_date}}.",
+      "variables": [
+        "staff_name",
+        "task_name",
+        "assigned_by",
+        "due_date"
+      ]
+    },
+    "task_reminder": {
+      "key": "task_reminder",
+      "title": "Task reminder",
+      "body": "Reminder: task '{{task_name}}' is due on {{due_date}}. Current status: {{status}}. Please update or complete it.",
+      "variables": [
+        "task_name",
+        "due_date",
+        "status"
+      ]
+    },
+    "certificate_ready": {
+      "key": "certificate_ready",
+      "title": "Certificate ready",
+      "body": "Hi {{recipient_name}}, the {{certificate_name}} for {{student_name}} is ready. You can download it using the link below.",
+      "variables": [
+        "recipient_name",
+        "certificate_name",
+        "student_name"
+      ]
+    },
+    "class_cancelled": {
+      "key": "class_cancelled",
+      "title": "Class cancelled",
+      "body": "Notice: the {{subject_name}} class scheduled for {{class_date}} at {{class_time}} has been CANCELLED. A reschedule will be communicated shortly. — Team {{branch_name}}",
+      "variables": [
+        "subject_name",
+        "class_date",
+        "class_time",
+        "branch_name"
+      ]
+    },
+    "teacher_class_scheduled": {
+      "key": "teacher_class_scheduled",
+      "title": "Class scheduled",
+      "body": "Hi {{teacher_name}}, a class has been scheduled for you.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nPlease confirm your availability.\n\n{{org_name}}",
+      "variables": [
+        "teacher_name",
+        "subject",
+        "standard",
+        "class_date",
+        "class_time",
+        "org_name"
+      ]
+    },
+    "teacher_class_rescheduled": {
+      "key": "teacher_class_rescheduled",
+      "title": "Class rescheduled",
+      "body": "Hi {{teacher_name}}, your {{subject}} class for {{standard}} has been rescheduled.\n\nNew date: {{class_date}}\nNew time: {{class_time}}\n\n{{org_name}}",
+      "variables": [
+        "teacher_name",
+        "subject",
+        "standard",
+        "class_date",
+        "class_time",
+        "org_name"
+      ]
+    },
+    "teacher_class_cancelled": {
+      "key": "teacher_class_cancelled",
+      "title": "Class cancelled (teacher)",
+      "body": "Hi {{teacher_name}}, your {{subject}} class for {{standard}} on {{class_date}} at {{class_time}} has been cancelled.\n\nReason: {{reason}}\n\n{{org_name}}",
+      "variables": [
+        "teacher_name",
+        "subject",
+        "standard",
+        "class_date",
+        "class_time",
+        "reason",
+        "org_name"
+      ]
+    },
+    "teacher_extra_class": {
+      "key": "teacher_extra_class",
+      "title": "Extra class assigned",
+      "body": "Hi {{teacher_name}}, an extra class has been assigned to you.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\n{{org_name}}",
+      "variables": [
+        "teacher_name",
+        "subject",
+        "standard",
+        "class_date",
+        "class_time",
+        "org_name"
+      ]
+    },
+    "teacher_substitute_assigned": {
+      "key": "teacher_substitute_assigned",
+      "title": "Substitute assigned",
+      "body": "Hi {{teacher_name}}, you have been assigned as substitute for a class.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\n{{org_name}}",
+      "variables": [
+        "teacher_name",
+        "subject",
+        "standard",
+        "class_date",
+        "class_time",
+        "org_name"
+      ]
+    },
+    "class_reminder_faculty": {
+      "key": "class_reminder_faculty",
+      "title": "Class reminder (faculty)",
+      "body": "Reminder: your {{subject}} class for {{standard}} starts at {{class_time}} today.\n\n{{org_name}}",
+      "variables": [
+        "subject",
+        "standard",
+        "class_time",
+        "org_name"
+      ]
+    },
+    "class_reminder_coordinator": {
+      "key": "class_reminder_coordinator",
+      "title": "Class reminder (coordinator)",
+      "body": "Hi {{recipient_name}}, the {{subject}} class for {{standard}} at {{class_time}} has not started yet.\n\nFaculty: {{teacher_name}}\n\n{{org_name}}",
+      "variables": [
+        "recipient_name",
+        "subject",
+        "standard",
+        "class_time",
+        "teacher_name",
+        "org_name"
+      ]
+    },
+    "class_started": {
+      "key": "class_started",
+      "title": "Class started",
+      "body": "Class started: {{subject}} for {{standard}} at {{class_time}}.\n\nFaculty: {{teacher_name}}\n\n{{org_name}}",
+      "variables": [
+        "subject",
+        "standard",
+        "class_time",
+        "teacher_name",
+        "org_name"
+      ]
+    },
+    "class_ended": {
+      "key": "class_ended",
+      "title": "Class ended",
+      "body": "Class ended: {{subject}} for {{standard}}.\n\nFaculty: {{teacher_name}}\nDuration: {{duration}}\n\n{{org_name}}",
+      "variables": [
+        "subject",
+        "standard",
+        "teacher_name",
+        "duration",
+        "org_name"
+      ]
+    },
+    "class_attendance_due": {
+      "key": "class_attendance_due",
+      "title": "Attendance due",
+      "body": "Reminder: attendance for your {{subject}} class ({{standard}}, {{class_time}}) has not been submitted. The class ends in 10 minutes.\n\n{{org_name}}",
+      "variables": [
+        "subject",
+        "standard",
+        "class_time",
+        "org_name"
+      ]
+    },
+    "class_attendance_missing": {
+      "key": "class_attendance_missing",
+      "title": "Attendance missing",
+      "body": "Your {{subject}} class for {{standard}} on {{class_date}} has ended and attendance is still not submitted. Please submit it now.\n\n{{org_name}}",
+      "variables": [
+        "subject",
+        "standard",
+        "class_date",
+        "org_name"
+      ]
+    },
+    "lead_welcome": {
+      "key": "lead_welcome",
+      "title": "lead_welcome",
+      "body": "Hi {{student_name}}\n\nThank you for your interest in {{org_name}}.\n\nWe have successfully received your enquiry for {{course_name}}.",
+      "variables": [
+        "student_name",
+        "org_name",
+        "course_name"
+      ]
+    },
+    "lead_assigned_counselor": {
+      "key": "lead_assigned_counselor",
+      "title": "lead_assigned_counselor",
+      "body": "Hi {{counselor_name}}\n\nNew Lead Assigned\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nMobile:\n{{mobile_number}}\n\nPlease contact within 15 minutes.\n\n{{org_name}}",
+      "variables": [
+        "counselor_name",
+        "student_name",
+        "course_name",
+        "mobile_number",
+        "org_name"
+      ]
+    },
+    "lead_followup_reminder": {
+      "key": "lead_followup_reminder",
+      "title": "lead_followup_reminder",
+      "body": "Hi {{counselor_name}}\n\nReminder: please follow up with {{student_name}} regarding {{course_name}}. This lead is awaiting your response.",
+      "variables": [
+        "counselor_name",
+        "student_name",
+        "course_name"
+      ]
+    },
+    "sla_breach_alert": {
+      "key": "sla_breach_alert",
+      "title": "sla_breach_alert",
+      "body": "Hi {{counselor_name}}\n\nSLA BREACH\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nThis lead has crossed its response SLA. Immediate action required.\n\n{{org_name}}",
+      "variables": [
+        "counselor_name",
+        "student_name",
+        "course_name",
+        "org_name"
+      ]
+    },
+    "lead_demo_scheduled_v2": {
+      "key": "lead_demo_scheduled_v2",
+      "title": "lead_demo_scheduled_v2",
+      "body": "Hi {{student_name}},\n\nYour demo session for {{course_name}} is confirmed.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\nFaculty: {{faculty_name}}\n\nWe look forward to seeing you at {{org_name}}!",
+      "variables": [
+        "student_name",
+        "course_name",
+        "demo_date",
+        "demo_time",
+        "faculty_name",
+        "org_name"
+      ]
+    },
+    "lead_admission_completed_v2": {
+      "key": "lead_admission_completed_v2",
+      "title": "lead_admission_completed_v2",
+      "body": "Hi {{parent_name}},\n\nWe are pleased to inform you that the admission of {{student_name}} for {{course_name}} has been successfully completed.\n\nWelcome to {{org_name}}.\n\nWe look forward to supporting your academic journey.\n\nThank you,\n{{org_name}}",
+      "variables": [
+        "parent_name",
+        "student_name",
+        "course_name",
+        "org_name"
+      ]
+    },
+    "lead_demo_reminder_v2": {
+      "key": "lead_demo_reminder_v2",
+      "title": "lead_demo_reminder_v2",
+      "body": "Hi {{student_name}},\n\nThis is a reminder for your upcoming demo session for {{course_name}}.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\n\nSee you soon at {{org_name}}!",
+      "variables": [
+        "student_name",
+        "course_name",
+        "demo_date",
+        "demo_time",
+        "org_name"
+      ]
+    },
+    "lead_low_performance": {
+      "key": "lead_low_performance",
+      "title": "lead_low_performance",
+      "body": "Hi {{counselor_name}}, your lead follow-up rate is currently {{rate}}%. Please prioritise pending follow-ups to improve conversions.",
+      "variables": [
+        "counselor_name",
+        "rate"
+      ]
+    },
+    "lead_unassigned_alert": {
+      "key": "lead_unassigned_alert",
+      "title": "lead_unassigned_alert",
+      "body": "Action needed: a new {{course}} lead ({{student_name}}, {{phone}}) could not be auto-assigned. Please assign a counselor.",
+      "variables": [
+        "course",
+        "student_name",
+        "phone"
+      ]
+    }
+  },
+  "eventTemplateKeys": {
+    "attendance_absent": "attendance_absent",
+    "attendance_corrected": "attendance_corrected",
+    "attendance_present": "attendance_present",
+    "fee_due": "fee_due_reminder",
+    "fee_paid": "fee_receipt",
+    "exam_published": "exam_result",
+    "exam_scheduled": "exam_reminder",
+    "birthday_student": "birthday_wish",
+    "admission_completed": "student_welcome",
+    "demo_scheduled": "lead_demo_scheduled_v2",
+    "demo_reminder": "lead_demo_reminder_v2",
+    "payroll_approved": "payroll_approved",
+    "staff_credentials": "staff_credentials",
+    "student_credentials": "student_credentials",
+    "task_assigned": "task_assigned",
+    "task_due": "task_reminder",
+    "certificate_ready": "certificate_ready",
+    "live_class_created": "live_class_notification",
+    "class_cancelled": "class_cancelled",
+    "holiday_notice": "holiday_notice",
+    "teacher_class_scheduled": "teacher_class_scheduled",
+    "teacher_class_rescheduled": "teacher_class_rescheduled",
+    "teacher_class_cancelled": "teacher_class_cancelled",
+    "teacher_extra_class": "teacher_extra_class",
+    "teacher_substitute_assigned": "teacher_substitute_assigned",
+    "class_reminder_faculty": "class_reminder_faculty",
+    "class_reminder_coordinator": "class_reminder_coordinator",
+    "class_started": "class_started",
+    "class_ended": "class_ended",
+    "class_attendance_due": "class_attendance_due",
+    "class_attendance_missing": "class_attendance_missing",
+    "class_cancelled_students": "class_cancelled"
+  }
+}

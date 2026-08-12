@@ -13,14 +13,14 @@ open, so only **SHIPPED** entries describe things a user can do today.
 
 | Status | Count | May be documented as existing? |
 |---|---|---|
-| SHIPPED | 192 | **Yes** |
+| SHIPPED | 193 | **Yes** |
 | LEGACY_ONLY | 0 | Only if the behaviour is reachable |
 | ROUTE_CLAIMED_NOT_MOUNTED | 0 | **No** — route declared but not mounted |
 | ASPIRATIONAL | 11 | **No** — permission-only |
-| **Total submodules** | **203** | |
+| **Total submodules** | **204** | |
 
 
-## SHIPPED (192)
+## SHIPPED (193)
 
 | Module | Submodule | Label | Route |
 |---|---|---|---|
@@ -84,6 +84,7 @@ open, so only **SHIPPED** entries describe things a user can do today.
 | attendance | `attendance.student_backdated` | Backdated Attendance | `/admin/attendance/students/backdated` |
 | attendance | `attendance.student_corrections` | Attendance Corrections | `/admin/attendance/students/corrections` |
 | attendance | `attendance.student_import` | Import Student Attendance | `/admin/attendance/students/import` |
+| attendance | `attendance.student_lookup` | Student Attendance Lookup | `/admin/attendance/students/lookup` |
 | attendance | `attendance.staff_manual` | Staff Manual Attendance | `/admin/attendance/staff/manual` |
 | attendance | `attendance.staff_checkin` | Check In / Check Out | `/admin/attendance/staff/check-in` |
 | attendance | `attendance.staff_hours` | Work Hours Dashboard | `/admin/attendance/staff/work-hours` |

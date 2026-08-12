@@ -180,6 +180,7 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "attendance.student_backdated",  label: "Backdated Attendance",        route: "/admin/attendance/students/backdated" },
       { id: "attendance.student_corrections",label: "Attendance Corrections",      route: "/admin/attendance/students/corrections" },
       { id: "attendance.student_import",     label: "Import Student Attendance",   route: "/admin/attendance/students/import" },
+      { id: "attendance.student_lookup",     label: "Student Attendance Lookup",   route: "/admin/attendance/students/lookup" },
       { id: "attendance.staff_manual",       label: "Staff Manual Attendance",     route: "/admin/attendance/staff/manual" },
       { id: "attendance.staff_checkin",      label: "Check In / Check Out",        route: "/admin/attendance/staff/check-in" },
       { id: "attendance.staff_hours",        label: "Work Hours Dashboard",        route: "/admin/attendance/staff/work-hours" },

@@ -509,7 +509,13 @@ npx eslint src/features/platform src/features/rbac
 Project `vxyshcucwdbpxrhddaeh`. Baseline in `docs/generated/ARK_BASELINE.json`,
 re-read via `node scripts/ark-baseline.mjs --compare`.
 
-### 🔴 BLOCKER — activation held
+### 🔴 BLOCKER — activation held  *(RESOLVED — see §17)*
+
+> **Status as of 2026-08-12, later the same day:** the operator chose option A
+> and the blocker is cleared. ARK resolves to 19/19 again. The account of the
+> problem below is kept verbatim, because the reasoning is what makes the fix
+> reviewable; §17 records what was actually done.
+
 
 **The migration is applied. The frontend is NOT deployed, and must not be until
 the finding below is resolved.**
@@ -628,6 +634,21 @@ Correct order once the certificate decision is made:
 5. ARK login + module snapshot vs §15
 ```
 
+> **This warning was then partly walked into — recorded rather than quietly
+> fixed.** Step 2 was performed on 2026-08-12 and step 3 was not, so between
+> those two points the *deployed* console is the pre-phase build talking to the
+> post-phase function. Concretely: `setOrganizationStatus()` treats `reason` as
+> optional, and the function now rejects a destructive status without one, so
+> **Suspend / Cancel in the currently deployed console return `400 "A reason is
+> required to suspend, hold, archive or cancel."`** until the frontend ships.
+> Every other action is unchanged. No tenant is affected — the console has one
+> user — and no data is at risk: the call fails closed with a readable message
+> rather than performing a partial write. Deploying the frontend clears it.
+>
+> The function was deployed ahead of the frontend deliberately, because it was
+> still at version 1 (2026-08-06) and none of §17's server-side verification
+> could run against it otherwise.
+
 ---
 
 ## 16. Files
@@ -636,6 +657,13 @@ Correct order once the certificate decision is made:
 ```
 supabase/migrations/20261001_phase9a_platform_control_center.sql
 supabase/rollback/20261001_phase9a_platform_control_center_rollback.sql
+supabase/migrations/20261002_phase9b_entitlement_history_dedup.sql
+supabase/rollback/20261002_phase9b_entitlement_history_dedup_rollback.sql
+scripts/ark-baseline.mjs
+scripts/ark-module-snapshot.mjs
+scripts/entitlement-probe.mjs
+src/test/arkSnapshot.gen.test.ts
+docs/ARK_MODULE_SNAPSHOT.json
 src/features/platform/modules/moduleRegistry.ts
 src/features/platform/modules/entitlements.ts
 src/features/platform/components/LifecycleDialog.tsx
@@ -665,7 +693,235 @@ src/features/rbac/hooks/useEffectiveAccess.ts
 src/features/rbac/hooks/index.ts
 src/features/docs/content/index.ts
 src/test/security/docsCoverage.test.ts          second permission vocabulary
+scripts/docs-inventory.mjs                      classifier: SHARED_ROUTES + both menu syntaxes
+src/features/rbac/constants/catalog.ts          attendance.student_lookup was unregistered
 ```
+
+`attendance.student_lookup` was routed and in the menu but absent from
+`MODULE_CATALOG`, so it could not be permissioned at all. The RBAC registry gate
+had been failing at `HEAD` before this phase; it is unrelated to the control
+plane, but it blocked the phase gate, so it was fixed rather than skipped.
 
 No file under `src/features/{students,fees,payroll,exam,attendance,leads,comms,parent}`
 was modified.
+
+---
+
+## 17. Phase 9A — ARK Entitlement Preservation
+
+Resolves the §15 blocker. Everything here was executed against the live project
+`vxyshcucwdbpxrhddaeh` on 2026-08-12.
+
+### 17.1 The original issue
+
+Phase 9A made `plan_features` load-bearing. ARK is on the `internal` plan, and
+`internal` — like every other plan — carries `certificate = false`. ARK had no
+override to countermand it, so the shipped resolver returned **18/19 ON,
+`certificate` OFF**, and deploying the frontend would have removed a working
+module from a live school on the day it shipped.
+
+### 17.2 Why `certificate` was disabled in the first place
+
+Not a mistake, and not specific to ARK. The Phase 2C seed switched
+`certificate`, `website` and `ai` off on **all six plans**, with its reason
+stated in the migration: they are not built, and *"selling them would be a
+refund event."* That was written when `plan_features` was decorative. Phase 9A
+gave it teeth, and a dormant product decision became a live outage.
+
+Confirmed on production — the row is `false` on every tier, and it stayed that
+way:
+
+| trial | starter | growth | professional | enterprise | internal |
+|---|---|---|---|---|---|
+| false | false | false | false | false | false |
+
+### 17.3 Why it could not simply be removed from ARK
+
+The instruction was to preserve ARK, but the evidence was checked rather than
+assumed, because "a module is live" is exactly the claim that deserves proof:
+
+1. **Routed.** `App.tsx:691-692`, `App.tsx:836-837`, and
+   `sharedRoutes.tsx:1198-1208` mount `certificates` and `certificates/add`.
+2. **Navigable.** `menu.config.ts:467` lists it for admin and management.
+3. **Deliberately permissioned.** ARK's `rbac_role_permissions` carries explicit
+   rows granting `certificate` to **management** and **coordinator**, and
+   explicit *denies* for `teacher` / `teacher1`. Nobody writes four rows in two
+   directions for a module they are not using.
+
+One thing that cuts the other way, and is recorded because omitting it would
+misrepresent the risk: the pages are `ModuleStarterPage` instances with
+`storageKey = "certificates"`, i.e. **localStorage-backed**. No production
+database row depends on them. Removing the module would therefore have destroyed
+no server-side data — it would have removed a reachable, permissioned screen.
+That is a smaller harm than losing records, and it was still the operator's call,
+not mine. The operator restated the decision: **preserve it.**
+
+### 17.4 What was applied
+
+One row, through the audited RPC — not a raw `INSERT`, so it is idempotent and
+leaves history:
+
+```sql
+select public.platform_set_module_entitlement(
+  '126a6dd8-6f7e-4b81-9b82-58a9a3b77674',  -- ARK, by id
+  'certificate', true, 'incident',
+  '16c7fd53-c417-40c6-ad30-4db75f3a7382',  -- acting platform user
+  NULL,                                    -- no expiry: this preserves live
+  NULL);                                   -- behaviour, it is not a trial
+```
+
+Reversible with `platform_clear_module_override(<ark>, 'certificate', <actor>)`.
+
+**Not touched:** `plan_features` (still `false` on all six tiers), ARK's plan,
+ARK's subscription, ARK's status, any other module, any other organization, and
+every tenant business table.
+
+### 17.5 Resulting entitlement
+
+```
+certificate   ON   override   Super Admin override (incident).
+```
+
+ARK: **19/19 modules enabled**, matching its pre-Phase-9 functional set.
+Machine-readable in `docs/ARK_MODULE_SNAPSHOT.json`, regenerated by
+`node scripts/ark-module-snapshot.mjs` and diffed by `--compare`, which exits 1
+if any module flips.
+
+### 17.6 Tenant isolation — proven, not asserted
+
+| Check | Result |
+|---|---|
+| ARK `overrides.certificate` | `{enabled: true, reason: incident}` |
+| ABC `overrides.certificate` | **absent** |
+| ABC resolved `certificate` | **OFF** — `plan`: *"Not included in the professional plan."* |
+| ARK total overrides | 1 |
+| `plan_features.certificate` | `false` × 6, unchanged |
+
+An override on organization #1 is invisible to organization #2. A future tenant
+on any plan still gets `certificate` off, which is the entire point of granting
+it at the **organization** layer rather than the plan layer.
+
+### 17.7 Non-ARK entitlement tests (ABC Academi)
+
+Every step resolved through the shipped TypeScript resolver via
+`node scripts/entitlement-probe.mjs`, so the assertion is about real behaviour,
+not about what the SQL layer returns.
+
+| # | Step | Resolved result |
+|---|---|---|
+| 1 | ABC baseline | 18/19 ON; `certificate` OFF (`plan`) |
+| 2 | Disable `exam` | **OFF** — `override`: *"Super Admin override (sales_override)."* |
+| 3 | Re-enable `exam` | **ON** — `override` |
+| 4 | Clear the override | **ON** — `plan`: *"Included in the professional plan."* |
+| 5 | Override a plan-**excluded** module (`certificate` ON, expires +2h) | **ON** — `override (trial), expires 2026-08-12` |
+| 6 | Same layers resolved as at +3h | **OFF** — `plan` — the override lapses on its own |
+| 7 | Cleanup | ABC back to **0 overrides**, exactly as it started |
+| 8 | ARK throughout | `ark-module-snapshot --compare` → **19/19 unchanged** |
+
+Step 6 deserves a note on method: expiry was proven by resolving the *same*
+captured layers against a hypothetical clock (`--at=`), rather than backdating a
+row in a production table to manufacture the result. The resolver already took a
+`now` parameter; the probe just supplies one.
+
+### 17.8 A defect this phase introduced, found and fixed
+
+The ABC run surfaced a bug in Phase 9A's own RPC. Phase 2C had put an
+`AFTER INSERT OR UPDATE` trigger on `organization_features`; Phase 9A's
+`platform_set_module_entitlement()` then wrote its own history row as well. Every
+change was logged **twice**, at the identical timestamp:
+
+```
+09:47:40.64714  exam  false  note NULL                actor NULL
+09:47:40.64714  exam  false  note 'first assignment'  actor set
+```
+
+The anonymous copy is the trigger's: `current_platform_user_id()` resolves from a
+JWT, and the RPC runs as `service_role`, which has none. An audit log that
+reports twice as many changes as occurred, half of them by nobody, cannot be
+reconciled — which is the one thing an audit log has to be able to do.
+
+Fixed in `20261002_phase9b_entitlement_history_dedup.sql`. The trigger was
+**not** dropped — it is the only thing that records a write which bypassed the
+console, and that is the write an auditor most wants to see. Instead it stands
+down when a transaction-local GUC says a richer row was already written, the same
+`set_config(..., true)` mechanism as the ARK protection ack, chosen for the same
+reason: it cannot leak across a pooled connection.
+
+Verified live afterwards:
+
+| Path | History rows | Content |
+|---|---|---|
+| Through the RPC | **1** | actor present, `note: "first assignment"` |
+| Direct `UPDATE`, bypassing the RPC | **1** | `note: "direct write to organization_features (not via the platform console)"`, actor NULL — the anomaly is now labelled rather than disguised |
+| `platform_clear_module_override` | **1** | unchanged; it `DELETE`s, and the trigger never fired on delete |
+
+### 17.9 Documentation inventory — corrected
+
+§15 flagged that the generated inventory labelled `certificate.*` ASPIRATIONAL
+while the app mounted it. Two real classifier bugs, now fixed in
+`scripts/docs-inventory.mjs`:
+
+1. It looked only for a `route:` property on the catalog entry. Most modules are
+   mounted through `SHARED_ROUTES` keyed by `submodule:`, so 181 bindings were
+   invisible to it. It now resolves the mount and records **how** (`mountedVia`,
+   `mountedPath`).
+2. `menu.config.ts` uses **two** syntaxes — a `sub()` helper and plain object
+   literals. The first rewrite parsed only the helper, which silently dropped
+   `settings.*`. Both forms are parsed now.
+
+Result: **SHIPPED 87 → 192, ASPIRATIONAL 115 → 11.** The remaining 11 were
+checked individually and have zero route bindings anywhere. The gate was not
+weakened — it got a second, correct source of truth, and coverage in
+`DOCUMENTATION_IMPLEMENTATION_REPORT.md` fell from a flattering 63% to an honest
+29% because the old denominator was wrong.
+
+### 17.10 Live security checks (re-run post-change)
+
+Real HTTP against production with the anon key — not static inspection.
+
+| Probe | Result |
+|---|---|
+| `organizations`, `organization_features`, `organization_protections`, `platform_module_governance`, `organization_delete_requests`, `platform_users`, `platform_audit_log` | `[]` — zero rows to anon |
+| `students`, `profiles` | `[]` |
+| `plan_features` | readable — **intended**; Phase 3A's `plan_features_anon_read` scopes it to `is_public AND is_active` plans for the pricing page, so ARK's `internal` plan is not exposed |
+| `platform_set_module_entitlement`, `platform_clear_module_override`, `platform_set_module_governance`, `platform_set_organization_status`, `entitlement_layers` | `42501 permission denied for function` |
+| `platform_module_matrix` | `P0001 Access denied: organizations.read required` |
+| `my_module_entitlements` | `null` — the fail-open path: no org, no claim, and the hook then declines to gate rather than blanking the sidebar |
+| `POST /functions/v1/platform-admin` with no `Authorization` | **401** |
+| …with the anon key as bearer | **403** `Platform access denied` |
+| …with a malformed bearer | **401** `UNAUTHORIZED_INVALID_JWT_FORMAT` |
+
+### 17.11 Deployment result
+
+| Step | State |
+|---|---|
+| `20261001_phase9a_platform_control_center.sql` | **applied** (version `2026100128`) |
+| `20261002_phase9b_entitlement_history_dedup.sql` | **applied** (version `2026100229`) |
+| `supabase functions deploy platform-admin` | **deployed** — was still at version 1 (2026-08-06), which predates all 8 actions this phase added |
+| Post-deploy assertions | **13/13 PASS** |
+| ARK data | `ark-baseline --compare` → **no decrease**; students 135, attendance 6590, exam_results 1479 |
+| ARK modules | `ark-module-snapshot --compare` → **19/19 unchanged** |
+| Frontend | **NOT deployed** — see §17.12 |
+
+The baseline was rebased after the override: the pre-change capture is preserved
+as `docs/generated/ARK_BASELINE_PRE_PHASE9A.json`, and the comparison logic was
+left strict. It correctly flagged the override as a change to ARK's entitlements
+— that is the alarm working, not a false positive, and silencing it in code would
+have removed the only automated guard on that field.
+
+### 17.12 Still INCONCLUSIVE — not PASS
+
+| Item | Blocked on |
+|---|---|
+| `platform_audit_log` row for an entitlement change | Requires a session for the one platform user (`owner`, MFA-enrolled). The RPCs write `feature_flag_assignments`; only the **edge function** writes `platform_audit_log`. The function is now deployed and its auth gate is proven live, but the audited action itself has not been performed. |
+| Frontend deployment | Not run. It is the step that would change what ARK users see. |
+| ARK real login; per-portal module set | No ARK credentials |
+| Certificate reachable end-to-end in the browser | Same |
+| `/platform` console UI: lifecycle, bulk, dependency refusal, delete-request | Needs the deployed console + a platform session |
+| Bulk across ≥2 non-ARK orgs | Only one non-ARK org exists |
+| Fail-open observed in a live portal | Unit-tested and probed at the RPC layer (`my_module_entitlements` → `null`); not observed under an induced failure in a running portal |
+
+To settle the audit item, sign in to the platform console as the platform owner,
+change one module on **ABC Academi** (never ARK), and confirm a
+`platform_audit_log` row appears with actor, organization, action, before, after,
+reason and timestamp.

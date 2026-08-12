@@ -40,17 +40,36 @@ export interface OrgCommsVars extends Record<string, string> {
   org_email: string;
   org_website: string;
   org_address: string;
+  org_city: string;
+  org_state: string;
+  org_pincode: string;
+  org_logo: string;
+  org_support_phone: string;
+  org_support_email: string;
+  org_brand_primary: string;
+  org_brand_secondary: string;
+  org_brand_accent: string;
 }
 
-const EMPTY: OrgCommsVars = {
-  org_name: "",
-  org_short_name: "",
-  org_legal_name: "",
-  org_phone: "",
-  org_email: "",
-  org_website: "",
-  org_address: "",
-};
+/**
+ * The contract, in one place.
+ *
+ * A template may reference any of these and be certain the bag defines it.
+ * Exported so the validator can reject `{{org_whatever}}` at authoring time
+ * instead of rendering a literal `{{org_whatever}}` to a parent.
+ */
+export const ORG_VARIABLE_KEYS: readonly (keyof OrgCommsVars & string)[] = [
+  "org_name", "org_short_name", "org_legal_name",
+  "org_phone", "org_email", "org_website",
+  "org_address", "org_city", "org_state", "org_pincode",
+  "org_logo", "org_support_phone", "org_support_email",
+  "org_brand_primary", "org_brand_secondary", "org_brand_accent",
+] as const;
+
+const EMPTY: OrgCommsVars = ORG_VARIABLE_KEYS.reduce(
+  (acc, k) => ({ ...acc, [k]: "" }),
+  {} as OrgCommsVars,
+);
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
 
@@ -58,6 +77,12 @@ interface OrgRow {
   slug: string | null;
   display_name: string | null;
   legal_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  website: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
 }
 
 interface BrandingRow {
@@ -67,6 +92,10 @@ interface BrandingRow {
   support_phone: string | null;
   support_address: string | null;
   website_url: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  accent_color: string | null;
 }
 
 class OrgContextService extends BaseService {
@@ -93,13 +122,16 @@ class OrgContextService extends BaseService {
       const [orgRes, brandRes] = await Promise.all([
         this.db
           .from("organizations" as never)
-          .select("slug, display_name, legal_name")
+          .select(
+            "slug, display_name, legal_name, contact_phone, contact_email, website, city, state, pincode",
+          )
           .limit(1)
           .maybeSingle(),
         this.db
           .from("organization_branding" as never)
           .select(
-            "app_name, portal_name, support_email, support_phone, support_address, website_url",
+            "app_name, portal_name, support_email, support_phone, support_address, website_url, " +
+              "logo_url, primary_color, secondary_color, accent_color",
           )
           .limit(1)
           .maybeSingle(),
@@ -118,14 +150,33 @@ class OrgContextService extends BaseService {
         s(org?.legal_name) ||
         s(org?.slug);
 
+      // Support vs general contact are DIFFERENT numbers to a school: the
+      // office line goes on a receipt, the support line answers a login
+      // problem. They fall back to each other because one of the two is
+      // usually filled in, and a blank phone number in a message that says
+      // "call us" is a dead end.
+      const supportPhone = s(brand?.support_phone) || s(org?.contact_phone);
+      const supportEmail = s(brand?.support_email) || s(org?.contact_email);
+
       return {
         org_name: name,
         org_short_name: s(brand?.portal_name) || s(org?.slug) || name,
         org_legal_name: s(org?.legal_name) || name,
-        org_phone: s(brand?.support_phone),
-        org_email: s(brand?.support_email),
-        org_website: s(brand?.website_url),
+        org_phone: s(org?.contact_phone) || supportPhone,
+        org_email: s(org?.contact_email) || supportEmail,
+        org_website: s(brand?.website_url) || s(org?.website),
         org_address: s(brand?.support_address),
+        // Nullable by design — see 20261003_phase10a. Blank, never guessed
+        // from the free-text address.
+        org_city: s(org?.city),
+        org_state: s(org?.state),
+        org_pincode: s(org?.pincode),
+        org_logo: s(brand?.logo_url),
+        org_support_phone: supportPhone,
+        org_support_email: supportEmail,
+        org_brand_primary: s(brand?.primary_color),
+        org_brand_secondary: s(brand?.secondary_color),
+        org_brand_accent: s(brand?.accent_color),
       };
     } catch {
       // Never throw into a business mutation. An unresolved org name renders as

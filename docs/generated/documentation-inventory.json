@@ -7,8 +7,8 @@
   ],
   "counts": {
     "modules": 19,
-    "submodules": 203,
-    "shipped": 192,
+    "submodules": 204,
+    "shipped": 193,
     "routeClaimedNotMounted": 0,
     "legacyOnly": 0,
     "aspirational": 11,
@@ -811,6 +811,18 @@
       "module": "attendance",
       "mountedVia": "catalog",
       "mountedPath": "/admin/attendance/students/import",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "attendance.student_lookup",
+      "label": "Student Attendance Lookup",
+      "route": "/admin/attendance/students/lookup",
+      "legacyAction": null,
+      "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/students/lookup",
       "inMenu": false,
       "backing": "service",
       "status": "SHIPPED"

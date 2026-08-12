@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-12T06:18:19.262Z",
+  "capturedAt": "2026-08-12T11:07:22.869Z",
   "organization": {
     "country": "IN",
     "created_at": "2026-08-06 05:00:39.563436+00",
@@ -15,25 +15,25 @@
     "timezone": "Asia/Kolkata"
   },
   "counts": {
-    "students": 134,
+    "students": 135,
     "profiles": 24,
     "organization_users": 25,
     "student_attendance": 6590,
-    "teacher_attendance": 30,
+    "teacher_attendance": 31,
     "exam_results": 1479,
-    "student_fees": 133,
-    "fee_installments": 132,
+    "student_fees": 134,
+    "fee_installments": 133,
     "payroll_runs": 2,
     "leads": 35,
-    "message_queue": 343,
-    "comms_audit": 439,
+    "message_queue": 345,
+    "comms_audit": 440,
     "invoices": 0,
     "payments": 0,
-    "organization_features": 0
+    "organization_features": 1
   },
   "rolesBreakdown": {
-    "teacher": 13,
-    "admin": 5,
+    "teacher": 14,
+    "admin": 4,
     "management": 3,
     "coordinator": 3
   },
@@ -52,7 +52,14 @@
     "plan_code": "internal",
     "status": "active"
   },
-  "featureOverrides": [],
+  "featureOverrides": [
+    {
+      "enabled": true,
+      "expires_at": null,
+      "feature_key": "certificate",
+      "reason": "incident"
+    }
+  ],
   "planFeatures": [
     {
       "enabled": true,

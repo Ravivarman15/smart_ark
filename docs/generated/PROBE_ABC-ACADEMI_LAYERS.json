@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-08-12T10:28:24.98966+00:00",
+  "generated_at": "2026-08-12T09:51:20.297224+00:00",
   "governance": {},
-  "organization_id": "126a6dd8-6f7e-4b81-9b82-58a9a3b77674",
+  "organization_id": "12028704-0344-4900-af41-2f71b2372627",
   "overrides": {
     "certificate": {
       "enabled": true,
-      "expires_at": null,
-      "reason": "incident",
-      "updated_at": "2026-08-12T06:32:21.130306+00:00"
+      "expires_at": "2026-08-12T11:50:33.037639+00:00",
+      "reason": "trial",
+      "updated_at": "2026-08-12T09:50:33.037639+00:00"
     }
   },
   "plan": {
@@ -96,7 +96,7 @@
       "limit": null
     }
   },
-  "plan_code": "internal",
-  "plan_id": "1b2f57cd-2503-48e3-8c50-d6d19f082ea0",
-  "status": "active"
+  "plan_code": "professional",
+  "plan_id": "84b05b23-f1cd-46a9-86fe-d44cdfc2b8fc",
+  "status": "trialing"
 }
