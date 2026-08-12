@@ -133,6 +133,7 @@ const AttWorkHours = lazy(() => import("./features/attendance/pages/WorkHoursDas
 const AttStaffRegister = lazy(() => import("./features/attendance/pages/StaffRegisterPage"));
 const AttStaffCorrections = lazy(() => import("./features/attendance/pages/StaffCorrectionsPage"));
 const AttStudentImport = lazy(() => import("./features/attendance/pages/StudentAttendanceImportPage"));
+const AttStudentLookup = lazy(() => import("./features/attendance/pages/StudentAttendanceLookupPage"));
 const AttStaffImport = lazy(() => import("./features/attendance/pages/StaffAttendanceImportPage"));
 const AttSettings = lazy(() => import("./features/attendance/pages/AttendanceSettingsPage"));
 // Attendance analytics (Phase 3 — src/features/attendance/analytics)
@@ -400,6 +401,7 @@ const attendanceRoutes = () => (
     <Route path="attendance/dashboard" element={<AttDashboard />} />
     <Route path="attendance/students/mark" element={<AttMarkStudent />} />
     <Route path="attendance/students/register" element={<AttStudentRegister />} />
+    <Route path="attendance/students/lookup" element={<AttStudentLookup />} />
     <Route path="attendance/students/backdated" element={<AttBackdated />} />
     <Route path="attendance/students/corrections" element={<AttStudentCorrections />} />
     <Route path="attendance/students/import" element={<AttStudentImport />} />

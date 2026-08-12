@@ -183,6 +183,7 @@ const RptProfitLossAnalysis = lazy(() => import("@/features/reports/pages/Profit
 const AttDashboard = lazy(() => import("@/features/attendance/pages/AttendanceDashboardPage"));
 const AttMarkStudent = lazy(() => import("@/features/attendance/pages/MarkStudentAttendancePage"));
 const AttStudentRegister = lazy(() => import("@/features/attendance/pages/StudentRegisterPage"));
+const AttStudentLookup = lazy(() => import("@/features/attendance/pages/StudentAttendanceLookupPage"));
 const AttBackdated = lazy(() => import("@/features/attendance/pages/BackdatedAttendancePage"));
 const AttStudentCorrections = lazy(() => import("@/features/attendance/pages/StudentCorrectionsPage"));
 const AttStudentImport = lazy(() => import("@/features/attendance/pages/StudentAttendanceImportPage"));
@@ -636,6 +637,7 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
   { path: "attendance/dashboard",              element: <AttDashboard />,           submodule: "attendance.dashboard",             label: "Attendance Dashboard",        layouts: ["coordinator"] },
   { path: "attendance/students/mark",          element: <AttMarkStudent />,         submodule: "attendance.student_mark",          label: "Mark Student Attendance",     layouts: ["coordinator"] },
   { path: "attendance/students/register",      element: <AttStudentRegister />,     submodule: "attendance.student_register",      label: "Student Attendance Register", layouts: ["coordinator"] },
+  { path: "attendance/students/lookup",        element: <AttStudentLookup />,       submodule: "attendance.student_lookup",        label: "Student Attendance Lookup",   layouts: ["coordinator"] },
   { path: "attendance/students/backdated",     element: <AttBackdated />,           submodule: "attendance.student_backdated",     label: "Backdated Attendance",        layouts: ["coordinator"] },
   { path: "attendance/students/corrections",   element: <AttStudentCorrections />,  submodule: "attendance.student_corrections",   label: "Attendance Corrections",      layouts: ["coordinator"] },
   { path: "attendance/students/import",        element: <AttStudentImport />,       submodule: "attendance.student_import",        label: "Import Student Attendance",   layouts: ["coordinator"] },

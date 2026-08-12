@@ -201,6 +201,76 @@ class AttendanceStudentService extends BaseService {
     return ((res.data ?? []) as unknown as AttRow[]).map(toRow);
   }
 
+  /**
+   * Filtered Student Attendance Lookup — supports multi-dimensional filtering by
+   * date range, standard, batch, student, status, source/method, and text search.
+   */
+  async lookup(params: {
+    from: string;
+    to: string;
+    standardId?: string;
+    batchId?: string;
+    studentId?: string;
+    status?: string;
+    source?: string;
+    search?: string;
+  }): Promise<StudentAttendanceRow[]> {
+    let targetStudentIds: string[] | undefined;
+
+    // If filtering by standard, find matching student IDs first
+    if (params.standardId && !params.studentId) {
+      const studsRes = await this.db
+        .from("students")
+        .select("id")
+        .eq("standard_id", params.standardId);
+      if (!studsRes.error && studsRes.data) {
+        targetStudentIds = studsRes.data.map((s) => s.id);
+        if (targetStudentIds.length === 0) return [];
+      }
+    }
+
+    const cols =
+      "id, student_id, batch_id, date, attendance_date, status, method, remarks, " +
+      "marked_by_name, marked_by_role, marked_at, students(name, roll_number)";
+
+    const run = (dateCol: "attendance_date" | "date") => {
+      let q = this.db
+        .from("student_attendance")
+        .select(cols)
+        .gte(dateCol, params.from)
+        .lte(dateCol, params.to);
+
+      if (params.batchId) q = q.eq("batch_id", params.batchId);
+      if (params.studentId) q = q.eq("student_id", params.studentId);
+      else if (targetStudentIds) q = q.in("student_id", targetStudentIds);
+
+      if (params.status && params.status !== "all") q = q.eq("status", params.status);
+      if (params.source && params.source !== "all") q = q.eq("method", params.source);
+
+      return q.order(dateCol, { ascending: false }).limit(1000);
+    };
+
+    let res = await run("attendance_date");
+    if (res.error && isSchemaCacheMiss(res.error)) res = await run("date");
+    if (res.error) throw AppError.fromSupabase(res.error, "student_attendance");
+
+    let rows = ((res.data ?? []) as unknown as AttRow[]).map(toRow);
+
+    // Client-side text search filter (if search query is provided)
+    if (params.search && params.search.trim()) {
+      const q = params.search.trim().toLowerCase();
+      rows = rows.filter(
+        (r) =>
+          (r.studentName ?? "").toLowerCase().includes(q) ||
+          (r.rollNumber ?? "").toLowerCase().includes(q) ||
+          (r.remarks ?? "").toLowerCase().includes(q) ||
+          (r.markedByName ?? "").toLowerCase().includes(q)
+      );
+    }
+
+    return rows;
+  }
+
   /** Audit timeline (who marked / changed what) — reuses the students service. */
   auditTimeline(filters: {
     batchId?: string;

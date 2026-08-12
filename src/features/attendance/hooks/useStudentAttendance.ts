@@ -151,3 +151,20 @@ export const useStudentAttendanceAudit = (filters: {
     queryKey: queryKeys.attendance.studentAudit(filters as Record<string, unknown>),
     queryFn: () => attendanceStudentService.auditTimeline(filters),
   });
+
+export const useStudentAttendanceLookup = (params: {
+  from: string;
+  to: string;
+  standardId?: string;
+  batchId?: string;
+  studentId?: string;
+  status?: string;
+  source?: string;
+  search?: string;
+  enabled?: boolean;
+}) =>
+  useQuery({
+    queryKey: ["attendance", "student-lookup", params] as const,
+    queryFn: () => attendanceStudentService.lookup(params),
+    enabled: params.enabled ?? true,
+  });

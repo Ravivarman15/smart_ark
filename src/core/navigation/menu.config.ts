@@ -289,6 +289,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       ...sub("attendance.dashboard",     "Attendance Dashboard",       attendancePaths("/dashboard"),          adminCoordMgmt),
       ...sub("attendance.student_mark",  "Mark Student Attendance",    attendancePaths("/students/mark"),      all),
       ...sub("attendance.student_register","Student Attendance Register", attendancePaths("/students/register"), all),
+      ...sub("attendance.student_lookup", "Student Attendance Lookup",   attendancePaths("/students/lookup"),   all),
       ...sub("attendance.student_backdated","Backdated Attendance",     attendancePaths("/students/backdated"), adminCoordMgmt),
       ...sub("attendance.student_corrections","Attendance Corrections", attendancePaths("/students/corrections"), adminCoordMgmt),
       ...sub("attendance.student_import","Import Student Attendance",   attendancePaths("/students/import"),     adminMgmt),
