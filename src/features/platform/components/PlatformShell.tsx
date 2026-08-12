@@ -12,7 +12,7 @@ import { NavLink, Outlet, Navigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Building2, CreditCard, Package, Ticket, BarChart3, ServerCog,
   ShieldCheck, Activity, FileText, Settings, Users, Percent, HardDrive,
-  LifeBuoy, ScrollText, Flag, DatabaseBackup, AlertTriangle, Loader2,
+  LifeBuoy, ScrollText, Flag, DatabaseBackup, AlertTriangle, Loader2, Blocks,
 } from "lucide-react";
 import { usePlatformAuth, type PlatformCapability } from "../context/PlatformAuthContext";
 import { ThemeToggle } from "@/core/theme";
@@ -81,6 +81,7 @@ const NAV: NavGroup[] = [
       { to: "/platform/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/platform/organizations", label: "Organizations", icon: Building2, capability: "organizations.read" },
       { to: "/platform/provisioning", label: "Provisioning", icon: ServerCog, capability: "organizations.read" },
+      { to: "/platform/modules", label: "Modules", icon: Blocks, capability: "organizations.read" },
       { to: "/platform/usage", label: "Usage", icon: BarChart3, capability: "usage.read" },
       { to: "/platform/revenue", label: "Revenue", icon: Percent, capability: "billing.read" },
     ],
@@ -226,7 +227,12 @@ export const StatusPill: React.FC<{ status: string }> = ({ status }) => {
     status === "active" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
     : status === "trialing" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
     : status === "past_due" || status === "grace" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+    // Hold is amber, not red: it is a reversible commercial pause and reads
+    // alongside past_due, which is what an account manager is usually looking
+    // at when they see it.
+    : status === "hold" ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
     : status === "suspended" || status === "cancelled" ? "bg-red-500/10 text-red-600 dark:text-red-400"
+    : status === "archived" ? "bg-slate-500/15 text-slate-600 dark:text-slate-300"
     : "bg-muted text-muted-foreground";
   return (
     <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize", tone)}>

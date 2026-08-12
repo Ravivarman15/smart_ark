@@ -21,6 +21,7 @@ import type {
  * Highest specificity wins — see `RESOLUTION_ORDER` in rbacResolver.ts.
  */
 export type AccessSource =
+  | "entitlement"         // the ORGANIZATION is not entitled to the module at all
   | "super_role"          // management bypass — every check returns allow
   | "user_override"       // per-user override row in rbac_user_*_overrides
   | "role_grant"          // per-role row in rbac_role_permissions / rbac_role_actions
@@ -69,4 +70,18 @@ export interface ResolverInput {
   legacyModules?: Record<string, boolean>;
   /** Legacy `staff_action_rights` snapshot (action_key → is_allowed). */
   legacyActions?: Record<string, boolean>;
+  /**
+   * Module id → is the ORGANIZATION entitled to it, from the platform control
+   * plane (plan + Super Admin override + lifecycle status).
+   *
+   * A different question from every other input here. The rest of this shape
+   * asks "may this PERSON see it"; this asks "did this SCHOOL buy it". A
+   * commercial answer outranks a permission answer, so an absent entitlement
+   * denies even `management` — see the resolver's entitlement layer.
+   *
+   * OMITTED, or a module missing from the map, means "unknown", which is
+   * treated as allowed. Fail-open is deliberate: a transient RPC failure must
+   * not black out a paying customer's entire portal.
+   */
+  moduleEntitlements?: Record<string, boolean>;
 }

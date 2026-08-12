@@ -17,6 +17,7 @@ import { useRolePermissions } from "./useRolePermissions";
 import { useUserOverrides } from "./useUserOverrides";
 import { useActionRights } from "./useActionRights";
 import { useUserActionOverrides } from "./useUserActionOverrides";
+import { useModuleEntitlements } from "./useModuleEntitlements";
 
 interface Result {
   data: EffectiveAccess;
@@ -41,6 +42,7 @@ export const useEffectiveAccess = (): Result => {
   const roleActions = useActionRights(role);
   const userActionOverrides = useUserActionOverrides(profileId);
   const legacy = useStaffRights();
+  const entitlements = useModuleEntitlements();
 
   const data = useMemo(() => {
     if (!role) return emptyAccess(role);
@@ -52,6 +54,7 @@ export const useEffectiveAccess = (): Result => {
       userActionOverrides: userActionOverrides.data ?? [],
       legacyModules: legacy.moduleRights,
       legacyActions: legacy.actionRights,
+      moduleEntitlements: entitlements.data?.flags,
     });
   }, [
     role,
@@ -61,8 +64,13 @@ export const useEffectiveAccess = (): Result => {
     userActionOverrides.data,
     legacy.moduleRights,
     legacy.actionRights,
+    entitlements.data,
   ]);
 
+  // Entitlements are deliberately NOT part of `isLoading`. They fail open, so
+  // a slow or failed entitlement lookup must not hold the whole permission
+  // layer in a loading state — gates that block on `isLoading` would render a
+  // spinner over a portal that is otherwise perfectly usable.
   const isLoading =
     rolePerms.isLoading ||
     userOverrides.isLoading ||

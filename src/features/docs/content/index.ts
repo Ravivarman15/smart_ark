@@ -3,6 +3,7 @@ import { GETTING_STARTED } from "./gettingStarted";
 import { MODULE_ARTICLES } from "./modules";
 import { ROLE_ARTICLES } from "./roles";
 import { OPERATIONS_ARTICLES } from "./operations";
+import { PLATFORM_ARTICLES } from "./platform";
 import { TROUBLESHOOTING } from "./troubleshooting";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ export const ARTICLES: DocArticle[] = [
   ...ROLE_ARTICLES,
   ...MODULE_ARTICLES,
   ...OPERATIONS_ARTICLES,
+  ...PLATFORM_ARTICLES,
   ...TROUBLESHOOTING,
 ];
 

@@ -32,7 +32,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -68,6 +70,17 @@ import {
   academicYearOf,
   expandRecurrence,
 } from "@/features/allocation/utils/recurrence";
+import {
+  localIso,
+  resolveRange,
+  type RangePreset,
+} from "@/features/allocation/utils/scheduleView";
+import {
+  isSubjectStillValid,
+  subjectsForStandards,
+} from "@/features/allocation/utils/subjectScope";
+import { ScheduleRangeBar } from "@/features/allocation/components/ScheduleRangeBar";
+import { ScheduleDayList } from "@/features/allocation/components/ScheduleDayList";
 import type {
   ClassMode,
   ClassSchedule,
@@ -76,31 +89,20 @@ import type {
   ScheduleStatus,
 } from "@/features/allocation/types/allocation.types";
 
-// Week range [Mon..Sun] around today (ISO strings).
+/**
+ * Week range [Mon..Sun] around today.
+ *
+ * Built from LOCAL calendar fields via `resolveRange`. The previous version
+ * used `toISOString()`, which is UTC — in IST that shifted the whole week a day
+ * earlier for the first five and a half hours of every day, and made the
+ * workload card disagree with the class list it sat above.
+ */
 const weekRange = () => {
-  const now = new Date();
-  const day = (now.getDay() + 6) % 7; // Mon=0
-  const mon = new Date(now);
-  mon.setDate(now.getDate() - day);
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { from: iso(mon), to: iso(sun) };
+  const r = resolveRange("week");
+  return { from: r.from!, to: r.to! };
 };
 
-const statusBadge = (s: ScheduleStatus) => {
-  const map: Record<ScheduleStatus, string> = {
-    scheduled: "bg-blue-500/15 text-blue-500",
-    in_progress: "bg-cyan-500/15 text-cyan-500",
-    completed: "bg-emerald-500/15 text-emerald-500",
-    cancelled: "bg-red-500/15 text-red-500",
-    missed: "bg-amber-500/15 text-amber-500",
-    rescheduled: "bg-purple-500/15 text-purple-500",
-  };
-  return map[s] ?? "bg-muted";
-};
-
-const todayIso = new Date().toISOString().slice(0, 10);
+const todayIso = localIso();
 
 const emptyForm = {
   teacherId: "",
@@ -172,11 +174,27 @@ const ClassScheduling: React.FC = () => {
     [standards, myStandardIds, isOverride],
   );
 
+  // ── What the class list is showing ───────────────────────────────────────
+  //
+  // Deliberately SEPARATE from `weekRange` above. The workload card and the
+  // timetable lock are weekly by definition; switching the list to "Tomorrow"
+  // must not silently redefine "hours this week" in the card beside it.
+  const [preset, setPreset] = useState<RangePreset>("today");
+  const [pickedDate, setPickedDate] = useState(todayIso);
+  const [statusFilter, setStatusFilter] = useState<ScheduleStatus | "all">("all");
+  const range = useMemo(() => resolveRange(preset, pickedDate), [preset, pickedDate]);
+
   const { data: schedules = [] } = useSchedules({
     coordinatorId: isOverride ? undefined : user?.profileId,
-    from,
-    to,
+    from: range.from,
+    to: range.to,
   });
+
+  const visibleSchedules = useMemo(
+    () =>
+      statusFilter === "all" ? schedules : schedules.filter((c) => c.status === statusFilter),
+    [schedules, statusFilter],
+  );
   const { data: studentCounts = {} } = useClassStudentCounts(
     useMemo(() => schedules.map((s) => s.id), [schedules]),
   );
@@ -237,11 +255,29 @@ const ClassScheduling: React.FC = () => {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  // The primary standard drives the single-value lookups (sections, subjects).
+  // Sections belong to exactly one standard, so they still follow the primary.
   const primaryStandardId = form.standardIds[0];
   const { data: sections = [] } = useSections(primaryStandardId);
-  const { data: subjects = [] } = useSubjects(
-    primaryStandardId ? { standardId: primaryStandardId } : undefined,
+
+  // Subjects are loaded UNSCOPED and narrowed client-side. Two reasons the
+  // server-side `{ standardId }` filter could not stay:
+  //   • it only ever knew the PRIMARY standard, so picking Std 2 then Std 4
+  //     kept listing Std 2's subjects — the reported bug;
+  //   • it issues `.eq("standard_id", …)`, which excludes the institute-wide
+  //     subjects (standard_id IS NULL) that the batch timetable page has always
+  //     shown. Same data, two screens, two answers.
+  const { data: allSubjects = [] } = useSubjects();
+  const standardName = useMemo(() => {
+    const byId = new Map(standards.map((s) => [s.id, s.name]));
+    return (id: string) => byId.get(id) ?? "Standard";
+  }, [standards]);
+  const subjectGroups = useMemo(
+    () => subjectsForStandards(allSubjects, form.standardIds, standardName),
+    [allSubjects, form.standardIds, standardName],
+  );
+  const subjectCount = useMemo(
+    () => subjectGroups.reduce((n, g) => n + g.subjects.length, 0),
+    [subjectGroups],
   );
   // Batches are loaded unscoped and filtered here: a multi-standard class needs
   // the UNION of its standards' batches, which the single-standard hook filter
@@ -279,11 +315,19 @@ const ClassScheduling: React.FC = () => {
         allBatches.some(
           (b) => b.id === f.batchId && (!b.standardId || standardIds.includes(b.standardId)),
         );
+      // A subject belongs to a standard. Switching from Std 2 to Std 4 while
+      // Std 2's Maths is still selected would save a Std 4 class against a
+      // subject that standard does not teach — and nothing on screen would show
+      // it, because the dropdown would already be listing Std 4's subjects
+      // while the FORM still held the old value. Clearing is the only honest
+      // outcome; a stale value invisible in its own list is worse than a blank.
+      const nextGroups = subjectsForStandards(allSubjects, standardIds, standardName);
       return {
         ...f,
         standardIds,
         sectionId: standardIds.length === 1 ? f.sectionId : "",
         batchId: batchStillValid ? f.batchId : "",
+        subjectId: isSubjectStillValid(f.subjectId, nextGroups) ? f.subjectId : "",
       };
     });
 
@@ -484,92 +528,96 @@ const ClassScheduling: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Schedule list */}
+      {/* Schedule list — grouped by day, ordered by start time */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Schedule ({schedules.length})</CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">
+              {range.label} · {visibleSchedules.length} class
+              {visibleSchedules.length === 1 ? "" : "es"}
+            </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {schedules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No classes scheduled this week.</p>
-          ) : (
-            schedules.map((c) => (
-              <div
-                key={c.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{c.teacherName ?? nameOf(c.teacherId)}</span>
-                    {c.isExtra && <Badge variant="outline" className="text-amber-500">Extra</Badge>}
-                    {c.status === "in_progress" ? (
-                      <Badge className="bg-emerald-500/15 text-emerald-600 gap-1">
-                        <Radio className="h-3 w-3" /> LIVE
-                      </Badge>
-                    ) : (
-                      <Badge className={statusBadge(c.status)}>{c.status}</Badge>
-                    )}
-                    {/* The lifecycle the teacher drives, mirrored here live —
-                        a coordinator shouldn't have to open the Control Center
-                        to find out whether a class actually happened. */}
-                    {c.lateMinutes > 0 && (
-                      <Badge variant="outline" className="text-amber-600">
-                        {c.lateMinutes}m late
-                      </Badge>
-                    )}
-                    {c.attendanceSubmitted && (
-                      <Badge className="bg-emerald-500/15 text-emerald-500">attendance ✓</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {c.scheduleDate} · {c.startTime}–{c.endTime} ({(c.durationMinutes / 60).toFixed(1)}h) ·{" "}
-                    {[
-                      // Every standard, not just the primary — otherwise a
-                      // combined class reads as if it only covers one.
-                      c.standardNames.length > 0 ? c.standardNames.join(" + ") : c.standardName,
-                      c.sectionName,
-                      c.subjectName,
-                    ]
-                      .filter(Boolean)
-                      .join(" / ") || "—"} ·{" "}
-                    {c.mode}
-                    {c.room ? ` · ${c.room}` : ""}
-                    {studentCounts[c.id] ? ` · ${studentCounts[c.id]} students` : ""}
-                    {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
-                    {c.completedAt ? ` · ended ${c.completedAt.slice(11, 16)}` : ""}
-                    {c.actualMinutes != null ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h` : ""}
-                  </p>
-                </div>
-                {(c.status === "scheduled" || c.status === "in_progress") && (
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" title="Students in this class" onClick={() => setRosterTarget(c)}>
-                      <Users2 className="h-4 w-4 text-teal-500" />
+        <CardContent className="space-y-4">
+          <ScheduleRangeBar
+            preset={preset}
+            date={pickedDate}
+            onPreset={setPreset}
+            onDate={(d) => { setPickedDate(d); setPreset("date"); }}
+          >
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as ScheduleStatus | "all")}
+            >
+              <SelectTrigger className="h-9 w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="in_progress">In progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="missed">Missed</SelectItem>
+              </SelectContent>
+            </Select>
+          </ScheduleRangeBar>
+
+          <ScheduleDayList
+            schedules={visibleSchedules}
+            emptyTitle={`No classes ${range.label.toLowerCase()}`}
+            emptyHint={
+              preset === "today"
+                ? "Try Tomorrow or This week, or schedule one with the button above."
+                : "Adjust the range or the status filter."
+            }
+            renderMeta={(c) => (
+              <>
+                {c.teacherName ?? nameOf(c.teacherId)}
+                {" · "}
+                {c.mode}
+                {c.room ? ` · ${c.room}` : ""}
+                {studentCounts[c.id] ? ` · ${studentCounts[c.id]} students` : ""}
+                {/* The lifecycle the teacher drives, mirrored here live — a
+                    coordinator shouldn't have to open the Control Center to
+                    find out whether a class actually happened. */}
+                {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
+                {c.completedAt ? ` · ended ${c.completedAt.slice(11, 16)}` : ""}
+                {c.actualMinutes != null
+                  ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h`
+                  : ""}
+              </>
+            )}
+            renderActions={(c) =>
+              c.status === "scheduled" || c.status === "in_progress" ? (
+                <>
+                  <Button variant="ghost" size="sm" title="Students in this class" onClick={() => setRosterTarget(c)}>
+                    <Users2 className="h-4 w-4 text-teal-500" />
+                  </Button>
+                  <Button variant="ghost" size="sm" title="Assign substitute" onClick={() => { setSubTarget({ id: c.id, mode: "substitute" }); setSubTeacherId(""); }}>
+                    <UserCog className="h-4 w-4 text-blue-500" />
+                  </Button>
+                  {isOverride && (
+                    <Button variant="ghost" size="sm" title="Transfer teacher" onClick={() => { setSubTarget({ id: c.id, mode: "transfer" }); setSubTeacherId(""); }}>
+                      <ArrowRightLeft className="h-4 w-4 text-indigo-500" />
                     </Button>
-                    <Button variant="ghost" size="sm" title="Assign substitute" onClick={() => { setSubTarget({ id: c.id, mode: "substitute" }); setSubTeacherId(""); }}>
-                      <UserCog className="h-4 w-4 text-blue-500" />
-                    </Button>
-                    {isOverride && (
-                      <Button variant="ghost" size="sm" title="Transfer teacher" onClick={() => { setSubTarget({ id: c.id, mode: "transfer" }); setSubTeacherId(""); }}>
-                        <ArrowRightLeft className="h-4 w-4 text-indigo-500" />
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" title="Complete" onClick={() => doStatus(c.id, "completed")}>
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    </Button>
-                    <Button variant="ghost" size="sm" title="Missed" onClick={() => doStatus(c.id, "missed")}>
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    </Button>
-                    <Button variant="ghost" size="sm" title="Reschedule" onClick={() => doReschedule(c.id)}>
-                      <Clock className="h-4 w-4 text-purple-500" />
-                    </Button>
-                    <Button variant="ghost" size="sm" title="Cancel" onClick={() => doStatus(c.id, "cancelled")}>
-                      <XCircle className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
+                  )}
+                  <Button variant="ghost" size="sm" title="Complete" onClick={() => doStatus(c.id, "completed")}>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  </Button>
+                  <Button variant="ghost" size="sm" title="Missed" onClick={() => doStatus(c.id, "missed")}>
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  </Button>
+                  <Button variant="ghost" size="sm" title="Reschedule" onClick={() => doReschedule(c.id)}>
+                    <Clock className="h-4 w-4 text-purple-500" />
+                  </Button>
+                  <Button variant="ghost" size="sm" title="Cancel" onClick={() => doStatus(c.id, "cancelled")}>
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  </Button>
+                </>
+              ) : null
+            }
+          />
         </CardContent>
       </Card>
 
@@ -730,13 +778,43 @@ const ClassScheduling: React.FC = () => {
               )}
               <Field label="Subject">
                 <Select value={form.subjectId} onValueChange={(v) => set("subjectId", v)}>
-                  <SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        form.standardIds.length === 0 ? "Pick a standard first" : "Subject"
+                      }
+                    />
+                  </SelectTrigger>
                   <SelectContent>
-                    {subjects.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
+                    {/* Grouped by standard. With a combined Std 2 + Std 4 class
+                        the same subject NAME can exist under both, so a flat
+                        list would show "Maths" twice with no way to tell which
+                        one is which. */}
+                    {subjectGroups.map((g) => {
+                      if (g.subjects.length === 0) return null;
+                      return (
+                        <SelectGroup key={g.standardId ?? "shared"}>
+                          {subjectGroups.filter((x) => x.subjects.length).length > 1 && (
+                            <SelectLabel>{g.label}</SelectLabel>
+                          )}
+                          {g.subjects.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
+                {/* Name the standard that is unconfigured. "No subjects" alone
+                    sends a coordinator to Setup without telling them what to
+                    add there. */}
+                {form.standardIds.length > 0 && subjectCount === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    No subjects configured for{" "}
+                    {form.standardIds.map(standardName).join(", ")}. Add them in Setup →
+                    Manage Subjects.
+                  </p>
+                )}
               </Field>
               <Field label="Batch (optional filter)">
                 <Select value={form.batchId} onValueChange={(v) => set("batchId", v)}>

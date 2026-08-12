@@ -32,6 +32,9 @@ export { useEffectiveAccess } from "./useEffectiveAccess";
 export { useWhyAccess } from "./useWhyAccess";
 export { useRefreshAccess } from "./useRefreshAccess";
 
+// ── Phase 9A: organization-level module entitlements ────────────────────────
+export { useModuleEntitlements } from "./useModuleEntitlements";
+
 // ── Phase 5: role catalog ───────────────────────────────────────────────────
 export {
   useRolesCatalog,

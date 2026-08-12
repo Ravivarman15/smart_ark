@@ -13,37 +13,71 @@ open, so only **SHIPPED** entries describe things a user can do today.
 
 | Status | Count | May be documented as existing? |
 |---|---|---|
-| SHIPPED | 87 | **Yes** |
-| LEGACY_ONLY | 1 | Only if the behaviour is reachable |
+| SHIPPED | 192 | **Yes** |
+| LEGACY_ONLY | 0 | Only if the behaviour is reachable |
 | ROUTE_CLAIMED_NOT_MOUNTED | 0 | **No** — route declared but not mounted |
-| ASPIRATIONAL | 115 | **No** — permission-only |
+| ASPIRATIONAL | 11 | **No** — permission-only |
 | **Total submodules** | **203** | |
 
 
-## SHIPPED (87)
+## SHIPPED (192)
 
 | Module | Submodule | Label | Route |
 |---|---|---|---|
+| settings | `settings.change_password` | Change Password | — |
+| settings | `settings.profile` | Profile Setting | — |
+| settings | `settings.auto_sms` | Auto SMS Settings | — |
+| settings | `settings.auto_notifications` | Auto Notifications Settings | — |
+| settings | `settings.auto_whatsapp` | Auto WhatsApp Settings | — |
+| settings | `settings.my_plan` | My Plan | — |
+| settings | `settings.sms_plan` | SMS Plan | — |
+| settings | `settings.my_referral` | My Referral | — |
 | settings | `settings.billing` | Billing & Subscription | `/settings/billing` |
 | settings | `settings.branding` | Branding & White Label | `/settings/branding` |
 | settings | `settings.checkin` | Check-in & Check-out | `/settings/check-in` |
+| setup | `setup.add_year` | Add Year | — |
 | setup | `setup.manage_year` | Manage Year | `/admin/setup/years` |
 | setup | `setup.assign_standard` | Assign Standard | `/admin/setup/standards` |
 | setup | `setup.assign_subject` | Assign Subject | `/admin/setup/subjects` |
+| setup | `setup.add_course_type` | Add Course Type | — |
 | setup | `setup.manage_course_type` | Manage Course Type | `/admin/setup/course-types` |
+| setup | `setup.add_batch` | Add Class / Batch | — |
 | setup | `setup.manage_batch` | Manage Class / Batch | `/admin/setup/batches` |
 | setup | `setup.timetable` | Manage Time Table | `/admin/timetable` |
+| setup | `setup.add_tax` | Add Tax | — |
 | setup | `setup.manage_tax` | Manage Tax | `/admin/setup/taxes` |
 | staff_user | `staff.create` | Create Staff | `/admin/staff-manage` |
 | staff_user | `staff.manage` | Manage Staff | `/admin/staff-manage` |
 | staff_user | `staff.rights` | Manage Staff Rights | `/management/permissions` |
+| staff_user | `staff.action_rights` | Manage Staff Action Rights | — |
 | staff_user | `staff.attendance` | Staff Attendance | `/admin/teacher-checkins` |
 | enquiry_leads | `enquiry.add` | Add Student Enquiry | `/admin/enquiries` |
 | enquiry_leads | `enquiry.assign` | Assign Enquiry | `/admin/enquiries` |
 | enquiry_leads | `enquiry.manage` | Manage Enquiry | `/admin/enquiries` |
+| enquiry_leads | `lead.counselor_board` | My Leads (Counselor Board) | — |
+| enquiry_leads | `lead.pipeline` | Lead Pipeline | — |
+| enquiry_leads | `lead.management` | Lead Management Dashboard | — |
+| enquiry_leads | `lead.demos` | Demo Classes | — |
+| enquiry_leads | `lead.admissions` | Lead Admissions | — |
+| enquiry_leads | `lead.analytics` | Lead Analytics | — |
+| enquiry_leads | `lead.whatsapp` | WhatsApp Delivery Dashboard | — |
+| enquiry_leads | `lead.config` | Lead Automation Config | — |
 | enquiry_leads | `lead.bulk_import` | Bulk Import | `/admin/leads/bulk-import` |
+| student | `student.import` | Students Import | — |
 | student | `student.add` | Add Student Registration | `/admin/students` |
 | student | `student.manage` | Manage Student | `/admin/students` |
+| student | `student.assign_batch` | Assign Class / Batch | — |
+| student | `student.attendance` | Student Attendance | — |
+| student | `student.share_docs` | Share Documents | — |
+| student | `student.manage_shared_docs` | Manage Shared Documents | — |
+| student | `student.leave_request` | Manage Leave Request | — |
+| student | `student.year_transfer` | Student Year Transfer | — |
+| student | `student.untransfer` | Student Untransfer | — |
+| student | `student.chat` | Chat With Students | — |
+| student | `student.feedback` | Student Feedback | — |
+| student | `student.rights` | Student Rights | — |
+| student | `student.app_access` | App. Access Rights | — |
+| student | `student.attendance_history` | Attendance History | — |
 | attendance | `attendance.dashboard` | Attendance Dashboard | `/admin/attendance/dashboard` |
 | attendance | `attendance.student_mark` | Mark Student Attendance | `/admin/attendance/students/mark` |
 | attendance | `attendance.student_register` | Student Attendance Register | `/admin/attendance/students/register` |
@@ -86,96 +120,18 @@ open, so only **SHIPPED** entries describe things a user can do today.
 | academics | `academics.my_classes` | My Classes | `/teacher/my-classes` |
 | academics | `academics.monitor` | Class Control Center | `/coordinator/monitor` |
 | academics | `academics.analytics` | Faculty Analytics | `/management/faculty-analytics` |
-| fee | `fee.manage_structure` | Manage Fee Structure | `/admin/setup/fee-structures` |
-| fee | `fee.collection` | Fee Collection | `/admin/fees` |
-| fee | `fee.manage` | Manage Fees | `/admin/fees-management` |
-| whatsapp | `whatsapp.center` | Communication Center | `/management/communication` |
-| expense_income | `expense.manage_type` | Manage Expense Type | `/admin/setup/expense-categories` |
-| expense_income | `expense.add` | Add Expense | `/admin/expenses` |
-| expense_income | `expense.manage` | Manage Expense | `/admin/expenses` |
-| expense_income | `income.add` | Add Income | `/admin/expenses` |
-| expense_income | `income.manage` | Manage Income | `/admin/expenses` |
-| payroll | `payroll.dashboard` | Payroll Dashboard | `/admin/payroll/dashboard` |
-| payroll | `payroll.approval` | Approval Center | `/admin/payroll/approval` |
-| payroll | `payroll.role_rates` | Role Wise Salary | `/admin/payroll/config/role-rates` |
-| payroll | `payroll.staff_rates` | Staff Wise Salary | `/admin/payroll/config/staff-rates` |
-| payroll | `payroll.shifts` | Shift Assignment | `/admin/payroll/config/shifts` |
-| payroll | `payroll.rules` | Overtime & Rules | `/admin/payroll/config/rules` |
-| payroll | `payroll.processing` | Salary Processing | `/admin/payroll/processing` |
-| payroll | `payroll.register` | Salary Register | `/admin/payroll/register` |
-| payroll | `payroll.analytics` | Payroll Analytics | `/admin/payroll/analytics` |
-| payroll | `payroll.audit` | Payroll Audit | `/admin/payroll/audit` |
-| payroll | `payroll.settings` | Payroll Settings | `/admin/payroll/settings` |
-| payroll | `payroll.my_salary` | My Salary | `/admin/payroll/my-salary` |
-| reports | `reports.inquiry_analysis` | Student Inquiry Analysis Report | `/admin/analysis` |
-| reports | `reports.admission_analysis` | Student Admission Analysis Report | `/admin/analysis` |
-| reports | `reports.fee_analysis` | Fee Analysis Report | `/admin/analysis` |
-| reports | `reports.profit_loss_analysis` | Profit Loss Analysis Report | `/admin/analysis` |
-
-## ROUTE_CLAIMED_NOT_MOUNTED (0)
-
-_none_
-
-## LEGACY_ONLY (1)
-
-| Module | Submodule | Label | Route |
-|---|---|---|---|
-| staff_user | `staff.action_rights` | Manage Staff Action Rights | — |
-
-## ASPIRATIONAL (115)
-
-| Module | Submodule | Label | Route |
-|---|---|---|---|
-| settings | `settings.change_password` | Change Password | — |
-| settings | `settings.profile` | Profile Setting | — |
-| settings | `settings.auto_sms` | Auto SMS Settings | — |
-| settings | `settings.auto_notifications` | Auto Notifications Settings | — |
-| settings | `settings.auto_whatsapp` | Auto WhatsApp Settings | — |
-| settings | `settings.my_plan` | My Plan | — |
-| settings | `settings.sms_plan` | SMS Plan | — |
-| settings | `settings.my_referral` | My Referral | — |
-| setup | `setup.add_year` | Add Year | — |
-| setup | `setup.add_course_type` | Add Course Type | — |
-| setup | `setup.add_batch` | Add Class / Batch | — |
-| setup | `setup.add_tax` | Add Tax | — |
-| enquiry_leads | `lead.counselor_board` | My Leads (Counselor Board) | — |
-| enquiry_leads | `lead.pipeline` | Lead Pipeline | — |
-| enquiry_leads | `lead.management` | Lead Management Dashboard | — |
-| enquiry_leads | `lead.demos` | Demo Classes | — |
-| enquiry_leads | `lead.admissions` | Lead Admissions | — |
-| enquiry_leads | `lead.analytics` | Lead Analytics | — |
-| enquiry_leads | `lead.whatsapp` | WhatsApp Delivery Dashboard | — |
-| enquiry_leads | `lead.config` | Lead Automation Config | — |
-| student | `student.import` | Students Import | — |
-| student | `student.assign_batch` | Assign Class / Batch | — |
-| student | `student.attendance` | Student Attendance | — |
-| student | `student.share_docs` | Share Documents | — |
-| student | `student.manage_shared_docs` | Manage Shared Documents | — |
-| student | `student.leave_request` | Manage Leave Request | — |
-| student | `student.year_transfer` | Student Year Transfer | — |
-| student | `student.untransfer` | Student Untransfer | — |
-| student | `student.chat` | Chat With Students | — |
-| student | `student.feedback` | Student Feedback | — |
-| student | `student.rights` | Student Rights | — |
-| student | `student.app_access` | App. Access Rights | — |
-| student | `student.attendance_history` | Attendance History | — |
-| tasks | `tasks.analytics` | Task Analytics | — |
-| tasks | `tasks.reports` | Task Reports | — |
-| tasks | `tasks.templates` | Task Templates | — |
-| tasks | `tasks.settings` | Task Settings | — |
-| academics | `academics.sections` | Manage Sections | — |
-| academics | `academics.reports` | Faculty Reports | — |
-| academics | `academics.audit` | Class Audit Trail | — |
 | live_class | `live.add` | Add Class | — |
 | live_class | `live.manage` | Manage Class | — |
 | live_class | `live.my` | My Class | — |
 | fee | `fee.create_structure` | Create Fee Structure | — |
+| fee | `fee.manage_structure` | Manage Fee Structure | `/admin/setup/fee-structures` |
+| fee | `fee.collection` | Fee Collection | `/admin/fees` |
+| fee | `fee.manage` | Manage Fees | `/admin/fees-management` |
 | fee | `fee.communication` | Fee Communication | — |
 | exam | `exam.create_manual` | Create Manual Exam | — |
 | exam | `exam.manage_manual` | Manage Manual Exam | — |
 | exam | `exam.smart_entry` | Smart Mark Entry | — |
 | exam | `exam.monthly_sheets` | Monthly Result Sheets | — |
-| exam | `exam.report_card` | Student Report Card | — |
 | exam | `exam.dashboard` | Examination Dashboard | — |
 | exam | `exam.analytics` | Exam Analytics | — |
 | exam | `exam.registers` | Exam Reports & Registers | — |
@@ -190,6 +146,7 @@ _none_
 | estudy | `estudy.shared` | Manage Shared Study Material | — |
 | certificate | `certificate.add` | Add Certificate | — |
 | certificate | `certificate.manage` | Manage Certificate | — |
+| whatsapp | `whatsapp.center` | Communication Center | `/management/communication` |
 | whatsapp | `whatsapp.send_inquiry` | Send SMS To Inquiry | — |
 | whatsapp | `whatsapp.send_student` | Send SMS To Student | — |
 | whatsapp | `whatsapp.send_staff` | Send SMS To Staff | — |
@@ -206,13 +163,27 @@ _none_
 | whatsapp | `whatsapp.automation_settings` | Communication Automation | — |
 | whatsapp | `whatsapp.communication_timeline` | Communication Timeline | — |
 | authentication | `authentication.account_health` | Account Health | — |
-| authentication | `authentication.student_accounts` | Student Accounts | — |
 | authentication | `authentication.parent_accounts` | Parent Accounts | — |
-| authentication | `authentication.credential_repair` | Credential Repair | — |
-| authentication | `authentication.login_audit` | Login Audit | — |
 | expense_income | `expense.add_type` | Add Expense Type | — |
+| expense_income | `expense.manage_type` | Manage Expense Type | `/admin/setup/expense-categories` |
+| expense_income | `expense.add` | Add Expense | `/admin/expenses` |
+| expense_income | `expense.manage` | Manage Expense | `/admin/expenses` |
 | expense_income | `income.add_type` | Add Income Type | — |
 | expense_income | `income.manage_type` | Manage Income Type | — |
+| expense_income | `income.add` | Add Income | `/admin/expenses` |
+| expense_income | `income.manage` | Manage Income | `/admin/expenses` |
+| payroll | `payroll.dashboard` | Payroll Dashboard | `/admin/payroll/dashboard` |
+| payroll | `payroll.approval` | Approval Center | `/admin/payroll/approval` |
+| payroll | `payroll.role_rates` | Role Wise Salary | `/admin/payroll/config/role-rates` |
+| payroll | `payroll.staff_rates` | Staff Wise Salary | `/admin/payroll/config/staff-rates` |
+| payroll | `payroll.shifts` | Shift Assignment | `/admin/payroll/config/shifts` |
+| payroll | `payroll.rules` | Overtime & Rules | `/admin/payroll/config/rules` |
+| payroll | `payroll.processing` | Salary Processing | `/admin/payroll/processing` |
+| payroll | `payroll.register` | Salary Register | `/admin/payroll/register` |
+| payroll | `payroll.analytics` | Payroll Analytics | `/admin/payroll/analytics` |
+| payroll | `payroll.audit` | Payroll Audit | `/admin/payroll/audit` |
+| payroll | `payroll.settings` | Payroll Settings | `/admin/payroll/settings` |
+| payroll | `payroll.my_salary` | My Salary | `/admin/payroll/my-salary` |
 | reports | `reports.timetable` | Time Table Report | — |
 | reports | `reports.student_inquiry` | Student Inquiry Report | — |
 | reports | `reports.student_detail` | Student Detail Report | — |
@@ -235,6 +206,10 @@ _none_
 | reports | `reports.profit_loss` | Profit / Loss Report | — |
 | reports | `reports.staff_attendance` | Staff Attendance Report | — |
 | reports | `reports.sms_status` | SMS Status Report | — |
+| reports | `reports.inquiry_analysis` | Student Inquiry Analysis Report | `/admin/analysis` |
+| reports | `reports.admission_analysis` | Student Admission Analysis Report | `/admin/analysis` |
+| reports | `reports.fee_analysis` | Fee Analysis Report | `/admin/analysis` |
+| reports | `reports.profit_loss_analysis` | Profit Loss Analysis Report | `/admin/analysis` |
 | help | `help.support_request` | Support Request | — |
 | help | `help.support_history` | Support History | — |
 | help | `help.feedback` | Feedback Board | — |
@@ -242,7 +217,31 @@ _none_
 | help | `help.triage` | Triage Inbox | — |
 | help | `help.analytics` | Ticket Analytics | — |
 
-## Feature directories (30)
+## ROUTE_CLAIMED_NOT_MOUNTED (0)
+
+_none_
+
+## LEGACY_ONLY (0)
+
+_none_
+
+## ASPIRATIONAL (11)
+
+| Module | Submodule | Label | Route |
+|---|---|---|---|
+| tasks | `tasks.analytics` | Task Analytics | — |
+| tasks | `tasks.reports` | Task Reports | — |
+| tasks | `tasks.templates` | Task Templates | — |
+| tasks | `tasks.settings` | Task Settings | — |
+| academics | `academics.sections` | Manage Sections | — |
+| academics | `academics.reports` | Faculty Reports | — |
+| academics | `academics.audit` | Class Audit Trail | — |
+| exam | `exam.report_card` | Student Report Card | — |
+| authentication | `authentication.student_accounts` | Student Accounts | — |
+| authentication | `authentication.credential_repair` | Credential Repair | — |
+| authentication | `authentication.login_audit` | Login Audit | — |
+
+## Feature directories (31)
 
 Not every real surface is an RBAC submodule — the parent portal, the
 public enquiry form and the platform control plane are not. Listed so
@@ -256,6 +255,7 @@ they are not missed.
 - `src/features/certificates`
 - `src/features/communication`
 - `src/features/dashboard`
+- `src/features/docs`
 - `src/features/enquiries`
 - `src/features/estudy`
 - `src/features/exams`

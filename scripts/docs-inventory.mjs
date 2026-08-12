@@ -87,22 +87,69 @@ const submodules = [];
 }
 
 // ── 2. Menu config: what the sidebar actually offers, and to whom ───────────
+//
+// ┌── WHY THIS PARSES sub(…) AND NOT AN OBJECT LITERAL ────────────────────┐
+// │ The original regex looked for `path: "…" … submodule: "…"` inside a    │
+// │ literal. menu.config.ts does not contain those literals — every entry  │
+// │ is BUILT by the sub() helper:                                          │
+// │                                                                        │
+// │   ...sub("certificate.add", "Add Certificate",                         │
+// │          { admin: "/admin/certificates/add", management: "…" },        │
+// │          adminMgmt),                                                   │
+// │                                                                        │
+// │ so the old pattern matched almost nothing and `menuItems` was          │
+// │ effectively empty. It failed silently, because an empty menu index     │
+// │ only made the classifier MORE conservative — which is exactly how a    │
+// │ detection bug survives review.                                         │
+// └────────────────────────────────────────────────────────────────────────┘
 
 const menuSrc = read("src/core/navigation/menu.config.ts");
 const menuItems = [];
 {
-  const re = /path:\s*"([^"]+)"[^}]*?label:\s*"([^"]+)"[^}]*?roles:\s*([^,]+),\s*submodule:\s*"([^"]+)"/g;
+  // Form A — the sub() helper, which expands to one item per role.
+  const helperRe = /sub\(\s*"([a-z_0-9.]+)"\s*,\s*"([^"]+)"\s*,\s*\{([^}]*)\}/g;
   let m;
-  while ((m = re.exec(menuSrc))) {
-    menuItems.push({ path: m[1], label: m[2], rolesExpr: m[3].trim(), submodule: m[4] });
+  while ((m = helperRe.exec(menuSrc))) {
+    const paths = [...m[3].matchAll(/:\s*"([^"]+)"/g)].map((p) => p[1]);
+    menuItems.push({ submodule: m[1], label: m[2], paths });
   }
+
+  // Form B — a plain object literal. menu.config.ts uses BOTH, and handling
+  // only one silently loses whole modules: parsing form A alone dropped every
+  // `settings.*` entry (My Plan, Change Password, …) and reported them as
+  // aspirational despite App.tsx mounting them and the sidebar listing them.
+  const literalRe =
+    /\{\s*path:\s*"([^"]+)"\s*,\s*label:\s*"([^"]+)"[^}]*?submodule:\s*"([a-z_0-9.]+)"/g;
+  while ((m = literalRe.exec(menuSrc))) {
+    menuItems.push({ submodule: m[3], label: m[2], paths: [m[1]] });
+  }
+}
+
+/** submodule id → every path the sidebar would navigate to. */
+const menuPathsBySubmodule = new Map();
+for (const it of menuItems) {
+  if (!menuPathsBySubmodule.has(it.submodule)) menuPathsBySubmodule.set(it.submodule, []);
+  menuPathsBySubmodule.get(it.submodule).push(...it.paths);
 }
 
 // ── 3. Mounted routes ───────────────────────────────────────────────────────
 //
-// A `route` in the catalog is a claim. A <Route path=…> is the fact. Reading
-// both is what lets the gate catch a module that was documented and then
-// unmounted.
+// A `route` in the catalog is a claim. A <Route path=…> is the fact.
+//
+// ┌── THREE REGISTRATION MECHANISMS, NOT ONE ──────────────────────────────┐
+// │ Classifying from the catalog's `route:` property alone declared        │
+// │ `certificate.add` / `certificate.manage` ASPIRATIONAL — while the app  │
+// │ mounts them in App.tsx AND sharedRoutes.tsx AND lists them in the      │
+// │ sidebar, and ARK had granted them to management and coordinator in     │
+// │ RBAC. The classifier was measuring the wrong thing.                    │
+// │                                                                        │
+// │ This repo binds a route to a submodule three ways:                     │
+// │   1. catalog        `{ id: "x.y", route: "/admin/z" }`                 │
+// │   2. sharedRoutes   `{ path: "z", submodule: "x.y" }`   ← 181 entries  │
+// │   3. menu.config    `sub("x.y", "Label", { admin: "/admin/z" })`       │
+// │                                                                        │
+// │ Any one of them is sufficient evidence that the screen is reachable.   │
+// └────────────────────────────────────────────────────────────────────────┘
 
 const routerFiles = ["src/App.tsx", "src/core/routing/sharedRoutes.tsx"];
 const mountedPaths = new Set();
@@ -113,11 +160,20 @@ for (const f of routerFiles) {
   for (const m of src.matchAll(/path:\s*["']([^"']+)["']/g)) mountedPaths.add(m[1]);
 }
 
-/** A catalog route counts as mounted if any router path matches its tail. */
-const isMounted = (route) => {
+/** submodule id → path, from sharedRoutes' own `submodule:` binding. */
+const sharedRouteBySubmodule = new Map();
+{
+  const src = read("src/core/routing/sharedRoutes.tsx");
+  // path and submodule appear in the same object literal, in either order.
+  for (const m of src.matchAll(/path:\s*"([^"]+)"[\s\S]{0,400}?submodule:\s*"([a-z_0-9.]+)"/g)) {
+    if (!sharedRouteBySubmodule.has(m[2])) sharedRouteBySubmodule.set(m[2], m[1]);
+  }
+}
+
+const pathIsMounted = (route) => {
   if (!route) return false;
-  if (mountedPaths.has(route)) return true;
-  const tail = route.replace(/^\/+/, "");
+  const tail = route.replace(/^\/+/, "").split("?")[0];
+  if (mountedPaths.has(route) || mountedPaths.has(tail)) return true;
   for (const p of mountedPaths) {
     const clean = p.replace(/^\/+/, "");
     if (clean === tail) return true;
@@ -127,16 +183,93 @@ const isMounted = (route) => {
   return false;
 };
 
+/**
+ * How a submodule reaches the screen, or null when nothing does.
+ * Ordered most authoritative first, so `mountedVia` names the strongest proof.
+ */
+const resolveMount = (s) => {
+  if (s.route && pathIsMounted(s.route)) return { via: "catalog", path: s.route };
+  const shared = sharedRouteBySubmodule.get(s.id);
+  if (shared && pathIsMounted(shared)) return { via: "sharedRoutes", path: shared };
+  for (const p of menuPathsBySubmodule.get(s.id) ?? []) {
+    if (pathIsMounted(p)) return { via: "menu", path: p };
+  }
+  return null;
+};
+
+// ── 3b. Backing: is the screen real, or a starter stub? ─────────────────────
+//
+// `ModuleStarterPage` renders a working CRUD screen backed by localStorage.
+// It is genuinely usable — but the records live in one browser, not in the
+// database, so they are not multi-device, not multi-tenant and not backed up.
+// Certificate is exactly this. Calling that "shipped" without qualification is
+// how a customer discovers on their second laptop that their data is gone.
+
+const starterComponents = new Set();
+{
+  const walk = (dir) => {
+    for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) walk(p);
+      else if (/\.tsx?$/.test(e.name)) {
+        const src = read(p);
+        if (!src.includes("ModuleStarterPage")) continue;
+        for (const m of src.matchAll(/export const (\w+)\s*=/g)) starterComponents.add(m[1]);
+      }
+    }
+  };
+  walk("src/features");
+}
+
+/** Component rendered for a router path, so backing can be attributed. */
+const componentForPath = new Map();
+for (const f of routerFiles) {
+  const src = read(f);
+  for (const m of src.matchAll(/path[=:]\s*["']([^"']+)["'][\s\S]{0,200}?element[=:]\s*\{?\s*<(\w+)/g)) {
+    if (!componentForPath.has(m[1])) componentForPath.set(m[1], m[2]);
+  }
+}
+
+const backingOf = (mount) => {
+  if (!mount) return null;
+  const tail = mount.path.replace(/^\/+/, "").split("?")[0];
+  for (const [p, comp] of componentForPath) {
+    const clean = p.replace(/^\/+/, "");
+    if (clean === tail || (tail.endsWith(clean) && clean.length > 2)) {
+      return starterComponents.has(comp) ? "starter" : "service";
+    }
+  }
+  return "service";
+};
+
 // ── 4. Classify ─────────────────────────────────────────────────────────────
+//
+// SHIPPED still means exactly what it always meant — "a user can open this
+// today" — so the documentation gate's contract is unchanged. What changed is
+// that the detector now finds the routes it was previously blind to.
+//
+// The four levels the audit asked to distinguish are recorded as separate
+// fields rather than collapsed into one status, because they answer different
+// questions: `status` gates documentation, `mountedVia` explains why, `inMenu`
+// says whether a user can find it without typing a URL, and `backing` says
+// whether the data survives changing browser.
 
 const classify = (s) => {
-  if (s.route && isMounted(s.route)) return "SHIPPED";
+  if (s.mount) return "SHIPPED";
   if (s.route) return "ROUTE_CLAIMED_NOT_MOUNTED";
   if (s.legacyAction) return "LEGACY_ONLY";
   return "ASPIRATIONAL";
 };
 
-for (const s of submodules) s.status = classify(s);
+for (const s of submodules) {
+  s.mount = resolveMount(s);
+  s.mountedVia = s.mount?.via ?? null;
+  s.mountedPath = s.mount?.path ?? null;
+  s.inMenu = menuPathsBySubmodule.has(s.id);
+  s.backing = backingOf(s.mount);
+  s.status = classify(s);
+  delete s.mount;
+}
 
 // ── 5. Feature surfaces outside the RBAC catalog ────────────────────────────
 //

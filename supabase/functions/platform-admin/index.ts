@@ -4,12 +4,19 @@
 // Actions that cannot be done from the browser with RLS alone, because they
 // either create auth users or must not be self-service:
 //
-//   create_organization   provision a tenant (calls provision_organization)
-//   set_status            suspend / activate / archive
-//   start_impersonation   mint a short-lived session AS a tenant user
-//   end_impersonation     close a grant early
-//   refresh_metrics       recompute the aggregate rollup
-//   invite_platform_user  create a Smart ARK employee account
+//   create_organization         provision a tenant (calls provision_organization)
+//   set_status                  activate / hold / suspend / archive / cancel
+//   update_organization_profile platform-owned contact metadata
+//   set_module                  grant or revoke one module for one tenant
+//   clear_module_override       return a module to its plan default
+//   bulk_modules                the same change across many tenants, one at a time
+//   set_module_governance       withdraw a module platform-wide
+//   request_delete              open a reviewed delete request (deletes nothing)
+//   review_delete               approve or cancel one (still deletes nothing)
+//   start_impersonation         mint a short-lived session AS a tenant user
+//   end_impersonation           close a grant early
+//   refresh_metrics             recompute the aggregate rollup
+//   invite_platform_user        create a Smart ARK employee account
 //
 // ┌── WHY IMPERSONATION LIVES HERE AND NOT IN AN RLS POLICY ───────────────┐
 // │ The platform admin never gains rights. They temporarily BECOME an      │
@@ -154,32 +161,302 @@ Deno.serve(async (req) => {
     }
 
     // ── set_status ───────────────────────────────────────────────────────
+    //
+    // Phase 9A moved the write itself into platform_set_organization_status(),
+    // a SECURITY DEFINER function only service_role may execute. Three reasons
+    // it could not stay as an inline UPDATE:
+    //
+    //   • protected-tenant acknowledgement is a transaction-local GUC, which a
+    //     PostgREST call cannot set for a separate statement;
+    //   • the lifecycle timestamp rules (held_at / suspended_at / archived_at)
+    //     belong next to the CHECK constraint that governs them, not in three
+    //     copies across the codebase;
+    //   • "already in that state" must be a no-op rather than a second audit
+    //     row, and knowing that requires reading the old value in the same
+    //     transaction as the write.
     if (action === "set_status") {
-      if (!need("organizations.manage")) return jsonResponse(403, { error: "organizations.manage required" });
-
-      const { organizationId, status, reason } = body;
-      const allowed = ["active", "trialing", "past_due", "suspended", "cancelled"];
+      const { organizationId, status, reason, acknowledgeProtected } = body;
+      const allowed = ["active","trialing","past_due","suspended","hold","archived","cancelled"];
       if (!organizationId || !allowed.includes(status)) {
         return jsonResponse(400, { error: `status must be one of ${allowed.join(", ")}` });
       }
 
-      // Cancellation is a SOFT delete. Customer data is never removed by a
-      // status change — every organization_id FK is ON DELETE RESTRICT, so a
-      // hard delete is impossible by construction anyway.
-      const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-      if (status === "suspended") patch.suspended_at = new Date().toISOString();
-      if (status === "cancelled") patch.deleted_at = new Date().toISOString();
-      if (status === "active") { patch.suspended_at = null; patch.deleted_at = null; }
+      // Each destructive lifecycle state carries its own capability, so
+      // "finance may pause a non-payer" does not silently also mean "finance
+      // may archive a customer".
+      const capFor: Record<string, string> = {
+        hold: "organizations.hold",
+        archived: "organizations.archive",
+        cancelled: "organizations.archive",
+      };
+      const cap = capFor[status] ?? "organizations.manage";
+      if (!need(cap)) return jsonResponse(403, { error: `${cap} required` });
 
-      const { error } = await db.from("organizations").update(patch).eq("id", organizationId);
+      // Restoring is always organizations.manage, whatever it is restoring from.
+      if (["active", "trialing"].includes(status) && !need("organizations.manage")) {
+        return jsonResponse(403, { error: "organizations.manage required" });
+      }
+
+      const isDestructive = ["suspended","hold","archived","cancelled"].includes(status);
+      if (isDestructive && !String(reason ?? "").trim()) {
+        return jsonResponse(400, { error: "A reason is required to suspend, hold, archive or cancel." });
+      }
+
+      const { data: result, error } = await db.rpc("platform_set_organization_status", {
+        _org: organizationId,
+        _status: status,
+        _reason: reason ?? null,
+        _actor: actor.platformUserId,
+        _ack: Boolean(acknowledgeProtected),
+      });
+      if (error) return jsonResponse(400, { error: error.message });
+
+      // Idempotent no-op writes no audit row: a log full of "set to active"
+      // entries that changed nothing is a log nobody reads.
+      if (result?.changed) {
+        await audit(db, actor, {
+          action: `organization.${status}`, target_type: "organization",
+          target_id: organizationId, organization_id: organizationId,
+          detail: reason ?? null,
+          payload: { from: result.from, to: status, acknowledged: Boolean(acknowledgeProtected) },
+          ip_address: ip,
+        });
+      }
+      return jsonResponse(200, { ok: true, ...result });
+    }
+
+    // ── update_organization_profile ──────────────────────────────────────
+    //
+    // PLATFORM metadata only. The RPC names every writable column explicitly,
+    // so no payload key can reach a tenant business table however it is
+    // spelled — the boundary is enforced in SQL rather than by validating a
+    // list of forbidden fields here, which would be a denylist and therefore
+    // wrong the first time somebody adds a column.
+    if (action === "update_organization_profile") {
+      if (!need("organizations.manage")) return jsonResponse(403, { error: "organizations.manage required" });
+      const { organizationId, patch, expectedUpdatedAt } = body;
+      if (!organizationId || !patch) return jsonResponse(400, { error: "organizationId and patch are required" });
+
+      const { error } = await db.rpc("platform_update_organization_profile", {
+        _org: organizationId, _patch: patch,
+        _expected_updated_at: expectedUpdatedAt ?? null,
+      });
+      if (error) {
+        const stale = error.message?.includes("stale_write");
+        return jsonResponse(stale ? 409 : 400, {
+          error: stale
+            ? "This organization was changed by someone else while you had it open. Reload to see their edit before saving yours."
+            : error.message,
+        });
+      }
+
+      await audit(db, actor, {
+        action: "organization.profile_update", target_type: "organization",
+        target_id: organizationId, organization_id: organizationId,
+        detail: `Updated ${Object.keys(patch).join(", ")}`,
+        payload: { fields: Object.keys(patch) }, ip_address: ip,
+      });
+      return jsonResponse(200, { ok: true });
+    }
+
+    // ── set_module / clear_module_override ───────────────────────────────
+    if (action === "set_module" || action === "clear_module_override") {
+      const { organizationId, moduleKey } = body;
+      if (!organizationId || !moduleKey) {
+        return jsonResponse(400, { error: "organizationId and moduleKey are required" });
+      }
+
+      if (action === "clear_module_override") {
+        if (!need("modules.revoke")) return jsonResponse(403, { error: "modules.revoke required" });
+        const { data, error } = await db.rpc("platform_clear_module_override", {
+          _org: organizationId, _module: moduleKey, _actor: actor.platformUserId,
+        });
+        if (error) return jsonResponse(400, { error: error.message });
+        if (data?.removed) {
+          await audit(db, actor, {
+            action: "module.override_cleared", target_type: "module", target_id: moduleKey,
+            organization_id: organizationId,
+            detail: `${moduleKey} returned to the plan default`, ip_address: ip,
+          });
+        }
+        return jsonResponse(200, { ok: true, ...data });
+      }
+
+      const enabled = Boolean(body.enabled);
+      const cap = enabled ? "modules.grant" : "modules.revoke";
+      if (!need(cap)) return jsonResponse(403, { error: `${cap} required` });
+
+      const { data, error } = await db.rpc("platform_set_module_entitlement", {
+        _org: organizationId, _module: moduleKey, _enabled: enabled,
+        _reason: body.reason ?? "sales_override", _actor: actor.platformUserId,
+        _expires_at: body.expiresAt ?? null, _batch: null,
+      });
+      if (error) return jsonResponse(400, { error: error.message });
+
+      if (data?.changed) {
+        await audit(db, actor, {
+          action: enabled ? "module.granted" : "module.revoked",
+          target_type: "module", target_id: moduleKey, organization_id: organizationId,
+          detail: body.note ?? null,
+          payload: { reason: body.reason ?? "sales_override", expiresAt: body.expiresAt ?? null },
+          ip_address: ip,
+        });
+      }
+      return jsonResponse(200, { ok: true, ...data });
+    }
+
+    // ── bulk_modules ─────────────────────────────────────────────────────
+    //
+    // Never one statement across many organizations. Each tenant is applied
+    // individually so a protected organization can be refused without aborting
+    // the other 22, and so every affected customer gets its own audit row —
+    // "we changed 23 schools" is not an auditable record of anything.
+    if (action === "bulk_modules") {
+      if (!need("modules.bulk")) return jsonResponse(403, { error: "modules.bulk required" });
+
+      const { organizationIds, moduleKey, enabled, reason, expiresAt, note } = body;
+      if (!Array.isArray(organizationIds) || organizationIds.length === 0 || !moduleKey) {
+        return jsonResponse(400, { error: "organizationIds[] and moduleKey are required" });
+      }
+      if (organizationIds.length > 200) {
+        return jsonResponse(400, { error: "Refusing a bulk change over 200 organizations in one call." });
+      }
+      if (!String(note ?? "").trim()) {
+        return jsonResponse(400, { error: "A reason note is required for bulk entitlement changes." });
+      }
+
+      const batchId = crypto.randomUUID();
+      const results: { organizationId: string; ok: boolean; skipped?: string; changed?: boolean }[] = [];
+
+      // Protected tenants are excluded from bulk operations outright. Reaching
+      // ARK requires opening ARK.
+      const { data: protectedRows } = await db
+        .from("organization_protections")
+        .select("organization_id")
+        .in("organization_id", organizationIds)
+        .eq("block_bulk", true);
+      const blocked = new Set((protectedRows ?? []).map((r: { organization_id: string }) => r.organization_id));
+
+      for (const orgId of organizationIds) {
+        if (blocked.has(orgId)) {
+          results.push({ organizationId: orgId, ok: false, skipped: "protected organization" });
+          continue;
+        }
+        const { data, error } = await db.rpc("platform_set_module_entitlement", {
+          _org: orgId, _module: moduleKey, _enabled: Boolean(enabled),
+          _reason: reason ?? "sales_override", _actor: actor.platformUserId,
+          _expires_at: expiresAt ?? null, _batch: batchId,
+        });
+        if (error) {
+          results.push({ organizationId: orgId, ok: false, skipped: error.message });
+          continue;
+        }
+        results.push({ organizationId: orgId, ok: true, changed: Boolean(data?.changed) });
+        if (data?.changed) {
+          await audit(db, actor, {
+            action: enabled ? "module.granted" : "module.revoked",
+            target_type: "module", target_id: moduleKey, organization_id: orgId,
+            detail: note, payload: { batchId, bulk: true }, ip_address: ip,
+          });
+        }
+      }
+
+      await audit(db, actor, {
+        action: "module.bulk", target_type: "module", target_id: moduleKey,
+        detail: `${enabled ? "Granted" : "Revoked"} ${moduleKey} across ${results.filter((r) => r.ok).length}/${results.length} organizations`,
+        payload: { batchId, note, results }, ip_address: ip,
+      });
+
+      return jsonResponse(200, { ok: true, batchId, results });
+    }
+
+    // ── set_module_governance ────────────────────────────────────────────
+    if (action === "set_module_governance") {
+      if (!need("modules.govern")) return jsonResponse(403, { error: "modules.govern required" });
+      const { moduleKey, available, note } = body;
+      if (!moduleKey || typeof available !== "boolean") {
+        return jsonResponse(400, { error: "moduleKey and available are required" });
+      }
+      if (!available && !String(note ?? "").trim()) {
+        return jsonResponse(400, { error: "Withdrawing a module platform-wide requires a note." });
+      }
+
+      const { data, error } = await db.rpc("platform_set_module_governance", {
+        _module: moduleKey, _available: available,
+        _note: note ?? null, _actor: actor.platformUserId,
+      });
       if (error) return jsonResponse(400, { error: error.message });
 
       await audit(db, actor, {
-        action: `organization.${status}`, target_type: "organization",
-        target_id: organizationId, organization_id: organizationId,
-        detail: reason ?? null, ip_address: ip,
+        action: available ? "module.globally_enabled" : "module.globally_withdrawn",
+        target_type: "module", target_id: moduleKey, detail: note ?? null, ip_address: ip,
       });
-      return jsonResponse(200, { ok: true });
+      return jsonResponse(200, { ok: true, ...data });
+    }
+
+    // ── request_delete / review_delete ───────────────────────────────────
+    //
+    // Neither action deletes anything — see the PART 5 header in the Phase 9A
+    // migration. Erasure across 167 tenant tables, storage objects, billing
+    // records and the audit trail is not a capability this platform has, and
+    // shipping a button that pretends otherwise would be the worst possible
+    // outcome for a customer who clicked it.
+    if (action === "request_delete") {
+      if (!need("organizations.delete_request")) {
+        return jsonResponse(403, { error: "organizations.delete_request required" });
+      }
+      const { organizationId, reason, confirmSlug } = body;
+      if (!organizationId || !String(reason ?? "").trim()) {
+        return jsonResponse(400, { error: "organizationId and reason are required" });
+      }
+
+      // Typed-slug confirmation is verified SERVER-side. A client-side check is
+      // a UX nicety; this is the actual control.
+      const { data: org } = await db
+        .from("organizations").select("slug").eq("id", organizationId).maybeSingle();
+      if (!org) return jsonResponse(404, { error: "No such organization" });
+      if (confirmSlug !== org.slug) {
+        return jsonResponse(400, { error: `Confirmation does not match. Type the slug exactly: ${org.slug}` });
+      }
+
+      const { data, error } = await db.rpc("platform_request_organization_delete", {
+        _org: organizationId, _reason: String(reason).trim(),
+        _actor: actor.platformUserId, _actor_email: actor.email, _cooling_days: 7,
+      });
+      if (error) return jsonResponse(400, { error: error.message });
+
+      if (data?.created) {
+        await audit(db, actor, {
+          action: "organization.delete_requested", target_type: "organization",
+          target_id: organizationId, organization_id: organizationId,
+          detail: String(reason).trim(), payload: { requestId: data.requestId }, ip_address: ip,
+        });
+      }
+      return jsonResponse(200, { ok: true, ...data });
+    }
+
+    if (action === "review_delete") {
+      if (!need("organizations.review_delete")) {
+        return jsonResponse(403, { error: "organizations.review_delete required" });
+      }
+      const { requestId, decision, note } = body;
+      if (!requestId || !["approved", "cancelled"].includes(decision)) {
+        return jsonResponse(400, { error: "requestId and decision (approved|cancelled) are required" });
+      }
+
+      const { data, error } = await db.rpc("platform_review_delete_request", {
+        _request: requestId, _decision: decision,
+        _note: note ?? null, _actor: actor.platformUserId,
+      });
+      if (error) return jsonResponse(400, { error: error.message });
+
+      if (data?.changed) {
+        await audit(db, actor, {
+          action: `organization.delete_${decision}`, target_type: "delete_request",
+          target_id: requestId, detail: note ?? null, ip_address: ip,
+        });
+      }
+      return jsonResponse(200, { ok: true, ...data });
     }
 
     // ── start_impersonation ──────────────────────────────────────────────

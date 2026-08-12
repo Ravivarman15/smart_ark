@@ -89,6 +89,7 @@ const ORDER = [
   ["20260916_phase8c_branches_org_default.sql", "organization_branches.organization_id had no default, so no tenant could create a check-in location; must follow 8A"],
   ["20260917_phase8d_branding_bucket.sql", "public branding bucket + org-prefixed write policies; logos could not be stored or rendered before this"],
   ["20260915_phase8b_checkin_address_required.sql", "address + radius required on a verified location; NOT VALID so ARK's 8A-seeded rows are grandfathered"],
+  ["20261001_phase9a_platform_control_center.sql", "organization lifecycle (hold/archived), ARK protection trigger, module governance and the entitlement layers the tenant sidebar reads; must follow 2C, which created organization_features and plan_features, and 5A, which created subscriptions"],
 ];
 
 const args = process.argv.slice(2);

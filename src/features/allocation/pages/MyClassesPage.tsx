@@ -12,8 +12,7 @@ import {
   Radio,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   useMinuteClock,
   useMySchedule,
@@ -22,52 +21,24 @@ import {
 } from "../hooks";
 import { ClassAttendanceDialog } from "../components/ClassAttendanceDialog";
 import { ClassLifecycleActions } from "../components/ClassLifecycleActions";
+import { ScheduleRangeBar } from "../components/ScheduleRangeBar";
+import { ScheduleDayList } from "../components/ScheduleDayList";
 import { attendanceDueIn } from "../services/classReminder.service";
+import { resolveRange, todayIso, type RangePreset } from "../utils/scheduleView";
 import type { ClassSchedule } from "../types/allocation.types";
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
-
+/**
+ * Current month, in LOCAL time.
+ *
+ * The previous version routed local midnight through `toISOString()`, which is
+ * UTC — in IST, 1 Aug 00:00 local is 31 Jul 18:30Z, so every "this month"
+ * window was off by a day at both ends and the stat cards silently counted the
+ * wrong classes. See utils/scheduleView.ts for the full note.
+ */
 const monthRange = () => {
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  return { from, to };
+  const r = resolveRange("month");
+  return { from: r.from!, to: r.to! };
 };
-
-const Row: React.FC<{ c: ClassSchedule }> = ({ c }) => (
-  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
-    <div className="min-w-0">
-      <div className="flex items-center gap-2">
-        <span className="font-medium text-sm">
-          {[c.standardName, c.sectionName, c.subjectName].filter(Boolean).join(" / ") || "Class"}
-        </span>
-        {c.isExtra && <Badge variant="outline" className="text-amber-500">Extra</Badge>}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {c.scheduleDate} · {c.startTime}–{c.endTime} · {(c.durationMinutes / 60).toFixed(1)}h · {c.mode}
-        {c.room ? ` · ${c.room}` : ""}
-        {c.meetingLink ? " · online" : ""}
-        {/* The lifecycle, on the history rows too — "completed" alone never
-            said whether the class was actually run or just marked off. */}
-        {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
-        {c.completedAt ? ` · ended ${c.completedAt.slice(11, 16)}` : ""}
-        {c.actualMinutes != null ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h` : ""}
-      </p>
-    </div>
-    <div className="flex items-center gap-1.5 shrink-0">
-      {c.attendanceSubmitted && (
-        <Badge className="bg-emerald-500/15 text-emerald-500">attendance ✓</Badge>
-      )}
-      {c.status === "in_progress" ? (
-        <Badge className="bg-emerald-500/15 text-emerald-600 gap-1">
-          <Radio className="h-3 w-3" /> LIVE
-        </Badge>
-      ) : (
-        <Badge variant="secondary">{c.status}</Badge>
-      )}
-    </div>
-  </div>
-);
 
 const StatCard: React.FC<{
   icon: React.ReactNode;
@@ -90,15 +61,28 @@ const StatCard: React.FC<{
 const MyClassesPage: React.FC = () => {
   const today = todayIso();
   const nowMinutes = useMinuteClock();
+  // The stat cards are monthly by definition and stay that way; only the
+  // timetable list below follows the range filter.
   const { from, to } = useMemo(monthRange, []);
-  const { data: all = [], isLoading } = useMySchedule({ from, to });
   const { data: hours } = useMyTeachingHours(from, to);
   const { data: workload } = useMyWorkload(from, to);
 
-  const todays = all.filter((c) => c.scheduleDate === today && c.status !== "cancelled");
-  const upcoming = all.filter((c) => c.scheduleDate > today && c.status === "scheduled");
-  const completed = all.filter((c) => c.status === "completed");
-  const extra = all.filter((c) => c.isExtra);
+  const [preset, setPreset] = useState<RangePreset>("today");
+  const [pickedDate, setPickedDate] = useState(today);
+  const [extraOnly, setExtraOnly] = useState(false);
+  const range = useMemo(() => resolveRange(preset, pickedDate), [preset, pickedDate]);
+
+  const { data: all = [], isLoading } = useMySchedule({ from: range.from, to: range.to });
+  const visible = useMemo(
+    () => (extraOnly ? all.filter((c) => c.isExtra) : all),
+    [all, extraOnly],
+  );
+
+  // Today's classes drive the banners, which must keep reporting on TODAY
+  // regardless of which range the teacher is browsing — a reminder that
+  // disappears because you clicked "This week" is a reminder that failed.
+  const { data: todaySchedules = [] } = useMySchedule({ from: today, to: today });
+  const todays = todaySchedules.filter((c) => c.status !== "cancelled");
 
   const fmtHrs = (mins = 0) => `${(mins / 60).toFixed(1)}h`;
 
@@ -222,84 +206,58 @@ const MyClassesPage: React.FC = () => {
         </Card>
       )}
 
-      <Tabs defaultValue="today">
-        <TabsList>
-          <TabsTrigger value="today">Today ({todays.length})</TabsTrigger>
-          <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
-          <TabsTrigger value="extra">Extra ({extra.length})</TabsTrigger>
-        </TabsList>
+      {/* ── Timetable ────────────────────────────────────────────────────────
+          One list with a range filter, rather than four tabs. The tabs split
+          the same day across "Today" and "Extra", so a teacher with an extra
+          class had to check two places to know what their morning looked
+          like. Grouped by day, ordered by start time, defaulting to today. */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            {range.label} · {visible.length} class{visible.length === 1 ? "" : "es"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ScheduleRangeBar
+            preset={preset}
+            date={pickedDate}
+            onPreset={setPreset}
+            onDate={(d) => { setPickedDate(d); setPreset("date"); }}
+          >
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+              <Checkbox
+                checked={extraOnly}
+                onCheckedChange={(v) => setExtraOnly(Boolean(v))}
+              />
+              Extra classes only
+            </label>
+          </ScheduleRangeBar>
 
-        {/* Today — with lifecycle actions */}
-        <TabsContent value="today" className="space-y-2 pt-3">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : todays.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No classes today.</p>
-          ) : (
-            todays.map((c) => (
-              <div
-                key={c.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">
-                      {[c.standardName, c.sectionName, c.subjectName].filter(Boolean).join(" / ") || "Class"}
-                    </span>
-                    {c.isExtra && <Badge variant="outline" className="text-amber-500">Extra</Badge>}
-                    {c.status === "in_progress" ? (
-                      <Badge className="bg-emerald-500/15 text-emerald-600 gap-1">
-                        <Radio className="h-3 w-3" /> LIVE
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">{c.status}</Badge>
-                    )}
-                    {c.lateMinutes > 0 && (
-                      <Badge variant="outline" className="text-amber-600">
-                        started {c.lateMinutes}m late
-                      </Badge>
-                    )}
-                    {c.attendanceSubmitted && (
-                      <Badge className="bg-emerald-500/15 text-emerald-500">attendance ✓</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {c.startTime}–{c.endTime} · {(c.durationMinutes / 60).toFixed(1)}h · {c.mode}
-                    {c.room ? ` · ${c.room}` : ""}
-                    {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
-                    {c.completedAt ? ` · ended ${c.completedAt.slice(11, 16)}` : ""}
-                    {c.actualMinutes != null
-                      ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h`
-                      : ""}
-                  </p>
-                </div>
-                <div className="shrink-0">
-                  <ClassLifecycleActions schedule={c} onAttendance={setAttClass} />
-                </div>
-              </div>
-            ))
-          )}
-        </TabsContent>
-
-        {(
-          [
-            ["upcoming", upcoming],
-            ["completed", completed],
-            ["extra", extra],
-          ] as const
-        ).map(([key, list]) => (
-          <TabsContent key={key} value={key} className="space-y-2 pt-3">
-            {isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : list.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing here.</p>
-            ) : (
-              list.map((c) => <Row key={c.id} c={c} />)
+          <ScheduleDayList
+            schedules={visible}
+            isLoading={isLoading}
+            emptyTitle={`No classes ${range.label.toLowerCase()}`}
+            emptyHint="Switch to This week or All to see the rest of your timetable."
+            renderMeta={(c) => (
+              <>
+                {c.mode}
+                {c.room ? ` · ${c.room}` : ""}
+                {c.meetingLink ? " · online" : ""}
+                {/* The lifecycle, on history rows too — "completed" alone never
+                    said whether the class was actually run or just marked off. */}
+                {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}
+                {c.completedAt ? ` · ended ${c.completedAt.slice(11, 16)}` : ""}
+                {c.actualMinutes != null
+                  ? ` · actual ${(c.actualMinutes / 60).toFixed(1)}h`
+                  : ""}
+              </>
             )}
-          </TabsContent>
-        ))}
-      </Tabs>
+            renderActions={(c) => (
+              <ClassLifecycleActions schedule={c} onAttendance={setAttClass} />
+            )}
+          />
+        </CardContent>
+      </Card>
 
       <ClassAttendanceDialog
         schedule={attClass}

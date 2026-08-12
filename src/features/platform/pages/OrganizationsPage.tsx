@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Download } from "lucide-react";
+import { Plus, Search, Download, ShieldAlert } from "lucide-react";
 import {
   PageHeader, StatusPill, LoadingBlock, EmptyState, formatBytes,
 } from "../components/PlatformShell";
-import { useOrganizations, useCreateOrganization } from "../hooks/usePlatform";
+import { useOrganizations, useCreateOrganization, useProtections } from "../hooks/usePlatform";
 import { usePlatformAuth } from "../context/PlatformAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,11 +23,14 @@ const HEALTH_TONE = (s: number) =>
 
 const OrganizationsPage: React.FC = () => {
   const { data: orgs, isLoading } = useOrganizations();
+  const { data: protections } = useProtections();
   const { can } = usePlatformAuth();
   const create = useCreateOrganization();
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [plan, setPlan] = useState("all");
+  const [sort, setSort] = useState("-createdAt");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     slug: "", legalName: "", displayName: "", institutionType: "coaching", country: "IN",
@@ -35,12 +38,29 @@ const OrganizationsPage: React.FC = () => {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (orgs ?? []).filter((o) => {
+    const rows = (orgs ?? []).filter((o) => {
       if (status !== "all" && o.status !== status) return false;
+      if (plan !== "all" && (o.planCode ?? "none") !== plan) return false;
       if (!q) return true;
       return o.displayName.toLowerCase().includes(q) || o.slug.toLowerCase().includes(q);
     });
-  }, [orgs, search, status]);
+
+    const dir = sort.startsWith("-") ? -1 : 1;
+    const key = sort.replace(/^-/, "") as "displayName" | "students" | "healthScore" | "createdAt";
+    return [...rows].sort((a, b) => {
+      const av = a[key];
+      const bv = b[key];
+      // localeCompare for the two string columns, numeric subtraction for the
+      // rest — sorting a health score as a string puts 9 above 80.
+      if (typeof av === "string" && typeof bv === "string") return dir * av.localeCompare(bv);
+      return dir * (Number(av) - Number(bv));
+    });
+  }, [orgs, search, status, plan, sort]);
+
+  const planOptions = useMemo(
+    () => [...new Set((orgs ?? []).map((o) => o.planCode ?? "none"))].sort(),
+    [orgs],
+  );
 
   const exportCsv = () => {
     const header = "slug,name,status,plan,students,staff,parents,branches,health,created\n";
@@ -103,8 +123,29 @@ const OrganizationsPage: React.FC = () => {
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="trialing">Trialing</SelectItem>
               <SelectItem value="past_due">Past due</SelectItem>
+              <SelectItem value="hold">On hold</SelectItem>
               <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={plan} onValueChange={setPlan}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All plans</SelectItem>
+              {planOptions.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sort} onValueChange={setSort}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="-createdAt">Newest first</SelectItem>
+              <SelectItem value="createdAt">Oldest first</SelectItem>
+              <SelectItem value="displayName">Name A–Z</SelectItem>
+              <SelectItem value="-students">Most students</SelectItem>
+              <SelectItem value="healthScore">Lowest health</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -136,12 +177,24 @@ const OrganizationsPage: React.FC = () => {
                 {filtered.map((o) => (
                   <tr key={o.id} className="hover:bg-accent/40">
                     <td className="px-4 py-2.5">
-                      <Link
-                        to={`/platform/organization/${o.id}`}
-                        className="font-medium hover:underline"
-                      >
-                        {o.displayName}
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          to={`/platform/organization/${o.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {o.displayName}
+                        </Link>
+                        {/* Protected tenants are flagged in the LIST, not only
+                            on the detail page — the whole point is that an
+                            operator scanning for something to suspend sees the
+                            warning before they click. */}
+                        {protections?.has(o.id) && (
+                          <ShieldAlert
+                            className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                            aria-label="Protected organization"
+                          />
+                        )}
+                      </div>
                       <div className="text-[11px] text-muted-foreground">{o.slug}</div>
                     </td>
                     <td className="px-4 py-2.5"><StatusPill status={o.status} /></td>

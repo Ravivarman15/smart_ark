@@ -1,0 +1,142 @@
+{
+  "capturedAt": "2026-08-12T06:18:19.262Z",
+  "organization": {
+    "country": "IN",
+    "created_at": "2026-08-06 05:00:39.563436+00",
+    "currency": "INR",
+    "deleted_at": null,
+    "display_name": "ARK Learning Arena",
+    "id": "126a6dd8-6f7e-4b81-9b82-58a9a3b77674",
+    "institution_type": "coaching",
+    "legal_name": "ARK Learning Arena",
+    "provisioned_at": "2026-08-06 05:00:39.563436+00",
+    "slug": "ark",
+    "status": "active",
+    "timezone": "Asia/Kolkata"
+  },
+  "counts": {
+    "students": 134,
+    "profiles": 24,
+    "organization_users": 25,
+    "student_attendance": 6590,
+    "teacher_attendance": 30,
+    "exam_results": 1479,
+    "student_fees": 133,
+    "fee_installments": 132,
+    "payroll_runs": 2,
+    "leads": 35,
+    "message_queue": 343,
+    "comms_audit": 439,
+    "invoices": 0,
+    "payments": 0,
+    "organization_features": 0
+  },
+  "rolesBreakdown": {
+    "teacher": 13,
+    "admin": 5,
+    "management": 3,
+    "coordinator": 3
+  },
+  "subscription": {
+    "current_period_end": null,
+    "plan_code": "internal",
+    "seats_limit": null,
+    "status": "active",
+    "storage_mb_limit": null,
+    "students_limit": null,
+    "trial_ends_at": null
+  },
+  "billingSubscription": {
+    "amount": "0.00",
+    "interval": "yearly",
+    "plan_code": "internal",
+    "status": "active"
+  },
+  "featureOverrides": [],
+  "planFeatures": [
+    {
+      "enabled": true,
+      "feature_key": "academics"
+    },
+    {
+      "enabled": false,
+      "feature_key": "ai"
+    },
+    {
+      "enabled": true,
+      "feature_key": "attendance"
+    },
+    {
+      "enabled": true,
+      "feature_key": "authentication"
+    },
+    {
+      "enabled": false,
+      "feature_key": "certificate"
+    },
+    {
+      "enabled": true,
+      "feature_key": "enquiry_leads"
+    },
+    {
+      "enabled": true,
+      "feature_key": "estudy"
+    },
+    {
+      "enabled": true,
+      "feature_key": "exam"
+    },
+    {
+      "enabled": true,
+      "feature_key": "expense_income"
+    },
+    {
+      "enabled": true,
+      "feature_key": "fee"
+    },
+    {
+      "enabled": true,
+      "feature_key": "help"
+    },
+    {
+      "enabled": true,
+      "feature_key": "live_class"
+    },
+    {
+      "enabled": true,
+      "feature_key": "payroll"
+    },
+    {
+      "enabled": true,
+      "feature_key": "reports"
+    },
+    {
+      "enabled": true,
+      "feature_key": "settings"
+    },
+    {
+      "enabled": true,
+      "feature_key": "setup"
+    },
+    {
+      "enabled": true,
+      "feature_key": "staff_user"
+    },
+    {
+      "enabled": true,
+      "feature_key": "student"
+    },
+    {
+      "enabled": true,
+      "feature_key": "tasks"
+    },
+    {
+      "enabled": false,
+      "feature_key": "website"
+    },
+    {
+      "enabled": true,
+      "feature_key": "whatsapp"
+    }
+  ]
+}

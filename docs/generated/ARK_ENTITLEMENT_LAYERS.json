@@ -1,0 +1,102 @@
+{
+  "generated_at": "2026-08-12T06:33:44.985897+00:00",
+  "governance": {},
+  "organization_id": "126a6dd8-6f7e-4b81-9b82-58a9a3b77674",
+  "overrides": {
+    "certificate": {
+      "enabled": true,
+      "expires_at": null,
+      "reason": "incident",
+      "updated_at": "2026-08-12T06:32:21.130306+00:00"
+    }
+  },
+  "plan": {
+    "academics": {
+      "enabled": true,
+      "limit": null
+    },
+    "ai": {
+      "enabled": false,
+      "limit": null
+    },
+    "attendance": {
+      "enabled": true,
+      "limit": null
+    },
+    "authentication": {
+      "enabled": true,
+      "limit": null
+    },
+    "certificate": {
+      "enabled": false,
+      "limit": null
+    },
+    "enquiry_leads": {
+      "enabled": true,
+      "limit": null
+    },
+    "estudy": {
+      "enabled": true,
+      "limit": null
+    },
+    "exam": {
+      "enabled": true,
+      "limit": null
+    },
+    "expense_income": {
+      "enabled": true,
+      "limit": null
+    },
+    "fee": {
+      "enabled": true,
+      "limit": null
+    },
+    "help": {
+      "enabled": true,
+      "limit": null
+    },
+    "live_class": {
+      "enabled": true,
+      "limit": null
+    },
+    "payroll": {
+      "enabled": true,
+      "limit": null
+    },
+    "reports": {
+      "enabled": true,
+      "limit": null
+    },
+    "settings": {
+      "enabled": true,
+      "limit": null
+    },
+    "setup": {
+      "enabled": true,
+      "limit": null
+    },
+    "staff_user": {
+      "enabled": true,
+      "limit": null
+    },
+    "student": {
+      "enabled": true,
+      "limit": null
+    },
+    "tasks": {
+      "enabled": true,
+      "limit": null
+    },
+    "website": {
+      "enabled": false,
+      "limit": null
+    },
+    "whatsapp": {
+      "enabled": true,
+      "limit": null
+    }
+  },
+  "plan_code": "internal",
+  "plan_id": "1b2f57cd-2503-48e3-8c50-d6d19f082ea0",
+  "status": "active"
+}

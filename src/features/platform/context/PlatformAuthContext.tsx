@@ -26,7 +26,16 @@ export type PlatformCapability =
   | "billing.manage" | "billing.read" | "plans.manage" | "plans.read"
   | "coupons.manage" | "feature_flags.manage" | "impersonate"
   | "audit.read" | "support.manage" | "settings.manage"
-  | "usage.read" | "health.read";
+  | "usage.read" | "health.read"
+  // ── Phase 9A ──────────────────────────────────────────────────────────────
+  // Extends the existing vocabulary rather than introducing a parallel
+  // `platform.*` namespace. Two spellings for one concept would mean every
+  // policy and every edge-function guard has to be checked against both,
+  // forever, and the day one of them is missed is the day a capability check
+  // silently passes.
+  | "organizations.hold" | "organizations.archive"
+  | "organizations.delete_request" | "organizations.review_delete"
+  | "modules.grant" | "modules.revoke" | "modules.bulk" | "modules.govern";
 
 export interface PlatformUser {
   id: string;

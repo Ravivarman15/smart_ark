@@ -20,6 +20,7 @@ const DashboardPage = lazy(() => import("./pages/PlatformDashboardPage"));
 const OrganizationsPage = lazy(() => import("./pages/OrganizationsPage"));
 const OrganizationDetailPage = lazy(() => import("./pages/OrganizationDetailPage"));
 const ProvisioningPage = lazy(() => import("./pages/ProvisioningPage"));
+const ModulesPage = lazy(() => import("./pages/ModulesPage"));
 // Referenced only from DEV_ROUTES below, so this import is dead code in a
 // production build and the chunk is never emitted.
 const AuthDebugPage = lazy(() => import("./pages/AuthDebugPage"));
@@ -79,6 +80,10 @@ export const PLATFORM_ROUTES: PlatformRoute[] = [
   { path: "organizations", element: <OrganizationsPage />, capability: "organizations.read" },
   { path: "organization/:id", element: <OrganizationDetailPage />, capability: "organizations.read" },
   { path: "provisioning", element: <ProvisioningPage />, capability: "organizations.read" },
+  // Read-gated, not manage-gated: the catalog and matrix are informational, and
+  // every mutation on the page re-checks its own capability (modules.govern /
+  // modules.bulk) before the button is even rendered.
+  { path: "modules", element: <ModulesPage />, capability: "organizations.read" },
   { path: "plans", element: <Commerce.Plans />, capability: "plans.manage" },
   { path: "pricing", element: <Commerce.Pricing />, capability: "plans.manage" },
   { path: "subscriptions", element: <Commerce.Subscriptions />, capability: "billing.read" },

@@ -55,6 +55,12 @@ const AFFECTS: Record<string, () => readonly (readonly unknown[])[]> = {
   platform_users: () => [platformKeys.users()],
   organization_features: () => [platformKeys.all],
   platform_audit_log: () => [[...platformKeys.all, "audit"]],
+  // A global withdrawal changes the answer for every organization at once, so
+  // it invalidates the matrix as well as the governance list — a stale matrix
+  // showing a withdrawn module as available is exactly the disagreement the
+  // single-resolver design exists to prevent.
+  platform_module_governance: () => [platformKeys.governance(), platformKeys.matrix()],
+  organization_delete_requests: () => [platformKeys.deleteRequests()],
 };
 
 const TABLES = Object.keys(AFFECTS);

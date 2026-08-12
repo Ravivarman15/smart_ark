@@ -12,6 +12,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { AppError } from "@/shared/services";
+import type { EntitlementLayers } from "../modules/entitlements";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,23 @@ export interface ImpersonationGrant {
   id: string; organizationId: string; targetUserId: string;
   reason: string; ticketRef: string | null; customerConsent: boolean;
   startedAt: string; expiresAt: string; endedAt: string | null;
+}
+
+export interface MatrixRow {
+  id: string; slug: string; displayName: string; status: string;
+  protected: boolean; layers: EntitlementLayers;
+}
+
+export interface ModuleGovernance {
+  moduleKey: string; isGloballyAvailable: boolean;
+  note: string | null; updatedAt: string | null;
+}
+
+export interface DeleteRequest {
+  id: string; organizationId: string; organizationSlug: string;
+  status: string; reason: string; requestedEmail: string | null;
+  requestedAt: string; eligibleAt: string;
+  reviewedAt: string | null; reviewNote: string | null;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -559,6 +577,127 @@ class PlatformService {
     // far more useful to an operator than "rollback failed".
     if (error) throw AppError.validation(error.message);
     return data;
+  }
+
+  // ── Module entitlements (Phase 9A) ───────────────────────────────────────
+  //
+  // Reads return LAYERS, not answers. `resolveEntitlements` in
+  // features/platform/modules/entitlements.ts is the only place precedence is
+  // decided, and the tenant's sidebar runs that same function — see the header
+  // there for why a second SQL implementation was rejected.
+
+  async entitlementLayers(orgId: string): Promise<EntitlementLayers | null> {
+    const { data, error } = await supabase.rpc("platform_entitlement_layers" as never, {
+      _org: orgId,
+    } as never);
+    if (error) throw AppError.fromSupabase(error, "platform_entitlement_layers");
+    return (data as unknown as EntitlementLayers) ?? null;
+  }
+
+  async moduleMatrix(): Promise<MatrixRow[]> {
+    const { data, error } = await supabase.rpc("platform_module_matrix" as never);
+    if (error) throw AppError.fromSupabase(error, "platform_module_matrix");
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id), slug: String(r.slug), displayName: String(r.display_name),
+      status: String(r.status), protected: Boolean(r.protected),
+      layers: r.layers as unknown as EntitlementLayers,
+    }));
+  }
+
+  async moduleGovernance(): Promise<ModuleGovernance[]> {
+    const { data, error } = await supabase
+      .from("platform_module_governance" as never)
+      .select("module_key, is_globally_available, note, updated_at");
+    if (error) throw AppError.fromSupabase(error, "platform_module_governance");
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      moduleKey: String(r.module_key),
+      isGloballyAvailable: Boolean(r.is_globally_available),
+      note: str(r.note), updatedAt: str(r.updated_at),
+    }));
+  }
+
+  setModule(input: {
+    organizationId: string; moduleKey: string; enabled: boolean;
+    reason?: string; expiresAt?: string | null; note?: string;
+  }) {
+    return invokePlatform<{ ok: boolean; changed: boolean }>("set_module", input);
+  }
+
+  clearModuleOverride(organizationId: string, moduleKey: string) {
+    return invokePlatform<{ ok: boolean; removed: boolean }>("clear_module_override", {
+      organizationId, moduleKey,
+    });
+  }
+
+  bulkModules(input: {
+    organizationIds: string[]; moduleKey: string; enabled: boolean;
+    note: string; reason?: string; expiresAt?: string | null;
+  }) {
+    return invokePlatform<{
+      ok: boolean; batchId: string;
+      results: { organizationId: string; ok: boolean; skipped?: string; changed?: boolean }[];
+    }>("bulk_modules", input);
+  }
+
+  setModuleGovernance(moduleKey: string, available: boolean, note?: string) {
+    return invokePlatform<{ ok: boolean }>("set_module_governance", { moduleKey, available, note });
+  }
+
+  // ── Organization lifecycle (Phase 9A) ────────────────────────────────────
+
+  setLifecycle(input: {
+    organizationId: string; status: string; reason: string;
+    acknowledgeProtected?: boolean;
+  }) {
+    return invokePlatform<{ ok: boolean; changed: boolean; from?: string }>("set_status", input);
+  }
+
+  updateOrganizationProfile(input: {
+    organizationId: string; patch: Record<string, string | null>;
+    expectedUpdatedAt?: string | null;
+  }) {
+    return invokePlatform<{ ok: boolean }>("update_organization_profile", input);
+  }
+
+  requestDelete(input: { organizationId: string; reason: string; confirmSlug: string }) {
+    return invokePlatform<{ ok: boolean; requestId: string; created: boolean }>(
+      "request_delete", input,
+    );
+  }
+
+  reviewDelete(input: { requestId: string; decision: "approved" | "cancelled"; note?: string }) {
+    return invokePlatform<{ ok: boolean; changed: boolean }>("review_delete", input);
+  }
+
+  async deleteRequests(): Promise<DeleteRequest[]> {
+    const { data, error } = await supabase
+      .from("organization_delete_requests" as never)
+      .select("id, organization_id, organization_slug, status, reason, requested_email, requested_at, eligible_at, reviewed_at, review_note")
+      .order("requested_at", { ascending: false });
+    if (error) throw AppError.fromSupabase(error, "organization_delete_requests");
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id), organizationId: String(r.organization_id),
+      organizationSlug: String(r.organization_slug), status: String(r.status),
+      reason: String(r.reason), requestedEmail: str(r.requested_email),
+      requestedAt: String(r.requested_at), eligibleAt: String(r.eligible_at),
+      reviewedAt: str(r.reviewed_at), reviewNote: str(r.review_note),
+    }));
+  }
+
+  async protections(): Promise<Set<string>> {
+    const { data, error } = await supabase
+      .from("organization_protections" as never)
+      .select("organization_id, is_protected");
+    // A missing protections table (migration not yet applied) must not blank
+    // the organizations list — but it MUST NOT quietly report "nothing is
+    // protected" either, since the UI would then offer to suspend ARK. Throwing
+    // is the honest option; the caller surfaces it.
+    if (error) throw AppError.fromSupabase(error, "organization_protections");
+    return new Set(
+      ((data ?? []) as unknown as Record<string, unknown>[])
+        .filter((r) => r.is_protected)
+        .map((r) => String(r.organization_id)),
+    );
   }
 
   // ── Platform users ───────────────────────────────────────────────────────

@@ -76,8 +76,42 @@ const noRoleEntry = (): AccessEntry => ({
   layers: [{ source: "no_role", outcome: false, note: "unauthenticated" }],
 });
 
+/** Submodule id → its owning module id, built once from the catalog. */
+const MODULE_OF_SUBMODULE = new Map<string, string>(
+  MODULE_CATALOG.flatMap((m) => m.submodules.map((s) => [s.id, m.id] as const)),
+);
+
+const entitlementDenied = (): AccessEntry => ({
+  allowed: false,
+  source: "entitlement",
+  layers: [
+    {
+      source: "entitlement",
+      outcome: false,
+      note: "organization is not entitled to this module",
+    },
+  ],
+});
+
 export const resolveAccess = (input: ResolverInput): EffectiveAccess => {
   const role = input.role;
+
+  // ── Entitlement gate ─────────────────────────────────────────────────────
+  //
+  // Sits ABOVE the super-role bypass, and that ordering is the whole point.
+  // `management` is the most powerful role a TENANT has, but it is still a
+  // tenant role: it can hand out permissions the organization already owns, not
+  // buy Payroll. If a school's plan excludes a module, or a Super Admin has
+  // withdrawn it, or the organization is suspended, then nobody inside that
+  // organization sees it — management included.
+  //
+  // Fail-open on absence. `moduleEntitlements` undefined (still loading, RPC
+  // failed, entitlements never resolved) means every module stays visible. The
+  // alternative — deny while loading — would flash an empty sidebar on every
+  // page load and would black out every portal on a single failed request. A
+  // billing boundary is not worth an outage.
+  const ents = input.moduleEntitlements;
+  const notEntitled = (moduleId: string): boolean => ents?.[moduleId] === false;
 
   // ── Unauthenticated → deny everything ────────────────────────────────────
   if (!role) {
@@ -98,10 +132,14 @@ export const resolveAccess = (input: ResolverInput): EffectiveAccess => {
     const submodules: Record<string, AccessEntry> = {};
     const actions: Record<string, AccessEntry> = {};
     for (const m of MODULE_CATALOG) {
-      modules[m.id] = superEntry();
-      for (const s of m.submodules) submodules[s.id] = superEntry();
+      const denied = notEntitled(m.id);
+      modules[m.id] = denied ? entitlementDenied() : superEntry();
+      for (const s of m.submodules) submodules[s.id] = denied ? entitlementDenied() : superEntry();
     }
-    for (const a of ACTION_CATALOG) actions[a.id] = superEntry();
+    for (const a of ACTION_CATALOG) {
+      const owner = MODULE_OF_SUBMODULE.get(a.submoduleId);
+      actions[a.id] = owner && notEntitled(owner) ? entitlementDenied() : superEntry();
+    }
     return { role, isSuper: true, modules, submodules, actions };
   }
 
@@ -147,6 +185,10 @@ export const resolveAccess = (input: ResolverInput): EffectiveAccess => {
   // ── Module layer ─────────────────────────────────────────────────────────
   const modules: Record<string, AccessEntry> = {};
   for (const m of MODULE_CATALOG) {
+    if (notEntitled(m.id)) {
+      modules[m.id] = entitlementDenied();
+      continue;
+    }
     const userOv = userModuleOverride.get(m.id);
     const roleGrant = roleModuleGrant.get(m.id);
     const catalogDefault = m.defaultRoles.includes(role as Role);
@@ -178,7 +220,16 @@ export const resolveAccess = (input: ResolverInput): EffectiveAccess => {
   const submodules: Record<string, AccessEntry> = {};
   for (const m of MODULE_CATALOG) {
     const moduleEntry = modules[m.id];
+    // An entitlement denial must not be recoverable by a per-user override, so
+    // it is applied here rather than left to inheritance — `decide()` would let
+    // an explicit user_override outrank the parent module and hand back a
+    // module the organization does not have.
+    const moduleDenied = notEntitled(m.id);
     for (const s of m.submodules) {
+      if (moduleDenied) {
+        submodules[s.id] = entitlementDenied();
+        continue;
+      }
       const userOv = userSubmoduleOverride.get(s.id);
       const roleGrant = roleSubmoduleGrant.get(s.id);
 
@@ -210,6 +261,11 @@ export const resolveAccess = (input: ResolverInput): EffectiveAccess => {
   // ── Action layer ─────────────────────────────────────────────────────────
   const actions: Record<string, AccessEntry> = {};
   for (const a of ACTION_CATALOG) {
+    const owner = MODULE_OF_SUBMODULE.get(a.submoduleId);
+    if (owner && notEntitled(owner)) {
+      actions[a.id] = entitlementDenied();
+      continue;
+    }
     const userOv = userActionOverride.get(a.id);
     const roleGrant = roleActionGrant.get(a.id);
     const parentSub = submodules[a.submoduleId];

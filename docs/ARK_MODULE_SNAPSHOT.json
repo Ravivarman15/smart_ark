@@ -1,0 +1,113 @@
+{
+  "capturedAt": "2026-08-12T06:33:49.026Z",
+  "organization": {
+    "slug": "ark",
+    "plan": "internal",
+    "status": "active"
+  },
+  "overrides": {
+    "certificate": {
+      "enabled": true,
+      "expires_at": null,
+      "reason": "incident",
+      "updated_at": "2026-08-12T06:32:21.130306+00:00"
+    }
+  },
+  "modules": {
+    "settings": {
+      "enabled": true,
+      "source": "essential",
+      "explain": "Core module — always included, and cannot be revoked."
+    },
+    "setup": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "staff_user": {
+      "enabled": true,
+      "source": "essential",
+      "explain": "Core module — always included, and cannot be revoked."
+    },
+    "enquiry_leads": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "student": {
+      "enabled": true,
+      "source": "essential",
+      "explain": "Core module — always included, and cannot be revoked."
+    },
+    "attendance": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "tasks": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "academics": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "live_class": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "fee": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "exam": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "estudy": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "certificate": {
+      "enabled": true,
+      "source": "override",
+      "explain": "Super Admin override (incident)."
+    },
+    "whatsapp": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "authentication": {
+      "enabled": true,
+      "source": "essential",
+      "explain": "Core module — always included, and cannot be revoked."
+    },
+    "expense_income": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "payroll": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "reports": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    },
+    "help": {
+      "enabled": true,
+      "source": "plan",
+      "explain": "Included in the internal plan."
+    }
+  }
+}

@@ -8,13 +8,13 @@
   "counts": {
     "modules": 19,
     "submodules": 203,
-    "shipped": 87,
+    "shipped": 192,
     "routeClaimedNotMounted": 0,
-    "legacyOnly": 1,
-    "aspirational": 115,
-    "menuItems": 11,
-    "featureDirs": 30,
-    "existingDocs": 38
+    "legacyOnly": 0,
+    "aspirational": 11,
+    "menuItems": 119,
+    "featureDirs": 31,
+    "existingDocs": 40
   },
   "modules": [
     {
@@ -101,7 +101,11 @@
       "route": null,
       "legacyAction": null,
       "module": "settings",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/settings/change-password",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "settings.profile",
@@ -109,7 +113,11 @@
       "route": null,
       "legacyAction": null,
       "module": "settings",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/settings/profile",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "settings.auto_sms",
@@ -117,7 +125,11 @@
       "route": null,
       "legacyAction": null,
       "module": "settings",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/settings/auto-sms",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "settings.auto_notifications",
@@ -125,7 +137,11 @@
       "route": null,
       "legacyAction": null,
       "module": "settings",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/settings/auto-notifications",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "settings.auto_whatsapp",
@@ -133,7 +149,11 @@
       "route": null,
       "legacyAction": null,
       "module": "settings",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/settings/auto-whatsapp",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "settings.my_plan",
@@ -141,7 +161,11 @@
       "route": null,
       "legacyAction": null,
       "module": "settings",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/settings/my-plan",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "settings.sms_plan",
@@ -149,7 +173,11 @@
       "route": null,
       "legacyAction": null,
       "module": "settings",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/settings/sms-plan",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "settings.my_referral",
@@ -157,7 +185,11 @@
       "route": null,
       "legacyAction": null,
       "module": "settings",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/settings/my-referral",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "settings.billing",
@@ -165,6 +197,10 @@
       "route": "/settings/billing",
       "legacyAction": null,
       "module": "settings",
+      "mountedVia": "catalog",
+      "mountedPath": "/settings/billing",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -173,6 +209,10 @@
       "route": "/settings/branding",
       "legacyAction": null,
       "module": "settings",
+      "mountedVia": "catalog",
+      "mountedPath": "/settings/branding",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -181,6 +221,10 @@
       "route": "/settings/check-in",
       "legacyAction": null,
       "module": "settings",
+      "mountedVia": "catalog",
+      "mountedPath": "/settings/check-in",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -189,7 +233,11 @@
       "route": null,
       "legacyAction": null,
       "module": "setup",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "setup/years",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "setup.manage_year",
@@ -197,6 +245,10 @@
       "route": "/admin/setup/years",
       "legacyAction": "setup.years",
       "module": "setup",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/years",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -205,6 +257,10 @@
       "route": "/admin/setup/standards",
       "legacyAction": "setup.standards",
       "module": "setup",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/standards",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -213,6 +269,10 @@
       "route": "/admin/setup/subjects",
       "legacyAction": "setup.subjects",
       "module": "setup",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/subjects",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -221,7 +281,11 @@
       "route": null,
       "legacyAction": null,
       "module": "setup",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "setup/course-types",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "setup.manage_course_type",
@@ -229,6 +293,10 @@
       "route": "/admin/setup/course-types",
       "legacyAction": "setup.course_types",
       "module": "setup",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/course-types",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -237,7 +305,11 @@
       "route": null,
       "legacyAction": null,
       "module": "setup",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "setup/batches",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "setup.manage_batch",
@@ -245,6 +317,10 @@
       "route": "/admin/setup/batches",
       "legacyAction": "setup.batches",
       "module": "setup",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/batches",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -253,6 +329,10 @@
       "route": "/admin/timetable",
       "legacyAction": "setup.timetable",
       "module": "setup",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/timetable",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -261,7 +341,11 @@
       "route": null,
       "legacyAction": null,
       "module": "setup",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "setup/taxes",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "setup.manage_tax",
@@ -269,6 +353,10 @@
       "route": "/admin/setup/taxes",
       "legacyAction": "setup.tax",
       "module": "setup",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/taxes",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -277,6 +365,10 @@
       "route": "/admin/staff-manage",
       "legacyAction": "staff.control",
       "module": "staff_user",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/staff-manage",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -285,6 +377,10 @@
       "route": "/admin/staff-manage",
       "legacyAction": "staff.control",
       "module": "staff_user",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/staff-manage",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -293,6 +389,10 @@
       "route": "/management/permissions",
       "legacyAction": "staff.rights",
       "module": "staff_user",
+      "mountedVia": "catalog",
+      "mountedPath": "/management/permissions",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -301,7 +401,11 @@
       "route": null,
       "legacyAction": "staff.action_rights",
       "module": "staff_user",
-      "status": "LEGACY_ONLY"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "action-rights",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "staff.attendance",
@@ -309,6 +413,10 @@
       "route": "/admin/teacher-checkins",
       "legacyAction": "staff.attendance",
       "module": "staff_user",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/teacher-checkins",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -317,6 +425,10 @@
       "route": "/admin/enquiries",
       "legacyAction": "enquiry.manage",
       "module": "enquiry_leads",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/enquiries",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -325,6 +437,10 @@
       "route": "/admin/enquiries",
       "legacyAction": "enquiry.manage",
       "module": "enquiry_leads",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/enquiries",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -333,6 +449,10 @@
       "route": "/admin/enquiries",
       "legacyAction": "enquiry.manage",
       "module": "enquiry_leads",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/enquiries",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -341,7 +461,11 @@
       "route": null,
       "legacyAction": null,
       "module": "enquiry_leads",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/admin/leads",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "lead.pipeline",
@@ -349,7 +473,11 @@
       "route": null,
       "legacyAction": null,
       "module": "enquiry_leads",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/admin/leads/pipeline",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "lead.management",
@@ -357,7 +485,11 @@
       "route": null,
       "legacyAction": null,
       "module": "enquiry_leads",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "leads/management",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "lead.demos",
@@ -365,7 +497,11 @@
       "route": null,
       "legacyAction": null,
       "module": "enquiry_leads",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/admin/leads/demos",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "lead.admissions",
@@ -373,7 +509,11 @@
       "route": null,
       "legacyAction": null,
       "module": "enquiry_leads",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/admin/leads/admissions",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "lead.analytics",
@@ -381,7 +521,11 @@
       "route": null,
       "legacyAction": null,
       "module": "enquiry_leads",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/admin/leads/analytics",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "lead.whatsapp",
@@ -389,7 +533,11 @@
       "route": null,
       "legacyAction": null,
       "module": "enquiry_leads",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/admin/leads/whatsapp",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "lead.config",
@@ -397,7 +545,11 @@
       "route": null,
       "legacyAction": null,
       "module": "enquiry_leads",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "leads/config",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "lead.bulk_import",
@@ -405,6 +557,10 @@
       "route": "/admin/leads/bulk-import",
       "legacyAction": null,
       "module": "enquiry_leads",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/leads/bulk-import",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -413,7 +569,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/import",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.add",
@@ -421,6 +581,10 @@
       "route": "/admin/students",
       "legacyAction": "student.control",
       "module": "student",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/students",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -429,6 +593,10 @@
       "route": "/admin/students",
       "legacyAction": "student.control",
       "module": "student",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/students",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -437,7 +605,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/assign-batch",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.attendance",
@@ -445,7 +617,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/attendance",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.share_docs",
@@ -453,7 +629,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/documents",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.manage_shared_docs",
@@ -461,7 +641,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/shared-documents",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.leave_request",
@@ -469,7 +653,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/leave",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.year_transfer",
@@ -477,7 +665,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/year-transfer",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.untransfer",
@@ -485,7 +677,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/untransfer",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.chat",
@@ -493,7 +689,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/chat",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.feedback",
@@ -501,7 +701,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/feedback",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.rights",
@@ -509,7 +713,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/rights",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.app_access",
@@ -517,7 +725,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/app-access",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "student.attendance_history",
@@ -525,7 +737,11 @@
       "route": null,
       "legacyAction": null,
       "module": "student",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "students/attendance-history",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "attendance.dashboard",
@@ -533,6 +749,10 @@
       "route": "/admin/attendance/dashboard",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/dashboard",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -541,6 +761,10 @@
       "route": "/admin/attendance/students/mark",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/students/mark",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -549,6 +773,10 @@
       "route": "/admin/attendance/students/register",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/students/register",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -557,6 +785,10 @@
       "route": "/admin/attendance/students/backdated",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/students/backdated",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -565,6 +797,10 @@
       "route": "/admin/attendance/students/corrections",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/students/corrections",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -573,6 +809,10 @@
       "route": "/admin/attendance/students/import",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/students/import",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -581,6 +821,10 @@
       "route": "/admin/attendance/staff/manual",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/staff/manual",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -589,6 +833,10 @@
       "route": "/admin/attendance/staff/check-in",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/staff/check-in",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -597,6 +845,10 @@
       "route": "/admin/attendance/staff/work-hours",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/staff/work-hours",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -605,6 +857,10 @@
       "route": "/admin/attendance/staff/register",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/staff/register",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -613,6 +869,10 @@
       "route": "/admin/attendance/staff/corrections",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/staff/corrections",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -621,6 +881,10 @@
       "route": "/admin/attendance/staff/import",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/staff/import",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -629,6 +893,10 @@
       "route": "/admin/attendance/analytics/students",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/analytics/students",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -637,6 +905,10 @@
       "route": "/admin/attendance/analytics/staff",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/analytics/staff",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -645,6 +917,10 @@
       "route": "/admin/attendance/analytics/trends",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/analytics/trends",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -653,6 +929,10 @@
       "route": "/admin/attendance/analytics/risk",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/analytics/risk",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -661,6 +941,10 @@
       "route": "/admin/attendance/analytics/work-hours",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/analytics/work-hours",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -669,6 +953,10 @@
       "route": "/admin/attendance/reports",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/reports",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -677,6 +965,10 @@
       "route": "/admin/attendance/governance/compliance",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/governance/compliance",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -685,6 +977,10 @@
       "route": "/admin/attendance/governance/locks",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/governance/locks",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -693,6 +989,10 @@
       "route": "/admin/attendance/governance/closing",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/governance/closing",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -701,6 +1001,10 @@
       "route": "/admin/attendance/governance/reopen",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/governance/reopen",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -709,6 +1013,10 @@
       "route": "/admin/attendance/governance/approvals",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/governance/approvals",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -717,6 +1025,10 @@
       "route": "/admin/attendance/governance/audit",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/governance/audit",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -725,6 +1037,10 @@
       "route": "/admin/attendance/governance/health",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/governance/health",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -733,6 +1049,10 @@
       "route": "/admin/attendance/automation",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/automation",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -741,6 +1061,10 @@
       "route": "/admin/attendance/automation/students",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/automation/students",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -749,6 +1073,10 @@
       "route": "/admin/attendance/automation/staff",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/automation/staff",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -757,6 +1085,10 @@
       "route": "/admin/attendance/communication",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/communication",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -765,6 +1097,10 @@
       "route": "/admin/attendance/communication/reports",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/communication/reports",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -773,6 +1109,10 @@
       "route": "/admin/attendance/settings",
       "legacyAction": null,
       "module": "attendance",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/attendance/settings",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -781,6 +1121,10 @@
       "route": "/admin/tasks/dashboard",
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/tasks/dashboard",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -789,6 +1133,10 @@
       "route": "/admin/tasks/my",
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/tasks/my",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -797,6 +1145,10 @@
       "route": "/admin/tasks/team",
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/tasks/team",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -805,6 +1157,10 @@
       "route": "/admin/tasks/board",
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/tasks/board",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -813,6 +1169,10 @@
       "route": "/admin/tasks/workload",
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/tasks/workload",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -821,6 +1181,10 @@
       "route": null,
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -829,6 +1193,10 @@
       "route": null,
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -837,6 +1205,10 @@
       "route": null,
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -845,6 +1217,10 @@
       "route": null,
       "legacyAction": null,
       "module": "tasks",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -853,6 +1229,10 @@
       "route": "/management/allocation",
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": "catalog",
+      "mountedPath": "/management/allocation",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -861,6 +1241,10 @@
       "route": null,
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -869,6 +1253,10 @@
       "route": "/coordinator/scheduling",
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": "catalog",
+      "mountedPath": "/coordinator/scheduling",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -877,6 +1265,10 @@
       "route": "/coordinator/scheduling",
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": "catalog",
+      "mountedPath": "/coordinator/scheduling",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -885,6 +1277,10 @@
       "route": "/teacher/my-classes",
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": "catalog",
+      "mountedPath": "/teacher/my-classes",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -893,6 +1289,10 @@
       "route": "/coordinator/monitor",
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": "catalog",
+      "mountedPath": "/coordinator/monitor",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -901,6 +1301,10 @@
       "route": "/management/faculty-analytics",
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": "catalog",
+      "mountedPath": "/management/faculty-analytics",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -909,6 +1313,10 @@
       "route": null,
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -917,6 +1325,10 @@
       "route": null,
       "legacyAction": null,
       "module": "academics",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -925,7 +1337,11 @@
       "route": null,
       "legacyAction": null,
       "module": "live_class",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "live-classes/add",
+      "inMenu": true,
+      "backing": "starter",
+      "status": "SHIPPED"
     },
     {
       "id": "live.manage",
@@ -933,7 +1349,11 @@
       "route": null,
       "legacyAction": null,
       "module": "live_class",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "live-classes",
+      "inMenu": true,
+      "backing": "starter",
+      "status": "SHIPPED"
     },
     {
       "id": "live.my",
@@ -941,7 +1361,11 @@
       "route": null,
       "legacyAction": null,
       "module": "live_class",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "live-classes/my",
+      "inMenu": true,
+      "backing": "starter",
+      "status": "SHIPPED"
     },
     {
       "id": "fee.create_structure",
@@ -949,7 +1373,11 @@
       "route": null,
       "legacyAction": null,
       "module": "fee",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "setup/fee-structures",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "fee.manage_structure",
@@ -957,6 +1385,10 @@
       "route": "/admin/setup/fee-structures",
       "legacyAction": "fee.structures",
       "module": "fee",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/fee-structures",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -965,6 +1397,10 @@
       "route": "/admin/fees",
       "legacyAction": "fee.collection",
       "module": "fee",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/fees",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -973,6 +1409,10 @@
       "route": "/admin/fees-management",
       "legacyAction": "fee.manage",
       "module": "fee",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/fees-management",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -981,7 +1421,11 @@
       "route": null,
       "legacyAction": null,
       "module": "fee",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "fees/communication",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.create_manual",
@@ -989,7 +1433,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/manual/create",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.manage_manual",
@@ -997,7 +1445,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/manual",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.smart_entry",
@@ -1005,7 +1457,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/manual/:id/edit",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.monthly_sheets",
@@ -1013,7 +1469,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/monthly-sheets",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.report_card",
@@ -1021,6 +1481,10 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -1029,7 +1493,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/dashboard",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.analytics",
@@ -1037,7 +1505,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/analytics",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.registers",
@@ -1045,7 +1517,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/registers",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.import_marks",
@@ -1053,7 +1529,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/import-marks",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.paper_import",
@@ -1061,7 +1541,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/paper-import",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.create_mcq_paper",
@@ -1069,7 +1553,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/mcq-papers/create",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.manage_mcq_paper",
@@ -1077,7 +1565,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/mcq-papers",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.create_mcq_exam",
@@ -1085,7 +1577,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/mcq-exams/create",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "exam.manage_mcq_exam",
@@ -1093,7 +1589,11 @@
       "route": null,
       "legacyAction": null,
       "module": "exam",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/mcq-papers/:id/edit",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "estudy.create",
@@ -1101,7 +1601,11 @@
       "route": null,
       "legacyAction": null,
       "module": "estudy",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "estudy/create",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "estudy.manage",
@@ -1109,7 +1613,11 @@
       "route": null,
       "legacyAction": null,
       "module": "estudy",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "estudy",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "estudy.shared",
@@ -1117,7 +1625,11 @@
       "route": null,
       "legacyAction": null,
       "module": "estudy",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "estudy/shared",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "certificate.add",
@@ -1125,7 +1637,11 @@
       "route": null,
       "legacyAction": null,
       "module": "certificate",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "certificates/add",
+      "inMenu": true,
+      "backing": "starter",
+      "status": "SHIPPED"
     },
     {
       "id": "certificate.manage",
@@ -1133,7 +1649,11 @@
       "route": null,
       "legacyAction": null,
       "module": "certificate",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "certificates",
+      "inMenu": true,
+      "backing": "starter",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.center",
@@ -1141,6 +1661,10 @@
       "route": "/management/communication",
       "legacyAction": null,
       "module": "whatsapp",
+      "mountedVia": "catalog",
+      "mountedPath": "/management/communication",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1149,7 +1673,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-inquiry",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_student",
@@ -1157,7 +1685,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-student",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_staff",
@@ -1165,7 +1697,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-staff",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_staff_creds",
@@ -1173,7 +1709,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-staff-credentials",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_student_creds",
@@ -1181,7 +1721,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-student-credentials",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_upcoming_exam",
@@ -1189,7 +1733,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-exam-reminder",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_exam_marks",
@@ -1197,7 +1745,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-exam-marks",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_fee_status",
@@ -1205,7 +1757,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-fee-status",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_fee_due",
@@ -1213,7 +1769,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-fee-due-reminder",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_absent",
@@ -1221,7 +1781,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-absent-attendance",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.send_birthday",
@@ -1229,7 +1793,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/send-birthday",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.credential_health",
@@ -1237,7 +1805,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/credential-health",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.deployment_manager",
@@ -1245,7 +1817,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/deployment-manager",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.automation_settings",
@@ -1253,7 +1829,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/automation",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "whatsapp.communication_timeline",
@@ -1261,7 +1841,11 @@
       "route": null,
       "legacyAction": null,
       "module": "whatsapp",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "communication/timeline",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "authentication.account_health",
@@ -1269,7 +1853,11 @@
       "route": null,
       "legacyAction": null,
       "module": "authentication",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "authentication/account-health",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "authentication.student_accounts",
@@ -1277,6 +1865,10 @@
       "route": null,
       "legacyAction": null,
       "module": "authentication",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -1285,7 +1877,11 @@
       "route": null,
       "legacyAction": null,
       "module": "authentication",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "menu",
+      "mountedPath": "/admin/authentication/parent-accounts",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "authentication.credential_repair",
@@ -1293,6 +1889,10 @@
       "route": null,
       "legacyAction": null,
       "module": "authentication",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -1301,6 +1901,10 @@
       "route": null,
       "legacyAction": null,
       "module": "authentication",
+      "mountedVia": null,
+      "mountedPath": null,
+      "inMenu": false,
+      "backing": null,
       "status": "ASPIRATIONAL"
     },
     {
@@ -1309,7 +1913,11 @@
       "route": null,
       "legacyAction": null,
       "module": "expense_income",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "finance/add-expense-type",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "expense.manage_type",
@@ -1317,6 +1925,10 @@
       "route": "/admin/setup/expense-categories",
       "legacyAction": "expense.categories",
       "module": "expense_income",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/expense-categories",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1325,6 +1937,10 @@
       "route": "/admin/expenses",
       "legacyAction": "expense.manage",
       "module": "expense_income",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/expenses",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1333,6 +1949,10 @@
       "route": "/admin/expenses",
       "legacyAction": "expense.manage",
       "module": "expense_income",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/expenses",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1341,7 +1961,11 @@
       "route": null,
       "legacyAction": null,
       "module": "expense_income",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "finance/add-income-type",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "income.manage_type",
@@ -1349,7 +1973,11 @@
       "route": null,
       "legacyAction": null,
       "module": "expense_income",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "finance/manage-income-type",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "income.add",
@@ -1357,6 +1985,10 @@
       "route": "/admin/expenses",
       "legacyAction": "expense.manage",
       "module": "expense_income",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/expenses",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1365,6 +1997,10 @@
       "route": "/admin/expenses",
       "legacyAction": "expense.manage",
       "module": "expense_income",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/expenses",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1373,6 +2009,10 @@
       "route": "/admin/payroll/dashboard",
       "legacyAction": "payroll.dashboard",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/dashboard",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1381,6 +2021,10 @@
       "route": "/admin/payroll/approval",
       "legacyAction": "payroll.approve",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/approval",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1389,6 +2033,10 @@
       "route": "/admin/payroll/config/role-rates",
       "legacyAction": "payroll.salary_configure",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/config/role-rates",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1397,6 +2045,10 @@
       "route": "/admin/payroll/config/staff-rates",
       "legacyAction": "payroll.salary_configure",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/config/staff-rates",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1405,6 +2057,10 @@
       "route": "/admin/payroll/config/shifts",
       "legacyAction": "payroll.salary_configure",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/config/shifts",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1413,6 +2069,10 @@
       "route": "/admin/payroll/config/rules",
       "legacyAction": "payroll.salary_configure",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/config/rules",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1421,6 +2081,10 @@
       "route": "/admin/payroll/processing",
       "legacyAction": "payroll.create",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/processing",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1429,6 +2093,10 @@
       "route": "/admin/payroll/register",
       "legacyAction": "payroll.salary_view_all",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/register",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1437,6 +2105,10 @@
       "route": "/admin/payroll/analytics",
       "legacyAction": "payroll.analytics",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/analytics",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1445,6 +2117,10 @@
       "route": "/admin/payroll/audit",
       "legacyAction": "payroll.audit",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/audit",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1453,6 +2129,10 @@
       "route": "/admin/payroll/settings",
       "legacyAction": "payroll.settings",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/settings",
+      "inMenu": false,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1461,6 +2141,10 @@
       "route": "/admin/payroll/my-salary",
       "legacyAction": "payroll.salary_view_self",
       "module": "payroll",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/payroll/my-salary",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1469,7 +2153,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/timetable",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.student_inquiry",
@@ -1477,7 +2165,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/student-inquiry",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.student_detail",
@@ -1485,7 +2177,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/student-detail",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.mobile_status",
@@ -1493,7 +2189,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/mobile-status",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.id_card",
@@ -1501,7 +2201,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/id-card",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.qrcode_card",
@@ -1509,7 +2213,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/qrcode-card",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.student_attendance",
@@ -1517,7 +2225,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/student-attendance",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.fee_due_reminder",
@@ -1525,7 +2237,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/fee-due-reminder",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.pending_fee",
@@ -1533,7 +2249,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/pending-fee",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.fee_status",
@@ -1541,7 +2261,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/fee-status",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.fee_collection",
@@ -1549,7 +2273,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/fee-collection",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.fee_collection_tax",
@@ -1557,7 +2285,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/fee-collection-tax",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.fee_refund",
@@ -1565,7 +2297,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/fee-refund",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.exam_status",
@@ -1573,7 +2309,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/exam-status",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.student_exam_summary",
@@ -1581,7 +2321,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/student-exam-summary",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.student_performance",
@@ -1589,7 +2333,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/student-performance",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.expense",
@@ -1597,7 +2345,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/expense",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.income",
@@ -1605,7 +2357,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/income",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.payroll_expense",
@@ -1613,7 +2369,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/payroll-expense",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.profit_loss",
@@ -1621,7 +2381,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/profit-loss",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.staff_attendance",
@@ -1629,7 +2393,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/staff-attendance",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.sms_status",
@@ -1637,7 +2405,11 @@
       "route": null,
       "legacyAction": null,
       "module": "reports",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "reports/sms-status",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "reports.inquiry_analysis",
@@ -1645,6 +2417,10 @@
       "route": "/admin/analysis",
       "legacyAction": "reports.analysis",
       "module": "reports",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/analysis",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1653,6 +2429,10 @@
       "route": "/admin/analysis",
       "legacyAction": "reports.analysis",
       "module": "reports",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/analysis",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1661,6 +2441,10 @@
       "route": "/admin/analysis",
       "legacyAction": "reports.analysis",
       "module": "reports",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/analysis",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1669,6 +2453,10 @@
       "route": "/admin/analysis",
       "legacyAction": "reports.analysis",
       "module": "reports",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/analysis",
+      "inMenu": true,
+      "backing": "service",
       "status": "SHIPPED"
     },
     {
@@ -1677,7 +2465,11 @@
       "route": null,
       "legacyAction": null,
       "module": "help",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "help",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "help.support_history",
@@ -1685,7 +2477,11 @@
       "route": null,
       "legacyAction": null,
       "module": "help",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "help/history",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "help.feedback",
@@ -1693,7 +2489,11 @@
       "route": null,
       "legacyAction": null,
       "module": "help",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "help/feedback",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "help.feedback_new",
@@ -1701,7 +2501,11 @@
       "route": null,
       "legacyAction": null,
       "module": "help",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "help/feedback/new",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "help.triage",
@@ -1709,7 +2513,11 @@
       "route": null,
       "legacyAction": null,
       "module": "help",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "help/triage",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     },
     {
       "id": "help.analytics",
@@ -1717,75 +2525,983 @@
       "route": null,
       "legacyAction": null,
       "module": "help",
-      "status": "ASPIRATIONAL"
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "help/analytics",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
     }
   ],
   "menuItems": [
     {
-      "path": "/settings/change-password",
+      "submodule": "setup.add_year",
+      "label": "Add Year",
+      "paths": [
+        "/admin/setup/years?new=1",
+        "/management/setup/years?new=1"
+      ]
+    },
+    {
+      "submodule": "setup.manage_year",
+      "label": "Manage Year",
+      "paths": [
+        "/admin/setup/years",
+        "/management/setup/years"
+      ]
+    },
+    {
+      "submodule": "setup.assign_standard",
+      "label": "Assign Standard",
+      "paths": [
+        "/admin/setup/standards",
+        "/management/setup/standards"
+      ]
+    },
+    {
+      "submodule": "setup.assign_subject",
+      "label": "Assign Subject",
+      "paths": [
+        "/admin/setup/subjects",
+        "/management/setup/subjects"
+      ]
+    },
+    {
+      "submodule": "setup.add_course_type",
+      "label": "Add Course Type",
+      "paths": [
+        "/admin/setup/course-types?new=1",
+        "/management/setup/course-types?new=1"
+      ]
+    },
+    {
+      "submodule": "setup.manage_course_type",
+      "label": "Manage Course Type",
+      "paths": [
+        "/admin/setup/course-types",
+        "/management/setup/course-types"
+      ]
+    },
+    {
+      "submodule": "setup.add_batch",
+      "label": "Add Class / Batch",
+      "paths": [
+        "/admin/setup/batches?new=1",
+        "/management/setup/batches?new=1"
+      ]
+    },
+    {
+      "submodule": "setup.manage_batch",
+      "label": "Manage Class / Batch",
+      "paths": [
+        "/admin/setup/batches",
+        "/management/setup/batches"
+      ]
+    },
+    {
+      "submodule": "setup.timetable",
+      "label": "Manage Time Table",
+      "paths": [
+        "/admin/setup/timetable",
+        "/management/setup/timetable"
+      ]
+    },
+    {
+      "submodule": "setup.add_tax",
+      "label": "Add Tax",
+      "paths": [
+        "/admin/setup/taxes?new=1",
+        "/management/setup/taxes?new=1"
+      ]
+    },
+    {
+      "submodule": "setup.manage_tax",
+      "label": "Manage Tax",
+      "paths": [
+        "/admin/setup/taxes",
+        "/management/setup/taxes"
+      ]
+    },
+    {
+      "submodule": "staff.create",
+      "label": "Create Staff",
+      "paths": [
+        "/admin/staff-manage",
+        "/management/staff-manage"
+      ]
+    },
+    {
+      "submodule": "staff.manage",
+      "label": "Manage Staff",
+      "paths": [
+        "/admin/staff-manage",
+        "/management/staff-manage"
+      ]
+    },
+    {
+      "submodule": "staff.rights",
+      "label": "Create Staff Role",
+      "paths": [
+        "/management/roles/new"
+      ]
+    },
+    {
+      "submodule": "staff.rights",
+      "label": "Manage Staff Role",
+      "paths": [
+        "/management/roles"
+      ]
+    },
+    {
+      "submodule": "staff.rights",
+      "label": "Permission Diagnostics",
+      "paths": [
+        "/management/permissions/diagnostics"
+      ]
+    },
+    {
+      "submodule": "staff.rights",
+      "label": "System Health",
+      "paths": [
+        "/management/system-health"
+      ]
+    },
+    {
+      "submodule": "staff.attendance",
+      "label": "Staff Attendance",
+      "paths": [
+        "/admin/teacher-checkins",
+        "/management/staff-attendance"
+      ]
+    },
+    {
+      "submodule": "enquiry.add",
+      "label": "Add Student Enquiry",
+      "paths": [
+        "/admin/enquiries",
+        "/coordinator/enquiries",
+        "/management/enquiries"
+      ]
+    },
+    {
+      "submodule": "enquiry.assign",
+      "label": "Assign Enquiry",
+      "paths": [
+        "/admin/enquiries",
+        "/coordinator/enquiries",
+        "/management/enquiries"
+      ]
+    },
+    {
+      "submodule": "enquiry.manage",
+      "label": "Manage Enquiry",
+      "paths": [
+        "/admin/enquiries",
+        "/coordinator/enquiries",
+        "/management/enquiries"
+      ]
+    },
+    {
+      "submodule": "lead.counselor_board",
+      "label": "My Leads",
+      "paths": [
+        "/admin/leads",
+        "/coordinator/leads",
+        "/management/leads"
+      ]
+    },
+    {
+      "submodule": "lead.pipeline",
+      "label": "Lead Pipeline",
+      "paths": [
+        "/admin/leads/pipeline",
+        "/coordinator/leads/pipeline",
+        "/management/leads/pipeline"
+      ]
+    },
+    {
+      "submodule": "lead.management",
+      "label": "Lead Management",
+      "paths": [
+        "/admin/leads/management",
+        "/management/leads/management"
+      ]
+    },
+    {
+      "submodule": "lead.demos",
+      "label": "Demo Classes",
+      "paths": [
+        "/admin/leads/demos",
+        "/coordinator/leads/demos",
+        "/management/leads/demos"
+      ]
+    },
+    {
+      "submodule": "lead.admissions",
+      "label": "Lead Admissions",
+      "paths": [
+        "/admin/leads/admissions",
+        "/coordinator/leads/admissions",
+        "/management/leads/admissions"
+      ]
+    },
+    {
+      "submodule": "lead.analytics",
+      "label": "Lead Analytics",
+      "paths": [
+        "/admin/leads/analytics",
+        "/coordinator/leads/analytics",
+        "/management/leads/analytics"
+      ]
+    },
+    {
+      "submodule": "lead.whatsapp",
+      "label": "WhatsApp Delivery",
+      "paths": [
+        "/admin/leads/whatsapp",
+        "/coordinator/leads/whatsapp",
+        "/management/leads/whatsapp"
+      ]
+    },
+    {
+      "submodule": "lead.config",
+      "label": "Automation Config",
+      "paths": [
+        "/admin/leads/config",
+        "/management/leads/config"
+      ]
+    },
+    {
+      "submodule": "lead.bulk_import",
+      "label": "Bulk Import",
+      "paths": [
+        "/admin/leads/bulk-import",
+        "/management/leads/bulk-import"
+      ]
+    },
+    {
+      "submodule": "student.attendance_history",
+      "label": "Attendance History",
+      "paths": [
+        "/admin/students/attendance-history",
+        "/coordinator/students/attendance-history",
+        "/management/students/attendance-history",
+        "/teacher/students/attendance-history"
+      ]
+    },
+    {
+      "submodule": "academics.allocation",
+      "label": "Staff Allocation",
+      "paths": [
+        "/management/allocation",
+        "/management/allocation"
+      ]
+    },
+    {
+      "submodule": "academics.scheduling",
+      "label": "Class Scheduling",
+      "paths": [
+        "/coordinator/scheduling",
+        "/management/scheduling",
+        "/management/scheduling"
+      ]
+    },
+    {
+      "submodule": "academics.workload",
+      "label": "Teacher Workload",
+      "paths": [
+        "/coordinator/scheduling",
+        "/management/scheduling",
+        "/management/scheduling"
+      ]
+    },
+    {
+      "submodule": "academics.my_classes",
+      "label": "My Classes",
+      "paths": [
+        "/teacher/my-classes"
+      ]
+    },
+    {
+      "submodule": "academics.monitor",
+      "label": "Class Control Center",
+      "paths": [
+        "/coordinator/monitor",
+        "/management/monitor",
+        "/management/monitor"
+      ]
+    },
+    {
+      "submodule": "academics.analytics",
+      "label": "Faculty Analytics",
+      "paths": [
+        "/management/faculty-analytics",
+        "/management/faculty-analytics",
+        "/coordinator/faculty-analytics"
+      ]
+    },
+    {
+      "submodule": "live.add",
+      "label": "Add Class",
+      "paths": [
+        "/admin/live-classes/add",
+        "/management/live-classes/add",
+        "/teacher/live-classes/add"
+      ]
+    },
+    {
+      "submodule": "live.manage",
+      "label": "Manage Class",
+      "paths": [
+        "/admin/live-classes",
+        "/management/live-classes",
+        "/coordinator/live-classes",
+        "/teacher/live-classes"
+      ]
+    },
+    {
+      "submodule": "live.my",
+      "label": "My Class",
+      "paths": [
+        "/admin/live-classes/my",
+        "/management/live-classes/my",
+        "/coordinator/live-classes/my",
+        "/teacher/live-classes/my"
+      ]
+    },
+    {
+      "submodule": "fee.manage_structure",
+      "label": "Manage Fee Structure",
+      "paths": [
+        "/admin/setup/fee-structures",
+        "/management/setup/fee-structures"
+      ]
+    },
+    {
+      "submodule": "fee.collection",
+      "label": "Fee Collection",
+      "paths": [
+        "/admin/fees",
+        "/management/fees"
+      ]
+    },
+    {
+      "submodule": "fee.manage",
+      "label": "Manage Fees",
+      "paths": [
+        "/admin/fees-management",
+        "/management/fees-management"
+      ]
+    },
+    {
+      "submodule": "fee.communication",
+      "label": "Fee Communication",
+      "paths": [
+        "/admin/fees/communication",
+        "/management/fees/communication"
+      ]
+    },
+    {
+      "submodule": "estudy.create",
+      "label": "Create Study Material",
+      "paths": [
+        "/admin/estudy/create",
+        "/management/estudy/create",
+        "/teacher/estudy/create"
+      ]
+    },
+    {
+      "submodule": "estudy.manage",
+      "label": "Manage Study Material",
+      "paths": [
+        "/admin/estudy",
+        "/management/estudy",
+        "/coordinator/estudy",
+        "/teacher/estudy"
+      ]
+    },
+    {
+      "submodule": "estudy.shared",
+      "label": "Manage Shared Study Material",
+      "paths": [
+        "/admin/estudy/shared",
+        "/management/estudy/shared"
+      ]
+    },
+    {
+      "submodule": "certificate.add",
+      "label": "Add Certificate",
+      "paths": [
+        "/admin/certificates/add",
+        "/management/certificates/add"
+      ]
+    },
+    {
+      "submodule": "certificate.manage",
+      "label": "Manage Certificate",
+      "paths": [
+        "/admin/certificates",
+        "/management/certificates"
+      ]
+    },
+    {
+      "submodule": "whatsapp.center",
+      "label": "Communication Center",
+      "paths": [
+        "/admin/communication",
+        "/management/communication"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_inquiry",
+      "label": "Send SMS To Inquiry",
+      "paths": [
+        "/admin/communication/send-inquiry",
+        "/management/communication/send-inquiry"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_student",
+      "label": "Send SMS To Student",
+      "paths": [
+        "/admin/communication/send-student",
+        "/management/communication/send-student"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_staff",
+      "label": "Send SMS To Staff",
+      "paths": [
+        "/admin/communication/send-staff",
+        "/management/communication/send-staff"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_staff_creds",
+      "label": "Send Staff ID / Password",
+      "paths": [
+        "/admin/communication/send-staff-credentials",
+        "/management/communication/send-staff-credentials"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_student_creds",
+      "label": "Send Student ID / Password",
+      "paths": [
+        "/admin/communication/send-student-credentials",
+        "/management/communication/send-student-credentials"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_upcoming_exam",
+      "label": "Send Upcoming Exam SMS",
+      "paths": [
+        "/admin/communication/send-exam-reminder",
+        "/management/communication/send-exam-reminder"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_exam_marks",
+      "label": "Send Exam Marks SMS",
+      "paths": [
+        "/admin/communication/send-exam-marks",
+        "/management/communication/send-exam-marks"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_fee_status",
+      "label": "Send Fee Status SMS",
+      "paths": [
+        "/admin/communication/send-fee-status",
+        "/management/communication/send-fee-status"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_fee_due",
+      "label": "Send Fee Due Reminder SMS",
+      "paths": [
+        "/admin/communication/send-fee-due-reminder",
+        "/management/communication/send-fee-due-reminder"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_absent",
+      "label": "Send Today Absent Attendance SMS",
+      "paths": [
+        "/admin/communication/send-absent-attendance",
+        "/management/communication/send-absent-attendance"
+      ]
+    },
+    {
+      "submodule": "whatsapp.send_birthday",
+      "label": "Send Student Birthday SMS",
+      "paths": [
+        "/admin/communication/send-birthday",
+        "/management/communication/send-birthday"
+      ]
+    },
+    {
+      "submodule": "whatsapp.credential_health",
+      "label": "Credential Health",
+      "paths": [
+        "/admin/communication/credential-health",
+        "/management/communication/credential-health"
+      ]
+    },
+    {
+      "submodule": "whatsapp.deployment_manager",
+      "label": "Deployment Manager",
+      "paths": [
+        "/admin/communication/deployment-manager",
+        "/management/communication/deployment-manager"
+      ]
+    },
+    {
+      "submodule": "whatsapp.automation_settings",
+      "label": "Communication Automation",
+      "paths": [
+        "/admin/communication/automation",
+        "/management/communication/automation"
+      ]
+    },
+    {
+      "submodule": "whatsapp.communication_timeline",
+      "label": "Communication Timeline",
+      "paths": [
+        "/admin/communication/timeline",
+        "/management/communication/timeline"
+      ]
+    },
+    {
+      "submodule": "authentication.account_health",
+      "label": "Account Health",
+      "paths": [
+        "/admin/authentication/account-health",
+        "/management/authentication/account-health"
+      ]
+    },
+    {
+      "submodule": "authentication.parent_accounts",
+      "label": "Parent Accounts",
+      "paths": [
+        "/admin/authentication/parent-accounts",
+        "/management/authentication/parent-accounts"
+      ]
+    },
+    {
+      "submodule": "expense.add_type",
+      "label": "Add Expense Type",
+      "paths": [
+        "/admin/finance/add-expense-type",
+        "/management/finance/add-expense-type"
+      ]
+    },
+    {
+      "submodule": "expense.manage_type",
+      "label": "Manage Expense Type",
+      "paths": [
+        "/admin/finance/manage-expense-type",
+        "/management/finance/manage-expense-type"
+      ]
+    },
+    {
+      "submodule": "expense.add",
+      "label": "Add Expense",
+      "paths": [
+        "/admin/finance/add-expense",
+        "/management/finance/add-expense"
+      ]
+    },
+    {
+      "submodule": "expense.manage",
+      "label": "Manage Expense",
+      "paths": [
+        "/admin/finance/manage-expense",
+        "/management/finance/manage-expense"
+      ]
+    },
+    {
+      "submodule": "income.add_type",
+      "label": "Add Income Type",
+      "paths": [
+        "/admin/finance/add-income-type",
+        "/management/finance/add-income-type"
+      ]
+    },
+    {
+      "submodule": "income.manage_type",
+      "label": "Manage Income Type",
+      "paths": [
+        "/admin/finance/manage-income-type",
+        "/management/finance/manage-income-type"
+      ]
+    },
+    {
+      "submodule": "income.add",
+      "label": "Add Income",
+      "paths": [
+        "/admin/finance/add-income",
+        "/management/finance/add-income"
+      ]
+    },
+    {
+      "submodule": "income.manage",
+      "label": "Manage Income",
+      "paths": [
+        "/admin/finance/manage-income",
+        "/management/finance/manage-income"
+      ]
+    },
+    {
+      "submodule": "payroll.my_salary",
+      "label": "My Salary",
+      "paths": [
+        "/admin/payroll/my-salary",
+        "/management/payroll/my-salary",
+        "/coordinator/payroll/my-salary",
+        "/teacher/payroll/my-salary"
+      ]
+    },
+    {
+      "submodule": "reports.timetable",
+      "label": "Time Table Report",
+      "paths": [
+        "/admin/reports/timetable",
+        "/management/reports/timetable"
+      ]
+    },
+    {
+      "submodule": "reports.student_inquiry",
+      "label": "Student Inquiry Report",
+      "paths": [
+        "/admin/reports/student-inquiry",
+        "/management/reports/student-inquiry"
+      ]
+    },
+    {
+      "submodule": "reports.student_detail",
+      "label": "Student Detail Report",
+      "paths": [
+        "/admin/reports/student-detail",
+        "/management/reports/student-detail"
+      ]
+    },
+    {
+      "submodule": "reports.mobile_status",
+      "label": "Mobile App. Status Report",
+      "paths": [
+        "/admin/reports/mobile-status",
+        "/management/reports/mobile-status"
+      ]
+    },
+    {
+      "submodule": "reports.id_card",
+      "label": "Student ID Card Report",
+      "paths": [
+        "/admin/reports/id-card",
+        "/management/reports/id-card"
+      ]
+    },
+    {
+      "submodule": "reports.qrcode_card",
+      "label": "Student QRCode Card",
+      "paths": [
+        "/admin/reports/qrcode-card",
+        "/management/reports/qrcode-card"
+      ]
+    },
+    {
+      "submodule": "reports.student_attendance",
+      "label": "Student Attendance Report",
+      "paths": [
+        "/admin/reports/student-attendance",
+        "/management/reports/student-attendance"
+      ]
+    },
+    {
+      "submodule": "reports.fee_due_reminder",
+      "label": "Fee Due Reminder Report",
+      "paths": [
+        "/admin/reports/fee-due-reminder",
+        "/management/reports/fee-due-reminder"
+      ]
+    },
+    {
+      "submodule": "reports.pending_fee",
+      "label": "Pending Fee Report",
+      "paths": [
+        "/admin/reports/pending-fee",
+        "/management/reports/pending-fee"
+      ]
+    },
+    {
+      "submodule": "reports.fee_status",
+      "label": "Fee Status Report",
+      "paths": [
+        "/admin/reports/fee-status",
+        "/management/reports/fee-status"
+      ]
+    },
+    {
+      "submodule": "reports.fee_collection",
+      "label": "Fee Collection Report",
+      "paths": [
+        "/admin/reports/fee-collection",
+        "/management/reports/fee-collection"
+      ]
+    },
+    {
+      "submodule": "reports.fee_collection_tax",
+      "label": "Fee Collection With Tax Report",
+      "paths": [
+        "/admin/reports/fee-collection-tax",
+        "/management/reports/fee-collection-tax"
+      ]
+    },
+    {
+      "submodule": "reports.fee_refund",
+      "label": "Fee Refund Report",
+      "paths": [
+        "/admin/reports/fee-refund",
+        "/management/reports/fee-refund"
+      ]
+    },
+    {
+      "submodule": "reports.exam_status",
+      "label": "Exam Status Report",
+      "paths": [
+        "/admin/reports/exam-status",
+        "/management/reports/exam-status"
+      ]
+    },
+    {
+      "submodule": "reports.student_exam_summary",
+      "label": "Student Exam Summary Report",
+      "paths": [
+        "/admin/reports/student-exam-summary",
+        "/management/reports/student-exam-summary"
+      ]
+    },
+    {
+      "submodule": "reports.student_performance",
+      "label": "Student Performance Report",
+      "paths": [
+        "/admin/reports/student-performance",
+        "/management/reports/student-performance"
+      ]
+    },
+    {
+      "submodule": "reports.expense",
+      "label": "Expense Report",
+      "paths": [
+        "/admin/reports/expense",
+        "/management/reports/expense"
+      ]
+    },
+    {
+      "submodule": "reports.income",
+      "label": "Income Report",
+      "paths": [
+        "/admin/reports/income",
+        "/management/reports/income"
+      ]
+    },
+    {
+      "submodule": "reports.payroll_expense",
+      "label": "Payroll Expense Register",
+      "paths": [
+        "/admin/reports/payroll-expense",
+        "/management/reports/payroll-expense"
+      ]
+    },
+    {
+      "submodule": "reports.profit_loss",
+      "label": "Profit / Loss Report",
+      "paths": [
+        "/admin/reports/profit-loss",
+        "/management/reports/profit-loss"
+      ]
+    },
+    {
+      "submodule": "reports.staff_attendance",
+      "label": "Staff Attendance Report",
+      "paths": [
+        "/admin/reports/staff-attendance",
+        "/management/reports/staff-attendance"
+      ]
+    },
+    {
+      "submodule": "reports.sms_status",
+      "label": "SMS Status Report",
+      "paths": [
+        "/admin/reports/sms-status",
+        "/management/reports/sms-status"
+      ]
+    },
+    {
+      "submodule": "reports.inquiry_analysis",
+      "label": "Student Inquiry Analysis Report",
+      "paths": [
+        "/admin/reports/inquiry-analysis",
+        "/management/reports/inquiry-analysis"
+      ]
+    },
+    {
+      "submodule": "reports.admission_analysis",
+      "label": "Student Admission Analysis Report",
+      "paths": [
+        "/admin/reports/admission-analysis",
+        "/management/reports/admission-analysis"
+      ]
+    },
+    {
+      "submodule": "reports.fee_analysis",
+      "label": "Fee Analysis Report",
+      "paths": [
+        "/admin/reports/fee-analysis",
+        "/management/reports/fee-analysis"
+      ]
+    },
+    {
+      "submodule": "reports.profit_loss_analysis",
+      "label": "Profit Loss Analysis Report",
+      "paths": [
+        "/admin/reports/profit-loss-analysis",
+        "/management/reports/profit-loss-analysis"
+      ]
+    },
+    {
+      "submodule": "help.support_request",
+      "label": "Support Request",
+      "paths": [
+        "/admin/help/new",
+        "/management/help/new",
+        "/coordinator/help/new",
+        "/teacher/help/new"
+      ]
+    },
+    {
+      "submodule": "help.support_history",
+      "label": "Support History",
+      "paths": [
+        "/admin/help/history",
+        "/management/help/history",
+        "/coordinator/help/history",
+        "/teacher/help/history"
+      ]
+    },
+    {
+      "submodule": "help.feedback",
+      "label": "Feedback Board",
+      "paths": [
+        "/admin/help/feedback",
+        "/management/help/feedback",
+        "/coordinator/help/feedback",
+        "/teacher/help/feedback"
+      ]
+    },
+    {
+      "submodule": "help.feedback_new",
+      "label": "Share Feedback",
+      "paths": [
+        "/admin/help/feedback/new",
+        "/management/help/feedback/new",
+        "/coordinator/help/feedback/new",
+        "/teacher/help/feedback/new"
+      ]
+    },
+    {
+      "submodule": "help.triage",
+      "label": "Triage Inbox",
+      "paths": [
+        "/admin/help/triage",
+        "/management/help/triage",
+        "/coordinator/help/triage"
+      ]
+    },
+    {
+      "submodule": "help.analytics",
+      "label": "Ticket Analytics",
+      "paths": [
+        "/admin/help/analytics",
+        "/management/help/analytics"
+      ]
+    },
+    {
+      "submodule": "settings.change_password",
       "label": "Change Password",
-      "rolesExpr": "all",
-      "submodule": "settings.change_password"
+      "paths": [
+        "/settings/change-password"
+      ]
     },
     {
-      "path": "/settings/profile",
+      "submodule": "settings.profile",
       "label": "Profile Setting",
-      "rolesExpr": "all",
-      "submodule": "settings.profile"
+      "paths": [
+        "/settings/profile"
+      ]
     },
     {
-      "path": "/settings/auto-sms",
+      "submodule": "settings.auto_sms",
       "label": "Auto SMS Settings",
-      "rolesExpr": "adminMgmt",
-      "submodule": "settings.auto_sms"
+      "paths": [
+        "/settings/auto-sms"
+      ]
     },
     {
-      "path": "/settings/auto-notifications",
+      "submodule": "settings.auto_notifications",
       "label": "Auto Notifications Settings",
-      "rolesExpr": "all",
-      "submodule": "settings.auto_notifications"
+      "paths": [
+        "/settings/auto-notifications"
+      ]
     },
     {
-      "path": "/settings/auto-whatsapp",
+      "submodule": "settings.auto_whatsapp",
       "label": "Auto WhatsApp Settings",
-      "rolesExpr": "adminMgmt",
-      "submodule": "settings.auto_whatsapp"
+      "paths": [
+        "/settings/auto-whatsapp"
+      ]
     },
     {
-      "path": "/settings/my-plan",
+      "submodule": "settings.my_plan",
       "label": "My Plan",
-      "rolesExpr": "[\"management\"]",
-      "submodule": "settings.my_plan"
+      "paths": [
+        "/settings/my-plan"
+      ]
     },
     {
-      "path": "/settings/sms-plan",
+      "submodule": "settings.sms_plan",
       "label": "SMS Plan",
-      "rolesExpr": "adminMgmt",
-      "submodule": "settings.sms_plan"
+      "paths": [
+        "/settings/sms-plan"
+      ]
     },
     {
-      "path": "/settings/my-referral",
+      "submodule": "settings.my_referral",
       "label": "My Referral",
-      "rolesExpr": "all",
-      "submodule": "settings.my_referral"
+      "paths": [
+        "/settings/my-referral"
+      ]
     },
     {
-      "path": "/settings/billing",
+      "submodule": "settings.billing",
       "label": "Billing & Subscription",
-      "rolesExpr": "adminMgmt",
-      "submodule": "settings.billing"
+      "paths": [
+        "/settings/billing"
+      ]
     },
     {
-      "path": "/settings/branding",
+      "submodule": "settings.branding",
       "label": "Branding & White Label",
-      "rolesExpr": "adminMgmt",
-      "submodule": "settings.branding"
+      "paths": [
+        "/settings/branding"
+      ]
     },
     {
-      "path": "/settings/check-in",
+      "submodule": "settings.checkin",
       "label": "Check-in & Check-out",
-      "rolesExpr": "adminMgmt",
-      "submodule": "settings.checkin"
+      "paths": [
+        "/settings/check-in"
+      ]
     }
   ],
   "featureDirs": [
@@ -1797,6 +3513,7 @@
     "certificates",
     "communication",
     "dashboard",
+    "docs",
     "enquiries",
     "estudy",
     "exams",
@@ -1833,6 +3550,7 @@
     "COMMUNICATION_DEPLOYMENT_MANAGER.md",
     "COMMUNICATION_EVENT_AUTOMATION.md",
     "COMMUNICATION_VERIFICATION.md",
+    "DOCUMENTATION_SCREENSHOT_SHOT_LIST.md",
     "DYNAMIC_DOCUMENT_BRANDING.md",
     "MULTI_TENANT_ARCHITECTURE_REVIEW.md",
     "PARENT_PORTAL.md",
@@ -1847,6 +3565,7 @@
     "PHASE8A_RUNTIME_VERIFICATION.md",
     "PHASE8_PRODUCTION_BASELINE.md",
     "PHASE8_PRODUCTION_VALIDATION.md",
+    "PHASE_PLATFORM_SUPER_ADMIN.md",
     "PRODUCTION_DEPLOYMENT.md",
     "PRODUCT_TRANSFORMATION_BLUEPRINT.md",
     "PROJECT_IMPACT_REPORT.md",

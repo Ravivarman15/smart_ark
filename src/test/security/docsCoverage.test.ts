@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ARTICLES, BY_SLUG, searchDocs, neighbours, readingOrder } from "@/features/docs/content";
 import { SCREENSHOTS, SCREENSHOTS_BY_ID } from "@/features/docs/screenshots";
@@ -44,12 +44,49 @@ describe("The inventory the gate depends on is present", () => {
   });
 });
 
+/**
+ * Platform capabilities, read from the migrations that grant them.
+ *
+ * Smart ARK has TWO permission vocabularies and they are not interchangeable:
+ * tenant RBAC submodules ("fee.collection") and platform capabilities
+ * ("modules.grant"). A platform-role article naming a tenant submodule would be
+ * as wrong as the reverse, so each is checked against its own source rather
+ * than either being waved through.
+ *
+ * Parsed from the SQL that actually inserts them, so a capability an article
+ * invents is still a failure.
+ */
+const PLATFORM_CAPABILITIES = (() => {
+  const dir = join(ROOT, "supabase", "migrations");
+  const out = new Set<string>();
+  for (const f of readdirSync(dir).filter((n) => n.endsWith(".sql"))) {
+    const sql = readFileSync(join(dir, f), "utf8");
+    const block = sql.match(
+      /INSERT INTO public\.platform_role_capabilities[\s\S]*?ON CONFLICT/g,
+    );
+    for (const b of block ?? []) {
+      for (const m of b.matchAll(/\(\s*'[a-z_]+'\s*,\s*'([a-z_.]+)'\s*\)/g)) out.add(m[1]);
+    }
+  }
+  return out;
+})();
+
 describe("No article documents a feature that does not exist", () => {
-  it("every referenced permission is a real catalog submodule", () => {
+  it("every referenced permission is a real catalog submodule or platform capability", () => {
     const bad: string[] = [];
     for (const a of ARTICLES) {
+      // Keyed on CATEGORY, not on the role list. An article can name platform
+      // staff among its readers while still documenting tenant permissions —
+      // "roles-overview" does exactly that — so the audience is the wrong
+      // discriminator. What the article is ABOUT decides which vocabulary
+      // applies.
+      const vocabulary = a.category === "platform" ? PLATFORM_CAPABILITIES : null;
       for (const p of a.permissions) {
-        if (!byId.has(p)) bad.push(`${a.slug} → "${p}" is not in the RBAC catalog`);
+        if (vocabulary) {
+          if (!vocabulary.has(p)) bad.push(`${a.slug} → "${p}" is not a platform capability`);
+        } else if (!byId.has(p)) {
+          bad.push(`${a.slug} → "${p}" is not in the RBAC catalog`);
+        }
       }
     }
     expect(bad, "articles reference permissions that do not exist").toEqual([]);

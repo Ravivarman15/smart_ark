@@ -28,6 +28,11 @@ export const platformKeys = {
   settings: () => [...platformKeys.all, "settings"] as const,
   users: () => [...platformKeys.all, "users"] as const,
   impersonations: () => [...platformKeys.all, "impersonations"] as const,
+  entitlements: (orgId: string) => [...platformKeys.all, "entitlements", orgId] as const,
+  matrix: () => [...platformKeys.all, "module-matrix"] as const,
+  governance: () => [...platformKeys.all, "module-governance"] as const,
+  deleteRequests: () => [...platformKeys.all, "delete-requests"] as const,
+  protections: () => [...platformKeys.all, "protections"] as const,
 };
 
 export const usePlatformSummary = () =>
@@ -266,6 +271,164 @@ export const useInvitePlatformUser = () => {
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: platformKeys.users() });
       toast.success("Platform user invited", { description: r.note });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+// ── Phase 9A: entitlements, governance, lifecycle ───────────────────────────
+
+export const useEntitlementLayers = (orgId: string | undefined) =>
+  useQuery({
+    queryKey: platformKeys.entitlements(orgId ?? ""),
+    queryFn: () => platformService.entitlementLayers(orgId!),
+    enabled: !!orgId,
+    staleTime: 30_000,
+  });
+
+export const useModuleMatrix = () =>
+  useQuery({ queryKey: platformKeys.matrix(), queryFn: () => platformService.moduleMatrix(), staleTime: 60_000 });
+
+export const useModuleGovernance = () =>
+  useQuery({ queryKey: platformKeys.governance(), queryFn: () => platformService.moduleGovernance(), staleTime: 60_000 });
+
+export const useDeleteRequests = () =>
+  useQuery({ queryKey: platformKeys.deleteRequests(), queryFn: () => platformService.deleteRequests(), staleTime: 30_000 });
+
+export const useProtections = () =>
+  useQuery({ queryKey: platformKeys.protections(), queryFn: () => platformService.protections(), staleTime: 300_000 });
+
+/**
+ * Invalidate everything a module/lifecycle change could have moved.
+ *
+ * The matrix and the per-organization layers are separate cache entries built
+ * from the same rows, so refreshing one and not the other is how the detail
+ * page and the matrix end up disagreeing in front of an operator.
+ */
+const invalidateEntitlements = (qc: ReturnType<typeof useQueryClient>, orgId?: string) => {
+  if (orgId) {
+    qc.invalidateQueries({ queryKey: platformKeys.entitlements(orgId) });
+    qc.invalidateQueries({ queryKey: platformKeys.organization(orgId) });
+    qc.invalidateQueries({ queryKey: platformKeys.features(orgId) });
+  }
+  qc.invalidateQueries({ queryKey: platformKeys.matrix() });
+  qc.invalidateQueries({ queryKey: platformKeys.organizations() });
+  qc.invalidateQueries({ queryKey: platformKeys.audit() });
+};
+
+export const useSetModule = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof platformService.setModule>[0]) =>
+      platformService.setModule(input),
+    onSuccess: (r, v) => {
+      invalidateEntitlements(qc, v.organizationId);
+      // "No change" is reported honestly rather than as a success everyone
+      // misreads — re-granting a module the tenant already has did nothing,
+      // and saying "Granted" would suggest otherwise.
+      toast.success(
+        r.changed
+          ? `${v.moduleKey} ${v.enabled ? "granted" : "revoked"}`
+          : `${v.moduleKey} was already ${v.enabled ? "enabled" : "disabled"} — no change`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useClearModuleOverride = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ organizationId, moduleKey }: { organizationId: string; moduleKey: string }) =>
+      platformService.clearModuleOverride(organizationId, moduleKey),
+    onSuccess: (r, v) => {
+      invalidateEntitlements(qc, v.organizationId);
+      toast.success(r.removed ? `${v.moduleKey} returned to the plan default` : "No override to remove");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useBulkModules = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof platformService.bulkModules>[0]) =>
+      platformService.bulkModules(input),
+    onSuccess: (r) => {
+      invalidateEntitlements(qc);
+      const ok = r.results.filter((x) => x.ok).length;
+      const skipped = r.results.length - ok;
+      toast.success(`Applied to ${ok} organization${ok === 1 ? "" : "s"}`, {
+        description: skipped ? `${skipped} skipped — open the batch to see why.` : undefined,
+      });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useSetModuleGovernance = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ moduleKey, available, note }: { moduleKey: string; available: boolean; note?: string }) =>
+      platformService.setModuleGovernance(moduleKey, available, note),
+    onSuccess: (_r, v) => {
+      qc.invalidateQueries({ queryKey: platformKeys.governance() });
+      invalidateEntitlements(qc);
+      toast.success(v.available ? `${v.moduleKey} available platform-wide` : `${v.moduleKey} withdrawn platform-wide`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useSetLifecycle = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof platformService.setLifecycle>[0]) =>
+      platformService.setLifecycle(input),
+    onSuccess: (r, v) => {
+      invalidateEntitlements(qc, v.organizationId);
+      toast.success(r.changed ? `Organization set to ${v.status}` : `Already ${v.status} — no change`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useUpdateOrganizationProfile = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof platformService.updateOrganizationProfile>[0]) =>
+      platformService.updateOrganizationProfile(input),
+    onSuccess: (_r, v) => {
+      invalidateEntitlements(qc, v.organizationId);
+      toast.success("Organization updated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useRequestDelete = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof platformService.requestDelete>[0]) =>
+      platformService.requestDelete(input),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: platformKeys.deleteRequests() });
+      toast.success(
+        r.created ? "Delete request opened for review" : "A request is already open for this organization",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useReviewDelete = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof platformService.reviewDelete>[0]) =>
+      platformService.reviewDelete(input),
+    onSuccess: (_r, v) => {
+      qc.invalidateQueries({ queryKey: platformKeys.deleteRequests() });
+      toast.success(v.decision === "approved" ? "Request approved for manual erasure" : "Request cancelled");
     },
     onError: (e: Error) => toast.error(e.message),
   });
