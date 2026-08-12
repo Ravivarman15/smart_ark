@@ -17,8 +17,17 @@ export const appBaseUrl = (): string => {
     import.meta.env.VITE_PUBLIC_APP_URL as string | undefined
   )?.trim();
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return (configured || origin).replace(/\/+$/, "");
+  // Normalise: extract only the origin (scheme + host + port) so a
+  // misconfigured value like "https://example.com/login" doesn't produce
+  // double-path URLs ("https://example.com/login/login").
+  const raw = configured || origin;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw.replace(/\/+$/, "");
+  }
 };
 
 /** Login-page URL used as the link / redirect target in onboarding emails. */
 export const loginUrl = (): string => `${appBaseUrl()}/login`;
+

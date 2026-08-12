@@ -385,7 +385,7 @@ Deno.serve(async (req) => {
 
       // Guard against self-deletion — an admin removing their own account
       // would be locked out mid-session.
-      if (target.user_id && target.user_id === callerUserId) {
+      if (target.user_id && target.user_id === gate.caller.userId) {
         return jsonResponse(400, {
           error: "You cannot delete your own account.",
         });
@@ -437,7 +437,13 @@ Deno.serve(async (req) => {
 
     const email = body.email.trim().toLowerCase();
     const origin = new URL(req.url).origin;
-    const loginUrl = body.login_url ?? body.redirect_to ?? `${origin}/login`;
+    // Normalise: the client may send a login_url that already ends with
+    // "/login" (e.g. VITE_PUBLIC_APP_URL misconfigured to the full page URL).
+    // Strip any trailing /login so we can re-append it exactly once, avoiding
+    // the "/login/login" broken-link bug in welcome emails.
+    const rawUrl = body.login_url ?? body.redirect_to ?? `${origin}/login`;
+    const loginUrl = rawUrl.replace(/\/login\/*$/i, "") + "/login";
+
     const branch = body.branch;
 
     // ── Action: resend invite ─────────────────────────────────────────────
