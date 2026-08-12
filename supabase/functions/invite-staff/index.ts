@@ -877,6 +877,36 @@ Deno.serve(async (req) => {
     }
     const profileId = upserted.id;
 
+    // ┌── MEMBERSHIP ROW ──────────────────────────────────────────────────┐
+    // │ Without this row the custom_access_token_hook cannot inject        │
+    // │ organization_id into the JWT, current_org_id() returns NULL,       │
+    // │ and every tenant-scoped RLS policy denies access — the new staff   │
+    // │ member lands on the signup wizard instead of their portal.         │
+    // │                                                                    │
+    // │ ON CONFLICT DO NOTHING: the provisioning engine or a re-invite     │
+    // │ may already have created the membership.                           │
+    // └────────────────────────────────────────────────────────────────────┘
+    try {
+      await supabase.from("organization_users").upsert(
+        {
+          organization_id: gate.caller.organizationId,
+          user_id: newUser.id,
+          principal_kind: "staff",
+          is_default: true,
+          status: "active",
+        },
+        { onConflict: "organization_id,user_id,principal_kind" },
+      );
+    } catch {
+      // Best-effort: the profile exists, the auth user exists — the
+      // membership can be repaired later. Logging a failure here is more
+      // useful than aborting the entire onboarding.
+      console.warn(
+        `[invite-staff] Could not create organization_users row for ${newUser.id}`,
+      );
+    }
+
+
     await logEvent(supabase, {
       profile_id: profileId,
       event_type: "account_created",
