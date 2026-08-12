@@ -215,48 +215,91 @@ class AttendanceStudentService extends BaseService {
     source?: string;
     search?: string;
   }): Promise<StudentAttendanceRow[]> {
-    let targetStudentIds: string[] | undefined;
-
-    // If filtering by standard, find matching student IDs first
-    if (params.standardId && !params.studentId) {
-      const studsRes = await this.db
-        .from("students")
+    // ── Step 1: resolve standard → batch IDs if filtering by standard ──────
+    // Instead of querying students by standard_id (which may not exist on all
+    // deployments), resolve via batches.standard_id → student_attendance.batch_id.
+    let standardBatchIds: string[] | undefined;
+    if (params.standardId && !params.batchId) {
+      const bRes = await this.db
+        .from("batches")
         .select("id")
         .eq("standard_id", params.standardId);
-      if (!studsRes.error && studsRes.data) {
-        targetStudentIds = studsRes.data.map((s) => s.id);
-        if (targetStudentIds.length === 0) return [];
+      if (!bRes.error && bRes.data && bRes.data.length > 0) {
+        standardBatchIds = bRes.data.map((b) => (b as { id: string }).id);
+      } else {
+        // No batches for this standard → no records possible
+        return [];
       }
     }
 
+    // ── Step 2: query student_attendance with embedded students join ────────
     const cols =
       "id, student_id, batch_id, date, attendance_date, status, method, remarks, " +
       "marked_by_name, marked_by_role, marked_at, students(name, roll_number)";
 
-    const run = (dateCol: "attendance_date" | "date") => {
+    // Simpler cols without the students join (fallback)
+    const simpleCols =
+      "id, student_id, batch_id, date, attendance_date, status, method, remarks, " +
+      "marked_by_name, marked_by_role, marked_at";
+
+    const build = (selectCols: string, dateCol: "attendance_date" | "date") => {
       let q = this.db
         .from("student_attendance")
-        .select(cols)
+        .select(selectCols)
         .gte(dateCol, params.from)
         .lte(dateCol, params.to);
 
       if (params.batchId) q = q.eq("batch_id", params.batchId);
+      else if (standardBatchIds) q = q.in("batch_id", standardBatchIds);
       if (params.studentId) q = q.eq("student_id", params.studentId);
-      else if (targetStudentIds) q = q.in("student_id", targetStudentIds);
-
       if (params.status && params.status !== "all") q = q.eq("status", params.status);
       if (params.source && params.source !== "all") q = q.eq("method", params.source);
 
       return q.order(dateCol, { ascending: false }).limit(1000);
     };
 
-    let res = await run("attendance_date");
-    if (res.error && isSchemaCacheMiss(res.error)) res = await run("date");
+    // Try full select (with students join) first
+    let res = await build(cols, "attendance_date");
+    // Fallback: attendance_date might not exist → try "date"
+    if (res.error && isSchemaCacheMiss(res.error)) {
+      res = await build(cols, "date");
+    }
+    // Fallback: the students!inner join may fail on some schemas → try without join
+    if (res.error) {
+      res = await build(simpleCols, "attendance_date");
+      if (res.error && isSchemaCacheMiss(res.error)) {
+        res = await build(simpleCols, "date");
+      }
+    }
     if (res.error) throw AppError.fromSupabase(res.error, "student_attendance");
 
     let rows = ((res.data ?? []) as unknown as AttRow[]).map(toRow);
 
-    // Client-side text search filter (if search query is provided)
+    // ── Step 3: if we used simpleCols, backfill student names ──────────────
+    const needsNames = rows.some((r) => !r.studentName);
+    if (needsNames && rows.length > 0) {
+      const uniqueStudentIds = [...new Set(rows.map((r) => r.studentId))];
+      const studsRes = await this.db
+        .from("students")
+        .select("id, name, roll_number")
+        .in("id", uniqueStudentIds);
+      if (!studsRes.error && studsRes.data) {
+        const nameMap = new Map(
+          (studsRes.data as { id: string; name: string; roll_number: string | null }[])
+            .map((s) => [s.id, { name: s.name, roll: s.roll_number }])
+        );
+        rows = rows.map((r) => {
+          const info = nameMap.get(r.studentId);
+          return {
+            ...r,
+            studentName: r.studentName || info?.name || "Unknown",
+            rollNumber: r.rollNumber || info?.roll || undefined,
+          };
+        });
+      }
+    }
+
+    // ── Step 4: client-side text search ────────────────────────────────────
     if (params.search && params.search.trim()) {
       const q = params.search.trim().toLowerCase();
       rows = rows.filter(
