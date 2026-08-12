@@ -27,7 +27,7 @@ import { CalendarX2, Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  classTitle, durationLabel, groupByDay, timeRangeLabel, todayIso,
+  classTitle, durationLabel, formatDay, groupByDay, timeRangeLabel, todayIso,
 } from "../utils/scheduleView";
 import type { ClassSchedule, ScheduleStatus } from "../types/allocation.types";
 
