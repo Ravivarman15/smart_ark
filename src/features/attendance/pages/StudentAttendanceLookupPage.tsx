@@ -19,8 +19,8 @@ import {
   Building2,
   CalendarDays,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/badge";
-import { Card as UICard, UICardContent, UICardHeader, UICardTitle, UICardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { useAttendanceLookups } from "../hooks/useAttendanceLookups";
+import { useStandardOptions, useBatchOptions } from "../hooks/useAttendanceLookups";
 import { useStudentAttendanceLookup } from "../hooks/useStudentAttendance";
 import type { StudentAttendanceRow, StudentAttendanceStatus } from "../types/attendance.types";
 
@@ -84,7 +84,8 @@ export const StudentAttendanceLookupPage: React.FC = () => {
   const [inspectStudent, setInspectStudent] = useState<StudentAttendanceRow | null>(null);
 
   // Lookups (Standards, Batches)
-  const { standards = [], batches = [], isLoading: isLookupsLoading } = useAttendanceLookups();
+  const { data: standards = [] } = useStandardOptions();
+  const { data: batches = [] } = useBatchOptions();
 
   // Filtered batches according to selected standard
   const availableBatches = useMemo(() => {
@@ -260,13 +261,13 @@ export const StudentAttendanceLookupPage: React.FC = () => {
       </div>
 
       {/* Filter Controls Card */}
-      <UICard className="border border-border bg-card shadow-sm">
-        <UICardHeader className="pb-3 border-b border-border/60">
-          <UICardTitle className="text-base font-semibold flex items-center gap-2">
+      <Card className="border border-border bg-card shadow-sm">
+        <CardHeader className="pb-3 border-b border-border/60">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Filter className="h-4 w-4 text-primary" /> Filter Attendance Records
-          </UICardTitle>
-        </UICardHeader>
-        <UICardContent className="p-4 space-y-4">
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
           {/* Row 1: Time Presets & Custom Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Time Preset */}
@@ -405,13 +406,13 @@ export const StudentAttendanceLookupPage: React.FC = () => {
               </Select>
             </div>
           </div>
-        </UICardContent>
-      </UICard>
+        </CardContent>
+      </Card>
 
       {/* KPI Metrics Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <UICard className="border border-border bg-card">
-          <UICardContent className="p-4 flex items-center justify-between">
+        <Card className="border border-border bg-card">
+          <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Records</p>
               <p className="text-2xl font-bold mt-1 text-foreground">{metrics.total}</p>
@@ -419,11 +420,11 @@ export const StudentAttendanceLookupPage: React.FC = () => {
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <CalendarDays className="h-5 w-5" />
             </div>
-          </UICardContent>
-        </UICard>
+          </CardContent>
+        </Card>
 
-        <UICard className="border border-emerald-500/20 bg-emerald-500/5">
-          <UICardContent className="p-4 flex items-center justify-between">
+        <Card className="border border-emerald-500/20 bg-emerald-500/5">
+          <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Present</p>
               <p className="text-2xl font-bold mt-1 text-emerald-700 dark:text-emerald-300">
@@ -433,11 +434,11 @@ export const StudentAttendanceLookupPage: React.FC = () => {
             <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-600">
               <CheckCircle2 className="h-5 w-5" />
             </div>
-          </UICardContent>
-        </UICard>
+          </CardContent>
+        </Card>
 
-        <UICard className="border border-rose-500/20 bg-rose-500/5">
-          <UICardContent className="p-4 flex items-center justify-between">
+        <Card className="border border-rose-500/20 bg-rose-500/5">
+          <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-rose-600 dark:text-rose-400 uppercase tracking-wider">Absent</p>
               <p className="text-2xl font-bold mt-1 text-rose-700 dark:text-rose-300">
@@ -447,11 +448,11 @@ export const StudentAttendanceLookupPage: React.FC = () => {
             <div className="h-10 w-10 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-600">
               <XCircle className="h-5 w-5" />
             </div>
-          </UICardContent>
-        </UICard>
+          </CardContent>
+        </Card>
 
-        <UICard className="border border-amber-500/20 bg-amber-500/5">
-          <UICardContent className="p-4 flex items-center justify-between">
+        <Card className="border border-amber-500/20 bg-amber-500/5">
+          <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">Late / Leave</p>
               <p className="text-2xl font-bold mt-1 text-amber-700 dark:text-amber-300">
@@ -461,22 +462,22 @@ export const StudentAttendanceLookupPage: React.FC = () => {
             <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-600">
               <Clock className="h-5 w-5" />
             </div>
-          </UICardContent>
-        </UICard>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Attendance Records Table */}
-      <UICard className="border border-border bg-card shadow-sm overflow-hidden">
-        <UICardHeader className="p-4 border-b border-border flex flex-row items-center justify-between">
+      <Card className="border border-border bg-card shadow-sm overflow-hidden">
+        <CardHeader className="p-4 border-b border-border flex flex-row items-center justify-between">
           <div>
-            <UICardTitle className="text-base font-semibold">Attendance Logs</UICardTitle>
-            <UICardDescription className="text-xs text-muted-foreground mt-0.5">
+            <CardTitle className="text-base font-semibold">Attendance Logs</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground mt-0.5">
               Showing {attendanceRows.length} entry/entries for period {fromDate} to {toDate}
-            </UICardDescription>
+            </CardDescription>
           </div>
-        </UICardHeader>
+        </CardHeader>
 
-        <UICardContent className="p-0">
+        <CardContent className="p-0">
           {isAttendanceLoading ? (
             <div className="py-12 text-center text-sm text-muted-foreground space-y-2">
               <div className="h-6 w-6 border-2 border-primary border-t-transparent animate-spin rounded-full mx-auto" />
@@ -574,8 +575,8 @@ export const StudentAttendanceLookupPage: React.FC = () => {
               </table>
             </div>
           )}
-        </UICardContent>
-      </UICard>
+        </CardContent>
+      </Card>
 
       {/* Student Attendance Breakdown Modal */}
       <Dialog open={!!inspectStudent} onOpenChange={(v) => !v && setInspectStudent(null)}>
