@@ -122,13 +122,19 @@ export const ScheduleDayList: React.FC<Props> = ({
               >
                 {/* Time first and fixed-width, so the column aligns down the
                     day and can be scanned without reading the rows. */}
-                <div className="flex shrink-0 items-baseline gap-2 sm:w-[124px] sm:flex-col sm:items-start sm:gap-0">
+                <div className="flex shrink-0 items-baseline gap-2 sm:w-[140px] sm:flex-col sm:items-start sm:gap-0.5">
                   <span className="text-sm font-medium tabular-nums">
                     {timeRangeLabel(c.startTime, c.endTime)}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {durationLabel(c.durationMinutes)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                    <span>{durationLabel(c.durationMinutes)}</span>
+                    {c.scheduleDate && (
+                      <>
+                        <span>·</span>
+                        <span className="font-medium text-foreground/75">{formatDay(c.scheduleDate)}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="min-w-0 flex-1">

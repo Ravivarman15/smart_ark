@@ -243,6 +243,7 @@ const MyClassesPage: React.FC = () => {
                 {c.mode}
                 {c.room ? ` · ${c.room}` : ""}
                 {c.meetingLink ? " · online" : ""}
+                {c.scheduleDate ? ` · ${c.scheduleDate}` : ""}
                 {/* The lifecycle, on history rows too — "completed" alone never
                     said whether the class was actually run or just marked off. */}
                 {c.startedAt ? ` · started ${c.startedAt.slice(11, 16)}` : ""}

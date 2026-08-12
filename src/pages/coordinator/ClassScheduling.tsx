@@ -578,6 +578,7 @@ const ClassScheduling: React.FC = () => {
                 {c.mode}
                 {c.room ? ` · ${c.room}` : ""}
                 {studentCounts[c.id] ? ` · ${studentCounts[c.id]} students` : ""}
+                {c.scheduleDate ? ` · ${c.scheduleDate}` : ""}
                 {/* The lifecycle the teacher drives, mirrored here live — a
                     coordinator shouldn't have to open the Control Center to
                     find out whether a class actually happened. */}
