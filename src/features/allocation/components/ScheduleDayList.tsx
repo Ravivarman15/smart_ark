@@ -22,14 +22,16 @@
 // above the class details so nothing is squeezed into ~90px on a phone.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import React from "react";
-import { CalendarX2, Radio } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { CalendarX2, Eye, Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   classTitle, durationLabel, formatDay, groupByDay, timeRangeLabel, todayIso,
 } from "../utils/scheduleView";
 import type { ClassSchedule, ScheduleStatus } from "../types/allocation.types";
+import { ClassDetailsDialog } from "./ClassDetailsDialog";
 
 const STATUS_TONE: Record<ScheduleStatus, string> = {
   scheduled: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
@@ -57,6 +59,7 @@ export const ScheduleDayList: React.FC<Props> = ({
   schedules, isLoading, emptyTitle = "No classes in this range",
   emptyHint, renderActions, renderMeta, onRowClick,
 }) => {
+  const [detailsTarget, setDetailsTarget] = useState<ClassSchedule | null>(null);
   const today = todayIso();
   const groups = React.useMemo(() => groupByDay(schedules, today), [schedules, today]);
 
@@ -168,20 +171,34 @@ export const ScheduleDayList: React.FC<Props> = ({
                   )}
                 </div>
 
-                {renderActions && (
-                  <div
-                    className="flex shrink-0 flex-wrap items-center gap-0.5"
-                    // Row actions must not also trigger the row's own click.
-                    onClick={(e) => e.stopPropagation()}
+                <div
+                  className="flex shrink-0 flex-wrap items-center gap-1.5"
+                  // Row actions must not also trigger the row's own click.
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 px-2.5 text-xs font-medium border-border hover:bg-accent/60"
+                    title="View class & student details"
+                    onClick={() => setDetailsTarget(c)}
                   >
-                    {renderActions(c)}
-                  </div>
-                )}
+                    <Eye className="h-3.5 w-3.5 text-primary" />
+                    <span>View Details</span>
+                  </Button>
+                  {renderActions && renderActions(c)}
+                </div>
               </div>
             ))}
           </div>
         </section>
       ))}
+
+      <ClassDetailsDialog
+        schedule={detailsTarget}
+        open={!!detailsTarget}
+        onOpenChange={(v) => !v && setDetailsTarget(null)}
+      />
     </div>
   );
 };
