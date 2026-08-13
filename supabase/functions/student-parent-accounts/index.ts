@@ -108,6 +108,48 @@ const logAudit = async (
   try { await db.from("auth_login_audit").insert(stampOrg(e, org, "audit entry")); } catch { /* best-effort */ }
 };
 
+/**
+ * Give the new principal a MEMBERSHIP row in its organization.
+ *
+ * ┌── WITHOUT THIS THE LOGIN WORKS AND THE PORTAL DOES NOT ────────────────┐
+ * │ custom_access_token_hook builds the JWT's organization_id claim from   │
+ * │ organization_users. No membership row → no claim → jwt_org_id() NULL.  │
+ * │                                                                        │
+ * │ current_org_id() then falls through to fallback_org_id(), which is     │
+ * │ NULL once a second organization exists. Every tenant RLS policy denies │
+ * │ — including `owner_read parent_auth_accounts`, whose USING clause is   │
+ * │ `organization_id = current_org_id() AND user_id = auth.uid()`.         │
+ * │                                                                        │
+ * │ So the parent signs in successfully, the browser cannot read the       │
+ * │ parent's OWN account row, AuthContext sees no parent identity, and     │
+ * │ AuthRedirect sends them to /signup — the "Tell us about your           │
+ * │ institution" wizard. The credentials were never the problem.           │
+ * │                                                                        │
+ * │ This worked while ARK was the only tenant, because fallback_org_id()   │
+ * │ resolved to ARK for a claimless session. invite-staff already creates  │
+ * │ this row for staff (see the block comment there); students and parents │
+ * │ were simply never given the same treatment.                            │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * Reported, never swallowed: an account that cannot reach its portal is not a
+ * successful provision, and saying otherwise is how this went unnoticed.
+ */
+const grantMembership = async (
+  db: Db, org: string, userId: string, kind: "parent" | "student",
+): Promise<{ ok: true } | { ok: false; message: string }> => {
+  const { error } = await db.from("organization_users").upsert(
+    {
+      organization_id: org,
+      user_id: userId,
+      principal_kind: kind,
+      is_default: true,
+      status: "active",
+    },
+    { onConflict: "organization_id,user_id,principal_kind" },
+  );
+  return error ? { ok: false, message: error.message } : { ok: true };
+};
+
 /** Rotate to a fresh temp password and PROVE it logs in. */
 const rotateAndProve = async (
   db: Db, url: string, anonKey: string, userId: string, loginEmail: string,
@@ -209,6 +251,18 @@ Deno.serve(async (req) => {
         return jsonResponse(200, { ok: false, reason: "row_failed", message: upErr.message });
       }
 
+      const stuMember = await grantMembership(supabase, orgId, created.user.id, "student");
+      if (!stuMember.ok) {
+        return jsonResponse(200, {
+          ok: false,
+          reason: "membership_failed",
+          message:
+            `The login was created but could not be attached to this organization, so the student ` +
+            `would sign in and land on the setup wizard instead of their portal. ` +
+            `Delete the account and try again. (${stuMember.message})`,
+        });
+      }
+
       const proof = await rotateAndProve(supabase, url, anonKey, created.user.id, loginEmail);
       await logAudit(supabase, orgId, { subject_type: "student", account_id: (acct as { id: string }).id, user_id: created.user.id, event: "account_created", detail: `username ${username}` });
       if (!proof.ok) return jsonResponse(200, { ok: false, reason: proof.reason, message: `Account created but login could not be proven: ${proof.detail ?? ""}` });
@@ -250,6 +304,21 @@ Deno.serve(async (req) => {
         return jsonResponse(200, { ok: false, reason: "row_failed", message: upErr.message });
       }
       const accountId = (acct as { id: string }).id;
+
+      // Before linking children or proving the login: without membership the
+      // parent can sign in but cannot read their own row, and the portal is
+      // unreachable. Fail here rather than reporting a success they cannot use.
+      const member = await grantMembership(supabase, orgId, created.user.id, "parent");
+      if (!member.ok) {
+        return jsonResponse(200, {
+          ok: false,
+          reason: "membership_failed",
+          message:
+            `The login was created but could not be attached to this organization, so the parent ` +
+            `would sign in and land on the setup wizard instead of the Parent Portal. ` +
+            `Delete the account and try again. (${member.message})`,
+        });
+      }
 
       // LINKING IS PART OF PROVISIONING, NOT A SIDE EFFECT.
       // This loop previously ended in `.then(() => {}, () => {})`, discarding
