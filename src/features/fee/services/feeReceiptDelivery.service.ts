@@ -314,8 +314,21 @@ class FeeReceiptDeliveryService extends BaseService {
           result.whatsappError = "No WhatsApp number on file (parent / guardian / student).";
         } else {
           const template = asCommsTemplate(BUILTIN_TEMPLATES_BY_KEY.fee_receipt);
+          const orgVars = await orgContextService.vars();
           const rendered = renderMessage(template, {
-            branch_name: (await orgContextService.vars()).org_name,
+            // ┌── org_name IS REQUIRED, NOT DECORATIVE ─────────────────────┐
+            // │ `smartark_fee_receipt` takes the organization name as its   │
+            // │ SEVENTH positional parameter. This bag previously carried   │
+            // │ only `branch_name`, so the moment that campaign went ACTIVE │
+            // │ every receipt would have posted an empty {{7}} — and Meta   │
+            // │ rejects an empty positional parameter, meaning receipts     │
+            // │ would stop being delivered entirely rather than arrive      │
+            // │ unsigned.                                                    │
+            // │                                                              │
+            // │ branch_name stays for the legacy campaign and the local body.│
+            // └──────────────────────────────────────────────────────────────┘
+            org_name: orgVars.org_name,
+            branch_name: orgVars.org_name,
             parent_name: parentName ?? fee.studentName ?? "",
             student_name: fee.studentName ?? "",
             class: className ?? "",

@@ -19,7 +19,7 @@ here cannot drift from what the system actually does.
 |---|---|---|
 | **READY** | 24 | dispatchable; whether it is switched on is per tenant — see the tenant columns |
 | **MISSING_TRIGGER** | 4 | registered, but nothing in the application dispatches it |
-| **PROVIDER_PENDING** | 2 | dispatchable, but sending via the LEGACY provider campaign — the organization-neutral template awaits Meta approval |
+| **ACTIVE** | 2 | enabled and able to send |
 | **BLOCKED** | 2 | structurally impossible until the named source exists |
 
 > **Reading this table.** `State` is CAPABILITY — what the system can do at
@@ -38,8 +38,8 @@ here cannot drift from what the system actually does.
 
 | Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
 |---|---|---|---|---|---|---|---|---|---|
-| `attendance_absent` | **PROVIDER_PENDING** | yes | yes | `attendance_absent` | PENDING | whatsapp | immediate | on | off |
-| `attendance_corrected` | **PROVIDER_PENDING** | yes | yes | `attendance_corrected` | PENDING | whatsapp | immediate | on | — |
+| `attendance_absent` | **ACTIVE** | yes | yes | `attendance_absent` | ACTIVE | whatsapp | immediate | on | off |
+| `attendance_corrected` | **ACTIVE** | yes | yes | `attendance_corrected` | ACTIVE | whatsapp | immediate | on | — |
 | `attendance_present` | **MISSING_TRIGGER** | no | yes | `attendance_present` | NONE | whatsapp | immediate | off | — |
 
 ## Fees
@@ -47,7 +47,7 @@ here cannot drift from what the system actually does.
 | Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
 |---|---|---|---|---|---|---|---|---|---|
 | `fee_due` | **READY** | yes | yes | `fee_due_reminder` | NONE | whatsapp | scheduled | off | off |
-| `fee_paid` | **READY** | yes | yes | `fee_receipt` | PENDING | both | immediate | on | off |
+| `fee_paid` | **READY** | yes | yes | `fee_receipt` | ACTIVE | both | immediate | on | off |
 
 ## Exams
 

@@ -59,6 +59,13 @@ vi.mock("@/integrations/supabase/client", () => {
     state: { row?: Record<string, unknown>; patch?: Record<string, unknown> },
     f: Record<string, unknown>,
   ) => {
+    // The tenant's own identity. Without this the mock returned nothing,
+    // org_name resolved to "" and the sign-off assertion proved nothing —
+    // while in production an EMPTY {{6}} is a parameter Meta rejects outright.
+    if (table === "organizations" && op === "select") {
+      return { data: { id: "org-1", display_name: ORG_NAME, legal_name: ORG_NAME, slug: "test-org" }, error: null };
+    }
+
     if (table === "students" && op === "select") {
       const ids = (f["id__in"] as string[]) ?? [];
       return { data: store.students.filter((s) => ids.includes(s.id as string)), error: null };
@@ -184,11 +191,20 @@ vi.mock("@/features/communication/services", () => ({
   commsAutomationSettingsService: { get: vi.fn(() => Promise.resolve(settings.value)) },
 }));
 
+import {
+  resolveCampaign,
+  PROVIDER_TEMPLATES_BY_KEY,
+} from "@/features/communication/constants/providerTemplates";
 import { attendanceWhatsappService } from "./attendanceWhatsapp.service";
 import { attendanceCommsService } from "./attendanceComms.service";
 import { commsAuditService } from "@/features/communication/services";
 
 const DATE = "2026-07-14";
+
+// The organization the mocked client belongs to. Deliberately NOT "ARK
+// Learning Arena": the assertion has to fail if the service ever reverts to a
+// hardcoded tenant name, and it cannot do that if the fixture uses that name.
+const ORG_NAME = "Test Institute";
 
 const student = (over: Record<string, unknown> = {}) => ({
   id: "stu-1",
@@ -231,20 +247,31 @@ describe("Attendance WhatsApp — immediate send", () => {
     expect(store.invokes).toHaveLength(1);
   });
 
-  it("calls AiSensy in DIRECT mode with the 5 ordered utility-template params", async () => {
+  it("calls AiSensy in DIRECT mode with the ordered utility-template params", async () => {
     await submit([{ studentId: "stu-1", status: "absent" }]);
 
     const body = store.invokes[0].body as { direct: { campaignName: string; templateParams: string[] } };
-    // The AiSensy CAMPAIGN name, not the internal template key.
-    expect(body.direct.campaignName).toBe("ark_attendance_absent");
-    // {{1}} parent {{2}} student {{3}} class {{4}} section {{5}} date
-    expect(body.direct.templateParams).toEqual([
-      "Ramesh Kumar",
-      "Aarav Kumar",
-      "10",
-      "A",
-      "14 Jul 2026",
-    ]);
+
+    // ── The campaign comes from resolveCampaign(), not from a constant ──
+    // This assertion is the whole point of the 2026-08-13 cutover. It used to
+    // expect `ark_attendance_absent`, because the service posted the hardcoded
+    // `template.providerName` and never consulted the provider lifecycle — so
+    // marking a student absent in ANY tenant's portal sent ARK's approved Meta
+    // body, signed "Thank you, ARK Learning Arena", to that tenant's parents.
+    const resolved = resolveCampaign("attendance_absent")!;
+    expect(body.direct.campaignName).toBe(resolved.campaign);
+
+    // Parameter COUNT follows the resolved campaign: the legacy template takes
+    // five, the organization-neutral one takes six with org_name appended last.
+    // Asserting against the declaration rather than a literal means a future
+    // rollback to the legacy campaign does not silently pass with six.
+    const declared = PROVIDER_TEMPLATES_BY_KEY.attendance_absent;
+    const expected = ["Ramesh Kumar", "Aarav Kumar", "10", "A", "14 Jul 2026"];
+    if (resolved.isMultiTenant) expected.push(ORG_NAME);
+    expect(body.direct.templateParams).toEqual(expected);
+    expect(body.direct.templateParams).toHaveLength(
+      resolved.isMultiTenant ? declared.params.length : declared.params.length - 1,
+    );
   });
 
   it("NEVER uses the queue — no row is ever written in 'queued' state", async () => {
@@ -450,9 +477,12 @@ describe("Attendance WhatsApp — correction (ABSENT → PRESENT)", () => {
     const last = store.invokes[store.invokes.length - 1].body as {
       direct: { campaignName: string; templateParams: string[] };
     };
-    expect(last.direct.campaignName).toBe("ark_attendance_corrected");
-    // {{1}} parent {{2}} student {{3}} date
-    expect(last.direct.templateParams).toEqual(["Ramesh Kumar", "Aarav Kumar", "14 Jul 2026"]);
+    const resolved = resolveCampaign("attendance_corrected")!;
+    expect(last.direct.campaignName).toBe(resolved.campaign);
+    // {{1}} parent {{2}} student {{3}} date  (+ {{4}} org_name once cut over)
+    const expected = ["Ramesh Kumar", "Aarav Kumar", "14 Jul 2026"];
+    if (resolved.isMultiTenant) expected.push(ORG_NAME);
+    expect(last.direct.templateParams).toEqual(expected);
   });
 
   it("sends NO correction when the parent was never notified", async () => {

@@ -164,43 +164,43 @@ TEMPLATE_PARAM_SPECS["ark_attendance_corrected"] = TEMPLATE_PARAM_SPECS["attenda
 // the existing mapping is preserved and only a trailing param is introduced.
 // KEEP IN LOCKSTEP with src/features/leads/utils/templateParams.ts.
 TEMPLATE_PARAM_SPECS["smartark_attendance_absent"] = (p) => [
-  val(p, "parent_name"),
-  val(p, "student_name"),
-  val(p, "class", "class_name", "batch_name"),
-  val(p, "section"),
-  val(p, "attendance_date", "date"),
-  val(p, "org_name"),
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "class", "class_name", "batch_name"),
+  tVal(p, "section"),
+  tVal(p, "attendance_date", "date"),
+  tVal(p, "org_name"),
 ];
 TEMPLATE_PARAM_SPECS["smartark_attendance_corrected"] = (p) => [
-  val(p, "parent_name"),
-  val(p, "student_name"),
-  val(p, "attendance_date", "date"),
-  val(p, "org_name"),
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "attendance_date", "date"),
+  tVal(p, "org_name"),
 ];
 TEMPLATE_PARAM_SPECS["smartark_staff_credentials1"] = (p) => [
-  val(p, "staff_name"),
-  val(p, "role"),
-  val(p, "login_email"),
-  val(p, "password"),
-  val(p, "login_url"),
-  val(p, "org_name"),
+  tVal(p, "staff_name"),
+  tVal(p, "role"),
+  tVal(p, "login_email"),
+  tVal(p, "password"),
+  tVal(p, "login_url"),
+  tVal(p, "org_name"),
 ];
 TEMPLATE_PARAM_SPECS["smartark_student_credentials1"] = (p) => [
-  val(p, "parent_name"),
-  val(p, "student_name"),
-  val(p, "login_email"),
-  val(p, "password"),
-  val(p, "login_url"),
-  val(p, "org_name"),
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "login_email"),
+  tVal(p, "password"),
+  tVal(p, "login_url"),
+  tVal(p, "org_name"),
 ];
 TEMPLATE_PARAM_SPECS["smartark_fee_receipt"] = (p) => [
-  val(p, "parent_name"),
-  val(p, "student_name"),
-  val(p, "class", "class_name"),
-  val(p, "receipt_no"),
-  val(p, "amount_paid"),
-  val(p, "pending_balance"),
-  val(p, "org_name"),
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "class", "class_name"),
+  tVal(p, "receipt_no"),
+  tVal(p, "amount_paid"),
+  tVal(p, "pending_balance"),
+  tVal(p, "org_name"),
 ];
 // ── Credential redaction ────────────────────────────────────────────────────
 // A credential message must carry the password to be rendered and posted, so it

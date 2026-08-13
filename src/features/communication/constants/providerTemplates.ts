@@ -101,7 +101,7 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "This is to inform you that {{2}} (Class {{3}} - {{4}}) was marked ABSENT on {{5}}.\n\n" +
       "If your child was present or if this attendance was marked incorrectly, please contact the school office.\n\n" +
       "Thank you,\n{{6}}",
-    status: "READY_FOR_SUBMISSION",
+    status: "ACTIVE",
   },
   {
     key: "attendance_corrected",
@@ -114,7 +114,7 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "Dear {{1}},\n\n" +
       "This is to inform you that the attendance for {{2}} on {{3}} has been corrected to PRESENT.\n\n" +
       "Thank you.\n\n{{4}}",
-    status: "READY_FOR_SUBMISSION",
+    status: "ACTIVE",
   },
   {
     key: "staff_credentials",
@@ -141,8 +141,20 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "Role: {{2}}\nLogin Email: {{3}}\nTemporary Password: {{4}}\nPortal: {{5}}\n\n" +
       "Please sign in and change your password after the first login. Keep these details confidential.\n\n" +
       "Thank you,\n{{6}}",
-    status: "READY_FOR_SUBMISSION",
-    note: "Credential value is supplied at trigger time and never persisted — see Phase C2.",
+    status: "REJECTED",
+    note:
+      "REJECTED BY META on the 2026-08-13 submission — the SECOND rejection of this " +
+      "design. The structural faults were already fixed (no duplicate parameter, " +
+      "ascending order), so the remaining cause is the content: the message carries a " +
+      "plaintext password, which Meta routes to the Authentication category. An " +
+      "Authentication template cannot carry free-form Role / Login Email / Portal " +
+      "fields, so this shape cannot be made to fit. " +
+      "DO NOT RESUBMIT IT — `smartark_staff_credentials1` is now burned as a name too. " +
+      "The replacement is the set-password-link flow in AISENSY_CREDENTIAL_TEMPLATE_REVIEW.md §5, " +
+      "which carries no secret at all. Staff credentials continue to send through the " +
+      "legacy `staff_credentials` campaign meanwhile — resolveCampaign() returns it for " +
+      "every status except ACTIVE, so nothing about the live flow changed. " +
+      "Credential value is supplied at trigger time and never persisted — see Phase C2.",
   },
   {
     key: "student_credentials",
@@ -161,7 +173,12 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "Login Email: {{3}}\nTemporary Password: {{4}}\nPortal: {{5}}\n\n" +
       "Please sign in and change your password after the first login. Keep these details confidential.\n\n" +
       "Thank you,\n{{6}}",
-    status: "READY_FOR_SUBMISSION",
+    status: "REJECTED",
+    note:
+      "REJECTED BY META alongside smartark_staff_credentials1, for the same reason: the " +
+      "body carries a plaintext password. See that entry's note. DO NOT RESUBMIT this " +
+      "design — the name is burned. Parent Portal credentials continue on the legacy " +
+      "`parent_credentials` campaign.",
   },
   {
     key: "fee_receipt",
@@ -174,7 +191,7 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "Dear {{1}}, we have received a fee payment for {{2}} (Class {{3}}).\n" +
       "Receipt No: {{4}}\nAmount Paid: ₹{{5}}\nPending Balance: ₹{{6}}\n" +
       "Thank you. — {{7}}",
-    status: "READY_FOR_SUBMISSION",
+    status: "ACTIVE",
     note:
       "fee_paid executes through feeReceiptDelivery.service — a LEGACY WORKING FLOW that is " +
       "deliberately not migrated. This entry exists so the campaign can be approved ahead of " +

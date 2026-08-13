@@ -56,6 +56,7 @@ import {
 import { isWithinQuietHours } from "@/features/communication/utils/automationRules";
 import { normalizePhone, validateEnqueue } from "@/features/communication/utils/commsValidation";
 import { buildTemplateParams } from "@/features/leads/utils/templateParams";
+import { resolveCampaign } from "@/features/communication/constants/providerTemplates";
 import type { AutomationSetting } from "@/features/communication/types/communication.types";
 import { orgContextService } from "@/features/communication/services/orgContext.service";
 
@@ -641,12 +642,58 @@ class AttendanceWhatsappService extends BaseService {
     }
 
     // 5. SEND — synchronous provider call. Right now, not later.
-    const templateParams = buildTemplateParams(contextType, {
+    //
+    // ┌── WHY resolveCampaign() AND NOT template.providerName ─────────────┐
+    // │ This call site used to post `template.providerName`, which is the  │
+    // │ hardcoded `ark_attendance_absent` in whatsappTemplates.ts. That    │
+    // │ bypassed the provider-template lifecycle entirely: marking a       │
+    // │ student absent in ANY tenant's portal sent ARK's approved Meta     │
+    // │ body, signed "Thank you, ARK Learning Arena", to that tenant's     │
+    // │ parents — and flipping a status in providerTemplates.ts changed    │
+    // │ nothing, because nothing here read it.                             │
+    // │                                                                    │
+    // │ Attendance is the highest-volume automation on the platform, so    │
+    // │ the one path that mattered most was the one the lifecycle did not  │
+    // │ govern. It does now.                                               │
+    // └────────────────────────────────────────────────────────────────────┘
+    const resolved = resolveCampaign(contextType);
+    const campaignName = resolved?.campaign ?? template.providerName ?? contextType;
+
+    // Params are keyed on the RESOLVED CAMPAIGN, not the template key. The two
+    // have different arities — `attendance_absent` declares five parameters and
+    // `smartark_attendance_absent` declares six, the sixth being org_name.
+    // Building against the key would post five values into a six-parameter
+    // template and Meta would reject the send.
+    const templateParams = buildTemplateParams(campaignName, {
       ...rendered.variables,
       __body: rendered.body,
     });
+    // ── Refuse to burn a provider call on a message Meta will reject ──────
+    // An empty positional parameter is rejected outright. `section` already
+    // had a "-" fallback for this reason; org_name is now load-bearing too —
+    // it is {{6}} of the organization-neutral campaign — and an organization
+    // whose identity failed to resolve would otherwise turn every attendance
+    // notice into a provider error that reads like an outage.
+    const emptyAt = templateParams.findIndex((p) => !String(p ?? "").trim());
+    if (emptyAt >= 0) {
+      const reason =
+        `Refused to send: parameter {{${emptyAt + 1}}} of ${campaignName} is empty. ` +
+        `Meta rejects an empty positional parameter.`;
+      await this.finalize(claim.id, { ok: false, error: reason });
+      await this.logWhatsapp({
+        contextType, studentId: facts.id, studentName, date,
+        recipientName: parentName, phone: facts.phone, body: rendered.body,
+        variables: rendered.variables, status: "failed", error: reason, actorId,
+      });
+      await commsAuditService.log({
+        entityType: "automation", entityId: facts.id, action: "fail", actorId,
+        payload: { event: contextType, result: "empty_template_param", campaign: campaignName },
+      });
+      return { outcome: "failed", error: reason };
+    }
+
     const out = await this.sendNow({
-      campaignName: template.providerName ?? contextType,
+      campaignName,
       destination: facts.phone,
       templateParams,
       userName: parentName,

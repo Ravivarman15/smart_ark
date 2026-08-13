@@ -135,6 +135,14 @@ describe("buildTemplateParams", () => {
       "smartark_staff_credentials1",
       "smartark_student_credentials1",
       "smartark_fee_receipt",
+      // ── Legacy campaign-name aliases ──────────────────────────────────
+      // attendanceWhatsapp.service now looks specs up by the RESOLVED
+      // CAMPAIGN rather than the template key, so the `ark_`-prefixed names
+      // must resolve too. Without them buildTemplateParams falls through to
+      // the single-body parameter and ARK's live five-parameter attendance
+      // template silently starts receiving one.
+      "ark_attendance_absent",
+      "ark_attendance_corrected",
     ]);
   });
 

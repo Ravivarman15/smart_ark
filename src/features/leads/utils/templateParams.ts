@@ -180,6 +180,31 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
 };
 
 
+// ── Legacy CAMPAIGN-name aliases ────────────────────────────────────────────
+//
+// ┌── WHY THESE ARE REQUIRED ──────────────────────────────────────────────┐
+// │ Callers used to look these specs up by the internal TEMPLATE KEY       │
+// │ (`attendance_absent`). Since attendanceWhatsapp.service now resolves   │
+// │ the campaign through resolveCampaign() — so the provider lifecycle     │
+// │ actually governs what is sent — the lookup key became the CAMPAIGN     │
+// │ NAME, which before approval is the legacy `ark_`-prefixed one.         │
+// │                                                                        │
+// │ Without these aliases buildTemplateParams() would find no spec, fall   │
+// │ back to posting the whole rendered body as a single {{1}}, and ARK's   │
+// │ live five-parameter attendance template would start receiving one      │
+// │ parameter. That is a silent break of a working production flow, so the │
+// │ aliases go in at the same commit as the resolveCampaign() switch.      │
+// │                                                                        │
+// │ send-aisensy/index.ts has carried the identical two aliases since the  │
+// │ drain loop began looking rows up by `row.template` (the campaign name) │
+// │ — this is that same mapping, on the app side.                          │
+// └────────────────────────────────────────────────────────────────────────┘
+SPECS["ark_attendance_absent"] = SPECS["attendance_absent"];
+SPECS["ark_attendance_corrected"] = SPECS["attendance_corrected"];
+// The credential and fee-receipt legacy campaigns already share their name
+// with the template key (`staff_credentials`, `fee_receipt`), except this one.
+SPECS["parent_credentials"] = SPECS["parent_credentials"] ?? SPECS["student_credentials"];
+
 /** Templates that use ordered positional params (vs the single-body fallback). */
 export const POSITIONAL_TEMPLATES = Object.keys(SPECS);
 
