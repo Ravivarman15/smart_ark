@@ -559,12 +559,11 @@ describe("TEST 11 — branding is required, never defaulted", () => {
     // rasterise an unbranded document — a bug that reproduces about half the
     // time, which is the worst kind.
     //
-    // Checked PER RENDERER, not per file. A file-wide indexOf comparison held
-    // only while each file had exactly ONE off-screen renderer; the moment
-    // receipt.ts gained a second (receiptToBrandedPrintHtml, which prints the
-    // parent's copy) the first `root.render(` belonged to a different function
-    // than the first `resolveDocumentBranding()` and the check compared two
-    // unrelated call sites.
+    // Checked PER RENDERER, not per file. A file-wide indexOf comparison only
+    // held while each file had exactly ONE off-screen renderer: the moment a
+    // second appeared, the first `root.render(` belonged to a different
+    // function than the first `resolveDocumentBranding()` and the check
+    // silently compared two unrelated call sites.
     //
     // There are two legitimate ways to have branding in hand before mounting:
     //   1. await the resolver inside the function, or

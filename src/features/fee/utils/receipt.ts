@@ -129,65 +129,6 @@ export const receiptPrintDocument = (innerHtml: string, title: string): string =
   `</body></html>`;
 
 /**
- * Render the canonical branded receipt to a standalone printable document.
- *
- * ┌── WHY THIS EXISTS ─────────────────────────────────────────────────────┐
- * │ The parent portal used to hand-build its own receipt HTML — a second   │
- * │ design with its own table, its own footer and its own field list. It   │
- * │ was tenant-branded, so it was not WRONG, but it meant the receipt a    │
- * │ parent downloads looked nothing like the receipt the front desk        │
- * │ issues for the same payment, and any change to the real receipt        │
- * │ silently skipped the parent-facing one.                                 │
- * │                                                                        │
- * │ This mounts the SAME `ReceiptBody` component the staff dialog and the  │
- * │ emailed PDF use, then lifts its markup. One receipt design, three      │
- * │ delivery routes.                                                        │
- * └────────────────────────────────────────────────────────────────────────┘
- *
- * Mirrors `receiptToPdfBlob`: mount off-screen, wait for the logo to load (an
- * unloaded <img> would be lifted as a broken image), read the markup, unmount.
- * Dynamic imports keep React-DOM and the dialog chunk out of the main bundle.
- *
- * `branding` is a REQUIRED parameter, not resolved inside, so the caller's
- * already-loaded branding is used and there is no second fetch to race.
- */
-export const receiptToBrandedPrintHtml = async (
-  r: ReceiptData,
-  branding: import("@/features/branding/documents").DocumentBranding,
-): Promise<string> => {
-  if (typeof document === "undefined") {
-    throw new Error("Receipt rendering requires a browser environment.");
-  }
-  const [{ createElement }, { createRoot }, { ReceiptBody }] = await Promise.all([
-    import("react"),
-    import("react-dom/client"),
-    import("../components/FeeReceiptDialog"),
-  ]);
-
-  const host = document.createElement("div");
-  host.style.position = "fixed";
-  host.style.left = "-99999px";
-  host.style.top = "0";
-  host.style.width = "760px";
-  host.style.background = "#ffffff";
-  document.body.appendChild(host);
-
-  const root = createRoot(host);
-  try {
-    root.render(createElement(ReceiptBody, { receipt: r, branding }));
-    await waitForImages(host);
-    const node = host.querySelector("#fee-receipt") as HTMLElement | null;
-    return receiptPrintDocument(
-      (node ?? host).outerHTML,
-      `Receipt — ${r.receiptNo}`,
-    );
-  } finally {
-    root.unmount();
-    host.remove();
-  }
-};
-
-/**
  * Render the receipt to an A4 PDF Blob for emailing / archival. Renders the SAME
  * branded `ReceiptBody` the on-screen receipt dialog uses (organization logo +
  * its own header colours, meta grid, amount band, signatory) — one receipt

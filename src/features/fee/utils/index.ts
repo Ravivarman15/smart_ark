@@ -24,9 +24,8 @@ export {
   buildReceipt,
   receiptToHtml,
   printReceipt,
-  // The shared page shell + the canonical branded renderer. Exported so any
-  // future receipt surface reuses ReceiptBody instead of hand-rolling a second
-  // design, which is exactly how the parent portal drifted.
+  // The shared print-window page shell. Exported so any receipt surface wraps
+  // ReceiptBody the same way instead of hand-rolling a second document, which
+  // is exactly how the parent portal drifted.
   receiptPrintDocument,
-  receiptToBrandedPrintHtml,
 } from "./receipt";

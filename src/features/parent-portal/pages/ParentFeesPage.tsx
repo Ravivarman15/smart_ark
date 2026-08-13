@@ -3,6 +3,7 @@
 // insights bundle, so the ledger a parent sees is byte-for-byte the ledger the
 // front desk sees.
 
+import { Suspense, lazy, useEffect, useState } from "react";
 import { CreditCard, Receipt } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveChild } from "../providers/ActiveChildProvider";
@@ -20,27 +21,37 @@ import {
   formatDate,
   inr,
 } from "../components/primitives";
-import { toast } from "sonner";
-import { closeReportWindow, openReportWindow, renderReportWindow } from "@/lib/reportWindow";
-import { useDocumentBranding } from "@/features/branding/documents";
-import { receiptToBrandedPrintHtml } from "@/features/fee/utils/receipt";
+import type { ReceiptData } from "@/features/fee";
 
-// ┌── ONE RECEIPT DESIGN, NOT TWO ─────────────────────────────────────────┐
-// │ This page used to hand-build its own receipt HTML — a simple table with │
-// │ its own field list and footer. It was tenant-branded, so it was not     │
-// │ wrong, but it was a SECOND design: the proof of payment a parent        │
-// │ downloaded looked nothing like the receipt the front desk issues for    │
-// │ the very same payment, and every improvement to the real receipt        │
-// │ silently skipped the parent-facing one.                                 │
-// │                                                                         │
-// │ It now renders the canonical `ReceiptBody` — the same component behind  │
-// │ the staff receipt dialog and the emailed PDF — via                      │
-// │ `receiptToBrandedPrintHtml`. Three delivery routes, one document.       │
-// │                                                                         │
-// │ The window is opened SYNCHRONOUSLY before the await: a popup opened     │
-// │ after an await is blocked, which is the app-wide blank-print bug that   │
-// │ `openReportWindow` exists to prevent.                                    │
-// └─────────────────────────────────────────────────────────────────────────┘
+// ┌── THE RECEIPT OPENS IN PLACE, NOT IN A NEW TAB ────────────────────────┐
+// │ Two earlier shapes were both wrong for a parent:                       │
+// │                                                                        │
+// │  1. This page hand-built its own receipt HTML — a plain table with its │
+// │     own fields and footer. Tenant-branded, so not WRONG, but a SECOND  │
+// │     design: the proof of payment a parent downloaded looked nothing    │
+// │     like the receipt the front desk issues for the same payment, and   │
+// │     every improvement to the real receipt skipped this one.            │
+// │                                                                        │
+// │  2. It then rendered the canonical receipt into a POPUP WINDOW. Right  │
+// │     document, wrong delivery: a parent tapping "Receipt" on a phone    │
+// │     got a new tab and, half the time, a pop-up blocker warning         │
+// │     instead of their receipt.                                          │
+// │                                                                        │
+// │ It now opens `FeeReceiptDialog` inline — the exact component the staff │
+// │ receipt uses (StudentProfileDrawer mounts it the same way), with its   │
+// │ own Print and Download PDF/PNG actions. Nothing to unblock, nothing to │
+// │ navigate away from.                                                     │
+// │                                                                        │
+// │ LAZY, deliberately: the dialog pulls html2canvas + jsPDF (~600 kB) for │
+// │ its download actions. A static import would put that in the bundle of  │
+// │ a page parents open on mobile data to check a balance. It is prefetched│
+// │ as soon as we know receipts exist, so the click still feels instant.   │
+// └────────────────────────────────────────────────────────────────────────┘
+const loadReceiptDialog = () =>
+  import("@/features/fee/components/FeeReceiptDialog").then((m) => ({
+    default: m.FeeReceiptDialog,
+  }));
+const FeeReceiptDialog = lazy(loadReceiptDialog);
 
 export const ParentFeesPage = () => {
   const { parent } = useAuth();
@@ -48,9 +59,16 @@ export const ParentFeesPage = () => {
   const student = activeChild?.student;
   const { data: insights, isLoading, error } = useChildInsights(student?.id);
   const fee = insights?.fee;
-  const { branding } = useDocumentBranding();
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
-  const printReceipt = async (r: {
+  // Warm the dialog chunk once we know this child actually has receipts, so the
+  // first tap opens instantly rather than waiting on a network round-trip.
+  const hasReceipts = (fee?.receipts.length ?? 0) > 0;
+  useEffect(() => {
+    if (hasReceipts) void loadReceiptDialog();
+  }, [hasReceipts]);
+
+  const openReceipt = (r: {
     id: string;
     amount: number;
     date: string;
@@ -58,35 +76,20 @@ export const ParentFeesPage = () => {
     receiptNo?: string;
   }) => {
     if (!student || !fee) return;
-    const win = openReportWindow();
-    if (!win) return;
 
-    try {
-      const html = await receiptToBrandedPrintHtml(
-        {
-          receiptNo: r.receiptNo ?? "—",
-          studentName: student.name,
-          // The dialog labels this "Class & Batch"; the parent's own child
-          // record is the only source available here.
-          batchName:
-            [student.standardName, student.section].filter(Boolean).join(" · ") || undefined,
-          amount: r.amount,
-          paymentMethod: r.method,
-          date: formatDate(r.date),
-          amountReceivedToDate: fee.received,
-          amountPending: fee.pending,
-        },
-        branding,
-      );
-      renderReportWindow(html, win);
-    } catch (err) {
-      // Never leave the parent staring at the "Preparing your report…"
-      // placeholder forever if the off-screen render throws.
-      console.error("Failed to render receipt:", err);
-      closeReportWindow(win);
-      toast.error("Could not prepare the receipt. Please try again.");
-      return;
-    }
+    setReceipt({
+      receiptNo: r.receiptNo ?? "—",
+      studentName: student.name,
+      // The receipt labels this "Class & Batch"; the parent's own child record
+      // is the only source available here.
+      batchName:
+        [student.standardName, student.section].filter(Boolean).join(" · ") || undefined,
+      amount: r.amount,
+      paymentMethod: r.method,
+      date: formatDate(r.date),
+      amountReceivedToDate: fee.received,
+      amountPending: fee.pending,
+    });
 
     if (parent) {
       void parentAuditService.log({
@@ -172,7 +175,7 @@ export const ParentFeesPage = () => {
                       </p>
                     </div>
                     <button
-                      onClick={() => printReceipt(r)}
+                      onClick={() => openReceipt(r)}
                       className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-accent hover:border-accent/40 transition-colors"
                     >
                       <Receipt className="w-3.5 h-3.5" /> Receipt
@@ -198,6 +201,16 @@ export const ParentFeesPage = () => {
             </Card>
           )}
         </>
+      )}
+
+      {/* Mounted only once a receipt is chosen, so the lazy chunk is never
+          fetched for a parent who only ever looks at the balance. `null`
+          fallback rather than a spinner: the chunk is prefetched above, so a
+          flash of loading UI would be noise in the common case. */}
+      {receipt && (
+        <Suspense fallback={null}>
+          <FeeReceiptDialog receipt={receipt} onOpenChange={(o) => !o && setReceipt(null)} />
+        </Suspense>
       )}
     </div>
   );
