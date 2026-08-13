@@ -17,6 +17,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   FORM_TYPES, FORM_TYPE_DEFS, FIELD_LIMITS, MAX_PAYLOAD_BYTES,
+  WHATSAPP_TEMPLATES, SENDABLE_STATUS,
   collectedFields, isValidEmail, normalizePhone, present, sanitizeText, NOT_PROVIDED,
 } from "../../../supabase/functions/_shared/publicForms";
 
@@ -378,17 +379,23 @@ describe("unapproved WhatsApp templates cannot send and cannot break a submissio
   const fn = read(FN);
 
   it("both campaigns are declared unapproved", () => {
-    expect(fn).toMatch(/smartark_platform_lead_alert: "READY_FOR_SUBMISSION"/);
-    expect(fn).toMatch(/smartark_public_form_ack: "READY_FOR_SUBMISSION"/);
+    // Read from the shared contract, which is now the single source of truth
+    // for status AND parameter order — see §12b for why they live together.
+    expect(WHATSAPP_TEMPLATES.smartark_platform_lead_alert.status).toBe("READY_FOR_SUBMISSION");
+    expect(WHATSAPP_TEMPLATES.smartark_public_form_ack.status).toBe("READY_FOR_SUBMISSION");
   });
 
   it("only ACTIVE may send", () => {
-    expect(fn).toMatch(/const SENDABLE = "ACTIVE"/);
-    expect(fn).toMatch(/if \(status !== SENDABLE\)/);
+    expect(SENDABLE_STATUS).toBe("ACTIVE");
+    expect(fn).toMatch(/if \(status !== SENDABLE_STATUS\)/);
   });
 
   it("an unapproved template is recorded as skipped, never thrown", () => {
-    const block = fn.slice(fn.indexOf("if (status !== SENDABLE)"), fn.indexOf("// Never let a blank"));
+    const block = fn.slice(
+      fn.indexOf("if (status !== SENDABLE_STATUS)"),
+      fn.indexOf("// ── The parameter count must match"),
+    );
+    expect(block.length, "guard block not found — the test is stale").toBeGreaterThan(50);
     expect(block).toMatch(/status: "skipped"/);
     expect(block).not.toMatch(/throw/);
   });
@@ -400,6 +407,81 @@ describe("unapproved WhatsApp templates cannot send and cannot break a submissio
   it("reuses the existing send-aisensy engine rather than calling the provider", () => {
     expect(fn).toMatch(/functions\.invoke\("send-aisensy"/);
     expect(fn, "must not talk to AiSensy directly").not.toMatch(/api\.aisensy|backend\.aisensy/);
+  });
+});
+
+// ── 12b ──────────────────────────────────────────────────────────────────────
+describe("the WhatsApp parameter contract cannot drift from the code", () => {
+  // THE DEFECT THIS CATCHES: the recommended `smartark_public_form_ack` body
+  // used four placeholders while the function posted three. Meta would have
+  // approved the template and the FIRST REAL SEND would have failed on a count
+  // mismatch — after approval, when it is most expensive to discover.
+  const fn = read(FN);
+
+  /** The literal array each call site posts, parsed out of the source. */
+  const builtParams = (marker: string): number => {
+    const at = fn.indexOf(marker);
+    expect(at, `call site "${marker}" not found — the test is stale`).toBeGreaterThan(0);
+    const open = fn.indexOf("params: [", at);
+    const close = fn.indexOf("]", open);
+    const inner = fn.slice(open + "params: [".length, close);
+    return inner.split(",").map((s) => s.trim()).filter(Boolean).length;
+  };
+
+  it("every campaign the registry references is declared", () => {
+    for (const t of FORM_TYPES) {
+      const d = FORM_TYPE_DEFS[t];
+      expect(WHATSAPP_TEMPLATES[d.adminCampaign], `${d.adminCampaign} undeclared`).toBeTruthy();
+      expect(WHATSAPP_TEMPLATES[d.submitterCampaign], `${d.submitterCampaign} undeclared`).toBeTruthy();
+    }
+  });
+
+  it("the admin alert builds exactly its declared parameter count", () => {
+    expect(builtParams("campaign: def.adminCampaign"))
+      .toBe(WHATSAPP_TEMPLATES.smartark_platform_lead_alert.params.length);
+  });
+
+  it("the submitter confirmation builds exactly its declared parameter count", () => {
+    expect(builtParams("campaign: def.submitterCampaign"))
+      .toBe(WHATSAPP_TEMPLATES.smartark_public_form_ack.params.length);
+  });
+
+  it("the function refuses to send on a count mismatch", () => {
+    expect(fn).toMatch(/a\.params\.length !== def\.params\.length/);
+    expect(fn).toMatch(/parameter count mismatch/);
+  });
+
+  it("each declared contract satisfies Meta's structural rules", () => {
+    for (const [campaign, def] of Object.entries(WHATSAPP_TEMPLATES)) {
+      expect(def.params.length, `${campaign} declares no parameters`).toBeGreaterThan(0);
+      // Placeholders {{1}}..{{n}} must ascend with no gaps, and each may be
+      // used only once — which a positional array gives us by construction.
+      // What must be checked is that no SLOT is duplicated by name in a way
+      // that suggests a copy-paste error, except the deliberate sign-off.
+      const dupes = def.params.filter((p, i) => def.params.indexOf(p) !== i);
+      expect(dupes, `${campaign} repeats a parameter slot: ${dupes.join(", ")}`).toEqual([]);
+    }
+  });
+
+  it("no template is marked ACTIVE without approval", () => {
+    // The whole gate: an unapproved template must not be sendable.
+    for (const [campaign, def] of Object.entries(WHATSAPP_TEMPLATES)) {
+      if (def.status === SENDABLE_STATUS) {
+        // If someone flips one to ACTIVE, this forces them to have recorded
+        // the approval in the submission doc at the same time.
+        expect(
+          read("docs/PUBLIC_FORM_WHATSAPP_TEMPLATES.md"),
+          `${campaign} is ACTIVE but the doc does not record Meta approval`,
+        ).toMatch(new RegExp(`${campaign}[\\s\\S]{0,400}?APPROVED`));
+      }
+    }
+  });
+
+  it("status and parameter order live in ONE place", () => {
+    // A second status map in the function is how they drifted before.
+    expect(fn, "the function re-declares template status locally")
+      .not.toMatch(/const WHATSAPP_TEMPLATE_STATUS/);
+    expect(fn).toMatch(/WHATSAPP_TEMPLATES\[a\.campaign\]/);
   });
 });
 

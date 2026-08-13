@@ -396,10 +396,16 @@ VALUES ('customer_success', 'platform.leads.notify');
 See [`PUBLIC_FORM_WHATSAPP_TEMPLATES.md`](./PUBLIC_FORM_WHATSAPP_TEMPLATES.md)
 for the copy-paste bodies.
 
-After Meta approves a campaign, flip its entry in
-`WHATSAPP_TEMPLATE_STATUS` in `supabase/functions/public-form/index.ts` from
-`READY_FOR_SUBMISSION` to `ACTIVE` and redeploy. That single edit is the entire
-cutover; nothing else changes. Rolling back is the same edit in reverse.
+After Meta approves a campaign, flip its `status` in `WHATSAPP_TEMPLATES` in
+`supabase/functions/_shared/publicForms.ts` from `READY_FOR_SUBMISSION` to
+`ACTIVE` and redeploy. That single edit is the entire cutover; nothing else
+changes. Rolling back is the same edit in reverse.
+
+Status sits in the same object as the positional parameter order deliberately:
+the two are one contract with Meta, and keeping them in separate files is how
+they drifted the first time (a four-placeholder body against a three-parameter
+call). A build gate now parses the literal array at each call site and fails if
+it disagrees with the declaration.
 
 **Do not mark either template ACTIVE before approval.** The gate exists so an
 unapproved template cannot be sent and cannot break a submission.
@@ -423,8 +429,11 @@ supplied.
 
 ## 18. What is not done
 
-1. **Both WhatsApp templates are unapproved**, so no WhatsApp message has been
-   or can be sent. Email is fully live.
+1. **Both WhatsApp templates are unapproved by Meta**, so no WhatsApp message
+   has been or can be sent. This is the one remaining item and it is entirely
+   outside the repository — see
+   [`PUBLIC_FORM_WHATSAPP_TEMPLATES.md`](./PUBLIC_FORM_WHATSAPP_TEMPLATES.md)
+   for the copy-paste bodies. Email is fully live and verified.
 2. **No super admin has a phone number yet**, so even after approval the admin
    WhatsApp fan-out sends nothing until §15 step 1 is done.
 3. **No console dashboard page was built** for `platform_form_notifications`.

@@ -38,6 +38,7 @@ import { sendBrevoEmail } from "../_shared/brevo.ts";
 import { renderEmail } from "../_shared/email-templates.ts";
 import {
   FORM_TYPE_DEFS, FIELD_LIMITS, MAX_PAYLOAD_BYTES,
+  WHATSAPP_TEMPLATES, SENDABLE_STATUS,
   collectedFields, isValidEmail, normalizePhone, present, sanitizeText,
   type FormType,
 } from "../_shared/publicForms.ts";
@@ -54,20 +55,15 @@ interface Recipient {
 }
 
 /**
- * WhatsApp campaigns for this feature.
+ * WhatsApp approval state lives in the shared contract
+ * (_shared/publicForms.ts), alongside the positional parameter order it has to
+ * agree with. Keeping the status here and the order there is exactly how the
+ * two drifted apart the first time.
  *
- * Both are UNAPPROVED. Meta has not seen either, so neither may send — and a
- * template awaiting approval must not take the form submission down with it.
- * The pipeline records `skipped` with the reason and carries on; flipping
- * these to "ACTIVE" after approval is the entire cutover.
- *
- * Mirrors the lifecycle in src/features/communication/constants/providerTemplates.ts.
+ * Both campaigns are currently READY_FOR_SUBMISSION: Meta has not seen either,
+ * so neither may send — and a template awaiting approval must never take a
+ * form submission down with it.
  */
-const WHATSAPP_TEMPLATE_STATUS: Record<string, string> = {
-  smartark_platform_lead_alert: "READY_FOR_SUBMISSION",
-  smartark_public_form_ack: "READY_FOR_SUBMISSION",
-};
-const SENDABLE = "ACTIVE";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -375,8 +371,10 @@ async function notify(
         submissionId: ctx.submissionId, recipientRef: ctx.clean.email,
         campaign: def.submitterCampaign, phone: ctx.submitterPhone,
         userName: ctx.clean.name,
-        // {{1}} name {{2}} platform_name {{3}} form_type
-        params: [ctx.clean.name, brand.orgName, def.label],
+        // {{1}} name {{2}} platform_name {{3}} form_type {{4}} platform_name
+        // The brand appears twice by design — greeting and sign-off. Meta
+        // forbids reusing a PLACEHOLDER, not passing one value to two of them.
+        params: [ctx.clean.name, brand.orgName, def.label, brand.orgName],
       });
       if (delivered) ctx.notified.submitterWhatsapp += 1;
     }
@@ -397,13 +395,30 @@ async function sendWhatsapp(
     phone: string; userName: string; params: string[];
   },
 ): Promise<boolean> {
-  const status = WHATSAPP_TEMPLATE_STATUS[a.campaign] ?? "UNKNOWN";
-  if (status !== SENDABLE) {
+  const def = WHATSAPP_TEMPLATES[a.campaign];
+  const status = def?.status ?? "UNKNOWN";
+  if (status !== SENDABLE_STATUS) {
     // An unapproved template is a known, expected state — not an outage, and
     // emphatically not a reason to fail the submission.
     await settleRaw(supabase, a.submissionId, a.recipientRef, "whatsapp", {
       status: "skipped",
-      error: `template ${a.campaign} is ${status}, not ${SENDABLE} — awaiting Meta approval`,
+      error: `template ${a.campaign} is ${status}, not ${SENDABLE_STATUS} — awaiting Meta approval`,
+      providerMessageId: null,
+    });
+    return false;
+  }
+
+  // ── The parameter count must match what Meta approved ──────────────────
+  // A count mismatch is not a provider outage, it is our bug, and it surfaces
+  // only on the first real send AFTER approval — the most expensive moment to
+  // find it. Checked here against the declared contract so the ledger names
+  // the actual cause instead of relaying a generic provider rejection.
+  if (a.params.length !== def.params.length) {
+    await settleRaw(supabase, a.submissionId, a.recipientRef, "whatsapp", {
+      status: "failed",
+      error:
+        `parameter count mismatch: built ${a.params.length}, ` +
+        `${a.campaign} declares ${def.params.length} (${def.params.join(", ")})`,
       providerMessageId: null,
     });
     return false;

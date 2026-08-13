@@ -99,6 +99,54 @@ export const FORM_TYPE_DEFS: Record<FormType, FormTypeDef> = {
   },
 };
 
+// ── The WhatsApp parameter contract ─────────────────────────────────────────
+//
+// ┌── WHY THIS EXISTS ─────────────────────────────────────────────────────┐
+// │ The submitted Meta body and the array the code posts are two halves of │
+// │ one contract, kept in two files. They had already drifted once: the    │
+// │ recommended `smartark_public_form_ack` body used four placeholders and │
+// │ the function posted three. Meta would have approved the template and   │
+// │ the first real send would have failed on a parameter count mismatch —  │
+// │ after approval, when it is most expensive to discover.                 │
+// │                                                                        │
+// │ So the ORDER is declared here, once, as data. The function builds its  │
+// │ array against it and a build gate asserts the two agree, which is what │
+// │ makes the drift impossible rather than merely unlikely.                │
+// └────────────────────────────────────────────────────────────────────────┘
+//
+// Every entry satisfies Meta's structural rules: each parameter appears once,
+// they ascend with no gaps, and the declared count equals the highest {{n}} in
+// the submitted body.
+export interface WhatsappTemplateDef {
+  campaign: string;
+  /** Positional order, {{1}}…{{n}}. The contract with Meta. */
+  params: string[];
+  /**
+   * Approval state. Only ACTIVE may send.
+   * Mirrors src/features/communication/constants/providerTemplates.ts.
+   */
+  status: "READY_FOR_SUBMISSION" | "SUBMITTED" | "APPROVED" | "ACTIVE" | "REJECTED";
+}
+
+export const WHATSAPP_TEMPLATES: Record<string, WhatsappTemplateDef> = {
+  smartark_platform_lead_alert: {
+    campaign: "smartark_platform_lead_alert",
+    params: ["form_type", "name", "phone", "email", "organization_name", "platform_name"],
+    status: "READY_FOR_SUBMISSION",
+  },
+  smartark_public_form_ack: {
+    campaign: "smartark_public_form_ack",
+    // {{2}} and {{4}} are both the platform name: Meta's rule forbids reusing a
+    // PLACEHOLDER, not passing the same value to two of them. Repeating the
+    // value is what lets the message greet with the brand and sign off with it.
+    params: ["name", "platform_name", "form_type", "platform_name_signoff"],
+    status: "READY_FOR_SUBMISSION",
+  },
+};
+
+/** Only this status may be used for a live send. */
+export const SENDABLE_STATUS = "ACTIVE";
+
 /** Human labels for the fields, used in the admin email. */
 export const FIELD_LABELS: Record<string, string> = {
   name: "Name",
