@@ -94,6 +94,9 @@ const ORDER = [
 
   // ── Phase 10: communication automation. ────────────────────────────────
   ["20261003_phase10a_org_locality_columns.sql", "city/pincode for {{org_city}} and {{org_pincode}}; nullable, no backfill, never inferred from the free-text address"],
+
+  // ── Phase 11: public form notifications. ───────────────────────────────
+  ["20261004_phase11a_public_form_notifications.sql", "platform_users.phone + the platform.leads.notify capability + the delivery ledger; additive, no backfill, no tenant table touched"],
 ];
 
 const args = process.argv.slice(2);

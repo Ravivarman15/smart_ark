@@ -68,9 +68,14 @@ export const DemoPage: React.FC = () => {
         <div className="mx-auto max-w-md rounded-xl border border-border bg-card p-8 text-center">
           <CheckCircle2 className="mx-auto h-8 w-8 text-primary" />
           <h1 className="mt-4 text-xl font-semibold tracking-tight">Request received</h1>
+          {/* Only the submission's own outcome is reported. Whether the admin
+              alert or the confirmation email reached its provider is our
+              problem, not the visitor's — a "notification failed" line here
+              would tell them about a system they cannot act on. */}
           <p className="mt-2 text-sm text-muted-foreground">
-            We will confirm your slot by email within one working day. If you would
-            rather not wait, the free trial takes two minutes and needs no call.
+            Thank you{form.name ? `, ${form.name.split(" ")[0]}` : ""}. We have your request
+            and a confirmation is on its way to {form.email}. Our team will review your
+            details and confirm a slot with you.
           </p>
           <Button asChild className="mt-6"><Link to="/signup">Start free trial instead</Link></Button>
         </div>
@@ -191,15 +196,26 @@ export const ContactPage: React.FC = () => {
   useSeo(ROUTE_SEO["/contact"]);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ kind: "contact", name: "", email: "", subject: "", message: "" });
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    kind: "contact", name: "", email: "", phone: "", subject: "", message: "",
+  });
 
   const submit = async () => {
+    setError(null);
     setBusy(true);
     try {
       await marketingService.submitEnquiry(form);
       setSent(true);
+    } catch (e) {
+      // Previously this had no catch at all: a failed submission simply set
+      // busy back to false and the visitor was left staring at the form with
+      // no idea whether it had gone.
+      setError((e as Error).message);
     } finally { setBusy(false); }
   };
+
+  const isCareers = form.kind === "careers";
 
   return (
     <Section hero>
@@ -208,12 +224,23 @@ export const ContactPage: React.FC = () => {
         {sent ? (
           <div className="mt-8 rounded-xl border border-border bg-card p-8 text-center">
             <CheckCircle2 className="mx-auto h-8 w-8 text-primary" />
-            <p className="mt-3 text-sm text-muted-foreground">
-              Thanks — we reply within one working day.
+            <h2 className="mt-4 text-lg font-semibold tracking-tight">
+              {isCareers ? "Application received" : "Enquiry received"}
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Thank you{form.name ? `, ${form.name.split(" ")[0]}` : ""}. We have your
+              {isCareers ? " application" : " message"} and a confirmation is on its way
+              to {form.email}. Our team will review it and get back to you.
             </p>
           </div>
         ) : (
           <div className="mt-8 space-y-4 rounded-xl border border-border bg-card p-6">
+            {error && (
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <p>{error}</p>
+              </div>
+            )}
             <div>
               <Label>Topic</Label>
               <Select value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v })}>
@@ -232,6 +259,13 @@ export const ContactPage: React.FC = () => {
             <div><Label htmlFor="c-email">Email</Label>
               <Input id="c-email" type="email" value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+            {/* Optional, and the only reason it exists: without a number the
+                visitor cannot receive the WhatsApp confirmation. Never
+                required — a contact form that demands a phone number loses
+                enquiries. */}
+            <div><Label htmlFor="c-phone">Phone <span className="text-muted-foreground">(optional)</span></Label>
+              <Input id="c-phone" type="tel" value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             <div><Label htmlFor="c-subject">Subject</Label>
               <Input id="c-subject" value={form.subject}
                 onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>

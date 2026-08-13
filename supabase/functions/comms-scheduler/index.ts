@@ -40,11 +40,17 @@
 //   POST { organizationId }   → restrict to one tenant
 //   POST { date: "2026-08-12" } → run as if it were that date
 //
+// WHO MAY CALL IT: the service role key (cron and operator tooling) for
+// anything; a signed-in user for a DRY RUN of their OWN organization only.
+// The anonymous key is refused outright — it ships in the frontend bundle, and
+// a dry run returns real recipients' names.
+//
 // Deploy: supabase functions deploy comms-scheduler
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import TEMPLATES from "../_shared/commsTemplates.json" with { type: "json" };
+import { resolveCaller } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,6 +90,37 @@ interface Org {
   legal_name: string | null;
 }
 
+/**
+ * Why a candidate did not become a message. Counted rather than discarded, so
+ * a dry run can say "128 students, 4 opted out, 1 has no phone" instead of
+ * "123 recipients" and leaving the operator to wonder about the other five.
+ */
+interface SkipStats {
+  candidates: number;
+  preferenceSkipped: number;
+  missingPhone: number;
+  missingData: number;
+}
+
+const newStats = (): SkipStats => ({
+  candidates: 0, preferenceSkipped: 0, missingPhone: 0, missingData: 0,
+});
+
+/**
+ * The idempotency key.
+ *
+ * organization_id is the row's own column; this is the rest:
+ *   event_key + entity + the tenant's LOCAL date
+ *
+ * The local date is part of the key rather than left to a `created_at::date`
+ * filter, because those two disagree for 5.5 hours a day in Asia/Kolkata — a
+ * run at 02:00 IST and one at 08:00 IST are the same local day but different
+ * UTC days, and would each send.
+ */
+function idempotencyKey(entityId: string, localDate: string): string {
+  return `${entityId}:${localDate}`;
+}
+
 /** One resolved message, before it becomes a queue row. */
 interface Draft {
   eventKey: string;
@@ -92,6 +129,44 @@ interface Draft {
   phone: string;
   studentId?: string;
   vars: Record<string, string>;
+}
+
+// ── Failure classification ──────────────────────────────────────────────────
+//
+// The old scheduler had one failure mode: swallow it and return ok:true. Every
+// failure now lands in one of these buckets, is attached to the organization
+// and event it belongs to, and never changes the overall shape of the response
+// into a false success.
+type FailureKind =
+  | "VALIDATION_ERROR"
+  | "TENANT_CONTEXT_ERROR"
+  | "TEMPLATE_ERROR"
+  | "RECIPIENT_ERROR"
+  | "PROVIDER_ERROR"
+  | "DATABASE_ERROR"
+  | "CONFIGURATION_ERROR"
+  | "RATE_LIMIT"
+  | "UNKNOWN";
+
+/**
+ * Map a raw error onto the taxonomy.
+ *
+ * Deliberately conservative: anything unrecognised stays UNKNOWN rather than
+ * being filed under a plausible-looking category. A misfiled error is harder to
+ * debug than an unfiled one.
+ */
+function classify(message: string): FailureKind {
+  const m = message.toLowerCase();
+  if (m.includes("organization_id") && m.includes("not-null")) return "TENANT_CONTEXT_ERROR";
+  if (m.includes("current_org_id") || m.includes("tenant")) return "TENANT_CONTEXT_ERROR";
+  if (m.includes("no template") || m.includes("template")) return "TEMPLATE_ERROR";
+  if (m.includes("blocked:")) return "CONFIGURATION_ERROR";
+  if (m.includes("rate limit") || m.includes("429")) return "RATE_LIMIT";
+  if (m.includes("permission denied") || m.includes("violates") || m.includes("constraint")
+      || m.includes("relation") || m.includes("column") || m.includes("embed")) return "DATABASE_ERROR";
+  if (m.includes("recipient") || m.includes("phone")) return "RECIPIENT_ERROR";
+  if (m.includes("provider") || m.includes("aisensy")) return "PROVIDER_ERROR";
+  return "UNKNOWN";
 }
 
 // ── Time ────────────────────────────────────────────────────────────────────
@@ -117,6 +192,14 @@ function localDate(tz: string, base = new Date()): string {
     return base.toISOString().slice(0, 10);
   }
 }
+
+/**
+ * The tenant's timezone, with the deployment's own default when the column is
+ * unset. Centralised because "which day is it" is decided in several places
+ * and two different fallbacks would put the same organization on two days.
+ */
+const DEFAULT_TZ = "Asia/Kolkata";
+const tzOf = (o: { timezone: string | null }): string => o.timezone || DEFAULT_TZ;
 
 function localHHMM(tz: string, base = new Date()): string {
   try {
@@ -184,6 +267,67 @@ function render(body: string, vars: Record<string, string>): { text: string; mis
   return { text, missing };
 }
 
+// ── Caller identity ─────────────────────────────────────────────────────────
+
+type Caller =
+  | { kind: "service"; organizationId: null }
+  | { kind: "user"; organizationId: string | null }
+  | { kind: "anonymous"; organizationId: null };
+
+/**
+ * Who is calling.
+ *
+ * The token's SIGNATURE is verified by resolveCaller(), which round-trips to
+ * GoTrue — not by decoding the payload here. Locally parsing a JWT would be
+ * safe only while config.toml keeps verify_jwt = true, i.e. the safety would
+ * live in a config file rather than in this function, and a service-role
+ * function that gets its tenant from a forgeable claim is cross-tenant access.
+ * The Phase 0 gate (S6) fails the build on any local decode, which is how this
+ * was caught.
+ *
+ * The organization likewise comes from `organization_users` membership, not
+ * from a claim and never from the request body.
+ */
+async function identify(req: Request, db: Db): Promise<Caller> {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return { kind: "anonymous", organizationId: null };
+
+  // Fast path: the exact key this deployment was given. Compared as an opaque
+  // string — no parsing, nothing to forge, and never a value a browser holds.
+  if (token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
+    return { kind: "service", organizationId: null };
+  }
+
+  // A real, currently-valid user session. The anon publishable key fails here,
+  // which is the point: it ships in the frontend bundle.
+  const caller = await resolveCaller(req, db);
+  if (caller) return { kind: "user", organizationId: caller.organizationId };
+
+  // Not that key, and not a user. It may still be a service credential: a
+  // project can hold BOTH the legacy service_role JWT and a newer sb_secret_
+  // key, and only one of them is in this function's environment. So the last
+  // question is not "which string is it" but "what may it do" — asked by
+  // attempting an operation no anon key and no user token can perform. A
+  // wrong guess here fails closed: the probe errors and the caller is nobody.
+  if (await grantsServiceRole(token)) return { kind: "service", organizationId: null };
+
+  return { kind: "anonymous", organizationId: null };
+}
+
+async function grantsServiceRole(token: string): Promise<boolean> {
+  const url = Deno.env.get("SUPABASE_URL");
+  if (!url) return false;
+  try {
+    const probe = createClient(url, token, { auth: { persistSession: false } });
+    // Listing auth users is service-role-only. An anon key, an expired token
+    // and a signed-in user's JWT all fail it.
+    const { error } = await probe.auth.admin.listUsers({ page: 1, perPage: 1 });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -197,8 +341,58 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const dryRun: boolean = body?.dryRun === true;
-    const onlyOrg: string | null = body?.organizationId ?? null;
     const forcedDate: string | null = body?.date ?? null;
+
+    // ── CALLER IDENTITY ──────────────────────────────────────────────────
+    //
+    // ┌── THE HOLE THIS CLOSES ────────────────────────────────────────┐
+    // │ This function queries as service_role, which bypasses RLS, and │
+    // │ it took the target tenant from `organizationId` IN THE REQUEST │
+    // │ BODY. Two consequences, both live:                             │
+    // │                                                                │
+    // │  · An authenticated ABC admin could post ARK's organization id │
+    // │    and read back ARK parents' names in the dry-run output.     │
+    // │  · The gateway accepts the ANON key, which is compiled into    │
+    // │    the shipped frontend bundle — so the leak was not even      │
+    // │    limited to customers.                                       │
+    // │                                                                │
+    // │ Tenant identity is therefore taken from the VERIFIED JWT's     │
+    // │ app_metadata (server-issued, matching jwt_org_id() in SQL) and │
+    // │ never from the body. A body id is now only a filter that must  │
+    // │ AGREE with the claim — it can narrow a run, never redirect it. │
+    // └────────────────────────────────────────────────────────────────┘
+    const caller = await identify(req, supabase);
+    if (caller.kind === "anonymous") {
+      return json(401, {
+        error:
+          "comms-scheduler requires a signed-in user or the service role key. " +
+          "The anonymous key ships in the frontend bundle and cannot be trusted with tenant data.",
+      });
+    }
+
+    const requestedOrg: string | null = body?.organizationId ?? null;
+    let onlyOrg: string | null = requestedOrg;
+
+    if (caller.kind === "user") {
+      if (!caller.organizationId) {
+        return json(403, {
+          error: "Your session carries no organization claim, so no tenant can be resolved for it.",
+        });
+      }
+      if (requestedOrg && requestedOrg !== caller.organizationId) {
+        // Not silently corrected to the caller's own org: a request to run
+        // somebody else's tenant is an attempt worth refusing loudly.
+        return json(403, { error: "organizationId does not match your session's organization." });
+      }
+      onlyOrg = caller.organizationId;
+      // A tenant user may inspect their own automations; they may not start
+      // real traffic. Only the cron (service role) sends.
+      if (!dryRun) {
+        return json(403, {
+          error: "Only the scheduled job may perform a live run. Use dryRun: true.",
+        });
+      }
+    }
 
     // `events` force-resolves specific automations regardless of whether the
     // tenant has enabled them. It is accepted ONLY together with dryRun,
@@ -230,14 +424,39 @@ Deno.serve(async (req) => {
 
     const report: Record<string, unknown>[] = [];
 
+    // ── PER-ORGANIZATION ISOLATION ───────────────────────────────────────
+    // One tenant's failure must never stop the others. A thrown error here
+    // used to abort the whole run, so a single malformed setting row could
+    // silence every school on the platform.
+    let failedOrgs = 0;
     for (const org of (orgRows ?? []) as Org[]) {
-      report.push(await runForOrg(supabase, org, { dryRun, forcedDate, forcedEvents }));
+      try {
+        report.push(await runForOrg(supabase, org, { dryRun, forcedDate, forcedEvents }));
+      } catch (e) {
+        failedOrgs += 1;
+        const message = (e as Error).message;
+        report.push({
+          organization: org.slug,
+          failed: true,
+          failureKind: classify(message),
+          error: message,
+        });
+      }
     }
 
+    // `ok` reflects what actually happened. Reporting ok:true over a failed
+    // run is the specific dishonesty this rewrite exists to remove.
+    const eventErrors = report.reduce((n, r) => {
+      const evs = (r.events ?? {}) as Record<string, { error?: string }>;
+      return n + Object.values(evs).filter((e) => e && e.error).length;
+    }, 0);
+
     return json(200, {
-      ok: true,
+      ok: failedOrgs === 0 && eventErrors === 0,
       dryRun,
       organizations: report.length,
+      organizationsFailed: failedOrgs,
+      eventErrors,
       results: report,
     });
   } catch (error) {
@@ -257,7 +476,7 @@ async function runForOrg(
   org: Org,
   opts: { dryRun: boolean; forcedDate: string | null; forcedEvents: string[] | null },
 ): Promise<Record<string, unknown>> {
-  const tz = org.timezone || "Asia/Kolkata";
+  const tz = tzOf(org);
   const today = opts.forcedDate ?? localDate(tz);
   const nowHHMM = localHHMM(tz);
   const notes: string[] = [];
@@ -318,7 +537,12 @@ async function runForOrg(
     const bodyTemplate = overrides.get(templateKey) ?? CANONICAL.templates[templateKey]?.body;
 
     if (!bodyTemplate) {
-      events[eventKey] = { skipped: true, reason: `no template '${templateKey}'` };
+      events[eventKey] = {
+        skipped: true,
+        failureKind: "TEMPLATE_ERROR" as FailureKind,
+        templateStatus: "MISSING",
+        reason: `no template '${templateKey}'`,
+      };
       continue;
     }
 
@@ -329,17 +553,25 @@ async function runForOrg(
       scheduledAt = `${today}T${setting.quiet_end.slice(0, 5)}:00`;
     }
 
+    const stats = newStats();
     let drafts: Draft[];
     try {
-      drafts = await resolveEvent(supabase, org, eventKey, today, orgVars);
+      drafts = await resolveEvent(supabase, org, eventKey, today, orgVars, stats);
     } catch (e) {
-      events[eventKey] = { skipped: true, reason: `resolver error: ${(e as Error).message}` };
+      const message = (e as Error).message;
+      events[eventKey] = {
+        skipped: true,
+        failureKind: classify(message),
+        error: message,
+        reason: message,
+        templateStatus: "READY",
+      };
       continue;
     }
 
     const outcome = await enqueueDrafts(supabase, org, {
       eventKey, templateKey, bodyTemplate, drafts, scheduledAt,
-      dryRun: opts.dryRun, today,
+      dryRun: opts.dryRun, today, stats, orgVars,
     });
     events[eventKey] = outcome;
   }
@@ -408,6 +640,7 @@ async function resolveEvent(
   eventKey: string,
   today: string,
   orgVars: Record<string, string>,
+  stats: SkipStats,
 ): Promise<Draft[]> {
   const base = () => ({ ...orgVars });
 
@@ -421,11 +654,17 @@ async function resolveEvent(
         .not("date_of_birth", "is", null)
         .limit(5000), "students");
       const md = today.slice(5);
-      return (data as Array<Record<string, string | null>>)
-        .filter((r) => (r.date_of_birth ?? "").slice(5, 10) === md)
-        .filter((r) => !!r.parent_contact && prefAllowsWhatsapp(r.communication_preference))
+      const due = (data as Array<Record<string, string | null>>)
+        .filter((r) => (r.date_of_birth ?? "").slice(5, 10) === md);
+      stats.candidates += due.length;
+      return due
+        .filter((r) => {
+          if (!r.parent_contact) { stats.missingPhone += 1; return false; }
+          if (!prefAllowsWhatsapp(r.communication_preference)) { stats.preferenceSkipped += 1; return false; }
+          return true;
+        })
         .map((r) => ({
-          eventKey, contextId: String(r.id), studentId: String(r.id),
+          eventKey, contextId: idempotencyKey(String(r.id), today), studentId: String(r.id),
           name: String(r.name ?? ""), phone: String(r.parent_contact),
           vars: { ...base(), student_name: String(r.name ?? ""), parent_name: String(r.parent_name ?? r.name ?? "") },
         }));
@@ -441,36 +680,59 @@ async function resolveEvent(
     // to `leads` for the prospect's phone.
     case "demo_reminder": {
       const tomorrow = addDays(today, 1);
+      // `leads` has student_name / parent_name / phone — there is no `name`
+      // column, and naming one 42703s the whole embed rather than the field.
+      //
+      // The window is deliberately WIDER than the target day and then narrowed
+      // in TypeScript by the tenant's local date. scheduled_at is timestamptz;
+      // asking for `>= tomorrowT00:00:00Z` would, in Asia/Kolkata, select
+      // 05:30 tomorrow through 05:30 the day after — reminding some parents a
+      // day early and missing the early-morning demos entirely.
       const data = rows(await supabase
         .from("demo_classes")
-        .select("id, scheduled_at, subject, batch, status, lead_id, leads!inner(id, name, phone, organization_id)")
+        .select("id, scheduled_at, subject, batch, status, lead_id, leads!inner(id, student_name, parent_name, phone, organization_id)")
         .eq("organization_id", org.id)
-        .gte("scheduled_at", `${tomorrow}T00:00:00Z`)
-        .lt("scheduled_at", `${addDays(tomorrow, 1)}T00:00:00Z`)
+        .gte("scheduled_at", `${today}T00:00:00Z`)
+        .lt("scheduled_at", `${addDays(tomorrow, 2)}T00:00:00Z`)
         .is("deleted_at", null)
         .limit(2000), "demo_classes");
-      return (data as Array<Record<string, unknown>>)
-        .filter((r) => String(r.status ?? "") !== "cancelled")
+      const live = (data as Array<Record<string, unknown>>).filter(
+        (r) =>
+          String(r.status ?? "") !== "cancelled" &&
+          localDate(tzOf(org), new Date(String(r.scheduled_at))) === tomorrow,
+      );
+      stats.candidates += live.length;
+      return live
         .map((r) => {
           const lead = (r.leads ?? {}) as Record<string, unknown>;
-          const at = String(r.scheduled_at ?? "");
+          const when = new Date(String(r.scheduled_at));
+          const student = String(lead.student_name ?? "");
           return {
-            eventKey, contextId: String(r.id),
-            name: String(lead.name ?? ""), phone: String(lead.phone ?? ""),
+            eventKey, contextId: idempotencyKey(String(r.id), today),
+            // The message goes to the parent's phone, so it greets the parent
+            // where one is recorded and falls back to the student's name.
+            name: String(lead.parent_name || student),
+            phone: String(lead.phone ?? ""),
             vars: {
               ...base(),
-              name: String(lead.name ?? ""),
-              student_name: String(lead.name ?? ""),
-              demo_date: at.slice(0, 10),
-              demo_time: at.slice(11, 16),
+              name: String(lead.parent_name || student),
+              parent_name: String(lead.parent_name || student),
+              student_name: student,
+              // Rendered in the tenant's timezone, not UTC: a 6pm IST demo
+              // must not be announced as 12:30.
+              demo_date: localDate(tzOf(org), when),
+              demo_time: localHHMM(tzOf(org), when),
               subject: String(r.subject ?? ""),
               // lead_demo_reminder_v2 asks for course_name; the demo row calls
               // the same thing `subject`, falling back to the batch.
-              course_name: String(r.subject ?? r.batch ?? ""),
+              course_name: String(r.subject || r.batch || ""),
             },
           };
         })
-        .filter((d) => !!d.phone);
+        .filter((d) => {
+          if (!d.phone) { stats.missingPhone += 1; return false; }
+          return true;
+        });
     }
 
     // ── Fees still pending ────────────────────────────────────────────────
@@ -493,11 +755,13 @@ async function resolveEvent(
         .gt("amount_pending", 0)
         .limit(5000), "student_fees");
       const out: Draft[] = [];
+      stats.candidates += (data as unknown[]).length;
       for (const row of data as Array<Record<string, unknown>>) {
         const st = (row.students ?? {}) as Record<string, unknown>;
-        if (!st.parent_contact || !prefAllowsWhatsapp(st.communication_preference)) continue;
+        if (!st.parent_contact) { stats.missingPhone += 1; continue; }
+        if (!prefAllowsWhatsapp(st.communication_preference)) { stats.preferenceSkipped += 1; continue; }
         out.push({
-          eventKey, contextId: String(st.id), studentId: String(st.id),
+          eventKey, contextId: idempotencyKey(String(st.id), today), studentId: String(st.id),
           name: String(st.name ?? ""), phone: String(st.parent_contact),
           vars: {
             ...base(),
@@ -536,9 +800,11 @@ async function resolveEvent(
         if (String(ex.status ?? "") === "cancelled") continue;
         for (const st of students as Array<Record<string, unknown>>) {
           if (ex.standard_id && st.standard_id !== ex.standard_id) continue;
-          if (!st.parent_contact || !prefAllowsWhatsapp(st.communication_preference)) continue;
+          stats.candidates += 1;
+          if (!st.parent_contact) { stats.missingPhone += 1; continue; }
+          if (!prefAllowsWhatsapp(st.communication_preference)) { stats.preferenceSkipped += 1; continue; }
           out.push({
-            eventKey, contextId: `${ex.id}:${st.id}`, studentId: String(st.id),
+            eventKey, contextId: idempotencyKey(`${ex.id}:${st.id}`, today), studentId: String(st.id),
             name: String(st.name ?? ""), phone: String(st.parent_contact),
             vars: {
               ...base(),
@@ -575,11 +841,12 @@ async function resolveEvent(
         (staff as Array<Record<string, unknown>>).map((p) => [String(p.id), p]),
       );
       const out: Draft[] = [];
+      stats.candidates += due.length;
       for (const t of due) {
         const p = byId.get(String(t.assigned_to));
-        if (!p?.mobile) continue;
+        if (!p?.mobile) { stats.missingPhone += 1; continue; }
         out.push({
-          eventKey, contextId: String(t.id),
+          eventKey, contextId: idempotencyKey(String(t.id), today),
           name: String(p.name ?? ""), phone: String(p.mobile),
           vars: {
             ...base(),
@@ -618,6 +885,13 @@ async function resolveEvent(
   }
 }
 
+/** Count structured skip codes: { MISSING_DUE_DATE: 126 }. */
+function tally(skipped: Array<{ code: string }>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const s of skipped) out[s.code] = (out[s.code] ?? 0) + 1;
+  return out;
+}
+
 /**
  * Render, de-duplicate and insert. One bad recipient never stops the batch —
  * it is counted and reported, which is the difference between a school
@@ -629,11 +903,26 @@ async function enqueueDrafts(
   args: {
     eventKey: string; templateKey: string; bodyTemplate: string;
     drafts: Draft[]; scheduledAt: string | null; dryRun: boolean; today: string;
+    stats: SkipStats; orgVars: Record<string, string>;
   },
 ): Promise<Record<string, unknown>> {
-  const { eventKey, templateKey, bodyTemplate, drafts, scheduledAt, dryRun, today } = args;
+  const { eventKey, templateKey, bodyTemplate, drafts, scheduledAt, dryRun, today, stats, orgVars } = args;
+
+  // The same shape whether or not anybody qualified, so a caller never has to
+  // distinguish "no key present" from "zero".
+  const breakdown = () => ({
+    candidates: stats.candidates,
+    eligible: drafts.length,
+    preferenceSkipped: stats.preferenceSkipped,
+    missingPhone: stats.missingPhone,
+    templateKey,
+    templateStatus: "READY",
+    quietHoursDeferred: scheduledAt ? drafts.length : 0,
+    scheduledAt,
+  });
+
   if (drafts.length === 0) {
-    return { resolved: 0, queued: 0, duplicates: 0, skipped: 0 };
+    return { ...breakdown(), queued: 0, duplicates: 0, missingVariableSkipped: 0 };
   }
 
   // Already queued today for this (organization, event)? Scoped by
@@ -656,7 +945,7 @@ async function enqueueDrafts(
   );
 
   const queueRows: Record<string, unknown>[] = [];
-  const skipped: Array<{ contextId: string; reason: string }> = [];
+  const skipped: Array<{ contextId: string; code: string; missing: string[] }> = [];
   let duplicates = 0;
 
   for (const d of drafts) {
@@ -667,7 +956,17 @@ async function enqueueDrafts(
     if (missing.length > 0) {
       // Truthful refusal. Sending "Exam on  - " is worse than sending nothing,
       // and silently substituting a plausible value would be inventing data.
-      skipped.push({ contextId: d.contextId, reason: `unresolved: ${missing.join(", ")}` });
+      //
+      // The reason is STRUCTURED, not a sentence: the Communication Center
+      // groups by it, and "MISSING_DUE_DATE × 126" is a fixable work item
+      // whereas 126 lines of prose is noise. ARK's 126 pending fee rows all
+      // have due_date NULL, which is what makes this the common case rather
+      // than an edge one.
+      skipped.push({
+        contextId: d.contextId,
+        code: missing.map((v) => `MISSING_${v.toUpperCase()}`).join("+"),
+        missing,
+      });
       continue;
     }
 
@@ -691,30 +990,53 @@ async function enqueueDrafts(
 
   if (dryRun) {
     return {
+      ...breakdown(),
       dryRun: true,
-      resolved: drafts.length,
       wouldQueue: queueRows.length,
       duplicates,
-      skipped: skipped.length,
-      skippedReasons: skipped.slice(0, 10),
-      sample: queueRows[0] ? String((queueRows[0].payload as Record<string, unknown>).__body) : null,
+      missingVariableSkipped: skipped.length,
+      missingDataReasons: tally(skipped),
+      missingVariableExamples: skipped.slice(0, 3),
+      sampleMessage: queueRows[0]
+        ? String((queueRows[0].payload as Record<string, unknown>).__body)
+        : null,
+      // The tenant identity that would appear in the message. Printed so a
+      // reviewer can see WHOSE name is on it without reading the whole body.
+      tenantVariables: {
+        org_name: orgVars.org_name,
+        org_short_name: orgVars.org_short_name,
+        org_phone: orgVars.org_phone,
+        org_website: orgVars.org_website,
+      },
     };
   }
 
   let queued = 0;
   let error: string | null = null;
   if (queueRows.length > 0) {
-    const res = await supabase.from("message_queue").insert(queueRows);
-    if (res.error) error = res.error.message;
-    else queued = queueRows.length;
+    // `.select("id")` so the count is the number of rows the DATABASE
+    // acknowledges, not the number we hoped to write. Reporting
+    // queueRows.length on a partial write would be the same class of lie the
+    // old `return 0 but ok:true` was.
+    const res = await supabase.from("message_queue").insert(queueRows).select("id");
+    if (res.error) {
+      error = res.error.message;
+    } else {
+      queued = (res.data as unknown[] | null)?.length ?? 0;
+      if (queued !== queueRows.length) {
+        error = `insert acknowledged ${queued} of ${queueRows.length} rows`;
+      }
+    }
   }
 
   return {
-    resolved: drafts.length,
+    ...breakdown(),
     queued,
     duplicates,
-    skipped: skipped.length,
-    skippedReasons: skipped.slice(0, 10),
-    ...(error ? { error } : {}),
+    missingVariableSkipped: skipped.length,
+    missingDataReasons: tally(skipped),
+    // A failed INSERT is reported as a failure. The old code returned 0 and
+    // let the caller read it as "nothing was due".
+    ...(error ? { error, failureKind: classify(error) } : {}),
   };
 }

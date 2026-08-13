@@ -37,6 +37,12 @@ export interface PublicPlan {
   features: Record<string, boolean>;
 }
 
+/** What a public form submission returns. Never carries recipient detail. */
+export interface PublicFormResult {
+  ok: true;
+  submissionId: string;
+}
+
 export interface DemoRequestInput {
   name: string;
   email: string;
@@ -170,37 +176,73 @@ class MarketingService {
   }
 
   // ── Demand capture ─────────────────────────────────────────────────────
-  async submitDemoRequest(input: DemoRequestInput): Promise<void> {
-    const { error } = await supabase.from("platform_demo_requests" as never).insert({
+  //
+  // ┌── WHY THESE NO LONGER INSERT DIRECTLY ──────────────────────────────┐
+  // │ Both used to write straight into platform_demo_requests /           │
+  // │ platform_enquiries under the anon INSERT policy. The row was stored │
+  // │ and NOBODY WAS EVER TOLD — no email, no WhatsApp, no console alert  │
+  // │ — while the visitor saw "Request received".                          │
+  // │                                                                      │
+  // │ The browser could not fix that itself: notifying requires the Brevo  │
+  // │ key, which must never be in a bundle, and requires resolving WHO the │
+  // │ platform administrators are, which a visitor must never influence.   │
+  // │ So both now post to the `public-form` edge function, which persists  │
+  // │ FIRST and then notifies. The anon INSERT policies remain in place as │
+  // │ a fallback path, but nothing in the app uses them.                   │
+  // └──────────────────────────────────────────────────────────────────────┘
+
+  /** Result of a public submission. `notified` is counts only — never who. */
+  private async submitPublicForm(
+    formType: "demo" | "contact" | "career" | "general_enquiry",
+    data: Record<string, unknown>,
+  ): Promise<PublicFormResult> {
+    const { data: res, error } = await supabase.functions.invoke("public-form", {
+      body: { formType, data, utm: currentUtm() ?? {}, source: "website" },
+    });
+
+    if (error) {
+      // The function returns a visitor-safe message for every case it can
+      // anticipate; this is the transport failing underneath it.
+      throw new AppError(
+        "Sorry — we could not send your request just now. Please try again.",
+        "public_form_failed",
+      );
+    }
+    const out = (res ?? {}) as { ok?: boolean; error?: string; submissionId?: string };
+    if (!out.ok) throw new AppError(out.error ?? "Submission failed.", "public_form_failed");
+    return { submissionId: out.submissionId ?? "", ok: true };
+  }
+
+  async submitDemoRequest(input: DemoRequestInput): Promise<PublicFormResult> {
+    return this.submitPublicForm("demo", {
       name: input.name,
-      email: input.email.toLowerCase().trim(),
-      phone: input.phone ?? null,
-      organization_name: input.organizationName ?? null,
-      institution_type: input.institutionType ?? null,
-      student_count: input.studentCount ?? null,
-      preferred_date: input.preferredDate || null,
-      preferred_time: input.preferredTime ?? null,
-      message: input.message ?? null,
-      source: "website",
-      utm: currentUtm(),
-    } as never);
-    if (error) throw AppError.fromSupabase(error, "demo request");
+      email: input.email,
+      phone: input.phone,
+      organization_name: input.organizationName,
+      institution_type: input.institutionType,
+      student_count: input.studentCount,
+      preferred_date: input.preferredDate,
+      preferred_time: input.preferredTime,
+      message: input.message,
+    });
   }
 
   async submitEnquiry(input: {
     kind?: string; name: string; email: string; phone?: string;
     subject?: string; message: string;
-  }): Promise<void> {
-    const { error } = await supabase.from("platform_enquiries" as never).insert({
-      kind: input.kind ?? "contact",
+  }): Promise<PublicFormResult> {
+    // The contact form's topic selector decides the canonical form type, so a
+    // careers enquiry gets career wording in both the alert and the reply.
+    const kind = input.kind ?? "contact";
+    const formType =
+      kind === "careers" ? "career" : kind === "contact" ? "contact" : "general_enquiry";
+    return this.submitPublicForm(formType, {
       name: input.name,
-      email: input.email.toLowerCase().trim(),
-      phone: input.phone ?? null,
-      subject: input.subject ?? null,
+      email: input.email,
+      phone: input.phone,
+      subject: input.subject,
       message: input.message,
-      metadata: currentUtm(),
-    } as never);
-    if (error) throw AppError.fromSupabase(error, "enquiry");
+    });
   }
 
   // ── Onboarding ─────────────────────────────────────────────────────────

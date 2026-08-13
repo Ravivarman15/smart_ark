@@ -1,0 +1,94 @@
+{
+  "ranAt": "2026-08-13T04:47:16.515Z",
+  "organizations": [
+    "ark",
+    "abc-academi"
+  ],
+  "results": [
+    {
+      "name": "the anon key (shipped in the frontend bundle) is refused",
+      "pass": true,
+      "detail": "HTTP 401"
+    },
+    {
+      "name": "ark: dry run succeeds",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "ark: exactly one organization in the result",
+      "pass": true,
+      "detail": "results: ark"
+    },
+    {
+      "name": "abc-academi: dry run succeeds",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "abc-academi: exactly one organization in the result",
+      "pass": true,
+      "detail": "results: abc-academi"
+    },
+    {
+      "name": "ark: fee_due resolves ark's own rows, not the platform's",
+      "pass": true,
+      "detail": "resolved 126, tenant has 126 pending"
+    },
+    {
+      "name": "abc-academi: fee_due resolves abc-academi's own rows, not the platform's",
+      "pass": true,
+      "detail": "resolved 3, tenant has 3 pending"
+    },
+    {
+      "name": "the two tenants resolve different audiences",
+      "pass": true,
+      "detail": "ark=126, abc-academi=3"
+    },
+    {
+      "name": "ark: the rendered body carries ITS OWN name",
+      "pass": true,
+      "detail": "\"Wishing Viday Vinayak C a very happy birthday! 🎂 May the year ahead bring joy, growth and success. — Team ARK Learning Arena\""
+    },
+    {
+      "name": "ark: the rendered body does NOT carry abc-academi's name",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ark: no unsubstituted {{variable}} reaches the recipient",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "abc-academi: the rendered body carries ITS OWN name",
+      "pass": true,
+      "detail": "\"Wishing Abishek a very happy birthday! 🎂 May the year ahead bring joy, growth and success. — Team ABC Academi\""
+    },
+    {
+      "name": "abc-academi: the rendered body does NOT carry ark's name",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "abc-academi: no unsubstituted {{variable}} reaches the recipient",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ark: the idempotency key includes the tenant-local date",
+      "pass": true,
+      "detail": "be6787c2-af54-468d-998e-580c5ee63033:2026-01-06"
+    },
+    {
+      "name": "abc-academi: the idempotency key includes the tenant-local date",
+      "pass": true,
+      "detail": "651afb4b-2ace-4765-a4a9-001019fa5132:2026-09-25"
+    },
+    {
+      "name": "a dry run writes no queue row",
+      "pass": true,
+      "detail": "message_queue 354 → 354"
+    }
+  ]
+}

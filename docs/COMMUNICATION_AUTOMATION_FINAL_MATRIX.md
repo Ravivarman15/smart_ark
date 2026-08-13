@@ -1,158 +1,150 @@
 # Communication Automation — Final Matrix
 
-Audited and updated **2026-08-12** against the live project `vxyshcucwdbpxrhddaeh`.
-Every "PASS" below was observed; every "BLOCKED" names the missing data source.
+<!-- GENERATED FILE — do not edit by hand.
+     Regenerate: node scripts/comms-matrix.mjs
+     Verified in CI:  node scripts/comms-matrix.mjs --check
+     Source of truth: src/features/communication/constants/automationEvents.ts
+                      src/features/communication/utils/automationState.ts -->
 
-All 32 registered events appear. The registry is
-`src/features/communication/constants/automationEvents.ts` — no second event
-engine was created.
+Generated **2026-08-13** from the registry, not from memory.
 
----
+All **32** registered events appear below. There is one registry and one
+state model; this table, the Communication Center and the CI gate
+(`src/test/security/automationRegistryAudit.test.ts`) all read them, so a status
+here cannot drift from what the system actually does.
 
-## What the audit found before any code changed
+## Summary
 
-Five findings, each verified against production rather than inferred:
-
-| # | Finding | Evidence |
+| State | Count | Meaning |
 |---|---|---|
-| 1 | **The daily scheduler had never enqueued a single message.** | `select count(*) from message_queue where context_type in ('birthday_student','demo_reminder')` → **0**, for all time. |
-| 2 | **No cron job exists for it.** | `cron.job` holds 6 jobs; `comms-scheduler-daily` is not among them. The `cron.schedule` call in `20260628_comms_automation.sql` is commented out. |
-| 3 | **Its inserts could not succeed.** `message_queue.organization_id` is `NOT NULL DEFAULT current_org_id()`; the function runs as `service_role` with no JWT, so once a second organization existed `fallback_org_id()` returned NULL. | Probed in a rolled-back transaction: `null value in column "organization_id" … violates not-null constraint`. The old `enqueue()` returned 0 on error and the response still said `ok:true`. |
-| 4 | **Ten Academics automations were switched ON but had no template.** `templateFor()` returned null → `empty(eventKey, "no template")`. | `comms_templates` holds 8 rows, all ABC's; none of `teacher_class_*`, `class_*` existed in `whatsappTemplates.ts` either. |
-| 5 | **`demo_reminder` queried columns that do not exist.** It read `admission_calls.demo_date` / `.demo_time`. | `admission_calls` has `date`, `follow_up_date`, `status` — no demo columns. The real source is `demo_classes.scheduled_at`. |
+| **READY** | 24 | dispatchable; whether it is switched on is per tenant — see the tenant columns |
+| **MISSING_TRIGGER** | 4 | registered, but nothing in the application dispatches it |
+| **PROVIDER_PENDING** | 2 | dispatchable, but sending via the LEGACY provider campaign — the organization-neutral template awaits Meta approval |
+| **BLOCKED** | 2 | structurally impossible until the named source exists |
 
-Also: the scheduler collapsed **every tenant's** settings into one `Map` keyed by
-`event_key`, so whichever organization sorted last decided whether the other's
-automation ran; it used UTC for a wall-clock day; and it consulted neither quiet
-hours nor communication preference.
+> **Reading this table.** `State` is CAPABILITY — what the system can do at
+> all — evaluated against the REGISTRY DEFAULTS, not against any one tenant's
+> switches. `ACTIVE`, `READY` and `PROVIDER_PENDING` are all dispatchable;
+> the rest are not. Whether a given school has an event switched on is the
+> per-tenant column at the right, read live from `comms_automation_settings`.
+>
+> The two are deliberately separate. An event can be switched ON and still be
+> `MISSING_TRIGGER` — that combination is the defect this work exists to
+> surface, and the Communication Center renders it in red rather than as a
+> green toggle.
 
----
 
-## The matrix
+## Attendance
 
-Legend — **Status**: PASS (works end to end) · PARTIAL (works, with a stated
-limit) · BLOCKED (missing data source) · MANUAL (operator-initiated only).
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `attendance_absent` | **PROVIDER_PENDING** | yes | yes | `attendance_absent` | PENDING | whatsapp | immediate | on | off |
+| `attendance_corrected` | **PROVIDER_PENDING** | yes | yes | `attendance_corrected` | PENDING | whatsapp | immediate | on | — |
+| `attendance_present` | **MISSING_TRIGGER** | no | yes | `attendance_present` | NONE | whatsapp | immediate | off | — |
 
-Columns marked `·` are not applicable to that event.
+## Fees
 
-### Attendance
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `fee_due` | **READY** | yes | yes | `fee_due_reminder` | NONE | whatsapp | scheduled | off | off |
+| `fee_paid` | **READY** | yes | yes | `fee_receipt` | PENDING | both | immediate | on | off |
 
-| # | Event | Trigger | Resolver | Recipient | Channel | Timing | Template | Dedupe | Pref | Quiet | Status |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | `attendance_absent` | Submit Attendance | `resolveAbsent` | Parents | WhatsApp | Immediate | `attendance_absent` | ✓ | ✓ | ✓ | **PASS** |
-| 2 | `attendance_corrected` | Absence → Present | `resolveAbsent` | Parents | WhatsApp | Immediate | `attendance_corrected` | ✓ | ✓ | ✓ | **PASS** |
-| 3 | `attendance_present` | Submit Attendance | caller-supplied | Parents | WhatsApp | Immediate | `attendance_present` | ✓ | ✓ | ✓ | **PARTIAL** — no registry resolver; relies on the caller passing recipients |
+## Exams
 
-### Fees
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `exam_published` | **READY** | yes | yes | `exam_result` | NONE | whatsapp | immediate | on | — |
+| `exam_scheduled` | **READY** | yes | yes | `exam_reminder` | NONE | whatsapp | scheduled | off | — |
 
-| # | Event | Trigger | Resolver | Recipient | Channel | Timing | Template | Status |
-|---|---|---|---|---|---|---|---|---|
-| 4 | `fee_due` | Scheduler | `fee_due` (rewritten) | Parents | WhatsApp | Scheduled | `fee_due_reminder` | **PARTIAL** — resolves 126 ARK recipients; **all 126 skip** because `student_fees.due_date` is NULL on every pending row. See "Data quality" below. |
-| 5 | `fee_paid` | Payment collected | `feeReceiptDelivery.service` | Parents | Email + WhatsApp | Immediate | `fee_receipt` | **PASS** — 244 queued rows, most recent today. Legacy flow, deliberately not migrated. |
+## Birthday
 
-### Exams
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `birthday_student` | **READY** | yes | yes | `birthday_wish` | NONE | whatsapp | scheduled | off | — |
 
-| # | Event | Trigger | Resolver | Recipient | Channel | Timing | Template | Status |
-|---|---|---|---|---|---|---|---|---|
-| 6 | `exam_published` | `useExamMutations` | `resolveExam` | Parents | WhatsApp | Immediate | `exam_result` | **PASS** |
-| 7 | `exam_scheduled` | Scheduler | `exam_scheduled` (new) | Parents | WhatsApp | Scheduled | `exam_reminder` | **PASS** — 0 due today (no exam dated tomorrow); query verified against `exams.title/exam_date/start_time/hall` |
+## Admission
 
-### Birthday
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `admission_completed` | **MISSING_TRIGGER** | no | yes | `student_welcome` | NONE | both | immediate | on | — |
+| `demo_scheduled` | **READY** | yes | yes | `lead_demo_scheduled_v2` | NONE | whatsapp | immediate | on | — |
+| `demo_reminder` | **READY** | yes | yes | `lead_demo_reminder_v2` | NONE | whatsapp | scheduled | off | — |
 
-| # | Event | Trigger | Resolver | Recipient | Channel | Timing | Template | Status |
-|---|---|---|---|---|---|---|---|---|
-| 8 | `birthday_student` | Scheduler | `birthday_student` (rewritten) | Parents | WhatsApp | Scheduled | `birthday_wish` | **PASS** — 0 birthdays today; day boundary now resolved in `Asia/Kolkata` |
+## Payroll
 
-### Admission
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `payroll_approved` | **READY** | yes | yes | `payroll_approved` | NONE | whatsapp | immediate | on | — |
 
-| # | Event | Trigger | Resolver | Recipient | Channel | Timing | Template | Status |
-|---|---|---|---|---|---|---|---|---|
-| 9 | `admission_completed` | Admission flow | caller-supplied | Parents | Email + WhatsApp | Immediate | `student_welcome` | **PARTIAL** — no registry resolver |
-| 10 | `demo_scheduled` | Demo booked | caller-supplied | Prospect | WhatsApp | Immediate | `lead_demo_scheduled_v2` | **PARTIAL** — Lead CRM owns this path and is out of scope for modification |
-| 11 | `demo_reminder` | Scheduler | `demo_reminder` (**rewritten onto `demo_classes`**) | Prospect | WhatsApp | Scheduled | `lead_demo_reminder_v2` | **PASS** — 0 demos tomorrow; previously queried non-existent columns |
+## Credentials
 
-### Payroll · Credentials · Tasks · Certificate
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `staff_credentials` | **READY** | yes | yes | `staff_credentials` | PENDING | whatsapp | immediate | on | — |
+| `student_credentials` | **READY** | yes | yes | `student_credentials` | PENDING | whatsapp | immediate | on | — |
 
-| # | Event | Trigger | Resolver | Recipient | Channel | Timing | Template | Status |
-|---|---|---|---|---|---|---|---|---|
-| 12 | `payroll_approved` | `usePayrollApproval` | caller-supplied | Staff | WhatsApp | Immediate | `payroll_approved` | **PASS** |
-| 13 | `staff_credentials` | Account created | `resolveCredentials` | Staff | WhatsApp | Immediate | `staff_credentials` | **PARTIAL** — sends; the provider template is REJECTED by Meta. See `AISENSY_CREDENTIAL_TEMPLATE_REVIEW.md`. |
-| 14 | `student_credentials` | Student created | `resolveCredentials` | Parents | WhatsApp | Immediate | `student_credentials` | **PARTIAL** — same |
-| 15 | `task_assigned` | Task assigned | `resolveTask` | Assignee | WhatsApp | Immediate | `task_assigned` | **PASS** |
-| 16 | `task_due` | Scheduler | `task_due` (new) | Assignee | WhatsApp | Scheduled | `task_reminder` | **PASS** — 0 due tomorrow; variables corrected to `task_name`/`status`, which is what the body actually asks for |
-| 17 | `certificate_ready` | Certificate generated | caller-supplied | Parents | WhatsApp | Immediate | `certificate_ready` | **PARTIAL** — Certificate pages are `localStorage`-backed, so there is no server-side certificate row to trigger from |
+## Tasks
 
-### Live class · Holiday
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `task_assigned` | **READY** | yes | yes | `task_assigned` | NONE | whatsapp | immediate | off | — |
+| `task_due` | **READY** | yes | yes | `task_reminder` | NONE | whatsapp | scheduled | off | — |
 
-| # | Event | Trigger | Resolver | Recipient | Channel | Timing | Template | Status |
-|---|---|---|---|---|---|---|---|---|
-| 18 | `live_class_created` | Live class created | `resolveLiveClass` | Students | WhatsApp | Immediate | `live_class_notification` | **PASS** |
-| 19 | `class_cancelled` | Class cancelled | `resolveLiveClass` | Students | WhatsApp | Immediate | `class_cancelled` | **PASS** |
-| 20 | `holiday_notice` | Scheduler | — | All | WhatsApp | Scheduled | `holiday_notice` | **BLOCKED** — **there is no `holidays` table.** Nothing in the database defines which date is a holiday. The resolver reports this explicitly rather than resolving to a silent zero. |
+## Certificate
 
-### Academics / faculty — all eleven were dead before this phase
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `certificate_ready` | **BLOCKED** | no | yes | `certificate_ready` | NONE | whatsapp | immediate | off | — |
 
-Every one dispatches correctly from `schedule.service.ts` /
-`classReminder.service.ts`, but had **no template**, so every dispatch ended at
-`"no template"`. Templates added in `whatsappTemplates.ts`; a build gate now
-fails if any event points at a template that does not exist.
+## Live Class
 
-| # | Event | Recipient | Channel | Timing | Template (new) | Status |
-|---|---|---|---|---|---|---|
-| 21 | `teacher_class_scheduled` | Teacher | Email + WhatsApp | Immediate | `teacher_class_scheduled` | **PASS** |
-| 22 | `teacher_class_rescheduled` | Teacher | Email + WhatsApp | Immediate | `teacher_class_rescheduled` | **PASS** |
-| 23 | `teacher_class_cancelled` | Teacher | Email + WhatsApp | Immediate | `teacher_class_cancelled` | **PASS** |
-| 24 | `teacher_extra_class` | Teacher | Email + WhatsApp | Immediate | `teacher_extra_class` | **PASS** |
-| 25 | `teacher_substitute_assigned` | Teacher | Email + WhatsApp | Immediate | `teacher_substitute_assigned` | **PASS** |
-| 26 | `class_reminder_faculty` | Teacher | Email + WhatsApp | 15 min before | `class_reminder_faculty` | **PASS** |
-| 27 | `class_reminder_coordinator` | Coordinator | Email + WhatsApp | 5 min before if not started | `class_reminder_coordinator` | **PASS** |
-| 28 | `class_started` | Coordinator + management | Email + WhatsApp | Immediate | `class_started` | **PASS** |
-| 29 | `class_ended` | Coordinator + management | Email + WhatsApp | Immediate | `class_ended` — includes `{{duration}}` from actual start/end timestamps | **PASS** |
-| 30 | `class_attendance_due` | Teacher | Email + WhatsApp | 10 min before end | `class_attendance_due` | **PASS** |
-| 31 | `class_attendance_missing` | Teacher | Email + WhatsApp | After class ends | `class_attendance_missing` | **PASS** |
-| 32 | `class_cancelled_students` | Students + parents | WhatsApp | Immediate | `class_cancelled` | **PASS** |
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `live_class_created` | **MISSING_TRIGGER** | no | yes | `live_class_notification` | NONE | whatsapp | immediate | off | — |
+| `class_cancelled` | **MISSING_TRIGGER** | no | yes | `class_cancelled` | NONE | whatsapp | immediate | off | off |
 
----
+## Holiday
 
-## Cross-cutting behaviour
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `holiday_notice` | **BLOCKED** | no | no | `holiday_notice` | NONE | whatsapp | scheduled | off | — |
 
-| Concern | Where | State |
+## Academics
+
+| Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
+|---|---|---|---|---|---|---|---|---|---|
+| `teacher_class_scheduled` | **READY** | yes | yes | `teacher_class_scheduled` | NONE | both | immediate | on | — |
+| `teacher_class_rescheduled` | **READY** | yes | yes | `teacher_class_rescheduled` | NONE | both | immediate | on | — |
+| `teacher_class_cancelled` | **READY** | yes | yes | `teacher_class_cancelled` | NONE | both | immediate | on | — |
+| `teacher_extra_class` | **READY** | yes | yes | `teacher_extra_class` | NONE | both | immediate | on | — |
+| `teacher_substitute_assigned` | **READY** | yes | yes | `teacher_substitute_assigned` | NONE | both | immediate | on | — |
+| `class_reminder_faculty` | **READY** | yes | yes | `class_reminder_faculty` | NONE | both | immediate | on | — |
+| `class_reminder_coordinator` | **READY** | yes | yes | `class_reminder_coordinator` | NONE | both | immediate | on | — |
+| `class_started` | **READY** | yes | yes | `class_started` | NONE | both | immediate | on | — |
+| `class_ended` | **READY** | yes | yes | `class_ended` | NONE | both | immediate | on | — |
+| `class_attendance_due` | **READY** | yes | yes | `class_attendance_due` | NONE | both | immediate | on | — |
+| `class_attendance_missing` | **READY** | yes | yes | `class_attendance_missing` | NONE | both | immediate | — | — |
+| `class_cancelled_students` | **READY** | yes | yes | `class_cancelled` | NONE | whatsapp | immediate | on | — |
+
+## Why the 6 non-dispatchable events cannot send
+
+Each row names the missing thing. "Not ready" without a cause is a shrug,
+and a shrug is what let ten switches sit green for months.
+
+| Event | State | Reason |
 |---|---|---|
-| **Organization variables** | `orgContext.service.ts` + the Deno twin in the scheduler | **15 of 15** required variables resolve. `org_city` / `org_pincode` are new nullable columns (migration `20261003_phase10a`), NULL for every organization, never inferred from the free-text address. |
-| **Deduplication** | `partitionDuplicates` (immediate) · `(organization_id, context_type, context_id, created_at::date)` (scheduled) | Scoped **per organization** — one tenant's send can no longer suppress another's. The scheduled path also de-duplicates *within* a batch. |
-| **Quiet hours** | `automationRules.isWithinQuietHours` · `inQuietHours` in the scheduler | Messages are **deferred** to `quiet_end` via `scheduled_at`, never dropped. |
-| **Communication preference** | `decideChannel` (immediate) · `prefAllowsWhatsapp` (scheduled) | `NONE` and `EMAIL` both suppress WhatsApp. **0 ARK students currently have a preference set**, so every ARK student is on the legacy "allowed" default. |
-| **Family grouping** | `familyGrouping.ts`, gated by `supportsFamilyGrouping(eventKey)` | Applied to attendance only. Exam marks, fees, credentials and payroll stay per-child/per-staff — grouping them would leak one child's record to another's parent. |
-| **Missing data** | `render()` returns `missing[]`; the caller skips | A message with an unresolved variable is **skipped with a recorded reason**, never sent with a gap. One bad recipient never stops the batch. |
-| **Dry run** | `POST { dryRun: true }` | Resolves, renders, reports counts and a sample body, writes nothing. `{ events: [...] }` force-resolves an automation without enabling it — accepted **only** with `dryRun`, so a request body can never override a school's decision to keep an automation off. |
-| **Tenant isolation** | Every scheduler query filters `organization_id`; every inserted row sets it explicitly | Verified: a dry run across both organizations returns separate, correctly-scoped results. |
+| `attendance_present` | MISSING_TRIGGER | Registered as an optional present-confirmation, but Submit Attendance only dispatches attendance_absent and attendance_corrected. Nothing calls it. |
+| `admission_completed` | MISSING_TRIGGER | The admission flow completes without dispatching. Lead CRM sends its own lead_admission_completed_v2 on a separate path. |
+| `certificate_ready` | BLOCKED | Certificate pages are localStorage-backed (ModuleStarterPage, storageKey "certificates"), so no server-side certificate row exists to trigger from. |
+| `live_class_created` | MISSING_TRIGGER | A resolver exists (resolveLiveClass) but no live-class creation path dispatches the event. |
+| `class_cancelled` | MISSING_TRIGGER | Superseded by class_cancelled_students, which is what classReminder.service.ts dispatches. This key remains in the registry with no caller. |
+| `holiday_notice` | BLOCKED | No holidays table exists. Nothing in the database defines which date is a holiday, and inventing a festival list would send confident, wrong messages to every parent. |
 
----
+## Switches that read ON but cannot send
 
-## Data quality findings (not code defects)
+None, by registry default.
 
-These are real conditions in ARK's data that limit what can be sent. None is
-worked around by inventing a value.
-
-1. **`student_fees.due_date` is NULL on all 126 pending rows.** `fee_due`
-   resolves all 126 parents and skips all 126 with `unresolved: due_date`,
-   because the template says "is due on {{due_date}}". Filling in due dates —
-   or approving a template body that omits the date — makes this event live.
-2. **0 students have `communication_preference` set.** Everyone falls to the
-   legacy allow-all default. Nothing is broken; nobody has opted out either.
-3. **No `holidays` table.** Event 20 stays BLOCKED.
-
----
-
-## Not yet done — stated plainly
-
-- **The cron job is still not scheduled.** The rewritten scheduler is deployed
-  and dry-run verified, but nothing invokes it on a timer. Enabling it starts
-  real WhatsApp traffic to real parents and is an explicit operator decision,
-  not something to switch on at the end of a refactor.
-- **Provider (Meta) templates are still `READY_FOR_SUBMISSION`.** Until they are
-  approved and marked ACTIVE, `resolveCampaign()` returns the **legacy ARK
-  campaign**, so a non-ARK tenant's WhatsApp message still renders ARK's name in
-  the part Meta controls. Local bodies, previews and email are tenant-correct;
-  the provider-rendered WhatsApp body is not, and cannot be until Meta approves
-  the neutral templates.
+Per-tenant, this is computed live: the Communication Center counts them at
+the top of the page, and `automationRegistryAudit.test.ts` fails the build
+if any of them is a CODE defect (a missing template or resolver) rather than
+a documented configuration one.

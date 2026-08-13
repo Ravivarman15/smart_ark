@@ -91,6 +91,21 @@ verify_jwt = true
 [functions.public-onboarding]
 verify_jwt = false
 
+# ─── public-form: PUBLIC marketing form intake + notification ────────────────
+# verify_jwt = false because the callers are anonymous website visitors filling
+# in Book a Demo / Contact / Careers. There is no session to verify and never
+# will be.
+#
+# The compensating controls live inside the function, because they have to:
+# a payload size ceiling, a per-email rate limit, an allow-list of registry
+# fields (anything else in the body is dropped), email validation that rejects
+# control characters, and phone normalisation. Crucially the request body may
+# name a form type and its own fields and NOTHING else — recipients are
+# resolved server-side from platform_users, so a visitor cannot address the
+# notification at anyone.
+[functions.public-form]
+verify_jwt = false
+
 # ─── provisioning-worker: drains the provisioning queue ──────────────────────
 # verify_jwt = false because the primary caller is CRON, which has no user
 # session. The function authorises internally: a CRON_SECRET header, or a

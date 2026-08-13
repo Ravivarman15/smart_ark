@@ -181,6 +181,39 @@ describe("the scheduler is tenant-safe", () => {
   it("declares holiday_notice BLOCKED rather than inventing a holiday source", () => {
     expect(src).toMatch(/BLOCKED: no holidays table/);
   });
+
+  // ── The caller-identity gate ──────────────────────────────────────────────
+  //
+  // Found while wiring the Communication Center's dry test: the function
+  // queries as service_role (RLS bypassed) and took its target tenant from
+  // `organizationId` IN THE REQUEST BODY, while the gateway accepted the anon
+  // key — which is compiled into the shipped frontend. Anyone holding the
+  // public bundle could read any tenant's recipients out of a dry run.
+  it("refuses the anonymous key", () => {
+    expect(src).toMatch(/kind\s*===\s*"anonymous"/);
+    expect(src).toMatch(/json\(401/);
+  });
+
+  it("takes the tenant from the verified caller, never from the request body", () => {
+    // resolveCaller() verifies against GoTrue and resolves the org from
+    // organization_users membership. A body id may only AGREE with it.
+    expect(src).toMatch(/resolveCaller\(/);
+    expect(src).toMatch(/onlyOrg\s*=\s*caller\.organizationId/);
+    expect(src).toMatch(/requestedOrg\s*!==\s*caller\.organizationId/);
+  });
+
+  it("never lets a user token start a live run", () => {
+    // A tenant admin may inspect their own automations; only the scheduled
+    // job (service role) may send. Otherwise "dry test" becomes a button that
+    // messages every parent in the school.
+    expect(src).toMatch(/caller\.kind\s*===\s*"user"[\s\S]{0,900}?if\s*\(!dryRun\)[\s\S]{0,200}?json\(403/);
+  });
+
+  it("does not decode the JWT locally", () => {
+    // Phase 0 S6 asserts this repo-wide; asserted here too because THIS
+    // function is the one that runs as service_role on a per-tenant loop.
+    expect(src).not.toMatch(/atob\s*\(/);
+  });
 });
 
 // ── 6 ────────────────────────────────────────────────────────────────────────

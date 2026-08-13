@@ -502,13 +502,139 @@ const renderFeeReceipt = (p: FeeReceiptParams, b: Branding): RenderedEmail => {
   };
 };
 
+// ── Template: platform-lead-alert ───────────────────────────────────────────
+//
+// The internal alert sent to EVERY active platform user holding
+// `platform.leads.notify` when a public form is submitted.
+//
+// It renders ONLY the fields the caller passes, as label/value pairs. A
+// contact-form alert therefore contains no "Preferred date: Not provided" line
+// for a question the visitor was never asked — the absent field is absent,
+// which is different from empty.
+export interface PlatformLeadAlertParams {
+  /** "Demo request", "Career application", … — from the form registry. */
+  formLabel: string;
+  /** Ordered, already-sanitised, already-non-empty. */
+  fields: Array<{ label: string; value: string }>;
+  submittedAt: string;
+  source?: string;
+  /** Deep link into the platform console. */
+  reviewUrl?: string;
+}
+
+const renderPlatformLeadAlert = (
+  p: PlatformLeadAlertParams,
+  b: Branding,
+): RenderedEmail => {
+  const rows = (p.fields ?? [])
+    .map(
+      (f) => `
+      <tr>
+        <td style="padding:6px 12px 6px 0;color:#64748b;font-size:13px;white-space:nowrap;vertical-align:top;">${esc(f.label)}</td>
+        <td style="padding:6px 0;color:#0f172a;font-size:14px;">${esc(f.value)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const subject = `New ${p.formLabel} received`;
+  const bodyHtml = `
+    <h1 style="margin:0 0 6px;font-size:20px;color:#0f172a;">${esc(subject)}</h1>
+    <p style="margin:0 0 16px;color:#64748b;font-size:13px;">
+      Submitted through the ${esc(b.productName)} website${p.source ? ` · ${esc(p.source)}` : ""} · ${esc(p.submittedAt)}
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+      ${rows}
+    </table>
+    ${p.reviewUrl ? ctaButton("Review in the dashboard", p.reviewUrl, b.accentColor) : ""}`;
+
+  const text = [
+    subject,
+    "",
+    `Submitted through the ${b.productName} website${p.source ? ` (${p.source})` : ""} on ${p.submittedAt}.`,
+    "",
+    ...(p.fields ?? []).map((f) => `${f.label}: ${f.value}`),
+    p.reviewUrl ? `\nReview: ${p.reviewUrl}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return { subject, text, html: baseLayout({ branding: b, preheader: subject, bodyHtml }) };
+};
+
+// ── Template: public-form-ack ───────────────────────────────────────────────
+//
+// The visitor's own confirmation. Wording comes from the form registry so a
+// career applicant is not told "we will confirm your slot".
+//
+// No response-time promise is rendered unless the caller passes one, and
+// nothing in this codebase currently passes one — claiming "within one working
+// day" when no SLA exists is a promise the system cannot keep.
+export interface PublicFormAckParams {
+  name: string;
+  formLabel: string;
+  /** Registry wording for this form type. */
+  confirmation: string;
+  /** The visitor's own message, echoed back so they know what we received. */
+  message?: string;
+  /** Demo scheduling preferences — only when the form collected them. */
+  details?: Array<{ label: string; value: string }>;
+}
+
+const renderPublicFormAck = (
+  p: PublicFormAckParams,
+  b: Branding,
+): RenderedEmail => {
+  const detailRows = (p.details ?? [])
+    .map(
+      (d) => `
+      <tr>
+        <td style="padding:4px 12px 4px 0;color:#64748b;font-size:13px;white-space:nowrap;">${esc(d.label)}</td>
+        <td style="padding:4px 0;color:#0f172a;font-size:14px;">${esc(d.value)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const subject = `Thank you for contacting ${b.orgName}`;
+  const bodyHtml = `
+    <h1 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Thank you, ${esc(p.name)}</h1>
+    <p style="margin:0 0 12px;">${esc(p.confirmation)}</p>
+    ${
+      detailRows
+        ? `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 12px;">${detailRows}</table>`
+        : ""
+    }
+    ${
+      p.message
+        ? `<p style="margin:0 0 6px;color:#64748b;font-size:13px;">What you sent us</p>
+           <p style="margin:0 0 12px;padding:10px 12px;background:#f8fafc;border-radius:6px;font-size:14px;">${esc(p.message)}</p>`
+        : ""
+    }
+    <p style="margin:0;">— ${esc(b.orgName)}</p>`;
+
+  const text = [
+    `Thank you, ${p.name}`,
+    "",
+    p.confirmation,
+    "",
+    ...(p.details ?? []).map((d) => `${d.label}: ${d.value}`),
+    p.message ? `\nWhat you sent us:\n${p.message}` : "",
+    `\n— ${b.orgName}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return { subject, text, html: baseLayout({ branding: b, preheader: p.confirmation, bodyHtml }) };
+};
+
 // ── Registry dispatcher ─────────────────────────────────────────────────────
 export type EmailTemplateId =
   | "staff-welcome"
   | "staff-password-reset"
   | "generic-notice"
   | "salary-slip"
-  | "fee-receipt";
+  | "fee-receipt"
+  | "platform-lead-alert"
+  | "public-form-ack";
 
 export const KNOWN_TEMPLATES: EmailTemplateId[] = [
   "staff-welcome",
@@ -516,6 +642,8 @@ export const KNOWN_TEMPLATES: EmailTemplateId[] = [
   "generic-notice",
   "salary-slip",
   "fee-receipt",
+  "platform-lead-alert",
+  "public-form-ack",
 ];
 
 /**
@@ -541,6 +669,10 @@ export const renderEmail = (
       return renderSalarySlip(params as unknown as SalarySlipParams, branding);
     case "fee-receipt":
       return renderFeeReceipt(params as unknown as FeeReceiptParams, branding);
+    case "platform-lead-alert":
+      return renderPlatformLeadAlert(params as unknown as PlatformLeadAlertParams, branding);
+    case "public-form-ack":
+      return renderPublicFormAck(params as unknown as PublicFormAckParams, branding);
     default:
       throw new Error(`Unknown email template: ${templateId}`);
   }

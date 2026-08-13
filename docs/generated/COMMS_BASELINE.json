@@ -1,0 +1,474 @@
+{
+  "capturedAt": "2026-08-12T11:17:50.101Z",
+  "organizations": {
+    "ark": {
+      "id": "126a6dd8-6f7e-4b81-9b82-58a9a3b77674",
+      "slug": "ark",
+      "displayName": "ARK Learning Arena",
+      "timezone": "Asia/Kolkata",
+      "status": "active",
+      "counts": {
+        "students": 135,
+        "profiles": 24,
+        "student_attendance": 6590,
+        "exam_results": 1479,
+        "student_fees": 134,
+        "payroll_runs": 2,
+        "leads": 35,
+        "demo_classes": 7,
+        "message_queue": 345,
+        "comms_audit": 440,
+        "comms_templates": 0,
+        "comms_automation_settings": 31
+      },
+      "enabledCount": 20,
+      "settings": [
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "admission_completed",
+          "priority": 3,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "student_welcome",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": true,
+          "event_key": "attendance_absent",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "attendance_absent",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": true,
+          "event_key": "attendance_corrected",
+          "priority": 1,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "attendance_corrected",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "attendance_present",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "attendance_present",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "birthday_student",
+          "priority": 7,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "birthday_wish",
+          "timing": "scheduled"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "certificate_ready",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "certificate_ready",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "class_attendance_due",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "class_attendance_due",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "class_cancelled",
+          "priority": 4,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "class_cancelled",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": true,
+          "event_key": "class_cancelled_students",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "class_cancelled",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "class_ended",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "class_ended",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "class_reminder_coordinator",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "class_reminder_coordinator",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "class_reminder_faculty",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "class_reminder_faculty",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "class_started",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "class_started",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "demo_reminder",
+          "priority": 6,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "lead_demo_reminder_v2",
+          "timing": "scheduled"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": true,
+          "event_key": "demo_scheduled",
+          "priority": 4,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "lead_demo_scheduled_v2",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": true,
+          "event_key": "exam_published",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "exam_result",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "exam_scheduled",
+          "priority": 6,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "exam_reminder",
+          "timing": "scheduled"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "fee_due",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "fee_due_reminder",
+          "timing": "scheduled"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "fee_paid",
+          "priority": 4,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "fee_receipt",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "holiday_notice",
+          "priority": 7,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "holiday_notice",
+          "timing": "scheduled"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "live_class_created",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "live_class_notification",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": true,
+          "event_key": "payroll_approved",
+          "priority": 3,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "payroll_approved",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": true,
+          "event_key": "staff_credentials",
+          "priority": 2,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "staff_credentials",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": true,
+          "event_key": "student_credentials",
+          "priority": 2,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "student_credentials",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "task_assigned",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "task_assigned",
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "task_due",
+          "priority": 6,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "task_reminder",
+          "timing": "scheduled"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "teacher_class_cancelled",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "teacher_class_cancelled",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "teacher_class_rescheduled",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "teacher_class_rescheduled",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "teacher_class_scheduled",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "teacher_class_scheduled",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "teacher_extra_class",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "teacher_extra_class",
+          "timing": "immediate"
+        },
+        {
+          "channel": "both",
+          "enabled": true,
+          "event_key": "teacher_substitute_assigned",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": "teacher_substitute_assigned",
+          "timing": "immediate"
+        }
+      ],
+      "templates": []
+    },
+    "abc-academi": {
+      "id": "12028704-0344-4900-af41-2f71b2372627",
+      "slug": "abc-academi",
+      "displayName": "ABC Academi",
+      "timezone": "Asia/Kolkata",
+      "status": "trialing",
+      "counts": {
+        "students": 3,
+        "profiles": 4,
+        "student_attendance": 12,
+        "exam_results": 1,
+        "student_fees": 3,
+        "payroll_runs": 4,
+        "leads": 5,
+        "demo_classes": 0,
+        "message_queue": 9,
+        "comms_audit": 3,
+        "comms_templates": 8,
+        "comms_automation_settings": 6
+      },
+      "enabledCount": 0,
+      "settings": [
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "admission_confirmed",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": null,
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "attendance_absent",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": null,
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "class_cancelled",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": null,
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "exam_result",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": null,
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "fee_due",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": null,
+          "timing": "immediate"
+        },
+        {
+          "channel": "whatsapp",
+          "enabled": false,
+          "event_key": "fee_paid",
+          "priority": 5,
+          "quiet_end": null,
+          "quiet_start": null,
+          "template_key": null,
+          "timing": "immediate"
+        }
+      ],
+      "templates": [
+        {
+          "is_active": true,
+          "language": "en",
+          "provider_name": null,
+          "template_key": "admission_welcome"
+        },
+        {
+          "is_active": true,
+          "language": "en",
+          "provider_name": null,
+          "template_key": "attendance_absent"
+        },
+        {
+          "is_active": true,
+          "language": "en",
+          "provider_name": null,
+          "template_key": "class_cancelled"
+        },
+        {
+          "is_active": true,
+          "language": "en",
+          "provider_name": null,
+          "template_key": "exam_result"
+        },
+        {
+          "is_active": true,
+          "language": "en",
+          "provider_name": null,
+          "template_key": "fee_receipt"
+        },
+        {
+          "is_active": true,
+          "language": "en",
+          "provider_name": null,
+          "template_key": "fee_reminder"
+        },
+        {
+          "is_active": true,
+          "language": "en",
+          "provider_name": null,
+          "template_key": "parent_credentials"
+        },
+        {
+          "is_active": true,
+          "language": "en",
+          "provider_name": null,
+          "template_key": "staff_welcome"
+        }
+      ]
+    }
+  }
+}

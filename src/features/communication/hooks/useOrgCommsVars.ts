@@ -13,17 +13,16 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { useQuery } from "@tanstack/react-query";
-import { orgContextService, type OrgCommsVars } from "../services/orgContext.service";
+import {
+  orgContextService, ORG_VARIABLE_KEYS, type OrgCommsVars,
+} from "../services/orgContext.service";
 
-const EMPTY: OrgCommsVars = {
-  org_name: "",
-  org_short_name: "",
-  org_legal_name: "",
-  org_phone: "",
-  org_email: "",
-  org_website: "",
-  org_address: "",
-};
+// Built FROM the canonical key list rather than written out, so adding an org
+// variable cannot leave this default one key short — which would render
+// `{{org_city}}` literally in a first frame instead of an empty string.
+const EMPTY: OrgCommsVars = Object.fromEntries(
+  ORG_VARIABLE_KEYS.map((k) => [k, ""]),
+) as OrgCommsVars;
 
 /** Org identity for the CURRENT tenant. Never throws; never guesses a name. */
 export const useOrgCommsVars = (): OrgCommsVars => {
