@@ -24,7 +24,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { requireRole, scoped } from "../_shared/auth.ts";
+import { requireRole, scoped, stampOrg } from "../_shared/auth.ts";
 
 const STUDENT_DOMAIN = "students.ark.local";
 const PARENT_DOMAIN = "parents.ark.local";
@@ -97,8 +97,15 @@ const slugUsername = (name: string, salt: string): string => {
 
 type Db = ReturnType<typeof createClient>;
 
-const logAudit = async (db: Db, e: { subject_type: string; account_id?: string; user_id?: string; event: string; detail?: string }) => {
-  try { await db.from("auth_login_audit").insert(e); } catch { /* best-effort */ }
+// `org` is REQUIRED, not optional-with-a-default. auth_login_audit is a tenant
+// table, and this insert is deliberately best-effort — so an unstamped row here
+// would be swallowed by the catch and the audit trail would just silently stop.
+const logAudit = async (
+  db: Db,
+  org: string,
+  e: { subject_type: string; account_id?: string; user_id?: string; event: string; detail?: string },
+) => {
+  try { await db.from("auth_login_audit").insert(stampOrg(e, org, "audit entry")); } catch { /* best-effort */ }
 };
 
 /** Rotate to a fresh temp password and PROVE it logs in. */
@@ -131,6 +138,26 @@ Deno.serve(async (req) => {
     const gate = await requireRole(req, supabase, ["management", "admin"]);
     if (!gate.ok) return jsonResponse(gate.status, { error: gate.error });
     const createdBy = gate.caller.profileId as string;
+
+    // The tenant every row written below belongs to. Derived from the verified
+    // caller's membership — never from the request body, which a client could
+    // set to another tenant's id (the service role would happily obey).
+    //
+    // Checked ONCE, here, so a missing org fails as a clean 403 before any auth
+    // user is created — rather than as a NOT NULL violation halfway through,
+    // which is what left orphaned auth.users behind.
+    const orgId = gate.caller.organizationId;
+    if (!orgId) {
+      return jsonResponse(403, {
+        ok: false,
+        reason: "no_organization",
+        message:
+          "Your account is not an active member of any organization, so there is " +
+          "no tenant to create this login in. Ask an administrator to check your " +
+          "organization membership.",
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
     const action: string = body?.action;
 
@@ -170,10 +197,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      const row = {
+      const row = stampOrg({
         student_id: studentId, user_id: created.user.id, username, login_email: loginEmail,
         mobile: body?.mobile ?? null, status: "active", created_by: createdBy,
-      };
+      }, orgId, "student login");
       const { data: acct, error: upErr } = existing
         ? await supabase.from("student_auth_accounts").update(row).eq("id", existing.id).select("id").single()
         : await supabase.from("student_auth_accounts").insert(row).select("id").single();
@@ -183,7 +210,7 @@ Deno.serve(async (req) => {
       }
 
       const proof = await rotateAndProve(supabase, url, anonKey, created.user.id, loginEmail);
-      await logAudit(supabase, { subject_type: "student", account_id: (acct as { id: string }).id, user_id: created.user.id, event: "account_created", detail: `username ${username}` });
+      await logAudit(supabase, orgId, { subject_type: "student", account_id: (acct as { id: string }).id, user_id: created.user.id, event: "account_created", detail: `username ${username}` });
       if (!proof.ok) return jsonResponse(200, { ok: false, reason: proof.reason, message: `Account created but login could not be proven: ${proof.detail ?? ""}` });
       return jsonResponse(200, { ok: true, accountId: (acct as { id: string }).id, userId: created.user.id, username, loginEmail, password: proof.password, loginVerified: true });
     }
@@ -212,10 +239,12 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: acct, error: upErr } = await supabase.from("parent_auth_accounts").insert({
-        user_id: created.user.id, name, username, login_email: loginEmail,
-        email: body?.email ?? null, mobile: body?.mobile ?? null, status: "active", created_by: createdBy,
-      }).select("id").single();
+      const { data: acct, error: upErr } = await supabase.from("parent_auth_accounts").insert(
+        stampOrg({
+          user_id: created.user.id, name, username, login_email: loginEmail,
+          email: body?.email ?? null, mobile: body?.mobile ?? null, status: "active", created_by: createdBy,
+        }, orgId, "parent login"),
+      ).select("id").single();
       if (upErr) {
         await supabase.auth.admin.deleteUser(created.user.id).catch(() => {});
         return jsonResponse(200, { ok: false, reason: "row_failed", message: upErr.message });
@@ -227,15 +256,29 @@ Deno.serve(async (req) => {
       // every error — so an account could be reported as fully created while
       // linked to nobody, and the parent signed in to an empty portal with
       // nothing anywhere explaining why. Report what actually happened.
+      // The student ids arrive from the REQUEST. Under the service role nothing
+      // else would stop an admin of tenant B linking tenant A's student to a
+      // parent login they control — which would hand them A's attendance, fees
+      // and results in the parent portal. Resolve the ids against the caller's
+      // own organization first and link only what survives.
+      const { data: ownStudents } = await scoped(
+        supabase.from("students").select("id"), gate.caller,
+      ).in("id", studentIds.length ? studentIds : ["00000000-0000-0000-0000-000000000000"]);
+      const ownIds = new Set(((ownStudents ?? []) as { id: string }[]).map((s) => s.id));
+
       const linkedStudentIds: string[] = [];
       const linkFailures: { studentId: string; message: string }[] = [];
       for (const [i, sid] of studentIds.entries()) {
-        const { error: linkErr } = await supabase.from("parent_student_links").insert({
+        if (!ownIds.has(sid)) {
+          linkFailures.push({ studentId: sid, message: "Student is not in your organization." });
+          continue;
+        }
+        const { error: linkErr } = await supabase.from("parent_student_links").insert(stampOrg({
           parent_account_id: accountId,
           student_id: sid,
           relation: body?.relation ?? null,
           is_primary: i === 0,
-        });
+        }, orgId, "parent-student link"));
         // The row already existing is the outcome we wanted.
         if (linkErr && !/duplicate|unique/i.test(linkErr.message)) {
           linkFailures.push({ studentId: sid, message: linkErr.message });
@@ -245,7 +288,7 @@ Deno.serve(async (req) => {
       }
 
       const proof = await rotateAndProve(supabase, url, anonKey, created.user.id, loginEmail);
-      await logAudit(supabase, { subject_type: "parent", account_id: accountId, user_id: created.user.id, event: "account_created", detail: `username ${username}` });
+      await logAudit(supabase, orgId, { subject_type: "parent", account_id: accountId, user_id: created.user.id, event: "account_created", detail: `username ${username}` });
       if (!proof.ok) return jsonResponse(200, { ok: false, reason: proof.reason, message: `Account created but login could not be proven: ${proof.detail ?? ""}` });
       return jsonResponse(200, {
         ok: true, accountId, userId: created.user.id, username, loginEmail,
@@ -260,7 +303,14 @@ Deno.serve(async (req) => {
       const table = subject === "student" ? "student_auth_accounts" : subject === "parent" ? "parent_auth_accounts" : "";
       if (!table) return jsonResponse(400, { error: 'subject must be "student" or "parent"' });
 
-      let q = supabase.from(table).select("id, user_id, username, login_email, status");
+      // Scoped: accountId comes from the request, and rotating a password is
+      // an account TAKEOVER primitive — it returns the new credentials to the
+      // caller. Unscoped, a foreign accountId would hand another tenant's
+      // parent login to whoever asked. Out-of-tenant now resolves to no row.
+      let q = scoped(
+        supabase.from(table).select("id, user_id, username, login_email, status"),
+        gate.caller,
+      );
       if (body?.accountId) q = q.eq("id", String(body.accountId));
       else if (subject === "student" && body?.studentId) q = q.eq("student_id", String(body.studentId));
       else return jsonResponse(400, { error: "accountId (or studentId for students) required" });
@@ -272,7 +322,7 @@ Deno.serve(async (req) => {
       if (a.status === "disabled" || a.status === "locked") return jsonResponse(200, { ok: false, reason: a.status, message: `Account is ${a.status}.` });
 
       const proof = await rotateAndProve(supabase, url, anonKey, a.user_id, a.login_email);
-      await logAudit(supabase, { subject_type: subject, account_id: a.id, user_id: a.user_id, event: action === "verify" ? "verify" : "password_reset" });
+      await logAudit(supabase, orgId, { subject_type: subject, account_id: a.id, user_id: a.user_id, event: action === "verify" ? "verify" : "password_reset" });
       if (!proof.ok) return jsonResponse(200, { ok: false, reason: proof.reason, message: `Login validation failed: ${proof.detail ?? ""}. Not sent.` });
       return jsonResponse(200, { ok: true, verified: true, accountId: a.id, userId: a.user_id, username: a.username, loginEmail: a.login_email, password: proof.password, loginVerified: true });
     }
@@ -287,9 +337,18 @@ Deno.serve(async (req) => {
       const accountId = String(body?.accountId ?? "");
       if (!accountId) return jsonResponse(400, { error: "accountId required" });
 
-      const { error } = await supabase.from(table).update({ status, locked_at: status === "locked" ? new Date().toISOString() : null }).eq("id", accountId);
+      // `.select("id")` is not decoration: an UPDATE filtered to zero rows
+      // returns 204 with error === null, so without it disabling a foreign
+      // account would report success while changing nothing.
+      const { data: updated, error } = await scoped(
+        supabase.from(table).update({ status, locked_at: status === "locked" ? new Date().toISOString() : null }),
+        gate.caller,
+      ).eq("id", accountId).select("id");
       if (error) return jsonResponse(200, { ok: false, reason: "update_failed", message: error.message });
-      await logAudit(supabase, { subject_type: subject, account_id: accountId, event: status === "active" ? "account_enabled" : status === "locked" ? "account_locked" : "account_disabled" });
+      if (!updated || updated.length === 0) {
+        return jsonResponse(404, { ok: false, reason: "no_account", message: "No such account in your organization." });
+      }
+      await logAudit(supabase, orgId, { subject_type: subject, account_id: accountId, event: status === "active" ? "account_enabled" : status === "locked" ? "account_locked" : "account_disabled" });
       return jsonResponse(200, { ok: true, accountId, status });
     }
 
@@ -298,9 +357,21 @@ Deno.serve(async (req) => {
       const parentAccountId = String(body?.parentAccountId ?? "");
       const studentId = String(body?.studentId ?? "");
       if (!parentAccountId || !studentId) return jsonResponse(400, { error: "parentAccountId and studentId required" });
-      const { error } = await supabase.from("parent_student_links").insert({
+
+      // BOTH ends must belong to the caller's tenant. Checking only one would
+      // still allow stitching a foreign student onto a local parent login (or
+      // a local student onto a foreign parent's), either of which exposes a
+      // child's record across tenants.
+      const [{ data: pa }, { data: st }] = await Promise.all([
+        scoped(supabase.from("parent_auth_accounts").select("id"), gate.caller).eq("id", parentAccountId).maybeSingle(),
+        scoped(supabase.from("students").select("id"), gate.caller).eq("id", studentId).maybeSingle(),
+      ]);
+      if (!pa) return jsonResponse(404, { ok: false, reason: "no_parent", message: "No such parent account in your organization." });
+      if (!st) return jsonResponse(404, { ok: false, reason: "no_student", message: "No such student in your organization." });
+
+      const { error } = await supabase.from("parent_student_links").insert(stampOrg({
         parent_account_id: parentAccountId, student_id: studentId, relation: body?.relation ?? null, is_primary: !!body?.isPrimary,
-      });
+      }, orgId, "parent-student link"));
       if (error && !/duplicate|unique/i.test(error.message)) return jsonResponse(200, { ok: false, reason: "link_failed", message: error.message });
       return jsonResponse(200, { ok: true, parentAccountId, studentId });
     }

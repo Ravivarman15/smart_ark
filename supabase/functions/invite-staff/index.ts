@@ -37,7 +37,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { requireRole } from "../_shared/auth.ts";
+import { requireRole, stampOrg } from "../_shared/auth.ts";
 import { brevoConfigured, sendBrevoEmail } from "../_shared/brevo.ts";
 import { renderEmail } from "../_shared/email-templates.ts";
 
@@ -276,6 +276,7 @@ const resolveAuthTruth = async (
 /** Append an onboarding audit event — best-effort (table may not exist yet). */
 const logEvent = async (
   db: Db,
+  org: string,
   ev: {
     profile_id: string;
     event_type: string;
@@ -286,14 +287,14 @@ const logEvent = async (
   },
 ): Promise<void> => {
   try {
-    await db.from("staff_onboarding_events").insert({
+    await db.from("staff_onboarding_events").insert(stampOrg({
       profile_id: ev.profile_id,
       event_type: ev.event_type,
       detail: ev.detail ?? null,
       metadata: ev.metadata ?? {},
       actor_profile_id: ev.actor_profile_id ?? null,
       actor_name: ev.actor_name ?? null,
-    });
+    }, org, "onboarding event"));
   } catch {
     /* audit is best-effort — never block the invite on it */
   }
@@ -316,6 +317,14 @@ Deno.serve(async (req) => {
     // service-role function is full impersonation. See _shared/auth.ts.
     const gate = await requireRole(req, supabase, ["management", "admin"]);
     if (!gate.ok) return jsonResponse(gate.status, { error: gate.error });
+    // Resolved once, up front: every tenant row written below needs it, and
+    // failing here is far better than failing after the auth user exists.
+    const orgId = gate.caller.organizationId;
+    if (!orgId) {
+      return jsonResponse(403, {
+        error: "Your account is not an active member of any organization.",
+      });
+    }
     const actor = {
       actor_profile_id: gate.caller.profileId as string,
       actor_name: gate.caller.name,
@@ -465,7 +474,7 @@ Deno.serve(async (req) => {
         { password: tempPassword },
       );
       if (pwErr) {
-        await logEvent(supabase, {
+        await logEvent(supabase, orgId, {
           profile_id: resolved.profileId,
           event_type: "invite_email_failed",
           detail: `Password rotation failed: ${pwErr.message}`,
@@ -481,7 +490,7 @@ Deno.serve(async (req) => {
         resolved.userId,
       );
       if (!verify?.user?.id) {
-        await logEvent(supabase, {
+        await logEvent(supabase, orgId, {
           profile_id: resolved.profileId,
           event_type: "invite_email_failed",
           detail: "Auth user disappeared after password update — refusing send.",
@@ -522,7 +531,7 @@ Deno.serve(async (req) => {
           invite_email_error: sent.error ?? null,
         },
       );
-      await logEvent(supabase, {
+      await logEvent(supabase, orgId, {
         profile_id: resolved.profileId,
         event_type: sent.ok ? "invite_resent" : "invite_email_failed",
         detail: sent.ok
@@ -557,7 +566,7 @@ Deno.serve(async (req) => {
         { password: tempPassword },
       );
       if (pwErr) {
-        await logEvent(supabase, {
+        await logEvent(supabase, orgId, {
           profile_id: resolved.profileId,
           event_type: "password_reset_failed",
           detail: `Password rotation failed: ${pwErr.message}`,
@@ -594,7 +603,7 @@ Deno.serve(async (req) => {
         tags: ["staff-password-reset"],
       });
 
-      await logEvent(supabase, {
+      await logEvent(supabase, orgId, {
         profile_id: resolved.profileId,
         event_type: "password_reset",
         detail: sent.ok
@@ -737,7 +746,7 @@ Deno.serve(async (req) => {
         { email: newEmailRaw, email_confirm: true },
       );
       if (authUpdErr) {
-        await logEvent(supabase, {
+        await logEvent(supabase, orgId, {
           profile_id: profile.id,
           event_type: "email_change_failed",
           detail: `Auth email update failed: ${authUpdErr.message}`,
@@ -754,7 +763,7 @@ Deno.serve(async (req) => {
         { email: newEmailRaw },
       );
 
-      await logEvent(supabase, {
+      await logEvent(supabase, orgId, {
         profile_id: profile.id,
         event_type: "email_changed",
         detail: `Login email changed from ${profile.email ?? "(empty)"} to ${newEmailRaw}`,
@@ -907,7 +916,7 @@ Deno.serve(async (req) => {
     }
 
 
-    await logEvent(supabase, {
+    await logEvent(supabase, orgId, {
       profile_id: profileId,
       event_type: "account_created",
       detail: `Staff account created with role "${roleLabel(profile.role)}"`,
@@ -949,7 +958,7 @@ Deno.serve(async (req) => {
         invite_email_error: sent.error ?? null,
       },
     );
-    await logEvent(supabase, {
+    await logEvent(supabase, orgId, {
       profile_id: profileId,
       event_type: sent.ok ? "invite_email_sent" : "invite_email_failed",
       detail: sent.ok

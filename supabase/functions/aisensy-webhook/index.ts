@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stampOrg } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,21 +70,27 @@ Deno.serve(async (req) => {
       .from("message_queue")
       .update(queueUpdate)
       .eq("provider_message_id", messageId)
-      .select("id")
+      // organization_id comes back with the row because comms_audit is
+      // tenant-scoped and this is an UNAUTHENTICATED provider callback: there
+      // is no caller to take a tenant from. The queue row we just matched is
+      // the only trustworthy source — and the provider cannot influence which
+      // row that is beyond supplying its own message id.
+      .select("id, organization_id")
       .maybeSingle();
 
     const queueId = (updated as { id?: string } | null)?.id;
+    const queueOrgId = (updated as { organization_id?: string } | null)?.organization_id;
     if (queueId) {
       const recUpdate: Record<string, unknown> = { status: mapped.recipient };
       if (mapped.stamp) recUpdate[mapped.stamp] = nowIso;
       await supabase.from("comms_campaign_recipients").update(recUpdate).eq("message_queue_id", queueId);
-      await supabase.from("comms_audit").insert({
+      await supabase.from("comms_audit").insert(stampOrg({
         entity_type: "webhook",
         entity_id: queueId,
         action: rawStatus === "failed" ? "fail" : rawStatus,
         actor_name: "aisensy-webhook",
         payload: { messageId, status: rawStatus, reason },
-      }).then(() => {}, () => {});
+      }, queueOrgId, "webhook audit")).then(() => {}, () => {});
     }
 
     return new Response(JSON.stringify({ ok: true, updated: !!queueId }), {

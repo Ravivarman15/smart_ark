@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stampOrg } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,23 @@ const AISENSY_API_URL   = "https://backend.aisensy.com/campaign/t1/api/v2";
 const AISENSY_CAMPAIGN  = "ark_daily_report_summary";  // must match your AiSensy dashboard
 const RECIPIENT_NAME    = "Management";            // display name in AiSensy CRM
 const REPORT_RECIPIENT  = "+917358199217";         // +91 73581 99217 (management number, with +)
+
+// ┌── THIS REPORT IS SINGLE-TENANT, AND SAYS SO ───────────────────────────┐
+// │ The recipient number and the AiSensy campaign above are both ARK's,    │
+// │ hardcoded. Every query below, however, used to run UNSCOPED — so from  │
+// │ the day a second organization existed, ABC Academi's attendance, fees  │
+// │ and violations were silently folded into the numbers WhatsApp'd to     │
+// │ ARK's management. The totals were wrong and nothing said so.           │
+// │                                                                        │
+// │ Scoping every read to one organization is the correct fix for the      │
+// │ report that exists. Making the report genuinely multi-tenant is a      │
+// │ separate, product-level change: each tenant needs its own recipient    │
+// │ number and its own Meta-approved template (this campaign name is       │
+// │ ARK-branded), neither of which can be invented here.                   │
+// │                                                                        │
+// │ Override with DAILY_REPORT_ORG_SLUG if the owning tenant ever changes. │
+// └────────────────────────────────────────────────────────────────────────┘
+const REPORT_ORG_SLUG = Deno.env.get("DAILY_REPORT_ORG_SLUG") || "ark";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -33,11 +51,30 @@ Deno.serve(async (req) => {
     const isPreview = triggerType === "preview";
     const today = new Date().toISOString().split("T")[0];
 
+    // The tenant this report describes. Resolved by slug, never from the
+    // request body — this endpoint is reachable by any authenticated caller.
+    const { data: reportOrg } = await supabase
+      .from("organizations")
+      .select("id, display_name")
+      .ilike("slug", REPORT_ORG_SLUG)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!reportOrg) {
+      return new Response(
+        JSON.stringify({
+          error: `Daily report is configured for organization "${REPORT_ORG_SLUG}", which does not exist. Set DAILY_REPORT_ORG_SLUG.`,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const orgId = reportOrg.id as string;
+
     // ── Deduplicate: skip if already sent today (not preview) ─────────────
     if (!isPreview) {
       const { data: existing } = await supabase
         .from("daily_report_log")
         .select("id")
+        .eq("organization_id", orgId)
         .eq("date", today)
         .maybeSingle();
 
@@ -62,15 +99,15 @@ Deno.serve(async (req) => {
       { data: admissionData },
       { data: studentAttData },
     ] = await Promise.all([
-      supabase.from("ihi_trend").select("*").order("created_at", { ascending: false }).limit(1),
-      supabase.from("violations").select("*", { count: "exact" }).eq("date", today).eq("resolved", false),
-      supabase.from("admin_checklist").select("*").eq("date", today),
-      supabase.from("retests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-      supabase.from("retests").select("*", { count: "exact", head: true }).eq("status", "completed"),
-      supabase.from("fee_transactions").select("amount, paid").eq("date", today),
-      supabase.from("teacher_attendance").select("status").eq("date", today),
-      supabase.from("admission_calls").select("is_walkin, status").eq("date", today),
-      supabase.from("student_attendance").select("status").eq("date", today),
+      supabase.from("ihi_trend").select("*").eq("organization_id", orgId).order("created_at", { ascending: false }).limit(1),
+      supabase.from("violations").select("*", { count: "exact" }).eq("organization_id", orgId).eq("date", today).eq("resolved", false),
+      supabase.from("admin_checklist").select("*").eq("organization_id", orgId).eq("date", today),
+      supabase.from("retests").select("*", { count: "exact", head: true }).eq("organization_id", orgId).eq("status", "pending"),
+      supabase.from("retests").select("*", { count: "exact", head: true }).eq("organization_id", orgId).eq("status", "completed"),
+      supabase.from("fee_transactions").select("amount, paid").eq("organization_id", orgId).eq("date", today),
+      supabase.from("teacher_attendance").select("status").eq("organization_id", orgId).eq("date", today),
+      supabase.from("admission_calls").select("is_walkin, status").eq("organization_id", orgId).eq("date", today),
+      supabase.from("student_attendance").select("status").eq("organization_id", orgId).eq("date", today),
     ]);
 
     const latestIhi      = ihiData?.[0]?.ihi || 0;
@@ -197,12 +234,12 @@ Deno.serve(async (req) => {
     }
 
     // ── Log report in database ────────────────────────────────────────────
-    await supabase.from("daily_report_log").insert({
+    await supabase.from("daily_report_log").insert(stampOrg({
       date:         today,
       trigger_type: triggerType,
       status:       sendStatus,
       report_data:  reportData,
-    });
+    }, orgId, "daily report log"));
 
     return new Response(
       JSON.stringify({

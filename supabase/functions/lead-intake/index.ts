@@ -15,6 +15,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stampOrg } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,31 +68,35 @@ const categoryFor = (s: number) =>
 // Queue a WhatsApp + mirror to lead_whatsapp_logs + comms_audit. `vars` carries
 // the NAMED positional values (student_name/course_name/counselor_name/…) so the
 // send-aisensy drainer's buildTemplateParams can order them for the Meta template.
+// `org` is threaded in rather than left to the column default: all three of
+// these tables are tenant-scoped, and this function runs as SERVICE ROLE, where
+// current_org_id() is NULL. See the tenant note in the handler below.
 async function enqueueWa(
   supabase: any,
+  org: string,
   opts: {
     leadId: string; template: string; phone: string; recipientName: string;
     recipientKind: string; body: string; vars: Record<string, unknown>;
   },
 ) {
   const nowIso = new Date().toISOString();
-  await supabase.from("message_queue").insert({
+  await supabase.from("message_queue").insert(stampOrg({
     channel: "whatsapp", provider: "aisensy", template: opts.template, template_key: opts.template,
     language: "en", recipient_kind: opts.recipientKind, recipient_name: opts.recipientName,
     recipient_phone: opts.phone,
     payload: { ...opts.vars, __body: opts.body },
     context_type: "lead", context_id: opts.leadId, status: "queued", scheduled_at: nowIso,
-  });
-  await supabase.from("lead_whatsapp_logs").insert({
+  }, org, "queued message"));
+  await supabase.from("lead_whatsapp_logs").insert(stampOrg({
     lead_id: opts.leadId, template_key: opts.template, template_name: opts.template,
     student_name: opts.vars["student_name"] ?? null, course_name: opts.vars["course_name"] ?? null,
     recipient_phone: opts.phone, recipient_name: opts.recipientName, recipient_kind: opts.recipientKind,
     message_body: opts.body, status: "queued", queued_at: nowIso,
-  });
-  await supabase.from("comms_audit").insert({
+  }, org, "whatsapp log"));
+  await supabase.from("comms_audit").insert(stampOrg({
     entity_type: "lead", entity_id: opts.leadId, action: "queue",
     payload: { template: opts.template, recipient_kind: opts.recipientKind, message_body: opts.body, source: "lead-intake" },
-  });
+  }, org, "comms audit"));
 }
 
 Deno.serve(async (req) => {
@@ -221,12 +226,12 @@ Deno.serve(async (req) => {
       .single();
     if (insErr || !lead) return json({ error: insErr?.message ?? "insert failed" }, 500);
 
-    await supabase.from("lead_score_history").insert({
+    await supabase.from("lead_score_history").insert(stampOrg({
       lead_id: lead.id, score, category, factors: breakdown,
-    });
-    await supabase.from("lead_activities").insert({
+    }, organizationId, "score history"));
+    await supabase.from("lead_activities").insert(stampOrg({
       lead_id: lead.id, type: "created", detail: `Lead captured from ${source}`,
-    });
+    }, organizationId, "lead activity"));
 
     // 4. Auto-assign — course-matching active counselor with fewest open leads.
     //
@@ -275,9 +280,9 @@ Deno.serve(async (req) => {
         .from("leads")
         .update({ assigned_to: assignedTo, assigned_at: new Date().toISOString(), assignment_state: "assigned" })
         .eq("id", lead.id);
-      await supabase.from("lead_activities").insert({
+      await supabase.from("lead_activities").insert(stampOrg({
         lead_id: lead.id, type: "assigned", detail: "Auto-assigned to counselor", new_value: assignedTo,
-      });
+      }, organizationId, "lead activity"));
       // Staff numbers live in profiles.mobile (the Create/Edit Staff form writes
       // there); `phone` is a legacy column kept for older rows. Prefer mobile.
       // Belt and braces: confirm the chosen counselor really belongs to this
@@ -291,13 +296,13 @@ Deno.serve(async (req) => {
         .maybeSingle();
       counselorName = c?.name ?? counselorName;
       counselorPhone = c?.mobile ?? c?.phone ?? null;
-      await supabase.from("lead_notifications").insert({
+      await supabase.from("lead_notifications").insert(stampOrg({
         recipient_id: assignedTo, lead_id: lead.id, type: "new_lead",
         title: "New lead assigned", message: `${studentName}${course ? ` — ${course}` : ""} (${phone})`,
-      });
+      }, organizationId, "lead notification"));
       // WhatsApp the counselor — lead_assigned_counselor (positional template).
       if (counselorPhone) {
-        await enqueueWa(supabase, {
+        await enqueueWa(supabase, organizationId, {
           leadId: lead.id, template: "lead_assigned_counselor", phone: counselorPhone,
           recipientName: counselorName, recipientKind: "counselor",
           body:
@@ -320,20 +325,20 @@ Deno.serve(async (req) => {
       const ids = (mgmt || []).map((p: any) => p.id);
       if (ids.length)
         await supabase.from("lead_notifications").insert(
-          ids.map((rid: string) => ({
+          ids.map((rid: string) => stampOrg({
             recipient_id: rid, lead_id: lead.id, type: "unassigned",
             title: "Unassigned lead needs a counselor", message: `${studentName}${course ? ` — ${course}` : ""}`,
-          }))
+          }, organizationId, "lead notification"))
         );
-      await supabase.from("notifications").insert({
+      await supabase.from("notifications").insert(stampOrg({
         type: "alert", message: `Unassigned lead: ${studentName}`, reference_id: lead.id,
-      });
+      }, organizationId, "notification"));
     }
 
     // 5. Welcome WhatsApp to the lead (queued → drained by send-aisensy).
     //    Single Meta Utility Template: {{1}} student_name, {{2}} course_name.
     const courseName = course ?? "your course of interest";
-    await enqueueWa(supabase, {
+    await enqueueWa(supabase, organizationId, {
       leadId: lead.id, template: "lead_welcome", phone,
       recipientName: parentName ?? studentName, recipientKind: "lead",
       // The institution the enquiry was actually made to — resolved above, not
@@ -346,12 +351,12 @@ Deno.serve(async (req) => {
     });
 
     // 6. 15-minute follow-up timer.
-    await supabase.from("lead_followups").insert({
+    await supabase.from("lead_followups").insert(stampOrg({
       lead_id: lead.id, assigned_to: assignedTo, level: 0, channel: "call", due_at: slaDue, status: "pending",
-    });
+    }, organizationId, "followup"));
 
     // 7. Open NEW-stage SLA window.
-    await supabase.from("lead_sla").insert({ lead_id: lead.id, stage: "new", due_at: slaDue });
+    await supabase.from("lead_sla").insert(stampOrg({ lead_id: lead.id, stage: "new", due_at: slaDue }, organizationId, "SLA window"));
 
     // Nudge the queue drainer (best-effort).
     try {

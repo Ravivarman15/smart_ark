@@ -26,6 +26,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stampOrg } from "../_shared/auth.ts";
 import {
   resolveWhatsappCredentials,
   type WhatsappCredentials,
@@ -273,6 +274,8 @@ interface DirectSend {
 
 interface QueueRow {
   id: string;
+  /** The tenant this message belongs to — carried so audit rows can be stamped. */
+  organization_id: string;
   channel: string;
   provider: string;
   template: string;
@@ -466,7 +469,7 @@ Deno.serve(async (req) => {
     // ── Claim due rows: queued, scheduled, not waiting on backoff ───────────
     let q = supabase
       .from("message_queue")
-      .select("id, channel, provider, template, recipient_name, recipient_phone, payload, campaign_id, retry_count, context_type, context_id")
+      .select("id, organization_id, channel, provider, template, recipient_name, recipient_phone, payload, campaign_id, retry_count, context_type, context_id")
       .eq("status", "queued")
       .eq("provider", "aisensy")
       .in("channel", ["whatsapp", "sms"])
@@ -690,13 +693,13 @@ async function audit(
   payload: Record<string, unknown>,
 ) {
   try {
-    await supabase.from("comms_audit").insert({
+    await supabase.from("comms_audit").insert(stampOrg({
       entity_type: "queue",
       entity_id: row.id,
       action,
       actor_name: "send-aisensy",
       payload: { campaignId: row.campaign_id, template: row.template, ...payload },
-    });
+    }, row.organization_id, "queue audit"));
   } catch { /* swallow */ }
 }
 

@@ -29,7 +29,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { requireRole } from "../_shared/auth.ts";
+import { requireRole, scoped, stampOrg } from "../_shared/auth.ts";
 
 // Readable 14-char alphanumeric temp password (no ambiguous glyphs, no special
 // chars — mirrors invite-staff's generator; special chars break copy/paste from
@@ -51,14 +51,17 @@ const generateTempPassword = (): string => {
 
 type Db = ReturnType<typeof createClient>;
 
-const audit = async (db: Db, action: string, payload: Record<string, unknown>, actorName?: string) => {
+// `org` is required: comms_audit is tenant-scoped, and this insert is
+// best-effort inside a try/catch — so an unstamped row would be swallowed and
+// the credential audit trail would silently go blank.
+const audit = async (db: Db, org: string, action: string, payload: Record<string, unknown>, actorName?: string) => {
   try {
-    await db.from("comms_audit").insert({
+    await db.from("comms_audit").insert(stampOrg({
       entity_type: "credential",
       action,
       actor_name: actorName ?? "verify-credentials",
       payload,
-    });
+    }, org, "credential audit"));
   } catch { /* best-effort */ }
 };
 
@@ -77,6 +80,12 @@ Deno.serve(async (req) => {
     const gate = await requireRole(req, supabase, ["management", "admin"]);
     if (!gate.ok) return jsonResponse(gate.status, { error: gate.error });
     const actorName = gate.caller.name ?? undefined;
+    const orgId = gate.caller.organizationId;
+    if (!orgId) {
+      return jsonResponse(403, {
+        error: "Your account is not an active member of any organization.",
+      });
+    }
 
     const body = await req.json().catch(() => ({}));
     const subject: string = body?.subject;
@@ -91,9 +100,14 @@ Deno.serve(async (req) => {
       const studentId = String(body?.studentId ?? "");
       if (!studentId) return jsonResponse(400, { error: "studentId required for student" });
 
-      const { data: acct, error: acctErr } = await supabase
-        .from("student_auth_accounts")
-        .select("id, user_id, username, login_email, status")
+      // Scoped for the same reason as the staff branch below: this path
+      // rotates the student's password and returns it to the caller.
+      const { data: acct, error: acctErr } = await scoped(
+        supabase
+          .from("student_auth_accounts")
+          .select("id, user_id, username, login_email, status"),
+        gate.caller,
+      )
         .eq("student_id", studentId)
         .maybeSingle();
 
@@ -125,10 +139,10 @@ Deno.serve(async (req) => {
       const stuOk = !!stuLogin?.session && !stuLoginErr;
       await stuAnon.auth.signOut().catch(() => {});
       if (!stuOk) {
-        await audit(supabase, "verify_failed", { subject: "student", studentId, reason: "login_failed" }, actorName);
+        await audit(supabase, orgId, "verify_failed", { subject: "student", studentId, reason: "login_failed" }, actorName);
         return jsonResponse(200, { verified: false, subject: "student", reason: "login_failed", message: `Login validation failed: ${stuLoginErr?.message ?? ""}. Not sent.` });
       }
-      await audit(supabase, "verify_ok", { subject: "student", studentId }, actorName);
+      await audit(supabase, orgId, "verify_ok", { subject: "student", studentId }, actorName);
       return jsonResponse(200, {
         verified: true, subject: "student", profileId: a.id, userId: a.user_id,
         username: a.username ?? a.login_email, password: stuTemp, loginVerified: true,
@@ -141,7 +155,12 @@ Deno.serve(async (req) => {
     }
 
     // ── STAFF: resolve profile → auth user ─────────────────────────────────
-    let pq = supabase.from("profiles").select("id, user_id, name, role, email");
+    // Scoped to the caller's tenant. This endpoint ROTATES the password and
+    // RETURNS it, so an unscoped lookup was a cross-tenant account takeover:
+    // an admin of tenant B could pass tenant A's staff email (the `ilike`
+    // branch needs no id at all) and walk away with working credentials for
+    // A's account. The service role bypasses RLS, so nothing else stopped it.
+    let pq = scoped(supabase.from("profiles").select("id, user_id, name, role, email"), gate.caller);
     if (body?.profileId) pq = pq.eq("id", String(body.profileId));
     else if (body?.email) pq = pq.ilike("email", String(body.email).trim().toLowerCase());
     else return jsonResponse(400, { error: "profileId or email required for staff" });
@@ -153,7 +172,7 @@ Deno.serve(async (req) => {
     const profile = prof as { id: string; user_id: string | null; name: string | null; email: string | null };
 
     if (!profile.user_id) {
-      await audit(supabase, "verify_failed", { profileId: profile.id, reason: "no_auth_account" }, actorName);
+      await audit(supabase, orgId, "verify_failed", { profileId: profile.id, reason: "no_auth_account" }, actorName);
       return jsonResponse(200, {
         verified: false,
         subject: "staff",
@@ -165,7 +184,7 @@ Deno.serve(async (req) => {
 
     const { data: authData, error: authErr } = await supabase.auth.admin.getUserById(profile.user_id);
     if (authErr || !authData?.user?.email) {
-      await audit(supabase, "verify_failed", { profileId: profile.id, reason: "orphaned_auth" }, actorName);
+      await audit(supabase, orgId, "verify_failed", { profileId: profile.id, reason: "orphaned_auth" }, actorName);
       return jsonResponse(200, {
         verified: false,
         subject: "staff",
@@ -180,7 +199,7 @@ Deno.serve(async (req) => {
     const tempPassword = generateTempPassword();
     const { error: pwErr } = await supabase.auth.admin.updateUserById(profile.user_id, { password: tempPassword });
     if (pwErr) {
-      await audit(supabase, "verify_failed", { profileId: profile.id, reason: "rotate_failed", detail: pwErr.message }, actorName);
+      await audit(supabase, orgId, "verify_failed", { profileId: profile.id, reason: "rotate_failed", detail: pwErr.message }, actorName);
       return jsonResponse(200, { verified: false, subject: "staff", profileId: profile.id, reason: "rotate_failed", message: `Could not set a temporary password: ${pwErr.message}` });
     }
 
@@ -199,7 +218,7 @@ Deno.serve(async (req) => {
     await anon.auth.signOut().catch(() => {});
 
     if (!loginVerified) {
-      await audit(supabase, "verify_failed", { profileId: profile.id, reason: "login_failed", detail: loginErr?.message }, actorName);
+      await audit(supabase, orgId, "verify_failed", { profileId: profile.id, reason: "login_failed", detail: loginErr?.message }, actorName);
       return jsonResponse(200, {
         verified: false,
         subject: "staff",
@@ -210,7 +229,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Verified — return login-proven credentials for the WhatsApp send ───
-    await audit(supabase, "verify_ok", { profileId: profile.id, authEmail }, actorName);
+    await audit(supabase, orgId, "verify_ok", { profileId: profile.id, authEmail }, actorName);
     return jsonResponse(200, {
       verified: true,
       subject: "staff",

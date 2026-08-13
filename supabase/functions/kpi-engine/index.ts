@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { stampOrg } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,10 +41,41 @@ Deno.serve(async (req) => {
     const today = now.toISOString().split("T")[0];
     const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
 
+    // -- ONE PASS PER TENANT ------------------------------------------------
+    // This used to be a single global sweep, which was wrong twice over:
+    //
+    //   * kpi_snapshots.organization_id is NOT NULL DEFAULT current_org_id(),
+    //     and this function runs as SERVICE ROLE with no JWT. Once a second
+    //     organization existed that default resolved to NULL and EVERY insert
+    //     failed -- kpi_snapshots has not gained a row since.
+    //
+    //   * The aggregates were computed across all tenants: an admin's fee
+    //     score was derived from every organization's fee_transactions, and
+    //     the delete() below removed every tenant's snapshots for the month
+    //     before re-inserting only what this run produced.
+    //
+    // Scoping the reads and stamping the writes are the same fix.
+    const { data: orgs, error: orgErr } = await supabase
+      .from("organizations")
+      .select("id, display_name, status")
+      .is("deleted_at", null);
+    if (orgErr) {
+      return new Response(JSON.stringify({ error: `Could not list organizations: ${orgErr.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const perOrg: { organizationId: string; snapshots: number; error: string | null }[] = [];
+
+    for (const org of (orgs ?? []).filter((o: any) => o.status !== "suspended")) {
+      const orgId = org.id as string;
+      try {
     // Get all teachers
     const { data: teachers } = await supabase
       .from("profiles")
       .select("id, name, campus_id")
+      .eq("organization_id", orgId)
       .eq("role", "teacher")
       .eq("is_active", true);
 
@@ -51,6 +83,7 @@ Deno.serve(async (req) => {
     const { data: admins } = await supabase
       .from("profiles")
       .select("id, name, campus_id")
+      .eq("organization_id", orgId)
       .eq("role", "admin")
       .eq("is_active", true);
 
@@ -62,6 +95,7 @@ Deno.serve(async (req) => {
       const { data: attendanceRecords } = await supabase
         .from("teacher_attendance")
         .select("status")
+        .eq("organization_id", orgId)
         .eq("teacher_id", teacher.id)
         .gte("date", monthStart);
       
@@ -73,6 +107,7 @@ Deno.serve(async (req) => {
       const { data: classLogs } = await supabase
         .from("class_logs")
         .select("conducted, portion_completed_pct")
+        .eq("organization_id", orgId)
         .eq("teacher_id", teacher.id)
         .gte("date", monthStart);
       
@@ -84,6 +119,7 @@ Deno.serve(async (req) => {
       const { data: testResults } = await supabase
         .from("test_results")
         .select("sla_status")
+        .eq("organization_id", orgId)
         .eq("teacher_id", teacher.id)
         .gte("test_date", monthStart);
       
@@ -103,6 +139,7 @@ Deno.serve(async (req) => {
       const { data: retests } = await supabase
         .from("retests")
         .select("status")
+        .eq("organization_id", orgId)
         .eq("teacher_id", teacher.id)
         .gte("created_at", monthStart);
       
@@ -141,6 +178,7 @@ Deno.serve(async (req) => {
       const { data: checklist } = await supabase
         .from("admin_checklist")
         .select("completed")
+        .eq("organization_id", orgId)
         .eq("admin_id", admin.id)
         .gte("date", monthStart);
       
@@ -152,6 +190,7 @@ Deno.serve(async (req) => {
       const { data: fees } = await supabase
         .from("fee_transactions")
         .select("paid")
+        .eq("organization_id", orgId)
         .gte("date", monthStart);
       const totalFees = fees?.length || 1;
       const paidFees = fees?.filter((f) => f.paid).length || 0;
@@ -161,6 +200,7 @@ Deno.serve(async (req) => {
       const { data: calls } = await supabase
         .from("admission_calls")
         .select("is_walkin, date")
+        .eq("organization_id", orgId)
         .gte("date", monthStart);
       
       const uniqueDates = [...new Set(calls?.map((c) => c.date) || [])];
@@ -177,6 +217,7 @@ Deno.serve(async (req) => {
       const { data: allRetests } = await supabase
         .from("retests")
         .select("status, created_at, allocated_at")
+        .eq("organization_id", orgId)
         .gte("created_at", monthStart);
       
       const retestsWithAllocation = allRetests?.filter((r) => r.allocated_at) || [];
@@ -221,7 +262,7 @@ Deno.serve(async (req) => {
     }
 
     // Calculate IHI per campus
-    const { data: campuses } = await supabase.from("campuses").select("id, name");
+    const { data: campuses } = await supabase.from("campuses").select("id, name").eq("organization_id", orgId);
     
     for (const campus of campuses || []) {
       const campusTeacherSnapshots = snapshots.filter(
@@ -243,6 +284,7 @@ Deno.serve(async (req) => {
       const { data: campusStudents } = await supabase
         .from("students")
         .select("spi")
+        .eq("organization_id", orgId)
         .eq("campus_id", campus.id)
         .eq("is_active", true);
       
@@ -254,6 +296,7 @@ Deno.serve(async (req) => {
       const { data: campusFees } = await supabase
         .from("fee_transactions")
         .select("paid")
+        .eq("organization_id", orgId)
         .eq("campus_id", campus.id);
       
       const feePct = campusFees?.length
@@ -273,20 +316,46 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Upsert snapshots (delete existing for this month, then insert)
+    // Upsert snapshots (delete existing for this month, then insert).
+    // SCOPED: unscoped, this deleted every OTHER tenant's snapshots for the
+    // month and replaced them with only this organization's rows.
     await supabase
       .from("kpi_snapshots")
       .delete()
+      .eq("organization_id", orgId)
       .eq("month", month)
       .eq("year", year);
 
     if (snapshots.length > 0) {
-      await supabase.from("kpi_snapshots").insert(snapshots);
+      const { error: insErr } = await supabase
+        .from("kpi_snapshots")
+        .insert(snapshots.map((row) => stampOrg(row, orgId, "kpi snapshot")));
+      if (insErr) throw new Error(insErr.message);
+    }
+        perOrg.push({ organizationId: orgId, snapshots: snapshots.length, error: null });
+      } catch (e: unknown) {
+        // Per-tenant isolation: one organization's bad data must not stop the
+        // rest of the platform's KPI run.
+        perOrg.push({ organizationId: orgId, snapshots: 0, error: (e as Error).message });
+        console.error(`[kpi-engine] org ${orgId} failed:`, (e as Error).message);
+      }
     }
 
+    const failed = perOrg.filter((r) => r.error);
     return new Response(
-      JSON.stringify({ success: true, snapshots_created: snapshots.length }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        // success now means every tenant computed cleanly, not merely that the
+        // handler reached the end.
+        success: failed.length === 0,
+        organizations_processed: perOrg.length,
+        organizations_failed: failed.length,
+        snapshots_created: perOrg.reduce((n, r) => n + r.snapshots, 0),
+        results: perOrg,
+      }),
+      {
+        status: failed.length === 0 ? 200 : 207,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   } catch (error: unknown) {
     return new Response(JSON.stringify({ error: (error as Error).message }), {

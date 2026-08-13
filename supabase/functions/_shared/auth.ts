@@ -150,6 +150,58 @@ export function scoped<T extends { eq: (c: string, v: unknown) => any }>(
   return query.eq("organization_id", caller.organizationId) as T;
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// THE WRITE-SIDE COUNTERPART TO scoped()
+//
+// ┌── WHY EVERY SERVICE-ROLE INSERT MUST NAME ITS TENANT ───────────────────┐
+// │ Every tenant table is `organization_id uuid NOT NULL DEFAULT            │
+// │ current_org_id()`, and current_org_id() = jwt_org_id() ?? fallback_org_ │
+// │ id(). A service-role client carries NO JWT, so jwt_org_id() is NULL.    │
+// │                                                                         │
+// │ While exactly ONE organization existed, fallback_org_id() returned it   │
+// │ and every unstamped insert quietly landed in the right tenant. That is  │
+// │ what made this bug invisible for the whole single-tenant period.        │
+// │                                                                         │
+// │ fallback_org_id() is deliberately self-disabling: it returns NULL the   │
+// │ moment a second organization exists. So on the day tenant #2 was        │
+// │ created, every unstamped service-role insert began failing with         │
+// │   null value in column "organization_id" ... violates not-null          │
+// │ That is the fallback working exactly as designed — failing CLOSED       │
+// │ rather than guessing a tenant. The defect is the missing stamp, never   │
+// │ the NOT NULL constraint, and the fix is NEVER to make the column        │
+// │ nullable or to widen the fallback.                                      │
+// └─────────────────────────────────────────────────────────────────────────┘
+//
+// This throws rather than defaulting, for the same reason scoped() throws: a
+// row written to a guessed tenant is worse than a row not written at all, and
+// silently dropping the stamp is how the 40 broken call sites happened.
+
+/** Stamp one row with its tenant. Throws when the org is unknown. */
+export function stampOrg<T extends Record<string, unknown>>(
+  row: T,
+  organizationId: string | null | undefined,
+  what = "row",
+): T & { organization_id: string } {
+  if (!organizationId) {
+    throw new Error(
+      `[auth] Refusing to insert a ${what} with no organization_id. ` +
+        `A service-role write has no JWT, so the column DEFAULT resolves to ` +
+        `NULL once more than one organization exists. Resolve the tenant ` +
+        `(caller.organizationId, the parent row, or the per-org loop) and pass it.`,
+    );
+  }
+  return { ...row, organization_id: organizationId };
+}
+
+/** Stamp every row of a batch. */
+export function stampOrgAll<T extends Record<string, unknown>>(
+  rows: T[],
+  organizationId: string | null | undefined,
+  what = "row",
+): (T & { organization_id: string })[] {
+  return rows.map((r) => stampOrg(r, organizationId, what));
+}
+
 /**
  * Resolve the caller and assert one of `roles`.
  *
