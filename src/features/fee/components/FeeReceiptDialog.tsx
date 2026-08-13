@@ -32,7 +32,8 @@ import {
   useDocumentBranding,
   type DocumentBranding,
 } from "@/features/branding/documents";
-import { formatINR } from "../utils";
+import { renderReportWindow } from "@/lib/reportWindow";
+import { formatINR, receiptPrintDocument } from "../utils";
 import type { ReceiptData } from "../types/fee.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -161,22 +162,11 @@ export const FeeReceiptDialog = ({ receipt, onOpenChange }: Props) => {
   const handlePrint = () => {
     const node = receiptRef.current;
     if (!node) return;
-    const w = window.open("", "_blank", "width=820,height=1100");
-    if (!w) return;
-    w.document.write(
-      `<!doctype html><html><head><meta charset="utf-8"/>` +
-        `<title>Receipt — ${receipt.receiptNo}</title>` +
-        `<style>*{box-sizing:border-box}body{margin:0;padding:28px;background:#fff;` +
-        `font-family:'Segoe UI',Roboto,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}` +
-        `@media print{body{padding:0}}</style></head>` +
-        `<body>${node.outerHTML}</body></html>`,
+    // Same page shell as the parent portal's receipt, so the two routes cannot
+    // drift into different documents. The shell prints itself on load.
+    renderReportWindow(
+      receiptPrintDocument(node.outerHTML, `Receipt — ${receipt.receiptNo}`),
     );
-    w.document.close();
-    w.focus();
-    setTimeout(() => {
-      w.print();
-      w.close();
-    }, 500);
   };
 
   const rasterize = async () => {

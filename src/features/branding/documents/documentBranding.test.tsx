@@ -554,20 +554,67 @@ describe("TEST 11 — branding is required, never defaulted", () => {
     expect(src).not.toContain('orgName = "');
   });
 
-  it("the headless PDF paths resolve branding BEFORE rendering", () => {
+  it("no headless renderer mounts before branding is available", () => {
     // A hook fetching after mount would race waitForImages and intermittently
     // rasterise an unbranded document — a bug that reproduces about half the
     // time, which is the worst kind.
+    //
+    // Checked PER RENDERER, not per file. A file-wide indexOf comparison held
+    // only while each file had exactly ONE off-screen renderer; the moment
+    // receipt.ts gained a second (receiptToBrandedPrintHtml, which prints the
+    // parent's copy) the first `root.render(` belonged to a different function
+    // than the first `resolveDocumentBranding()` and the check compared two
+    // unrelated call sites.
+    //
+    // There are two legitimate ways to have branding in hand before mounting:
+    //   1. await the resolver inside the function, or
+    //   2. take it as a REQUIRED parameter, so the caller already resolved it.
+    // Anything else is a render that can paint an unbranded document.
     for (const path of [
       "src/features/payroll/utils/payslipPdf.ts",
       "src/features/fee/utils/receipt.ts",
     ]) {
       const src = read(path);
-      expect(src, `${path} does not resolve branding`).toContain("resolveDocumentBranding");
-      const resolveAt = src.indexOf("await resolveDocumentBranding()");
-      const renderAt = src.indexOf("root.render(");
-      expect(resolveAt, `${path} never awaits the resolver`).toBeGreaterThan(-1);
-      expect(resolveAt, `${path} renders before branding is resolved`).toBeLessThan(renderAt);
+      // Anchor each mount to the NEAREST PRECEDING exported function, not the
+      // first one in the file — a greedy match would attribute every render to
+      // whichever export happens to appear first.
+      const mounts = [...src.matchAll(/root\.render\(/g)].map((m) => m.index!);
+      expect(mounts.length, `${path} has no off-screen renderer`).toBeGreaterThan(0);
+
+      for (const mountAt of mounts) {
+        const before = src.slice(0, mountAt);
+        const owner = [...before.matchAll(/export const (\w+)/g)].pop();
+        expect(owner, `${path} has a root.render() outside any exported function`).toBeTruthy();
+
+        const name = owner![1];
+        const block = src.slice(owner!.index!, mountAt);
+        const signature = block.slice(0, block.indexOf("=> {") + 4);
+
+        const resolvesInside = /await resolveDocumentBranding\(\)/.test(block);
+        // A required `branding: DocumentBranding` / `branding: import(...)`
+        // parameter — explicitly NOT `branding?:` and NOT `branding =`.
+        const takesBranding =
+          /\bbranding:\s*(?!.*\?)/.test(signature) &&
+          !/branding\?:/.test(signature) &&
+          !/branding\s*=/.test(signature);
+
+        expect(
+          resolvesInside || takesBranding,
+          `${path} → ${name}() mounts a React root without branding guaranteed to be ` +
+            "available: it neither awaits resolveDocumentBranding() nor takes branding " +
+            "as a required parameter. It can rasterise an unbranded document.",
+        ).toBe(true);
+
+        // `block` ends AT the mount, so a resolver appearing anywhere in it is
+        // by construction before the render. Assert it is actually present
+        // rather than re-deriving an ordering that the slice already proves.
+        if (!takesBranding) {
+          expect(
+            resolvesInside,
+            `${path} → ${name}() renders before it resolves branding`,
+          ).toBe(true);
+        }
+      }
     }
   });
 });

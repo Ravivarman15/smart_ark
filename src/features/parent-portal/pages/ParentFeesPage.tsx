@@ -20,89 +20,27 @@ import {
   formatDate,
   inr,
 } from "../components/primitives";
-import { openReportWindow, renderReportWindow } from "@/lib/reportWindow";
-import {
-  buildReceiptTheme,
-  useDocumentBranding,
-  type DocumentBranding,
-} from "@/features/branding/documents";
+import { toast } from "sonner";
+import { closeReportWindow, openReportWindow, renderReportWindow } from "@/lib/reportWindow";
+import { useDocumentBranding } from "@/features/branding/documents";
+import { receiptToBrandedPrintHtml } from "@/features/fee/utils/receipt";
 
-/**
- * A printable receipt built from the installment row the parent already has.
- * Deliberately a print view rather than a PDF library call — it matches how
- * every other document in this codebase is produced and adds no dependency.
- *
- * ┌── THE LEAK THIS FIXES ────────────────────────────────────────────────┐
- * │ This builder hardcoded "ARK LEARNING ARENA" in the brand slot and     │
- * │ "Computer-generated receipt · ARK Learning Arena" in the footer. It   │
- * │ is the PARENT-facing receipt, so an ABC Academi parent downloading    │
- * │ proof of their own payment received a competitor's name — the same    │
- * │ class of outward-facing tenant leak as the WhatsApp template bug, in  │
- * │ a channel nobody had audited.                                          │
- * │                                                                        │
- * │ It also used a fixed indigo (#4f46e5) unrelated to any organization.  │
- * │ Now it renders in the tenant's own receipt colours, through the same  │
- * │ contrast-safe `buildReceiptTheme` as the main receipt.                 │
- * └────────────────────────────────────────────────────────────────────────┘
- */
-const receiptHtml = (args: {
-  branding: DocumentBranding;
-  studentName: string;
-  admissionNo?: string;
-  className?: string;
-  receiptNo?: string;
-  date: string;
-  amount: number;
-  method: string;
-  totalPaid: number;
-  totalFee: number;
-  pending: number;
-}) => {
-  const theme = buildReceiptTheme(args.branding);
-  const esc = (s: unknown) =>
-    String(s ?? "").replace(/[&<>"']/g, (c) =>
-      c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
-    );
-  const row = (k: string, v: string) =>
-    `<tr><td class="k">${esc(k)}</td><td class="v">${esc(v)}</td></tr>`;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Fee Receipt — ${esc(args.studentName)}</title>
-<style>
-  body{font-family:ui-sans-serif,system-ui,Segoe UI,sans-serif;color:#0f172a;margin:0}
-  .page{max-width:640px;margin:0 auto;padding:40px 32px}
-  .brand{font-weight:800;letter-spacing:.12em;color:${theme.primaryOnWhite};font-size:14px}
-  h1{font-size:20px;margin:6px 0 18px}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  td{padding:7px 6px;border-bottom:1px solid #f1f5f9}
-  td.k{color:#64748b;width:45%}
-  td.v{font-weight:600}
-  /* A neutral tile with the amount in the tenant's (contrast-corrected) colour.
-     Tinting the tile with the brand colour would need a second contrast pass
-     for the text on top of it; the amount on a receipt is the one thing that
-     must be legible at any brand palette. */
-  .amt{margin:18px 0;padding:14px;border-radius:10px;background:#f8fafc;border:1px solid ${theme.line};text-align:center}
-  .amt b{display:block;font-size:26px;color:${theme.primaryOnWhite}}
-  .foot{margin-top:24px;font-size:10px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px}
-  @media print{@page{size:A4;margin:16mm}}
-</style></head><body><div class="page">
-  <div class="brand">${esc(args.branding.organizationName.toUpperCase())}</div>
-  <h1>Fee Receipt</h1>
-  <div class="amt"><b>${esc(inr(args.amount))}</b><span>Amount received</span></div>
-  <table>
-    ${row("Receipt No", args.receiptNo || "—")}
-    ${row("Date", formatDate(args.date))}
-    ${row("Student", args.studentName)}
-    ${row("Admission No", args.admissionNo || "—")}
-    ${row("Class", args.className || "—")}
-    ${row("Payment Method", args.method)}
-    ${row("Total Fee", inr(args.totalFee))}
-    ${row("Total Paid", inr(args.totalPaid))}
-    ${row("Balance", inr(args.pending))}
-  </table>
-  <p class="foot">Computer-generated receipt · ${esc(args.branding.organizationName)}</p>
-</div>
-<script>window.addEventListener('load',function(){setTimeout(function(){window.print()},300)})</script>
-</body></html>`;
-};
+// ┌── ONE RECEIPT DESIGN, NOT TWO ─────────────────────────────────────────┐
+// │ This page used to hand-build its own receipt HTML — a simple table with │
+// │ its own field list and footer. It was tenant-branded, so it was not     │
+// │ wrong, but it was a SECOND design: the proof of payment a parent        │
+// │ downloaded looked nothing like the receipt the front desk issues for    │
+// │ the very same payment, and every improvement to the real receipt        │
+// │ silently skipped the parent-facing one.                                 │
+// │                                                                         │
+// │ It now renders the canonical `ReceiptBody` — the same component behind  │
+// │ the staff receipt dialog and the emailed PDF — via                      │
+// │ `receiptToBrandedPrintHtml`. Three delivery routes, one document.       │
+// │                                                                         │
+// │ The window is opened SYNCHRONOUSLY before the await: a popup opened     │
+// │ after an await is blocked, which is the app-wide blank-print bug that   │
+// │ `openReportWindow` exists to prevent.                                    │
+// └─────────────────────────────────────────────────────────────────────────┘
 
 export const ParentFeesPage = () => {
   const { parent } = useAuth();
@@ -112,26 +50,44 @@ export const ParentFeesPage = () => {
   const fee = insights?.fee;
   const { branding } = useDocumentBranding();
 
-  const printReceipt = (r: { id: string; amount: number; date: string; method: string; receiptNo?: string }) => {
+  const printReceipt = async (r: {
+    id: string;
+    amount: number;
+    date: string;
+    method: string;
+    receiptNo?: string;
+  }) => {
     if (!student || !fee) return;
     const win = openReportWindow();
     if (!win) return;
-    renderReportWindow(
-      receiptHtml({
+
+    try {
+      const html = await receiptToBrandedPrintHtml(
+        {
+          receiptNo: r.receiptNo ?? "—",
+          studentName: student.name,
+          // The dialog labels this "Class & Batch"; the parent's own child
+          // record is the only source available here.
+          batchName:
+            [student.standardName, student.section].filter(Boolean).join(" · ") || undefined,
+          amount: r.amount,
+          paymentMethod: r.method,
+          date: formatDate(r.date),
+          amountReceivedToDate: fee.received,
+          amountPending: fee.pending,
+        },
         branding,
-        studentName: student.name,
-        admissionNo: student.enrolmentNo || student.grNo,
-        className: [student.standardName, student.section].filter(Boolean).join(" · "),
-        receiptNo: r.receiptNo,
-        date: r.date,
-        amount: r.amount,
-        method: r.method,
-        totalPaid: fee.received,
-        totalFee: fee.total,
-        pending: fee.pending,
-      }),
-      win,
-    );
+      );
+      renderReportWindow(html, win);
+    } catch (err) {
+      // Never leave the parent staring at the "Preparing your report…"
+      // placeholder forever if the off-screen render throws.
+      console.error("Failed to render receipt:", err);
+      closeReportWindow(win);
+      toast.error("Could not prepare the receipt. Please try again.");
+      return;
+    }
+
     if (parent) {
       void parentAuditService.log({
         parentAccountId: parent.accountId,
