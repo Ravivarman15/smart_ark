@@ -22,8 +22,8 @@ import { Hero } from "../components/Hero";
 import { CtaBand } from "../components/ui";
 import {
   TrustBar, StatsBand, WhySection, ModulesSection, AiSection, CommsSection,
-  PortalsSection, EnterpriseSection, IntegrationsSection, PricingPreview,
-  ProofSection, FaqSection, FAQS,
+  InteractiveSection, PortalsSection, EnterpriseSection, IntegrationsSection,
+  RoiSection, PricingPreview, ProofSection, FaqSection, FAQS,
 } from "../components/sections";
 
 const HomePage: React.FC = () => {
@@ -40,11 +40,13 @@ const HomePage: React.FC = () => {
       <StatsBand />
       <WhySection />
       <ModulesSection />
+      <InteractiveSection />
       <AiSection />
       <CommsSection />
       <PortalsSection />
       <EnterpriseSection />
       <IntegrationsSection />
+      <RoiSection />
       <PricingPreview />
       <ProofSection />
       <FaqSection />

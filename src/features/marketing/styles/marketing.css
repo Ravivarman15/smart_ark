@@ -266,6 +266,11 @@
   to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
+@keyframes mk-float-reverse {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(0, 8px, 0); }
+}
+
 .mk-root .mk-marquee-track {
   animation: mk-marquee var(--mk-marquee-duration, 40s) linear infinite;
   will-change: transform;
@@ -282,6 +287,7 @@
 
 .mk-root .mk-float { animation: mk-float 6s ease-in-out infinite; }
 .mk-root .mk-float-delayed { animation: mk-float 7s ease-in-out 1.2s infinite; }
+.mk-root .mk-float-reverse { animation: mk-float-reverse 6.5s ease-in-out 0.8s infinite; }
 
 .mk-root .mk-pulse-ring { animation: mk-pulse-ring 2.4s var(--mk-ease) infinite; }
 
@@ -296,6 +302,7 @@
   .mk-root .mk-sheen::after,
   .mk-root .mk-float,
   .mk-root .mk-float-delayed,
+  .mk-root .mk-float-reverse,
   .mk-root .mk-pulse-ring,
   /* Belt and braces for the Tailwind arbitrary-animation utilities used by
      LiveDashboard. Those are gated in JS too, but a CSS-level kill switch

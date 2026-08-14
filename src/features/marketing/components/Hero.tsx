@@ -16,7 +16,14 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, ShieldCheck, Zap, ChevronDown } from "lucide-react";
+import {
+  Sparkles,
+  ShieldCheck,
+  Zap,
+  ChevronDown,
+  MessageSquare,
+  IndianRupee,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AmbientBackdrop, CtaButton, GradientText } from "./ui";
 import { m, useReducedMotion, Tilt } from "./motion";
@@ -179,13 +186,79 @@ export const Hero: React.FC<{ onCtaClick?: (to: string) => void }> = ({ onCtaCli
           </m.ul>
         </div>
 
-        {/* Product preview */}
+        {/* Product preview with floating live activity badges */}
         <m.div
           initial={reduced ? undefined : { opacity: 0, y: 26 }}
           animate={reduced ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-12 sm:mt-16"
+          className="relative mt-8 sm:mt-16"
         >
+          {/* Mobile & Tablet Live Activity Chips (Visible on smaller screens) */}
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-2 lg:hidden">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-card/90 px-3 py-1 text-[11px] shadow-sm backdrop-blur-md">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              </span>
+              <MessageSquare className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+              <span className="font-medium text-foreground">38 Absentee WhatsApp alerts sent</span>
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-card/90 px-3 py-1 text-[11px] shadow-sm backdrop-blur-md">
+              <Sparkles className="h-3 w-3 text-accent" />
+              <span className="font-medium text-foreground">AI MCQ Parser Ready</span>
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/90 px-3 py-1 text-[11px] shadow-sm backdrop-blur-md">
+              <IndianRupee className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+              <span className="font-medium text-foreground">₹18.4L Fees Auto-reconciled</span>
+            </div>
+          </div>
+
+          {/* Floating live activity badge (Desktop left) */}
+          <div className="pointer-events-none absolute -left-4 -top-5 z-20 hidden lg:block">
+            <div
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-card/90 px-3.5 py-1.5 text-xs shadow-lg backdrop-blur-md",
+                !reduced && "mk-float",
+              )}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              <MessageSquare className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="font-medium text-foreground">38 Absentee alerts delivered in 0.8s</span>
+            </div>
+          </div>
+
+          {/* Floating live activity badge (Desktop right) */}
+          <div className="pointer-events-none absolute -right-4 -top-4 z-20 hidden lg:block">
+            <div
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border border-accent/30 bg-card/90 px-3.5 py-1.5 text-xs shadow-lg backdrop-blur-md",
+                !reduced && "mk-float-delayed",
+              )}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <span className="font-medium text-foreground">AI MCQ Parser Ready</span>
+              <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">Auto</span>
+            </div>
+          </div>
+
+          {/* Floating live activity badge (Desktop bottom-right) */}
+          <div className="pointer-events-none absolute -bottom-4 right-6 z-20 hidden lg:block">
+            <div
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/90 px-3.5 py-1.5 text-xs shadow-lg backdrop-blur-md",
+                !reduced && "mk-float-reverse",
+              )}
+            >
+              <IndianRupee className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="font-medium text-foreground">₹18.4L fees auto-reconciled to ledger</span>
+            </div>
+          </div>
+
           <Tilt max={4} className="[transform-style:preserve-3d]">
             <LiveDashboard />
           </Tilt>

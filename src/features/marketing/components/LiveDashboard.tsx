@@ -171,7 +171,7 @@ export const LiveDashboard: React.FC<{ className?: string }> = ({ className }) =
                 page making a promise the product cannot keep. */}
             <span className="truncate">smart-ark · your institution</span>
           </span>
-          <span className="hidden items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 sm:flex">
+          <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
             <span className="relative grid h-1.5 w-1.5 place-items-center">
               <span className="absolute inset-0 rounded-full bg-emerald-500/60 mk-pulse-ring" />
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />

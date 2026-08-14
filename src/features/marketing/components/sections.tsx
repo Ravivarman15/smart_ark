@@ -29,6 +29,7 @@ import {
   ShieldCheck, Building2, Sparkles, Bot, Bell, Smartphone, Layers,
   Lock, Database, Palette, CreditCard, Plug, ArrowRight, Check, Quote,
   BookOpen, Bus, Boxes, FileSpreadsheet, LifeBuoy, UserCheck, Landmark,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,6 +38,8 @@ import {
   StatGrid, CtaButton, AmbientBackdrop, GradientText, type Stat,
 } from "./ui";
 import { Reveal, Stagger, StaggerItem, Counter } from "./motion";
+import { InteractiveSimulator } from "./InteractiveSimulator";
+import { RoiCalculator } from "./RoiCalculator";
 
 // ══════════════════════════════════════════════════════════════════════════
 // TRUST BAR
@@ -269,23 +272,24 @@ export const CommsSection: React.FC = () => (
     />
 
     <Reveal className="mt-12">
-      <Card className="p-5 sm:p-8">
+      <Card className="mk-hairline relative overflow-hidden p-5 sm:p-8">
         <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-2">
           {COMMS_FLOW.map((s, i) => (
-            <li key={s.label} className="relative flex gap-3 lg:flex-col lg:gap-3">
-              {/* Connector — desktop only; on mobile the vertical stack already
-                  reads as a sequence and a line would fight the layout. */}
+            <li key={s.label} className="group relative flex gap-3 lg:flex-col lg:gap-3">
+              {/* Connector — desktop only with glowing light indicator */}
               {i < COMMS_FLOW.length - 1 && (
-                <span
+                <div
                   aria-hidden
                   className="absolute left-[15px] top-9 h-[calc(100%-1rem)] w-px bg-border lg:left-9 lg:top-[15px] lg:h-px lg:w-[calc(100%-2.75rem)]"
-                />
+                >
+                  <span className="hidden lg:block absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/60 to-accent/0 opacity-60 animate-pulse" />
+                </div>
               )}
-              <span className="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-card text-xs font-semibold text-accent">
+              <span className="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-card text-xs font-semibold text-accent transition-transform duration-300 group-hover:scale-110 group-hover:border-accent/50 group-hover:shadow-sm">
                 {i + 1}
               </span>
               <div className="min-w-0 pb-4 lg:pb-0">
-                <div className="text-sm font-semibold">{s.label}</div>
+                <div className="text-sm font-semibold transition-colors group-hover:text-accent">{s.label}</div>
                 <div className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
                   {s.detail}
                 </div>
@@ -309,6 +313,35 @@ export const CommsSection: React.FC = () => (
           </span>
         </div>
       </Card>
+    </Reveal>
+  </Section>
+);
+
+// ══════════════════════════════════════════════════════════════════════════
+// INTERACTIVE WORKFLOW SIMULATOR
+// ══════════════════════════════════════════════════════════════════════════
+
+export const InteractiveSection: React.FC = () => (
+  <Section id="interactive">
+    <SectionHeading
+      eyebrow={<><Zap className="h-3 w-3 text-accent" /> Live Simulator</>}
+      title={<>Test the workflows before you <GradientText>switch</GradientText></>}
+      description="Experience the real-time speed of Smart ARK's parent alerts, fee collection and AI parsing directly in your browser."
+    />
+    <Reveal className="mt-10">
+      <InteractiveSimulator />
+    </Reveal>
+  </Section>
+);
+
+// ══════════════════════════════════════════════════════════════════════════
+// ROI CALCULATOR
+// ══════════════════════════════════════════════════════════════════════════
+
+export const RoiSection: React.FC = () => (
+  <Section id="roi" tone="muted">
+    <Reveal>
+      <RoiCalculator />
     </Reveal>
   </Section>
 );
