@@ -22,6 +22,7 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 
 const RELOAD_FLAG = "ark:chunk-reload";
+const RELOAD_COOLDOWN_MS = 15000;
 
 /** Recognise the various "stale/failed dynamically-imported chunk" errors. */
 export function isChunkLoadError(err: unknown): boolean {
@@ -46,10 +47,16 @@ export function isChunkLoadError(err: unknown): boolean {
  */
 export function reloadOnceForChunkError(): boolean {
   try {
-    if (sessionStorage.getItem(RELOAD_FLAG)) return false;
-    sessionStorage.setItem(RELOAD_FLAG, String(Date.now()));
+    const last = sessionStorage.getItem(RELOAD_FLAG);
+    const now = Date.now();
+    if (last && now - Number(last) < RELOAD_COOLDOWN_MS) {
+      // Already reloaded within cooldown — stop reload loop
+      return false;
+    }
+    sessionStorage.setItem(RELOAD_FLAG, String(now));
   } catch {
-    /* sessionStorage blocked (private mode) — fall through and reload anyway */
+    /* sessionStorage blocked (private mode) */
+    return false;
   }
   window.location.reload();
   return true;
@@ -71,7 +78,11 @@ async function loadWithRetry<T>(
   let lastErr: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await factory();
+      const res = await factory();
+      if (res !== undefined && res !== null) {
+        return res;
+      }
+      throw new Error("Module factory resolved to undefined");
     } catch (err) {
       lastErr = err;
       // Only retry chunk-load errors; a real runtime error should surface fast.
@@ -88,15 +99,20 @@ async function loadWithRetry<T>(
  * unchanged.
  */
 export function lazyWithRetry<T extends ComponentType<unknown>>(
-  factory: () => Promise<{ default: T }>,
+  factory: () => Promise<{ default: T } | { [key: string]: any }>,
   retries = 2,
   delay = 400
 ): LazyExoticComponent<T> {
   return lazy(async () => {
     try {
       const mod = await loadWithRetry(factory, retries, delay);
-      clearReloadFlag(); // fresh chunks loaded — re-arm the guard for next deploy
-      return mod;
+      if (!mod) {
+        throw new Error("Failed to load chunk: module is undefined");
+      }
+      if (typeof mod === "object" && !("default" in mod)) {
+        return { default: mod as any };
+      }
+      return mod as { default: T };
     } catch (err) {
       if (isChunkLoadError(err) && reloadOnceForChunkError()) {
         // Hang until the reload navigates away, keeping the Suspense fallback up

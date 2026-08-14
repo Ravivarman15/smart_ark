@@ -369,8 +369,8 @@ const ModulesPage: React.FC = () => {
             {/* Impact preview BEFORE the button, never after. */}
             <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
               <div className="font-medium">
-                {plan.willChange.length} organization{plan.willChange.length === 1 ? "" : "s"} will
-                change
+                {plan.willChange.length} of {plan.total} selected eligible — {plan.willChange.length}{" "}
+                organization{plan.willChange.length === 1 ? "" : "s"} will change
               </div>
               <div className="mt-1 text-muted-foreground">
                 {plan.total} selected
@@ -381,7 +381,7 @@ const ModulesPage: React.FC = () => {
                   <>
                     {" · "}
                     <span className="text-amber-600 dark:text-amber-400">
-                      {plan.protectedExcluded.length} protected
+                      {plan.protectedExcluded.length} blocked (protected)
                     </span>
                   </>
                 )}

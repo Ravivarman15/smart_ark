@@ -27,7 +27,18 @@ override              an explicit, unexpired per-organization decision
     ↓
 plan                  what the subscription includes
     ↓
+platform default      the fleet-wide switch — existing AND future organizations
+    ↓
 default               nothing said anything → INCLUDED
+```
+
+Submodules resolve on a shorter chain, because most of the module-level
+questions are already answered by the module they live in:
+
+```
+parent module         a submodule of an off module is off, always (§4b)
+    ↓
+override → plan → platform default → default
 ```
 
 `resolveEntitlements()` in `src/features/platform/modules/entitlements.ts` is
@@ -216,7 +227,8 @@ Resolution order for a submodule:
 1. parent module      off → off, source "parent_module"
 2. override           an explicit, unexpired decision on the submodule
 3. plan               a plan rule naming the submodule
-4. default            follows the module — silence means included
+4. platform default   the fleet-wide switch for this submodule (§4c)
+5. default            follows the module — silence means included
 ```
 
 ### What differs from a module
@@ -234,14 +246,71 @@ Resolution order for a submodule:
   own switch, source badge and override reset. The collapsed row shows how many
   are individually switched off, so a partly-withdrawn module is visible without
   opening all nineteen.
-- **Control Center** → module detail → **Apply to**, which narrows the target to
-  one submodule. The organization columns re-sort immediately, so the counts an
-  operator confirms are always about the thing being changed.
+- **Control Center → Manage** opens the grid: one row per module *and* per
+  submodule, one column per organization, plus the **All organizations** column
+  described below. Every cell is a switch showing that organization's resolved
+  state, so "who has Fee Collection?" is read off the screen rather than
+  assembled from nineteen detail pages.
 
 Enforcement is the same resolver, so a revoked submodule disappears from the
 sidebar, its route is blocked, and the actions inside it are revoked with it —
 losing "Fee Collection" while keeping the button that performs one would be
 worse than not revoking it at all.
+
+---
+
+## 4c. Platform defaults — existing *and* upcoming organizations
+
+A per-organization write can only reach organizations that exist. "This module
+is not part of the standard package" is a statement about the **product**, and
+it has to survive the next signup — otherwise every new tenant arrives with the
+old shape and somebody has to remember to fix it.
+
+So there is one more layer, the **platform default**, stored on the module
+catalog itself (`platform_modules.default_enabled`, nullable) and returned by
+`entitlement_layers()` as a `defaults` map. `null` means "no platform opinion",
+which is the state every module ships in.
+
+**It sits at the bottom, immediately above the hardcoded default.** That
+placement is the whole design:
+
+| | reaches organizations that don't exist yet | overrides a negotiated exception |
+|---|---|---|
+| Bulk write to all organizations | no | yes — it *is* the exception, overwritten |
+| Platform default | **yes** | **no** — plan and override still win |
+
+A customer who negotiated Certificates keeps them when the platform default goes
+off, because their override is layer 5 and the default is layer 7. That is the
+behaviour you want: switching a module off "for everyone" should not silently
+cancel signed commitments.
+
+### The two buttons are different operations
+
+`platform_set_feature_default(key, enabled, reason, actor)` sets the layer. It
+changes the **future** and every organization that never had an opinion; it does
+not touch a single `organization_features` row.
+
+`platform_clear_conflicting_overrides(key, enabled, actor)` is the deliberate,
+separate second step: it deletes the per-organization overrides that *disagree*
+with the new default, so the fleet actually follows it. It **skips protected
+organizations** — ARK's override survives a fleet-wide clear-down, and the
+return value reports `cleared` and `protected_skipped` separately so the operator
+can see that it did.
+
+The UI asks for both in one dialog but sends them as two calls, and reports both
+numbers. Nothing is deleted except override rows: no tenant data, ever.
+
+### Clearing a default
+
+Setting it to `null` removes the platform opinion. Organizations fall back to
+INCLUDED (or to their plan), and no override is recreated — the default is a
+layer, not a stored state per organization, so there is nothing to unwind.
+
+Both functions are `security definer`, super-admin gated, and write an
+entitlement-history row carrying the reason. Set via the `set_feature_default`
+action on the `platform-admin` edge function.
+
+Applied live in `supabase/migrations/20261007_phase11d_platform_feature_defaults.sql`.
 
 ---
 
@@ -345,8 +414,9 @@ a client.
 | Submodule resolution, containment invariant, RBAC denial | `src/features/platform/testing/submoduleEntitlements.test.ts` |
 
 Mutation-tested: restoring the `isSuper` short-circuit, drifting the server
-dependency graph, removing the bulk guard, and letting a submodule override
-outrank its parent module each fail the suite.
+dependency graph, removing the bulk guard, letting a submodule override outrank
+its parent module, and moving the platform default *above* the override layer
+each fail the suite.
 
 ### Live verification (2026-08-14, ABC Academi, rolled back)
 
@@ -359,6 +429,19 @@ after clear               override null, plan enabled  ← reversible
 history rows written      4
 ARK payroll overrides     0                   ← untouched
 ARK students              135                 ← untouched
+```
+
+Platform defaults, same session, same rollback:
+
+```
+set default OFF (certificate)       changed: true
+set it again                        changed: false     ← idempotent
+clear conflicting overrides         cleared: 1, protected_skipped: 1
+ABC override after                  null               ← follows the platform
+ARK override after                  still enabled      ← protected, survived
+defaults map visible to a tenant    {"certificate": false}
+clear default (null)                defaults {}        ← nothing to unwind
+ARK students                        135                ← untouched
 ```
 
 ---

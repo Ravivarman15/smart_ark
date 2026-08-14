@@ -42,7 +42,7 @@ import {
  * split, so pointing it here is what actually keeps the features out of the
  * eager bundle.
  */
-const loadFeatures = () => import("./motionFeatures").then((mod) => mod.default);
+const loadFeatures = () => import("./motionFeatures").then((mod) => mod?.default || mod);
 
 /**
  * Wraps the marketing tree once.
