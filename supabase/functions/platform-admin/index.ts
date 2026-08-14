@@ -420,6 +420,63 @@ Deno.serve(async (req) => {
       return jsonResponse(200, { ok: true, batchId, results });
     }
 
+    // ── set_feature_default ──────────────────────────────────────────────
+    //
+    // "Apply to every organization, existing AND future."
+    //
+    // Two steps, in this order:
+    //   1. record the platform default, which every organization without an
+    //      opinion of its own follows — including ones created tomorrow
+    //   2. remove the per-organization overrides that CONTRADICT it, so the
+    //      existing fleet follows the platform too
+    //
+    // Step 2 removes rather than rewrites. Writing 25 override rows saying the
+    // same thing leaves 25 things that each look like a deliberate,
+    // per-customer exception a year later, and 25 more to undo. Removing them
+    // leaves the decision in one place.
+    //
+    // Protected organizations are skipped in step 2 by the SQL function
+    // itself — reaching ARK requires opening ARK.
+    if (action === "set_feature_default") {
+      if (!need("modules.bulk")) return jsonResponse(403, { error: "modules.bulk required" });
+      const { featureKey, enabled, note, applyToExisting } = body;
+      if (!featureKey || (enabled !== null && typeof enabled !== "boolean")) {
+        return jsonResponse(400, {
+          error: "featureKey and enabled (true | false | null to clear) are required",
+        });
+      }
+      if (enabled !== null && !String(note ?? "").trim()) {
+        return jsonResponse(400, {
+          error: "A reason is required when setting a platform-wide default.",
+        });
+      }
+
+      const { data, error } = await db.rpc("platform_set_feature_default", {
+        _feature: featureKey, _enabled: enabled,
+        _note: note ?? null, _actor: actor.platformUserId,
+      });
+      if (error) return jsonResponse(400, { error: error.message });
+
+      let cleared: Record<string, unknown> | null = null;
+      if (enabled !== null && applyToExisting !== false) {
+        const res = await db.rpc("platform_clear_conflicting_overrides", {
+          _feature: featureKey, _enabled: enabled, _actor: actor.platformUserId,
+        });
+        if (res.error) return jsonResponse(400, { error: res.error.message });
+        cleared = res.data as Record<string, unknown>;
+      }
+
+      await audit(db, actor, {
+        action: enabled === null ? "feature.default_cleared" : "feature.default_set",
+        target_type: "module", target_id: featureKey,
+        detail: note ?? null,
+        payload: { enabled, applyToExisting: applyToExisting !== false, cleared },
+        ip_address: ip,
+      });
+
+      return jsonResponse(200, { ok: true, ...data, cleared });
+    }
+
     // ── set_module_governance ────────────────────────────────────────────
     if (action === "set_module_governance") {
       if (!need("modules.govern")) return jsonResponse(403, { error: "modules.govern required" });

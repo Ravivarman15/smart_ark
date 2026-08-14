@@ -34,6 +34,7 @@ import type { ModuleId } from "@/features/rbac/constants/catalog";
 const SOURCE_LABEL: Record<EntitlementSource, string> = {
   audience: "Not for customers",
   parent_module: "Module off",
+  platform_default: "Platform default",
   global_governance: "Platform-wide",
   organization_status: "Org status",
   override: "Super Admin override",
@@ -45,6 +46,7 @@ const SOURCE_LABEL: Record<EntitlementSource, string> = {
 const SOURCE_TONE: Record<EntitlementSource, string> = {
   audience: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
   parent_module: "bg-muted text-muted-foreground",
+  platform_default: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
   global_governance: "bg-red-500/10 text-red-600 dark:text-red-400",
   organization_status: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
   override: "bg-violet-500/10 text-violet-600 dark:text-violet-400",

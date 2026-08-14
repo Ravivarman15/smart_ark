@@ -296,6 +296,98 @@ describe("the tenant actually loses the page", () => {
   });
 });
 
+describe("a platform default reaches organizations that do not exist yet", () => {
+  // ┌── WHY THIS IS NOT JUST "BULK GRANT TO EVERYONE" ───────────────────────┐
+  // │ Writing one override row per tenant covers the organizations that      │
+  // │ exist at the moment it runs. The school that signs up tomorrow         │
+  // │ inherits none of it, and the only way to notice is a customer asking   │
+  // │ why they lack a module every other customer has.                       │
+  // │                                                                         │
+  // │ A default is recorded ONCE and read at the resolver's last layer, so a  │
+  // │ new organization picks it up with no row of its own.                    │
+  // └─────────────────────────────────────────────────────────────────────────┘
+
+  it("applies when nothing else has an opinion", () => {
+    const e = resolveEntitlements(layers({ defaults: { payroll: false } }));
+    expect(e.payroll.enabled).toBe(false);
+    expect(e.payroll.source).toBe("platform_default");
+  });
+
+  it("is what a BRAND NEW organization resolves to", () => {
+    // A new tenant has no overrides and, before billing, no plan rules. These
+    // layers ARE a new organization, so this is the whole feature in one
+    // assertion.
+    const fresh = layers({ plan: {}, overrides: {}, defaults: { certificate: false } });
+    expect(resolveEntitlements(fresh).certificate.enabled).toBe(false);
+  });
+
+  it("is OUTRANKED by a plan rule", () => {
+    const e = resolveEntitlements(
+      layers({
+        defaults: { payroll: false },
+        plan: { payroll: { enabled: true, limit: null } },
+      }),
+    );
+    expect(e.payroll.enabled).toBe(true);
+    expect(e.payroll.source).toBe("plan");
+  });
+
+  it("is OUTRANKED by a per-organization override", () => {
+    // What lets "apply to every organization" coexist with a customer who
+    // negotiated an exception, instead of trampling them.
+    const e = resolveEntitlements(
+      layers({ defaults: { payroll: false }, overrides: { payroll: ov(true) } }),
+    );
+    expect(e.payroll.enabled).toBe(true);
+    expect(e.payroll.source).toBe("override");
+  });
+
+  it("does NOT outrank a global withdrawal or a suspension", () => {
+    const withdrawn = resolveEntitlements(
+      layers({ defaults: { whatsapp: true }, governance: { whatsapp: false } }),
+    );
+    expect(withdrawn.whatsapp.enabled).toBe(false);
+    expect(withdrawn.whatsapp.source).toBe("global_governance");
+
+    const suspended = resolveEntitlements(
+      layers({ status: "suspended", defaults: { payroll: true } }),
+    );
+    expect(suspended.payroll.enabled).toBe(false);
+    expect(suspended.payroll.source).toBe("organization_status");
+  });
+
+  it("cannot switch a core module off", () => {
+    const e = resolveEntitlements(layers({ defaults: { student: false } }));
+    expect(e.student.enabled).toBe(true);
+    expect(e.student.source).toBe("essential");
+  });
+
+  it("works for a submodule too", () => {
+    const e = resolveEntitlements(layers({ defaults: { [SUB]: false } }));
+    expect(e[SUB].enabled).toBe(false);
+    expect(e[SUB].source).toBe("platform_default");
+    // The module is untouched — only the one page is withheld.
+    expect(e[SUB_PARENT].enabled).toBe(true);
+  });
+
+  it("still obeys containment for a submodule default", () => {
+    const e = resolveEntitlements(
+      layers({ defaults: { [SUB]: true }, overrides: { [SUB_PARENT]: ov(false) } }),
+    );
+    expect(e[SUB].enabled).toBe(false);
+    expect(e[SUB].source).toBe("parent_module");
+  });
+
+  it("absent defaults change nothing — today's behaviour is preserved", () => {
+    // The migration ships NULL for every key, so every existing organization
+    // must resolve exactly as it did before.
+    const before = resolveEntitlements(layers());
+    const after = resolveEntitlements(layers({ defaults: {} }));
+    expect(after).toEqual(before);
+    expect(after.payroll.source).toBe("default");
+  });
+});
+
 describe("submodules can be granted and revoked in bulk", () => {
   const org = (id: string, name: string, l: EntitlementLayers, prot = false): PlannableOrg => ({
     id, displayName: name, slug: name.toLowerCase(), protected: prot,

@@ -37,6 +37,7 @@ import {
 } from "../hooks/usePlatform";
 import { resolveEntitlements } from "../modules/entitlements";
 import { ModuleControlCenter } from "../components/ModuleControlCenter";
+import { planBulkOperation } from "../modules/bulkPlan";
 import { PLATFORM_MODULES, CATEGORY_LABELS } from "../modules/moduleRegistry";
 import type { ModuleId } from "@/features/rbac/constants/catalog";
 
@@ -84,13 +85,33 @@ const ModulesPage: React.FC = () => {
     return out;
   }, [rows]);
 
-  const eligible = useMemo(
-    () => filtered.filter((r) => selected.has(r.id) && !r.protected),
-    [filtered, selected],
-  );
-  const blockedByProtection = useMemo(
-    () => filtered.filter((r) => selected.has(r.id) && r.protected),
-    [filtered, selected],
+  /**
+   * The plan for the pending bulk change, from the same pure planner the
+   * Control Center uses.
+   *
+   * This dialog used to count only "selected minus protected", which reports 24
+   * organizations affected when 12 of them already have the module and one
+   * would be blocked by a dependency. The planner splits those, and only its
+   * `targets` are sent — so a bulk change writes no override row that says
+   * nothing.
+   */
+  const plan = useMemo(
+    () =>
+      planBulkOperation(
+        filtered
+          .filter((r) => selected.has(r.id))
+          .map((r) => ({
+            id: r.id,
+            displayName: r.displayName,
+            slug: r.slug,
+            protected: r.protected,
+            status: r.status,
+            entitlements: r.entitlements,
+          })),
+        bulkModule,
+        bulkEnable,
+      ),
+    [filtered, selected, bulkModule, bulkEnable],
   );
 
   const toggleAll = (checked: boolean) =>
@@ -107,7 +128,7 @@ const ModulesPage: React.FC = () => {
   const runBulk = () => {
     bulk.mutate(
       {
-        organizationIds: [...selected],
+        organizationIds: plan.targets,
         moduleKey: bulkModule,
         enabled: bulkEnable,
         note: bulkNote.trim(),
@@ -348,26 +369,46 @@ const ModulesPage: React.FC = () => {
             {/* Impact preview BEFORE the button, never after. */}
             <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
               <div className="font-medium">
-                {selected.size} organization{selected.size === 1 ? "" : "s"} selected
+                {plan.willChange.length} organization{plan.willChange.length === 1 ? "" : "s"} will
+                change
               </div>
               <div className="mt-1 text-muted-foreground">
-                {eligible.length} eligible
-                {blockedByProtection.length > 0 && (
+                {plan.total} selected
+                {plan.already.length > 0 && (
+                  <> {" · "}{plan.already.length} already {bulkEnable ? "enabled" : "disabled"}</>
+                )}
+                {plan.protectedExcluded.length > 0 && (
                   <>
                     {" · "}
                     <span className="text-amber-600 dark:text-amber-400">
-                      {blockedByProtection.length} blocked (protected)
+                      {plan.protectedExcluded.length} protected
+                    </span>
+                  </>
+                )}
+                {plan.blocked.length > 0 && (
+                  <>
+                    {" · "}
+                    <span className="text-red-600 dark:text-red-400">
+                      {plan.blocked.length} blocked by dependencies
                     </span>
                   </>
                 )}
               </div>
-              {blockedByProtection.length > 0 && (
+              {plan.refusal && (
+                <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{plan.refusal}</p>
+              )}
+              {plan.protectedExcluded.length > 0 && (
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  {blockedByProtection.map((r) => r.displayName).join(", ")} — protected
+                  {plan.protectedExcluded.map((r) => r.displayName).join(", ")} — protected
                   organizations are excluded from every bulk operation. Open them individually
                   if the change is genuinely intended.
                 </p>
               )}
+              {plan.blocked.slice(0, 3).map((b) => (
+                <p key={b.organizationId} className="mt-1 text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">{b.displayName}</span> — {b.reason}
+                </p>
+              ))}
             </div>
 
             <div className="space-y-1.5">
@@ -387,11 +428,16 @@ const ModulesPage: React.FC = () => {
             <Button
               onClick={runBulk}
               variant={bulkEnable ? "default" : "destructive"}
-              disabled={bulk.isPending || eligible.length === 0 || bulkNote.trim().length < 5}
+              disabled={
+                bulk.isPending ||
+                !!plan.refusal ||
+                plan.targets.length === 0 ||
+                bulkNote.trim().length < 5
+              }
             >
               {bulk.isPending
                 ? "Applying…"
-                : `${bulkEnable ? "Grant" : "Revoke"} for ${eligible.length}`}
+                : `${bulkEnable ? "Grant" : "Revoke"} for ${plan.targets.length}`}
             </Button>
           </DialogFooter>
         </DialogContent>

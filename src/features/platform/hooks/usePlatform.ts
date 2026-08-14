@@ -366,6 +366,35 @@ export const useBulkModules = () => {
   });
 };
 
+export const useSetFeatureDefault = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof platformService.setFeatureDefault>[0]) =>
+      platformService.setFeatureDefault(input),
+    onSuccess: (r, v) => {
+      qc.invalidateQueries({ queryKey: platformKeys.governance() });
+      invalidateEntitlements(qc);
+      if (v.enabled === null) {
+        toast.success(`${v.featureKey} default cleared`);
+        return;
+      }
+      const n = r.cleared?.cleared ?? 0;
+      const skipped = r.cleared?.protected_skipped ?? 0;
+      toast.success(
+        `${v.featureKey} ${v.enabled ? "enabled" : "disabled"} for every organization`,
+        {
+          description: [
+            "Applies to organizations created from now on.",
+            n ? `${n} conflicting override${n === 1 ? "" : "s"} removed.` : null,
+            skipped ? `${skipped} protected organization left untouched.` : null,
+          ].filter(Boolean).join(" "),
+        },
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
 export const useSetModuleGovernance = () => {
   const qc = useQueryClient();
   return useMutation({

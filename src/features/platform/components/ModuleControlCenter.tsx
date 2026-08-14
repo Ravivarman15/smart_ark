@@ -15,7 +15,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, Minus, Search, ShieldAlert, Users, X } from "lucide-react";
+import { Check, Globe, Minus, Search, ShieldAlert, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { usePlatformAuth } from "../context/PlatformAuthContext";
-import { useBulkModules } from "../hooks/usePlatform";
+import { useBulkModules, useSetModule, useSetFeatureDefault, useModuleGovernance } from "../hooks/usePlatform";
 import { resolveEntitlements, type EntitlementLayers } from "../modules/entitlements";
 import { planBulkOperation, type PlannableOrg, type BulkPlan } from "../modules/bulkPlan";
 import {
@@ -69,6 +69,10 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
 }) => {
   const { can } = usePlatformAuth();
   const bulk = useBulkModules();
+  const setModule = useSetModule();
+  const setDefault = useSetFeatureDefault();
+  const { data: governanceRows } = useModuleGovernance();
+  const governance = governanceRows ?? [];
 
   const [search, setSearch] = useState("");
   const [audience, setAudience] = useState<ModuleAudience | "all">("all");
@@ -84,6 +88,10 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
   const [orgSearch, setOrgSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ plan: BulkPlan; note: string } | null>(null);
+  /** Pending "all organizations" decision, awaiting its reason. */
+  const [setAllPrompt, setSetAllPrompt] = useState<{
+    featureKey: string; label: string; enable: boolean | null; note: string;
+  } | null>(null);
 
   /** Organizations with entitlements resolved once per matrix load. */
   const orgs: PlannableOrg[] = useMemo(
@@ -135,16 +143,71 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
 
   const detail = openModule ? PLATFORM_MODULES.find((m) => m.id === openModule) : null;
 
-  const detailOrgs = useMemo(() => {
-    if (!feature) return { withIt: [] as PlannableOrg[], without: [] as PlannableOrg[] };
+  /** Organizations shown as columns — filtered by the same search box. */
+  const gridOrgs = useMemo(() => {
     const q = orgSearch.trim().toLowerCase();
-    const match = (o: PlannableOrg) =>
-      !q || o.displayName.toLowerCase().includes(q) || o.slug.toLowerCase().includes(q);
+    if (!q) return orgs;
+    const byName = orgs.filter(
+      (o) => o.displayName.toLowerCase().includes(q) || o.slug.toLowerCase().includes(q),
+    );
+    // A search that matches no organization is probably a submodule search, so
+    // the columns stay put rather than emptying the grid entirely.
+    return byName.length > 0 ? byName : orgs;
+  }, [orgs, orgSearch]);
+
+  /** Rows: the module itself, then each of its submodules. */
+  const gridRows = useMemo(() => {
+    if (!openModule) return [] as { id: string; label: string; isModule: boolean; wired: boolean }[];
+    const q = orgSearch.trim().toLowerCase();
+    const module = PLATFORM_MODULES.find((m) => m.id === openModule)!;
+    const subs = (SUBMODULES_OF.get(openModule) ?? []).map((s) => ({
+      id: s.id, label: s.label, isModule: false, wired: s.wired,
+    }));
+    const matchesOrg = orgs.some(
+      (o) => o.displayName.toLowerCase().includes(q) || o.slug.toLowerCase().includes(q),
+    );
+    // Filter submodules only when the query is not an organization name —
+    // otherwise typing "ARK" would hide every row.
+    const filtered =
+      q && !matchesOrg
+        ? subs.filter((s) => s.label.toLowerCase().includes(q) || s.id.toLowerCase().includes(q))
+        : subs;
+    return [
+      { id: module.id, label: `${module.label} — whole module`, isModule: true, wired: true },
+      ...filtered,
+    ];
+  }, [openModule, orgs, orgSearch]);
+
+  const governanceOf = (key: string) => governance.find((g) => g.moduleKey === key) ?? null;
+
+  /**
+   * What setting a platform default would actually do to the current fleet.
+   *
+   * `conflicting` counts organizations whose OWN override disagrees — those are
+   * the rows that get removed so they follow the platform. Protected ones are
+   * counted separately because they are skipped entirely.
+   */
+  const allImpact = useMemo(() => {
+    if (!setAllPrompt || setAllPrompt.enable === null) {
+      return { follows: 0, conflicting: 0, protectedCount: 0 };
+    }
+    let conflicting = 0;
+    let protectedCount = 0;
+    for (const o of orgs) {
+      const e = o.entitlements[setAllPrompt.featureKey];
+      const disagrees = e && e.source === "override" && e.enabled !== setAllPrompt.enable;
+      if (o.protected) {
+        if (disagrees) protectedCount += 1;
+        continue;
+      }
+      if (disagrees) conflicting += 1;
+    }
     return {
-      withIt: orgs.filter((o) => o.entitlements[feature]?.enabled && match(o)),
-      without: orgs.filter((o) => !o.entitlements[feature]?.enabled && match(o)),
+      follows: orgs.filter((o) => !o.protected).length,
+      conflicting,
+      protectedCount,
     };
-  }, [feature, orgs, orgSearch]);
+  }, [setAllPrompt, orgs]);
 
   const openDetail = (id: ModuleId) => {
     setOpenModule(id);
@@ -156,21 +219,6 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
     setFeature("");
     setSelected(new Set());
     setOrgSearch("");
-  };
-
-  /**
-   * Build the plan for a scope, then show it. The operator confirms the PLAN,
-   * never the intent — "revoke from all" and "revoke from the 11 that actually
-   * have it" are different operations and the dialog says which one this is.
-   */
-  const propose = (scope: "selected" | "all", enable: boolean) => {
-    if (!openModule) return;
-    const target = scope === "all" ? orgs : orgs.filter((o) => selected.has(o.id));
-    // `feature` is the module id, or a submodule id when the operator has
-    // narrowed the target. The planner handles both — a submodule has no
-    // dependants and cannot be essential, so it simply falls through to the
-    // will-change / already comparison on its own resolved state.
-    setConfirm({ plan: planBulkOperation(target, feature, enable), note: "" });
   };
 
   const execute = () => {
@@ -319,100 +367,188 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
                 )}
               </div>
 
-              {/* ── What to act on ─────────────────────────────────────────
-                  The whole module, or one page inside it. Choosing narrows
-                  the two columns below immediately, so the counts an operator
-                  confirms are always about the thing they are changing. */}
-              <div className="space-y-1.5">
-                <Label>Apply to</Label>
-                <Select value={feature} onValueChange={setFeature}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    <SelectItem value={detail.id}>
-                      {detail.label} — the whole module
-                    </SelectItem>
-                    {(SUBMODULES_OF.get(detail.id) ?? []).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.label}
-                        {!s.wired && " (not built)"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isSubmoduleKey(feature) && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Revoking one page leaves the rest of {detail.label} untouched. A submodule
-                    cannot be switched on while its module is off.
-                  </p>
-                )}
-              </div>
-
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-8"
-                  placeholder="Search organizations…"
+                  placeholder="Search organizations or submodules…"
                   value={orgSearch}
                   onChange={(e) => setOrgSearch(e.target.value)}
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <OrgColumn
-                  title={`Has ${featureLabel(feature)}`}
-                  count={detailOrgs.withIt.length}
-                  orgs={detailOrgs.withIt}
-                  selected={selected}
-                  onToggle={toggleOrg}
-                  moduleId={feature}
-                  tone="on"
-                />
-                <OrgColumn
-                  title={`Without ${featureLabel(feature)}`}
-                  count={detailOrgs.without.length}
-                  orgs={detailOrgs.without}
-                  selected={selected}
-                  onToggle={toggleOrg}
-                  moduleId={feature}
-                  tone="off"
-                />
+              {/* ── The grid ────────────────────────────────────────────────
+                  Rows are the module and every submodule; columns are the
+                  organizations. Each cell is the resolved answer for that
+                  pair, and clicking it changes exactly that pair.
+
+                  Orientation is deliberate: a module can have 32 submodules
+                  and the fleet is small, so submodules read down the page and
+                  organizations across it. The header row scrolls with the
+                  table rather than being frozen — with a large fleet the
+                  "All organizations" column is what an operator reaches for
+                  anyway. */}
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-xs text-muted-foreground">
+                    <tr>
+                      <th className="sticky left-0 z-10 bg-muted/50 px-3 py-2 text-left font-medium">
+                        Feature
+                      </th>
+                      <th className="whitespace-nowrap border-l border-border px-3 py-2 text-center font-medium">
+                        <div className="flex items-center justify-center gap-1">
+                          <Globe className="h-3 w-3" /> All organizations
+                        </div>
+                        <div className="text-[9px] font-normal normal-case">
+                          existing &amp; future
+                        </div>
+                      </th>
+                      {gridOrgs.map((o) => (
+                        <th key={o.id} className="whitespace-nowrap px-3 py-2 text-center font-medium">
+                          <div className="flex items-center justify-center gap-1">
+                            {o.displayName}
+                            {o.protected && <ShieldAlert className="h-3 w-3 text-amber-500" />}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {gridRows.map((row) => (
+                      <GridRow
+                        key={row.id}
+                        row={row}
+                        orgs={gridOrgs}
+                        governance={governanceOf(row.id)}
+                        canGrant={can("modules.grant")}
+                        canRevoke={can("modules.revoke")}
+                        canBulk={can("modules.bulk")}
+                        busy={setModule.isPending || setDefault.isPending}
+                        onToggleOne={(orgId, next) =>
+                          setModule.mutate({
+                            organizationId: orgId,
+                            moduleKey: row.id,
+                            enabled: next,
+                            reason: "sales_override",
+                            expiresAt: null,
+                          })
+                        }
+                        onToggleAll={(next) =>
+                          setSetAllPrompt({ featureKey: row.id, label: row.label, enable: next, note: "" })
+                        }
+                      />
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
-              <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-                <div className="text-[11px] text-muted-foreground">
-                  {selected.size} selected
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {can("modules.bulk") && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={selected.size === 0}
-                        onClick={() => propose("selected", true)}
-                      >
-                        Grant to selected
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={selected.size === 0}
-                        onClick={() => propose("selected", false)}
-                      >
-                        Revoke from selected
-                      </Button>
-                      <Button size="sm" onClick={() => propose("all", true)}>
-                        Grant to all
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => propose("all", false)}>
-                        Revoke from all
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </DialogFooter>
+              <p className="text-[11px] text-muted-foreground">
+                A cell changes one organization. The{" "}
+                <span className="font-medium">All organizations</span> column records a platform
+                default that every organization follows unless it has its own decision —
+                including organizations created later. Revoking a module switches off its
+                submodules with it; a submodule cannot be on while its module is off.
+              </p>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── All organizations, existing and future ───────────────────────── */}
+      <Dialog open={!!setAllPrompt} onOpenChange={(v) => !v && setSetAllPrompt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {setAllPrompt?.enable === null
+                ? "Clear the platform default"
+                : `${setAllPrompt?.enable ? "Enable" : "Disable"} ${setAllPrompt?.label} everywhere`}
+            </DialogTitle>
+            <DialogDescription>
+              {setAllPrompt?.enable === null
+                ? "Organizations fall back to their plan, and future organizations get the built-in default again. No per-organization decision is changed."
+                : "Records a platform default. Every organization without a decision of its own follows it — including organizations created from now on."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {setAllPrompt && setAllPrompt.enable !== null && (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                <div className="font-medium">
+                  {allImpact.follows} organization{allImpact.follows === 1 ? "" : "s"} will follow
+                  this
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {allImpact.conflicting > 0 ? (
+                    <>
+                      {allImpact.conflicting} organization
+                      {allImpact.conflicting === 1 ? " has" : "s have"} their own decision that
+                      disagrees. Those overrides are <span className="font-medium">removed</span> so
+                      they follow the platform too — removing them leaves the decision in one place
+                      instead of writing rows that each look like a deliberate exception later.
+                    </>
+                  ) : (
+                    "No organization has a conflicting decision of its own."
+                  )}
+                  {allImpact.protectedCount > 0 && (
+                    <>
+                      {" "}
+                      <span className="text-amber-600 dark:text-amber-400">
+                        {allImpact.protectedCount} protected organization
+                        {allImpact.protectedCount === 1 ? " is" : "s are"} left untouched.
+                      </span>
+                    </>
+                  )}
+                </p>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  No tenant data is touched. Records stay exactly where they are and reappear
+                  intact if this is reversed.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="default-note">Reason (required)</Label>
+                <Textarea
+                  id="default-note"
+                  rows={2}
+                  value={setAllPrompt.note}
+                  onChange={(e) =>
+                    setSetAllPrompt((p) => (p ? { ...p, note: e.target.value } : p))
+                  }
+                  placeholder="e.g. Certificate is included in every package from Sep 2026."
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSetAllPrompt(null)}>Cancel</Button>
+            <Button
+              variant={setAllPrompt?.enable === false ? "destructive" : "default"}
+              disabled={
+                !setAllPrompt ||
+                setDefault.isPending ||
+                (setAllPrompt.enable !== null && setAllPrompt.note.trim().length < 5)
+              }
+              onClick={() => {
+                if (!setAllPrompt) return;
+                setDefault.mutate(
+                  {
+                    featureKey: setAllPrompt.featureKey,
+                    enabled: setAllPrompt.enable,
+                    note: setAllPrompt.note.trim() || undefined,
+                    applyToExisting: true,
+                  },
+                  { onSuccess: () => setSetAllPrompt(null) },
+                );
+              }}
+            >
+              {setDefault.isPending
+                ? "Applying…"
+                : setAllPrompt?.enable === null
+                  ? "Clear default"
+                  : "Apply to all organizations"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -478,53 +614,121 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
   );
 };
 
-/** One side of the module detail — organizations with or without it. */
-const OrgColumn: React.FC<{
-  title: string;
-  count: number;
+/**
+ * One feature across every organization, plus the platform default.
+ *
+ * The default cell is not a third state of the same switch — it answers a
+ * different question. A per-organization cell says what THAT customer has; the
+ * default says what a customer gets when nobody has decided for them, which is
+ * the only way to reach organizations that do not exist yet.
+ */
+const GridRow: React.FC<{
+  row: { id: string; label: string; isModule: boolean; wired: boolean };
   orgs: PlannableOrg[];
-  selected: Set<string>;
-  onToggle: (id: string) => void;
-  moduleId: string;
-  tone: "on" | "off";
-}> = ({ title, count, orgs, selected, onToggle, moduleId, tone }) => (
-  <div className="rounded-lg border border-border">
-    <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs font-medium">
-      <span>{title}</span>
-      <span className="tabular-nums text-muted-foreground">{count}</span>
-    </div>
-    <div className="max-h-52 overflow-y-auto">
-      {orgs.map((o) => (
-        <div key={o.id} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent/40">
-          <Checkbox
-            checked={selected.has(o.id)}
-            onCheckedChange={() => onToggle(o.id)}
-            disabled={o.protected}
-            aria-label={`Select ${o.displayName}`}
-          />
-          {tone === "on" ? (
-            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          ) : (
-            <Minus className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
-          )}
-          <Link
-            to={`/platform/organization/${o.id}`}
-            className="min-w-0 flex-1 truncate hover:underline"
-            title={o.entitlements[moduleId]?.explain}
-          >
-            {o.displayName}
-          </Link>
-          {o.protected && (
-            <ShieldAlert className="h-3 w-3 shrink-0 text-amber-500" aria-label="Protected" />
+  governance: { defaultEnabled: boolean | null } | null;
+  canGrant: boolean;
+  canRevoke: boolean;
+  canBulk: boolean;
+  busy: boolean;
+  onToggleOne: (orgId: string, next: boolean) => void;
+  onToggleAll: (next: boolean | null) => void;
+}> = ({ row, orgs, governance, canGrant, canRevoke, canBulk, busy, onToggleOne, onToggleAll }) => {
+  const dflt = governance?.defaultEnabled ?? null;
+
+  return (
+    <tr className="hover:bg-accent/30">
+      <td
+        className={`sticky left-0 z-10 bg-card px-3 py-2 ${row.isModule ? "font-medium" : "pl-6"}`}
+      >
+        <div className="flex items-center gap-1.5">
+          <span className={row.isModule ? "" : "text-[13px]"}>{row.label}</span>
+          {!row.wired && (
+            <span
+              className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground"
+              title="In the catalog, but no page renders it yet."
+            >
+              not built
+            </span>
           )}
         </div>
-      ))}
-      {orgs.length === 0 && (
-        <div className="px-3 py-6 text-center text-xs text-muted-foreground">None</div>
-      )}
-    </div>
-  </div>
-);
+        {!row.isModule && (
+          <div className="font-mono text-[10px] text-muted-foreground">{row.id}</div>
+        )}
+      </td>
+
+      {/* Platform default */}
+      <td className="border-l border-border px-3 py-2 text-center">
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            size="sm"
+            variant={dflt === true ? "default" : "outline"}
+            className="h-6 px-2 text-[10px]"
+            disabled={!canBulk || busy}
+            onClick={() => onToggleAll(true)}
+          >
+            On
+          </Button>
+          <Button
+            size="sm"
+            variant={dflt === false ? "destructive" : "outline"}
+            className="h-6 px-2 text-[10px]"
+            disabled={!canBulk || busy}
+            onClick={() => onToggleAll(false)}
+          >
+            Off
+          </Button>
+          {dflt !== null && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              title="Clear the platform default — organizations fall back to their plan"
+              disabled={!canBulk || busy}
+              onClick={() => onToggleAll(null)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      </td>
+
+      {orgs.map((o) => {
+        const e = o.entitlements[row.id];
+        // Governance, status, audience and core are decided above the
+        // organization layer, so a per-organization switch cannot move them.
+        // A switch that silently does nothing is worse than a disabled one.
+        const locked =
+          !e ||
+          e.source === "global_governance" ||
+          e.source === "organization_status" ||
+          e.source === "essential" ||
+          e.source === "audience" ||
+          e.source === "parent_module";
+        const mayToggle = (e?.enabled ? canRevoke : canGrant) && !locked && !o.protected;
+
+        return (
+          <td key={o.id} className="px-3 py-2 text-center" title={e?.explain}>
+            <button
+              type="button"
+              disabled={!mayToggle || busy}
+              onClick={() => onToggleOne(o.id, !e!.enabled)}
+              aria-label={`${e?.enabled ? "Disable" : "Enable"} ${row.label} for ${o.displayName}`}
+              className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                e?.enabled ? "bg-emerald-500" : "bg-muted-foreground/25"
+              } ${mayToggle && !busy ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+            >
+              <span
+                className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                  e?.enabled ? "translate-x-[18px]" : "translate-x-[2px]"
+                }`}
+              />
+            </button>
+          </td>
+        );
+      })}
+    </tr>
+  );
+};
 
 /**
  * The impact preview.

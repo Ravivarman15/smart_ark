@@ -96,6 +96,12 @@ export interface MatrixRow {
 
 export interface ModuleGovernance {
   moduleKey: string; isGloballyAvailable: boolean;
+  /**
+   * The platform default. `null` means none is set, which is not the same as
+   * `false` — none means "included when nothing else says otherwise", false
+   * means Smart ARK has decided against it for every tenant.
+   */
+  defaultEnabled: boolean | null;
   note: string | null; updatedAt: string | null;
 }
 
@@ -607,11 +613,15 @@ class PlatformService {
   async moduleGovernance(): Promise<ModuleGovernance[]> {
     const { data, error } = await supabase
       .from("platform_module_governance" as never)
-      .select("module_key, is_globally_available, note, updated_at");
+      .select("module_key, is_globally_available, default_enabled, note, updated_at");
     if (error) throw AppError.fromSupabase(error, "platform_module_governance");
     return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
       moduleKey: String(r.module_key),
       isGloballyAvailable: Boolean(r.is_globally_available),
+      defaultEnabled:
+        r.default_enabled === null || r.default_enabled === undefined
+          ? null
+          : Boolean(r.default_enabled),
       note: str(r.note), updatedAt: str(r.updated_at),
     }));
   }
@@ -641,6 +651,26 @@ class PlatformService {
 
   setModuleGovernance(moduleKey: string, available: boolean, note?: string) {
     return invokePlatform<{ ok: boolean }>("set_module_governance", { moduleKey, available, note });
+  }
+
+  /**
+   * The platform's standing decision for a feature — every organization that
+   * has no opinion of its own follows it, INCLUDING ones created later.
+   *
+   * `enabled: null` clears the default. `applyToExisting` (default true) also
+   * removes the per-organization overrides that contradict it, so the current
+   * fleet follows the platform too; protected organizations are skipped.
+   */
+  setFeatureDefault(input: {
+    featureKey: string;
+    enabled: boolean | null;
+    note?: string;
+    applyToExisting?: boolean;
+  }) {
+    return invokePlatform<{
+      ok: boolean; changed: boolean;
+      cleared: { cleared: number; protected_skipped: number } | null;
+    }>("set_feature_default", input);
   }
 
   // ── Organization lifecycle (Phase 9A) ────────────────────────────────────

@@ -35,6 +35,7 @@ export type EntitlementSource =
   | "audience"            // not a customer-facing module at all
   | "parent_module"       // the submodule's module is off, so it is too
   | "global_governance"   // withdrawn platform-wide
+  | "platform_default"    // the platform's standing decision for every tenant
   | "organization_status" // suspended / hold / archived
   | "override"            // explicit per-organization decision
   | "plan"                // the subscribed plan says so
@@ -61,6 +62,15 @@ export interface EntitlementLayers {
   plan_code: string | null;
   plan_id: string | null;
   governance: Record<string, boolean>;
+  /**
+   * Platform-wide DEFAULTS, read at the last layer.
+   *
+   * Different from `governance`, which is a hard withdrawal outranking
+   * everything. A default is what applies when nothing else has an opinion —
+   * so an organization created tomorrow inherits it without anyone writing a
+   * row for it, while a customer with a negotiated override keeps theirs.
+   */
+  defaults?: Record<string, boolean>;
   plan: Record<string, { enabled: boolean; limit: number | null }>;
   overrides: Record<
     string,
@@ -241,7 +251,25 @@ export const resolveEntitlements = (
       continue;
     }
 
-    // 6 ── default
+    // 6 ── platform default, then the built-in default
+    //
+    // The LAST layer, deliberately. A platform default is what applies when
+    // nothing else has an opinion, so a per-organization override and a plan
+    // rule both still outrank it — which is what lets "apply to every
+    // organization, including future ones" coexist with a customer who
+    // negotiated an exception.
+    const platformDefault = layers.defaults?.[id];
+    if (platformDefault !== undefined) {
+      out[id] = {
+        enabled: platformDefault,
+        source: "platform_default",
+        explain: platformDefault
+          ? "Included for every organization by Smart ARK, unless a plan or override says otherwise."
+          : "Excluded for every organization by Smart ARK, unless a plan or override says otherwise.",
+      };
+      continue;
+    }
+
     out[id] = {
       enabled: true,
       source: "default",
@@ -315,7 +343,20 @@ export const resolveEntitlements = (
       continue;
     }
 
-    // 4 ── default: follow the module.
+    // 4 ── platform default for this submodule
+    const subDefault = layers.defaults?.[sub.id];
+    if (subDefault !== undefined) {
+      out[sub.id] = {
+        enabled: subDefault,
+        source: "platform_default",
+        explain: subDefault
+          ? "Included for every organization by Smart ARK, unless a plan or override says otherwise."
+          : "Excluded for every organization by Smart ARK, unless a plan or override says otherwise.",
+      };
+      continue;
+    }
+
+    // 5 ── default: follow the module.
     //
     // Silence means "included", exactly as it does for a module — and for the
     // same reason. Anything else would switch off all 204 submodules for every
