@@ -1,5 +1,16 @@
 # ARK ERP — AiSensy WhatsApp Templates (used after Phase 2)
 
+> ⚠️ **The "Ready ✅" column below describes what this repository intends to
+> send, not what AiSensy accepts.** Measured on 2026-08-14, `staff_credentials`
+> does not exist at the provider (six `HTTP 400: Campaign does not exist.`,
+> zero deliveries ever) and every Lead CRM template delivers ARK's name to
+> every tenant because its positional params omit `org_name`.
+>
+> For the evidence-backed state of each campaign — what has actually been
+> delivered, what the provider has refused, and the exact bodies still to be
+> created — see **[AISENSY_CAMPAIGN_STATE.md](./AISENSY_CAMPAIGN_STATE.md)** and
+> its machine-readable source `src/features/communication/constants/providerCampaigns.ts`.
+
 All templates are **Utility** category. **Variable order is the source of truth** — it is the order
 each placeholder first appears in the ERP body, so AiSensy positional params `{{1}}, {{2}}, …` line
 up with what the ERP sends through `renderMessage`.

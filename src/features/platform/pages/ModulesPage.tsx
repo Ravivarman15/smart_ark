@@ -36,6 +36,7 @@ import {
   useModuleMatrix, useModuleGovernance, useSetModuleGovernance, useBulkModules,
 } from "../hooks/usePlatform";
 import { resolveEntitlements } from "../modules/entitlements";
+import { ModuleControlCenter } from "../components/ModuleControlCenter";
 import { PLATFORM_MODULES, CATEGORY_LABELS } from "../modules/moduleRegistry";
 import type { ModuleId } from "@/features/rbac/constants/catalog";
 
@@ -132,11 +133,21 @@ const ModulesPage: React.FC = () => {
       />
 
       <div className="space-y-4 p-6">
-        <Tabs defaultValue="catalog">
+        <Tabs defaultValue="control">
           <TabsList>
+            <TabsTrigger value="control">Control Center</TabsTrigger>
             <TabsTrigger value="catalog">Catalog</TabsTrigger>
             <TabsTrigger value="matrix">Matrix</TabsTrigger>
           </TabsList>
+
+          {/* ── Control Center ──────────────────────────────────────────────
+              Module-first. The Matrix answers "what does this organization
+              have?"; this answers "who has Payroll, and change it for some or
+              all of them" — the question an operator arrives with when a
+              package changes. */}
+          <TabsContent value="control" className="mt-4">
+            <ModuleControlCenter rows={matrix ?? []} withdrawn={withdrawn} />
+          </TabsContent>
 
           {/* ── Catalog ─────────────────────────────────────────────────── */}
           <TabsContent value="catalog" className="mt-4">

@@ -98,6 +98,7 @@ const ORDER = [
   // ── Phase 11: public form notifications. ───────────────────────────────
   ["20261004_phase11a_public_form_notifications.sql", "platform_users.phone + the platform.leads.notify capability + the delivery ledger; additive, no backfill, no tenant table touched"],
   ["20261005_phase11b_principal_memberships.sql", "organization_users rows for parent/student principals provisioned before grantMembership existed; without one the JWT carries no org claim, RLS hides the principal's own account row and they land on /signup instead of their portal. Idempotent, asserts zero stranded principals at the end"],
+  ["20261006_phase11c_whatsapp_drain_schedule.sql", "message_queue has never had a drain schedule — send-aisensy was verify_jwt=true, which pg_cron cannot satisfy, so a queued message only ever went out if a human clicked something. Registers the cron job INACTIVE (enabling it transmits every queued message) and fails loudly if the job is missing"],
 ];
 
 const args = process.argv.slice(2);

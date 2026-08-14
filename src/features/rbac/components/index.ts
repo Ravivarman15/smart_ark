@@ -15,6 +15,7 @@ export { AccessTracePanel } from "./AccessTracePanel";
 export { EffectiveAccessPanel } from "./EffectiveAccessPanel";
 export { RouteAccessGuard } from "./RouteAccessGuard";
 export { LayoutAccessGate } from "./LayoutAccessGate";
+export { ModuleUnavailable } from "./ModuleUnavailable";
 export { AccessSyncIndicator } from "./AccessSyncIndicator";
 
 // ── Phase 5: Role Center ────────────────────────────────────────────────────

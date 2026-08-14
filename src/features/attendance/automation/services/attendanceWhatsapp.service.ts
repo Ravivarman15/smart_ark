@@ -659,6 +659,26 @@ class AttendanceWhatsappService extends BaseService {
     const resolved = resolveCampaign(contextType);
     const campaignName = resolved?.campaign ?? template.providerName ?? contextType;
 
+    // ── Refuse a campaign the provider has already told us does not exist ──
+    // The direct path burns a real provider call per student. `staff_credentials`
+    // proved what that costs when the campaign is dead: six identical 400s, each
+    // one recorded as a delivery failure that reads like an outage. If AiSensy
+    // has already refused this campaign, say so once and stop.
+    if (resolved && !resolved.sendable) {
+      const reason = resolved.blockedReason ?? `Campaign ${campaignName} cannot be sent.`;
+      await this.finalize(claim.id, { ok: false, error: reason });
+      await this.logWhatsapp({
+        contextType, studentId: facts.id, studentName, date,
+        recipientName: parentName, phone: facts.phone, body: rendered.body,
+        variables: rendered.variables, status: "failed", error: reason, actorId,
+      });
+      await commsAuditService.log({
+        entityType: "automation", entityId: facts.id, action: "fail", actorId,
+        payload: { event: contextType, result: "campaign_unavailable", campaign: campaignName },
+      });
+      return { outcome: "failed", error: reason };
+    }
+
     // Params are keyed on the RESOLVED CAMPAIGN, not the template key. The two
     // have different arities — `attendance_absent` declares five parameters and
     // `smartark_attendance_absent` declares six, the sixth being org_name.

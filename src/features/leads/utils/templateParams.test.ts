@@ -135,6 +135,18 @@ describe("buildTemplateParams", () => {
       "smartark_staff_credentials1",
       "smartark_student_credentials1",
       "smartark_fee_receipt",
+      // ── Lead CRM / Enquiry family (Phase F) ───────────────────────────
+      // The legacy lead campaigns take NO org_name parameter, so the
+      // institution's name is static text inside the approved Meta body —
+      // ARK's name, delivered to every tenant's enquirers. Each of these is
+      // its legacy order with org_name appended.
+      "smartark_lead_enquiry_received",
+      "smartark_lead_assigned",
+      "smartark_lead_followup_due",
+      "smartark_lead_sla_breach",
+      "smartark_lead_demo_scheduled",
+      "smartark_lead_demo_reminder",
+      "smartark_lead_admission_confirmed",
       // ── Legacy campaign-name aliases ──────────────────────────────────
       // attendanceWhatsapp.service now looks specs up by the RESOLVED
       // CAMPAIGN rather than the template key, so the `ark_`-prefixed names

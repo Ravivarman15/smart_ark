@@ -29,6 +29,11 @@
 // queue — `whatsappTemplates.ts` remains the canonical body/variable source.
 // ──────────────────────────────────────────────────────────────────────────────
 
+import {
+  campaignVerdict,
+  type CampaignExistence,
+} from "./providerCampaigns";
+
 /**
  * Where a provider template is in the approval pipeline.
  *
@@ -197,6 +202,157 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "deliberately not migrated. This entry exists so the campaign can be approved ahead of " +
       "any future migration; activating it does NOT change the fee receipt execution path.",
   },
+
+  // ── PHASE F — LEAD CRM / ENQUIRY FUNNEL ────────────────────────────────────
+  //
+  // ┌── WHY THE LEAD FUNNEL LOOKED HEALTHY AND WAS NOT ──────────────────────┐
+  // │ lead_welcome has delivered 17 messages. lead_assigned_counselor, 14.   │
+  // │ Nothing errors, so the funnel reads as working — and for ARK it is.    │
+  // │                                                                        │
+  // │ But every one of those campaigns takes positional parameters that DO   │
+  // │ NOT INCLUDE the organization. lead_welcome posts exactly two:          │
+  // │ student_name and course_name. The institution's name is not a          │
+  // │ parameter, so it is STATIC TEXT inside the approved Meta body — and    │
+  // │ that text is ARK's.                                                    │
+  // │                                                                        │
+  // │ The local bodies in leadWhatsappTemplates.ts do contain {{org_name}},  │
+  // │ which is what makes this so easy to miss: the previews are right, the  │
+  // │ audit rows are right, the rendered `__body` stored in message_queue is │
+  // │ right. Only the thing WhatsApp actually delivers is wrong.             │
+  // │                                                                        │
+  // │ The moment a second institution runs an enquiry campaign, every        │
+  // │ prospect who fills in their form is thanked by a different company.    │
+  // │ abc-academi has sent zero lead messages, so this has not happened yet. │
+  // └────────────────────────────────────────────────────────────────────────┘
+  //
+  // Each body below copies the shape Meta ALREADY APPROVED for
+  // smartark_attendance_absent: opens on static text, runs {{1}}…{{n}} in
+  // ascending order with each parameter used exactly once, and names the
+  // organization only in the sign-off. That shape is the one piece of evidence
+  // we have about what this Meta reviewer accepts, so it is not varied.
+  //
+  // They are also written to STAY in UTILITY. The rejected credential templates
+  // proved that Meta recategorises on content, not on the box you tick, so
+  // every body here reports a fact about a transaction the recipient already
+  // initiated. No "welcome", no "we look forward to", no exclamation marks, no
+  // URLs, no emoji — the wording of the current lead_demo_scheduled_v2 ("We
+  // look forward to seeing you at …!") is exactly the register that gets a
+  // UTILITY template reclassified as MARKETING and then rejected.
+  {
+    key: "lead_welcome",
+    eventKey: "lead_created",
+    legacyCampaign: "lead_welcome",
+    campaign: "smartark_lead_enquiry_received",
+    category: "UTILITY",
+    params: ["student_name", "course_name", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "We have received your enquiry for {{2}}.\n\n" +
+      "Our admissions team will review your details and contact you shortly with the information you requested.\n\n" +
+      "Thank you,\n{{3}}",
+    status: "READY_FOR_SUBMISSION",
+    note:
+      "Replaces the ARK-branded `lead_welcome`, which delivers to every tenant's " +
+      "enquirers with ARK's name as static text. Highest-priority of the lead " +
+      "family: it is the only one a prospect sees, and it fires on the PUBLIC " +
+      "enquiry form, so a wrong institution name goes to someone who has never " +
+      "heard of us.",
+  },
+  {
+    key: "lead_assigned_counselor",
+    eventKey: "lead_assigned",
+    legacyCampaign: "lead_assigned_counselor",
+    campaign: "smartark_lead_assigned",
+    category: "UTILITY",
+    params: ["counselor_name", "student_name", "course_name", "mobile_number", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "A new enquiry has been assigned to you.\n\n" +
+      "Student: {{2}}\nCourse: {{3}}\nContact: {{4}}\n\n" +
+      "Please respond within your agreed follow-up window and update the enquiry record once you have made contact.\n\n" +
+      "Thank you,\n{{5}}",
+    status: "READY_FOR_SUBMISSION",
+  },
+  {
+    key: "lead_followup_reminder",
+    eventKey: "lead_followup_due",
+    legacyCampaign: "lead_followup_reminder",
+    campaign: "smartark_lead_followup_due",
+    category: "UTILITY",
+    params: ["counselor_name", "student_name", "course_name", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "A follow-up is pending on the enquiry from {{2}} for {{3}}.\n\n" +
+      "This enquiry is still awaiting your response. Please contact them and update the enquiry record.\n\n" +
+      "Thank you,\n{{4}}",
+    status: "READY_FOR_SUBMISSION",
+  },
+  {
+    key: "sla_breach_alert",
+    eventKey: "lead_sla_breach",
+    legacyCampaign: "sla_breach_alert",
+    campaign: "smartark_lead_sla_breach",
+    category: "UTILITY",
+    params: ["counselor_name", "student_name", "course_name", "org_name"],
+    // The legacy body shouts "SLA BREACH" on its own line. Kept as plain
+    // reporting here: an all-caps alarm word is a recategorisation risk for no
+    // gain, and the recipient is a staff member who already knows what the
+    // message is for.
+    body:
+      "Dear {{1}},\n\n" +
+      "The enquiry from {{2}} for {{3}} has passed its agreed response time.\n\n" +
+      "Please contact them at the earliest and record the outcome against the enquiry.\n\n" +
+      "Thank you,\n{{4}}",
+    status: "READY_FOR_SUBMISSION",
+  },
+  {
+    key: "lead_demo_scheduled_v2",
+    eventKey: "demo_scheduled",
+    legacyCampaign: "lead_demo_scheduled_v2",
+    campaign: "smartark_lead_demo_scheduled",
+    category: "UTILITY",
+    params: ["student_name", "course_name", "demo_date", "demo_time", "faculty_name", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "Your demo session for {{2}} is confirmed.\n\n" +
+      "Date: {{3}}\nTime: {{4}}\nFaculty: {{5}}\n\n" +
+      "Please arrive ten minutes before the scheduled time. To reschedule, reply to this message or contact the office.\n\n" +
+      "Thank you,\n{{6}}",
+    status: "READY_FOR_SUBMISSION",
+  },
+  {
+    key: "lead_demo_reminder_v2",
+    eventKey: "demo_reminder",
+    legacyCampaign: "lead_demo_reminder_v2",
+    campaign: "smartark_lead_demo_reminder",
+    category: "UTILITY",
+    params: ["student_name", "course_name", "demo_date", "demo_time", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "This is a reminder of your demo session for {{2}}.\n\n" +
+      "Date: {{3}}\nTime: {{4}}\n\n" +
+      "To reschedule, reply to this message or contact the office.\n\n" +
+      "Thank you,\n{{5}}",
+    status: "READY_FOR_SUBMISSION",
+  },
+  {
+    key: "lead_admission_completed_v2",
+    eventKey: "admission_completed",
+    legacyCampaign: "lead_admission_completed_v2",
+    campaign: "smartark_lead_admission_confirmed",
+    category: "UTILITY",
+    params: ["parent_name", "student_name", "course_name", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "The admission of {{2}} for {{3}} is now complete.\n\n" +
+      "The enrolment record has been created. Fee and schedule details will be shared with you separately.\n\n" +
+      "Thank you,\n{{4}}",
+    status: "READY_FOR_SUBMISSION",
+    note:
+      "The legacy body names the organization TWICE — mid-sentence and in the " +
+      "sign-off. That is the exact fault Meta rejected both credential templates " +
+      "for, so the replacement names it only once, in the sign-off.",
+  },
 ];
 
 export const PROVIDER_TEMPLATES_BY_KEY: Record<string, ProviderTemplate> =
@@ -216,18 +372,48 @@ export const PROVIDER_TEMPLATES_BY_KEY: Record<string, ProviderTemplate> =
  * `null` means "no provider template registered" — the caller keeps whatever
  * providerName the canonical template already carries.
  */
-export function resolveCampaign(templateKey: string): {
+export interface ResolvedCampaign {
   campaign: string;
   isMultiTenant: boolean;
   status: ProviderTemplateStatus;
-} | null {
+  /**
+   * Whether posting to `campaign` can succeed AT THE PROVIDER.
+   *
+   * ┌── THE GAP THIS CLOSES ─────────────────────────────────────────────┐
+   * │ `status` describes the NEW template's journey through Meta review. │
+   * │ It says nothing about the legacy campaign this function falls back │
+   * │ to — and the fallback is what actually sends for every template    │
+   * │ that is not ACTIVE.                                                │
+   * │                                                                    │
+   * │ `staff_credentials` sat at REJECTED, resolved to its legacy        │
+   * │ campaign exactly as designed, and that legacy campaign does not    │
+   * │ exist at AiSensy. Six sends, six `HTTP 400: Campaign does not      │
+   * │ exist.`, zero staff credentials ever delivered over WhatsApp —     │
+   * │ while the registry reported the reassuring PROVIDER_PENDING.       │
+   * │                                                                    │
+   * │ So the resolver now answers both questions: which campaign, AND    │
+   * │ whether that campaign is real.                                     │
+   * └────────────────────────────────────────────────────────────────────┘
+   */
+  sendable: boolean;
+  existence: CampaignExistence;
+  /** Present exactly when `sendable` is false. Operator-facing, one sentence. */
+  blockedReason?: string;
+}
+
+export function resolveCampaign(templateKey: string): ResolvedCampaign | null {
   const t = PROVIDER_TEMPLATES_BY_KEY[templateKey];
   if (!t) return null;
   const active = t.status === SENDABLE_STATUS;
+  const campaign = active ? t.campaign : t.legacyCampaign;
+  const verdict = campaignVerdict(campaign);
   return {
-    campaign: active ? t.campaign : t.legacyCampaign,
+    campaign,
     isMultiTenant: active,
     status: t.status,
+    sendable: verdict.sendable,
+    existence: verdict.existence,
+    ...(verdict.blockedReason ? { blockedReason: verdict.blockedReason } : {}),
   };
 }
 

@@ -177,6 +177,60 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "pending_balance"),
     val(p, "org_name"),
   ],
+  // ── PHASE F — LEAD CRM / ENQUIRY FUNNEL ────────────────────────────────────
+  // The legacy lead campaigns take NO org_name parameter, which is why every
+  // tenant's enquirers are thanked by ARK: the institution's name is static
+  // text inside the approved Meta body, not something we send. Each spec below
+  // is its legacy order with org_name appended, so the existing positional
+  // mapping is preserved verbatim.
+  //
+  // Live until their status reaches ACTIVE in providerTemplates.ts — see
+  // resolveCampaign().
+  smartark_lead_enquiry_received: (p) => [
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "org_name"),
+  ],
+  smartark_lead_assigned: (p) => [
+    val(p, "counselor_name"),
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "mobile_number", "mobile", "phone"),
+    val(p, "org_name"),
+  ],
+  smartark_lead_followup_due: (p) => [
+    val(p, "counselor_name"),
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "org_name"),
+  ],
+  smartark_lead_sla_breach: (p) => [
+    val(p, "counselor_name"),
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "org_name"),
+  ],
+  smartark_lead_demo_scheduled: (p) => [
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "demo_date"),
+    val(p, "demo_time"),
+    val(p, "faculty_name", "faculty"),
+    val(p, "org_name"),
+  ],
+  smartark_lead_demo_reminder: (p) => [
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "demo_date"),
+    val(p, "demo_time"),
+    val(p, "org_name"),
+  ],
+  smartark_lead_admission_confirmed: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "course_name", "course"),
+    val(p, "org_name"),
+  ],
 };
 
 

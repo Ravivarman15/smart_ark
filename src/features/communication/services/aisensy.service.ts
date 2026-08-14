@@ -111,22 +111,32 @@ const toQueueMessage = (r: Record<string, unknown>): QueueMessage => ({
 });
 
 class AiSensyService extends BaseService {
+  /**
+   * THE CUTOVER POINT — which AiSensy campaign a rendered message posts to.
+   *
+   * resolveCampaign() returns the organization-neutral campaign ONLY once a
+   * human has marked it ACTIVE — meaning Meta approved it and a test send was
+   * verified. Every other status returns the legacy ARK campaign, so production
+   * traffic is unchanged until that single deliberate edit.
+   *
+   * Falls through to the template's own providerName when no multi-tenant
+   * template is registered, which keeps every other template working.
+   *
+   * Extracted so `validate()` and `buildRow()` cannot disagree about it. They
+   * used to derive it independently, which meant the row could be validated
+   * against one campaign and posted to another.
+   */
+  private campaignFor(r: EnqueueInput["rendered"]): string {
+    return resolveCampaign(r.templateKey)?.campaign ?? r.providerName ?? r.templateKey;
+  }
+
   /** Single row writer — used internally by enqueue / enqueueBulk. */
   private buildRow(input: EnqueueInput): Record<string, unknown> {
     const r = input.rendered;
     return {
       channel: input.channel ?? "whatsapp",
       provider: input.provider ?? "aisensy",
-      // THE CUTOVER POINT.
-      //
-      // resolveCampaign() returns the organization-neutral campaign ONLY once a
-      // human has marked it ACTIVE — meaning Meta approved it and a test send
-      // was verified. Every other status returns the legacy ARK campaign, so
-      // production traffic is unchanged until that single deliberate edit.
-      //
-      // Falls through to the template's own providerName when no multi-tenant
-      // template is registered, which keeps every other template working.
-      template: resolveCampaign(r.templateKey)?.campaign ?? r.providerName ?? r.templateKey,
+      template: this.campaignFor(r),
       template_id: input.templateId ?? null,
       template_key: r.templateKey,
       language: r.language,
@@ -153,6 +163,10 @@ class AiSensyService extends BaseService {
       channel: input.channel ?? "whatsapp",
       rendered: input.rendered,
       recipient: input.recipient,
+      // Validated against the campaign this row will ACTUALLY post to, so a
+      // campaign the provider has already refused is skipped with its reason
+      // instead of queued, drained, and failed hours later.
+      campaign: this.campaignFor(input.rendered),
     });
     return res.ok ? null : { reason: res.reason ?? "invalid", recipient: input.recipient.name };
   }

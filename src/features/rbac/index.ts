@@ -154,6 +154,7 @@ export {
   EffectiveAccessPanel,
   RouteAccessGuard,
   LayoutAccessGate,
+  ModuleUnavailable,
   AccessSyncIndicator,
   PermissionBuilder,
   RoleCard,

@@ -25,7 +25,11 @@ import { AUTOMATION_EVENTS, AUTOMATION_EVENTS_BY_KEY } from "../constants/automa
 import type { AutomationEventMeta } from "../constants/automationEvents";
 import { BUILTIN_TEMPLATES_BY_KEY } from "./whatsappTemplates";
 import { LEAD_TEMPLATES } from "@/features/leads/utils/leadWhatsappTemplates";
-import { PROVIDER_TEMPLATES_BY_KEY, SENDABLE_STATUS } from "../constants/providerTemplates";
+import {
+  PROVIDER_TEMPLATES_BY_KEY,
+  SENDABLE_STATUS,
+  resolveCampaign,
+} from "../constants/providerTemplates";
 
 /**
  * Ordered roughly by severity. `ACTIVE` is the only state that means "this is
@@ -41,6 +45,7 @@ export type AutomationState =
   | "MISSING_TRIGGER"     // nothing in the app dispatches it
   | "MISSING_DATA_SOURCE" // the data it would read does not exist
   | "PROVIDER_PENDING"    // enabled, but no approved provider campaign
+  | "PROVIDER_MISSING"    // the campaign it would post to does not exist at all
   | "BLOCKED"             // structurally impossible until something is built
   | "ERROR";              // last run failed
 
@@ -62,6 +67,14 @@ export interface AutomationDiagnosis {
   resolverReady: boolean;
   triggerReady: boolean;
   providerStatus: "ACTIVE" | "PENDING" | "NONE";
+  /**
+   * The AiSensy campaign this event would actually post to, and whether that
+   * campaign exists. `providerStatus` tracks the NEW template's approval; this
+   * tracks whether the campaign in use TODAY is real — which for
+   * staff_credentials it was not, while the row still read PROVIDER_PENDING.
+   */
+  campaign: string | null;
+  campaignSendable: boolean;
   /** True when the switch says ON but the system cannot deliver. */
   misleading: boolean;
 }
@@ -210,19 +223,27 @@ export function diagnoseAutomation(
     RESOLVER_EVENTS.includes(event.key) || CALLER_RESOLVED_EVENTS.includes(event.key);
   const triggerReady = !!TRIGGER_SOURCES[event.key];
   const providerStatus = providerStatusOf(templateKey);
+  const resolved = resolveCampaign(templateKey);
+  const channel = setting?.channel || event.defaultChannel;
+  // Only a WhatsApp-bearing channel depends on an AiSensy campaign. An
+  // email-only automation is unaffected by a dead campaign, and reporting it
+  // as broken would send an operator to fix something that is not in its path.
+  const usesWhatsapp = channel === "whatsapp" || channel === "both" || channel === "sms";
 
   const base = {
     eventKey: event.key,
     label: event.label,
     category: event.category,
     enabled,
-    channel: setting?.channel || event.defaultChannel,
+    channel,
     timing: setting?.timing || event.defaultTiming,
     templateKey,
     templateReady,
     resolverReady,
     triggerReady,
     providerStatus,
+    campaign: resolved?.campaign ?? null,
+    campaignSendable: !usesWhatsapp || (resolved?.sendable ?? true),
   };
 
   const done = (state: AutomationState, reason: string, dispatchable: boolean): AutomationDiagnosis => ({
@@ -267,6 +288,21 @@ export function diagnoseAutomation(
     );
   }
 
+  // ── The campaign it would post to has to exist ──────────────────────────
+  //
+  // Checked HERE — with the structural failures, above the operator's switch —
+  // because a campaign the provider has refused is not a configuration choice.
+  // Reporting such an event as READY or ACTIVE is what let ten staff accounts
+  // be created believing their credentials had gone out over WhatsApp.
+  if (usesWhatsapp && resolved && !resolved.sendable) {
+    return done(
+      "PROVIDER_MISSING",
+      resolved.blockedReason ??
+        `The WhatsApp campaign "${resolved.campaign}" cannot be sent.`,
+      false,
+    );
+  }
+
   // Dispatchable from here on. What remains is intent and provider readiness.
   if (!enabled) {
     return done("READY", "Fully configured. Switched off by the organization.", true);
@@ -301,6 +337,7 @@ export const STATE_TONE: Record<AutomationState, "good" | "warn" | "bad" | "mute
   READY: "muted",
   DISABLED: "muted",
   PROVIDER_PENDING: "warn",
+  PROVIDER_MISSING: "bad",
   MISSING_TEMPLATE: "bad",
   MISSING_RESOLVER: "bad",
   MISSING_TRIGGER: "bad",
@@ -315,6 +352,7 @@ export const STATE_LABEL: Record<AutomationState, string> = {
   READY: "Ready",
   DISABLED: "Disabled",
   PROVIDER_PENDING: "Provider pending",
+  PROVIDER_MISSING: "Cannot send — campaign missing",
   MISSING_TEMPLATE: "Not configured — no template",
   MISSING_RESOLVER: "Not configured — no resolver",
   MISSING_TRIGGER: "Not configured — no trigger",

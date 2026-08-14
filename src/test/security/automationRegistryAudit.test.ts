@@ -152,7 +152,20 @@ describe("no enabled automation is undispatchable", () => {
 
       // Every remaining misleading switch must be one we have documented, so
       // an operator reading the UI is told exactly what is wrong.
+      //
+      // PROVIDER_MISSING documents ITSELF: its reason is the campaign ledger's
+      // recorded evidence — the provider's own refusal, with a date and a
+      // count. `staff_credentials` is the live case. Listing it in
+      // KNOWN_UNTRIGGERED instead would be false (it is triggered, on every
+      // staff account created) and would hide the actual cause.
       for (const d of bad) {
+        if (d.state === "PROVIDER_MISSING") {
+          expect(
+            d.reason,
+            `${slug}.${d.eventKey} is PROVIDER_MISSING without citing the evidence`,
+          ).toMatch(/\d{4}-\d{2}-\d{2}|does not exist|rejected by Meta/i);
+          continue;
+        }
         expect(
           KNOWN_UNTRIGGERED[d.eventKey] ?? BLOCKED_EVENTS[d.eventKey],
           `${slug}.${d.eventKey} is enabled but cannot send, and nothing explains why`,

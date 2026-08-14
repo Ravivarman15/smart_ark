@@ -39,6 +39,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { resolveCaller } from "../_shared/auth.ts";
+import { refuseRevoke, type Layers } from "../_shared/moduleGraph.ts";
 
 const MAX_IMPERSONATION_MINUTES = 60;
 
@@ -89,6 +90,27 @@ async function resolvePlatformActor(
     role: pu.role as string,
     capabilities: new Set((caps ?? []).map((c: { capability: string }) => c.capability)),
   };
+}
+
+/**
+ * Would revoking `moduleKey` strand a module this organization is using?
+ *
+ * Reads the organization's own entitlement layers and resolves them with the
+ * mirrored precedence, so the answer is about THIS tenant rather than about the
+ * catalog in the abstract.
+ *
+ * Fails OPEN on a read error, and that is deliberate. This guard exists to stop
+ * an operator breaking a customer by accident; it is not a security boundary —
+ * capability checks above it already decided the caller may act. Turning a
+ * transient database blip into "no entitlement change can be made" would take
+ * the platform's own remediation tools offline during exactly the incident an
+ * operator needs them for.
+ */
+// deno-lint-ignore no-explicit-any
+async function dependencyRefusal(db: any, orgId: string, moduleKey: string) {
+  const { data, error } = await db.rpc("platform_entitlement_layers", { _org: orgId });
+  if (error || !data) return null;
+  return refuseRevoke(data as Layers, moduleKey);
 }
 
 // deno-lint-ignore no-explicit-any
@@ -286,6 +308,21 @@ Deno.serve(async (req) => {
       const cap = enabled ? "modules.grant" : "modules.revoke";
       if (!need(cap)) return jsonResponse(403, { error: `${cap} required` });
 
+      // ── Dependency guard ───────────────────────────────────────────────
+      // The console previews this before asking for confirmation, but a
+      // preview is not a control: this endpoint is reachable directly. Both
+      // sides run the same graph, and a mirror test keeps them in step.
+      if (!enabled) {
+        const refusal = await dependencyRefusal(db, organizationId, moduleKey);
+        if (refusal) {
+          return jsonResponse(409, {
+            error: refusal.reason,
+            code: "dependency_block",
+            modules: refusal.modules,
+          });
+        }
+      }
+
       const { data, error } = await db.rpc("platform_set_module_entitlement", {
         _org: organizationId, _module: moduleKey, _enabled: enabled,
         _reason: body.reason ?? "sales_override", _actor: actor.platformUserId,
@@ -341,6 +378,19 @@ Deno.serve(async (req) => {
         if (blocked.has(orgId)) {
           results.push({ organizationId: orgId, ok: false, skipped: "protected organization" });
           continue;
+        }
+        // Dependency safety is per organization, not per operation: the same
+        // bulk revoke can be harmless for one tenant and destructive for the
+        // next, depending on what each has switched on. Checking once for the
+        // batch would either block a safe change or wave through a breaking
+        // one — so it is evaluated against each organization's own state, and
+        // a refusal skips that tenant while the rest of the batch proceeds.
+        if (!enabled) {
+          const refusal = await dependencyRefusal(db, orgId, moduleKey);
+          if (refusal) {
+            results.push({ organizationId: orgId, ok: false, skipped: refusal.reason });
+            continue;
+          }
         }
         const { data, error } = await db.rpc("platform_set_module_entitlement", {
           _org: orgId, _module: moduleKey, _enabled: Boolean(enabled),

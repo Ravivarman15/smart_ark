@@ -26,7 +26,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { stampOrg } from "../_shared/auth.ts";
+import { resolveCaller, stampOrg } from "../_shared/auth.ts";
 import {
   resolveWhatsappCredentials,
   type WhatsappCredentials,
@@ -203,6 +203,56 @@ TEMPLATE_PARAM_SPECS["smartark_fee_receipt"] = (p) => [
   tVal(p, "pending_balance"),
   tVal(p, "org_name"),
 ];
+// ── PHASE F — LEAD CRM / ENQUIRY FUNNEL ─────────────────────────────────────
+// Each is its legacy order with org_name appended. The legacy lead campaigns
+// take no org parameter at all, so the institution's name is static text in the
+// approved Meta body — which is how one tenant's name reaches every tenant's
+// enquirers. KEEP IN LOCKSTEP with src/features/leads/utils/templateParams.ts.
+TEMPLATE_PARAM_SPECS["smartark_lead_enquiry_received"] = (p) => [
+  tVal(p, "student_name"),
+  tVal(p, "course_name", "course"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_lead_assigned"] = (p) => [
+  tVal(p, "counselor_name"),
+  tVal(p, "student_name"),
+  tVal(p, "course_name", "course"),
+  tVal(p, "mobile_number", "mobile", "phone"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_lead_followup_due"] = (p) => [
+  tVal(p, "counselor_name"),
+  tVal(p, "student_name"),
+  tVal(p, "course_name", "course"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_lead_sla_breach"] = (p) => [
+  tVal(p, "counselor_name"),
+  tVal(p, "student_name"),
+  tVal(p, "course_name", "course"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_lead_demo_scheduled"] = (p) => [
+  tVal(p, "student_name"),
+  tVal(p, "course_name", "course"),
+  tVal(p, "demo_date"),
+  tVal(p, "demo_time"),
+  tVal(p, "faculty_name", "faculty"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_lead_demo_reminder"] = (p) => [
+  tVal(p, "student_name"),
+  tVal(p, "course_name", "course"),
+  tVal(p, "demo_date"),
+  tVal(p, "demo_time"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_lead_admission_confirmed"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "course_name", "course"),
+  tVal(p, "org_name"),
+];
 // ── Credential redaction ────────────────────────────────────────────────────
 // A credential message must carry the password to be rendered and posted, so it
 // is necessarily present in message_queue.payload while the row is queued. Once
@@ -312,6 +362,48 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // ── Authorization ───────────────────────────────────────────────────────
+    //
+    // ┌── WHY THIS GATE HAD TO BE WRITTEN AT ALL ──────────────────────────┐
+    // │ This function was `verify_jwt = true`, so the platform rejected    │
+    // │ anything without a user session — including pg_cron, which has no  │
+    // │ session. That is why there has never been a drain schedule: the    │
+    // │ only way to run the drainer was for a human to be looking at the   │
+    // │ app at the time.                                                   │
+    // │                                                                    │
+    // │ Messages therefore only ever went out as a side effect of somebody │
+    // │ clicking. Anything enqueued by an edge function, a webhook or a    │
+    // │ background flow simply waited. On 2026-08-14 four perfectly        │
+    // │ sendable rows — a parent's portal credentials and three fee        │
+    // │ receipts, all with valid phone numbers and rendered bodies — had   │
+    // │ been sitting in `queued` since 2026-08-13.                         │
+    // │                                                                    │
+    // │ So the gate moves inside, exactly as provisioning-worker does it:  │
+    // │ the cron secret OR an authenticated caller. Not "either or         │
+    // │ neither" — an open drain endpoint would let a stranger burn the    │
+    // │ retry budget and every message in the queue.                       │
+    // └────────────────────────────────────────────────────────────────────┘
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const providedKey = req.headers.get("x-cron-key");
+    // FAIL CLOSED on an unset secret, matching kpi-engine and sla-checker: an
+    // empty === empty comparison would let any anon caller in as "the cron".
+    const isCron = !!cronSecret && !!providedKey && providedKey === cronSecret;
+
+    if (!isCron) {
+      const caller = await resolveCaller(req, supabase);
+      if (!caller) {
+        return new Response(
+          JSON.stringify({
+            error: "Unauthorized",
+            message:
+              "send-aisensy accepts either the cron secret (x-cron-key) or an " +
+              "authenticated user. Neither was presented.",
+          }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     let campaignId: string | undefined;
     let limit = 50;

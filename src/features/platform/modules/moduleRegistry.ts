@@ -27,8 +27,37 @@ export type ModuleCategory =
   | "operations"
   | "platform";     // configuration and administration
 
+/**
+ * WHO a module is for.
+ *
+ * ┌── WHY THIS IS NOT THE SAME AS `category: "platform"` ──────────────────┐
+ * │ `category` groups modules for a human reading a list — Settings and    │
+ * │ Authentication sit under "Platform" because they are configuration,    │
+ * │ not because institutes should not have them. Every school needs both.  │
+ * │                                                                        │
+ * │ `audience` answers a different question: may a CUSTOMER ever see this? │
+ * │ Developer diagnostics, internal monitoring and deployment tooling are  │
+ * │ real modules that must keep existing in the repository and must never  │
+ * │ appear in an institute's portal. Conflating the two would mean either  │
+ * │ deleting that code or hiding it with scattered special cases — the two │
+ * │ things the phase brief rules out.                                      │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * Required, with no default. A new module has to state who it is for, because
+ * the failure mode of guessing is a developer tool rendered in a school's
+ * sidebar.
+ */
+export type ModuleAudience =
+  /** Sold to institutes. Governed by plans and overrides in the normal way. */
+  | "customer"
+  /** Smart ARK staff only — visible in the platform console, never to a tenant. */
+  | "platform"
+  /** Engineering only. Not surfaced anywhere a customer or an operator works. */
+  | "internal";
+
 export interface ModuleMetadata {
   category: ModuleCategory;
+  audience: ModuleAudience;
   description: string;
   /**
    * Modules that must stay enabled for this one to work.
@@ -50,82 +79,133 @@ export interface ModuleMetadata {
 
 export const MODULE_METADATA: Record<ModuleId, ModuleMetadata> = {
   student: {
-    category: "core", essential: true, dependsOn: [],
+    category: "core", audience: "customer", essential: true, dependsOn: [],
     description: "Student records, admission, profiles and the 360° view. Nearly every other module reads from it.",
   },
   staff_user: {
-    category: "core", essential: true, dependsOn: [],
+    category: "core", audience: "customer", essential: true, dependsOn: [],
     description: "Staff accounts, roles and permissions. Without it nobody can sign in to administer anything.",
   },
   settings: {
-    category: "platform", essential: true, dependsOn: [],
+    category: "platform", audience: "customer", essential: true, dependsOn: [],
     description: "Organization configuration, branding, profile and password management.",
   },
   authentication: {
-    category: "platform", essential: true, dependsOn: [],
+    category: "platform", audience: "customer", essential: true, dependsOn: [],
     description: "Login, sessions and credential policy.",
   },
   setup: {
-    category: "platform", dependsOn: [],
+    category: "platform", audience: "customer", dependsOn: [],
     description: "First-run configuration: standards, subjects, branches and academic years.",
   },
   attendance: {
-    category: "academics", dependsOn: ["student"],
+    category: "academics", audience: "customer", dependsOn: ["student"],
     description: "Daily student and staff attendance, including geo check-in.",
   },
   academics: {
-    category: "academics", dependsOn: ["staff_user"],
+    category: "academics", audience: "customer", dependsOn: ["staff_user"],
     description: "Faculty allocation, class schedules and the timetable.",
   },
   exam: {
-    category: "academics", dependsOn: ["student"],
+    category: "academics", audience: "customer", dependsOn: ["student"],
     description: "Exams, mark entry, grading schemes, result sheets and report cards.",
   },
   live_class: {
-    category: "academics", dependsOn: ["student"],
+    category: "academics", audience: "customer", dependsOn: ["student"],
     description: "Online class scheduling and joining links.",
   },
   estudy: {
-    category: "academics", dependsOn: ["student"],
+    category: "academics", audience: "customer", dependsOn: ["student"],
     description: "Study material, question banks and practice papers.",
   },
   certificate: {
-    category: "academics", dependsOn: ["student"],
+    category: "academics", audience: "customer", dependsOn: ["student"],
     description: "Bonafide, transfer and completion certificates.",
   },
   fee: {
-    category: "finance", dependsOn: ["student"],
+    category: "finance", audience: "customer", dependsOn: ["student"],
     description: "Fee structures, collection, receipts, dues and reminders.",
   },
   payroll: {
-    category: "finance", dependsOn: ["staff_user"],
+    category: "finance", audience: "customer", dependsOn: ["staff_user"],
     description: "Salary structures, payslips, approvals and payroll runs.",
   },
   expense_income: {
-    category: "finance", dependsOn: [],
+    category: "finance", audience: "customer", dependsOn: [],
     description: "Expense and income ledgers, with automatic sync from fees and payroll.",
   },
   whatsapp: {
-    category: "communication", dependsOn: [],
+    category: "communication", audience: "customer", dependsOn: [],
     description: "WhatsApp and email campaigns, templates and the message queue.",
   },
   enquiry_leads: {
-    category: "growth", dependsOn: [],
+    category: "growth", audience: "customer", dependsOn: [],
     description: "Admission enquiries, the public apply form, lead CRM and counsellor routing.",
   },
   tasks: {
-    category: "operations", dependsOn: ["staff_user"],
+    category: "operations", audience: "customer", dependsOn: ["staff_user"],
     description: "Task assignment, tracking and staff leave requests.",
   },
   reports: {
-    category: "operations", dependsOn: [],
+    category: "operations", audience: "customer", dependsOn: [],
     description: "Cross-module reporting and exports.",
   },
   help: {
-    category: "operations", dependsOn: [],
+    category: "operations", audience: "customer", dependsOn: [],
     description: "In-product documentation and support contact.",
   },
 };
+
+export const AUDIENCE_LABELS: Record<ModuleAudience, string> = {
+  customer: "Customer",
+  platform: "Platform",
+  internal: "Internal",
+};
+
+/**
+ * The four states the Module Control Center reports.
+ *
+ * DERIVED, not stored. Each one is a reading of two facts the architecture
+ * already holds — the global governance row and the module's audience — so
+ * there is no fifth place for a module's state to be recorded, and no way for
+ * a stored state to drift from the entitlement the resolver actually applies.
+ */
+export type ModuleAvailability =
+  /** Sold, and switched on platform-wide. Per-organization rules decide the rest. */
+  | "AVAILABLE"
+  /** Withdrawn platform-wide by Smart ARK. Off everywhere, whatever a plan says. */
+  | "DISABLED"
+  /** Smart ARK staff only. Never offered to an institute. */
+  | "PLATFORM_ONLY"
+  /** Engineering only. Not offered, and not shown to operators either. */
+  | "HIDDEN";
+
+export const AVAILABILITY_LABELS: Record<ModuleAvailability, string> = {
+  AVAILABLE: "Available",
+  DISABLED: "Disabled platform-wide",
+  PLATFORM_ONLY: "Platform only",
+  HIDDEN: "Hidden",
+};
+
+/**
+ * A module's platform state.
+ *
+ * Audience outranks governance: withdrawing an internal module platform-wide
+ * is meaningless, since no customer could reach it in the first place.
+ */
+export const moduleAvailability = (
+  moduleId: ModuleId,
+  withdrawnGlobally: boolean,
+): ModuleAvailability => {
+  const audience = MODULE_METADATA[moduleId]?.audience ?? "customer";
+  if (audience === "internal") return "HIDDEN";
+  if (audience === "platform") return "PLATFORM_ONLY";
+  return withdrawnGlobally ? "DISABLED" : "AVAILABLE";
+};
+
+/** True when a tenant may ever be offered this module. */
+export const isCustomerFacing = (moduleId: ModuleId): boolean =>
+  (MODULE_METADATA[moduleId]?.audience ?? "customer") === "customer";
 
 export const CATEGORY_LABELS: Record<ModuleCategory, string> = {
   core: "Core",

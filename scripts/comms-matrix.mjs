@@ -63,6 +63,7 @@ const STATE_NOTE = {
   ACTIVE: "enabled and able to send",
   READY: "dispatchable; whether it is switched on is per tenant — see the tenant columns",
   PROVIDER_PENDING: "dispatchable, but sending via the LEGACY provider campaign — the organization-neutral template awaits Meta approval",
+  PROVIDER_MISSING: "CANNOT SEND — the AiSensy campaign it posts to does not exist, or Meta rejected it. The switch may read ON; nothing is delivered. See docs/AISENSY_CAMPAIGN_STATE.md",
   MISSING_TRIGGER: "registered, but nothing in the application dispatches it",
   MISSING_TEMPLATE: "no template body resolves — dispatch is a silent no-op",
   MISSING_RESOLVER: "nothing derives the audience",

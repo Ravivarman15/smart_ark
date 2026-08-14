@@ -22,10 +22,11 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import type { ModuleId } from "@/features/rbac/constants/catalog";
-import { MODULE_IDS, MODULE_METADATA } from "./moduleRegistry";
+import { MODULE_IDS, MODULE_METADATA, isCustomerFacing } from "./moduleRegistry";
 
 /** Which layer decided. Ordered most-authoritative first. */
 export type EntitlementSource =
+  | "audience"            // not a customer-facing module at all
   | "global_governance"   // withdrawn platform-wide
   | "organization_status" // suspended / hold / archived
   | "override"            // explicit per-organization decision
@@ -131,6 +132,7 @@ const statusGate = (status: string, moduleId: string): Entitlement | null => {
  *
  * Precedence, most authoritative first:
  *
+ *   0. audience             platform/internal modules are not part of the product
  *   1. global governance   a module withdrawn platform-wide is off everywhere
  *   2. organization status  suspended / hold / archived
  *   3. essential            core modules are never revocable
@@ -154,6 +156,25 @@ export const resolveEntitlements = (
   const nowMs = now.getTime();
 
   for (const id of MODULE_IDS) {
+    // 0 ── audience
+    //
+    // Above governance, and unconditional. A platform or internal module is not
+    // withheld from institutes by commercial policy — it is not part of the
+    // product they bought, and no plan, override or Super Admin action should
+    // be able to hand one over. Enforcing it HERE rather than in the sidebar
+    // means every consumer inherits it at once: the menu, the route guard and
+    // the RBAC resolver all read this one answer, so there is no surface left
+    // where a developer tool could appear in a school's portal.
+    if (!isCustomerFacing(id as ModuleId)) {
+      out[id] = {
+        enabled: false,
+        source: "audience",
+        explain:
+          "Not a customer-facing module. It is part of Smart ARK's own tooling and is never offered to institutions.",
+      };
+      continue;
+    }
+
     // 1 ── global governance
     if (layers.governance?.[id] === false) {
       out[id] = {

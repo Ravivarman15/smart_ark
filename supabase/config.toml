@@ -11,11 +11,21 @@ verify_jwt = true
 verify_jwt = true
 
 # ─── send-aisensy: WhatsApp queue drainer ────────────────────────────────────
-# Drains message_queue → AiSensy. Invoked by the app (authenticated JWT, via
-# aisensyService.dispatchViaEdge) and optionally by a cron schedule.
-# Requires secrets: AISENSY_API_KEY (optional: AISENSY_DEFAULT_CAMPAIGN).
+# Drains message_queue → AiSensy. TWO legitimate callers: the app (authenticated
+# JWT, via aisensyService.dispatchViaEdge) and pg_cron.
+#
+# verify_jwt = false, and the reason matters: it was `true`, which meant the
+# platform rejected pg_cron — which carries no user session — before the function
+# ran. So no drain schedule was possible, and a queued message only ever went out
+# if a human happened to click something. Rows enqueued by an edge function or a
+# background flow waited indefinitely; four were found stuck on 2026-08-14.
+#
+# The gate now lives INSIDE the function (the provisioning-worker pattern):
+# x-cron-key matching CRON_SECRET, or a resolvable authenticated caller. It fails
+# closed when CRON_SECRET is unset.
+# Requires secrets: AISENSY_API_KEY, CRON_SECRET (optional: AISENSY_DEFAULT_CAMPAIGN).
 [functions.send-aisensy]
-verify_jwt = true
+verify_jwt = false
 
 # ─── aisensy-webhook: provider delivery-status callbacks ─────────────────────
 # External provider call — no user JWT. Authenticated by AISENSY_WEBHOOK_SECRET

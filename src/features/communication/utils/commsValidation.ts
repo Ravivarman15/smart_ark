@@ -9,6 +9,7 @@
 
 import type { RenderedMessage } from "./whatsappTemplates";
 import type { CommsChannel, RecipientKind } from "../types/communication.types";
+import { campaignVerdict } from "../constants/providerCampaigns";
 
 /**
  * Normalise an Indian/E.164 phone to `+<digits>` (AiSensy requires the + prefix).
@@ -38,12 +39,17 @@ export interface EnqueueValidationInput {
   channel?: CommsChannel;
   rendered: Pick<RenderedMessage, "body" | "missing">;
   recipient: { kind?: RecipientKind; name?: string; phone?: string };
+  /**
+   * The AiSensy campaign this row will post to, already resolved through the
+   * provider lifecycle. Optional so non-WhatsApp callers need not supply it.
+   */
+  campaign?: string | null;
 }
 
 export interface ValidationResult {
   ok: boolean;
   /** Machine code for the first failing rule. */
-  code?: "no_phone" | "bad_phone" | "missing_vars" | "empty_body";
+  code?: "no_phone" | "bad_phone" | "missing_vars" | "empty_body" | "dead_campaign";
   /** Human, actionable reason — surfaced to the operator. */
   reason?: string;
 }
@@ -51,12 +57,40 @@ export interface ValidationResult {
 /**
  * Validate a single message before it is queued.
  *   - whatsapp/sms require a valid recipient phone (in_app does not)
+ *   - the campaign must not be one the provider has already refused
  *   - every required template variable must be resolved (no broken placeholders)
  *   - the rendered body must be non-empty
  */
 export const validateEnqueue = (input: EnqueueValidationInput): ValidationResult => {
   const channel = input.channel ?? "whatsapp";
   const needsPhone = channel === "whatsapp" || channel === "sms";
+
+  // ── The campaign has to exist ───────────────────────────────────────────
+  //
+  // ┌── WHY THIS BELONGS IN THE PRE-QUEUE GATE ──────────────────────────┐
+  // │ This module's contract is "nothing should ever report queued for a │
+  // │ message that would fail at the provider". A campaign AiSensy has   │
+  // │ already answered "Campaign does not exist" for fails at the        │
+  // │ provider every single time, so it belongs here with the bad phone  │
+  // │ numbers and the empty bodies.                                      │
+  // │                                                                    │
+  // │ Without it, `staff_credentials` produced a row that read `queued`  │
+  // │ in the UI, sat until the drainer picked it up, burned a provider   │
+  // │ call, and settled at `failed` with the provider's terse 400 in a   │
+  // │ column nobody opens. Six times. Refusing up front turns that into  │
+  // │ one visible, explained skip at the moment a human is looking at    │
+  // │ the screen — and does not pretend the credential went out.         │
+  // └────────────────────────────────────────────────────────────────────┘
+  if (needsPhone && input.campaign) {
+    const verdict = campaignVerdict(input.campaign);
+    if (!verdict.sendable) {
+      return {
+        ok: false,
+        code: "dead_campaign",
+        reason: `${input.recipient.name ?? "Recipient"}: ${verdict.blockedReason}`,
+      };
+    }
+  }
 
   if (needsPhone) {
     if (!input.recipient.phone) {

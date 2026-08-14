@@ -6,7 +6,7 @@
      Source of truth: src/features/communication/constants/automationEvents.ts
                       src/features/communication/utils/automationState.ts -->
 
-Generated **2026-08-13** from the registry, not from memory.
+Generated **2026-08-14** from the registry, not from memory.
 
 All **32** registered events appear below. There is one registry and one
 state model; this table, the Communication Center and the CI gate
@@ -17,10 +17,11 @@ here cannot drift from what the system actually does.
 
 | State | Count | Meaning |
 |---|---|---|
-| **READY** | 24 | dispatchable; whether it is switched on is per tenant — see the tenant columns |
+| **READY** | 23 | dispatchable; whether it is switched on is per tenant — see the tenant columns |
 | **MISSING_TRIGGER** | 4 | registered, but nothing in the application dispatches it |
 | **ACTIVE** | 2 | enabled and able to send |
 | **BLOCKED** | 2 | structurally impossible until the named source exists |
+| **PROVIDER_MISSING** | 1 | CANNOT SEND — the AiSensy campaign it posts to does not exist, or Meta rejected it. The switch may read ON; nothing is delivered. See docs/AISENSY_CAMPAIGN_STATE.md |
 
 > **Reading this table.** `State` is CAPABILITY — what the system can do at
 > all — evaluated against the REGISTRY DEFAULTS, not against any one tenant's
@@ -67,8 +68,8 @@ here cannot drift from what the system actually does.
 | Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
 |---|---|---|---|---|---|---|---|---|---|
 | `admission_completed` | **MISSING_TRIGGER** | no | yes | `student_welcome` | NONE | both | immediate | on | — |
-| `demo_scheduled` | **READY** | yes | yes | `lead_demo_scheduled_v2` | NONE | whatsapp | immediate | on | — |
-| `demo_reminder` | **READY** | yes | yes | `lead_demo_reminder_v2` | NONE | whatsapp | scheduled | off | — |
+| `demo_scheduled` | **READY** | yes | yes | `lead_demo_scheduled_v2` | PENDING | whatsapp | immediate | on | — |
+| `demo_reminder` | **READY** | yes | yes | `lead_demo_reminder_v2` | PENDING | whatsapp | scheduled | off | — |
 
 ## Payroll
 
@@ -80,7 +81,7 @@ here cannot drift from what the system actually does.
 
 | Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
 |---|---|---|---|---|---|---|---|---|---|
-| `staff_credentials` | **READY** | yes | yes | `staff_credentials` | PENDING | whatsapp | immediate | on | — |
+| `staff_credentials` | **PROVIDER_MISSING** | yes | yes | `staff_credentials` | PENDING | whatsapp | immediate | on | — |
 | `student_credentials` | **READY** | yes | yes | `student_credentials` | PENDING | whatsapp | immediate | on | — |
 
 ## Tasks
@@ -126,7 +127,7 @@ here cannot drift from what the system actually does.
 | `class_attendance_missing` | **READY** | yes | yes | `class_attendance_missing` | NONE | both | immediate | — | — |
 | `class_cancelled_students` | **READY** | yes | yes | `class_cancelled` | NONE | whatsapp | immediate | on | — |
 
-## Why the 6 non-dispatchable events cannot send
+## Why the 7 non-dispatchable events cannot send
 
 Each row names the missing thing. "Not ready" without a cause is a shrug,
 and a shrug is what let ten switches sit green for months.
@@ -135,6 +136,7 @@ and a shrug is what let ten switches sit green for months.
 |---|---|---|
 | `attendance_present` | MISSING_TRIGGER | Registered as an optional present-confirmation, but Submit Attendance only dispatches attendance_absent and attendance_corrected. Nothing calls it. |
 | `admission_completed` | MISSING_TRIGGER | The admission flow completes without dispatching. Lead CRM sends its own lead_admission_completed_v2 on a separate path. |
+| `staff_credentials` | PROVIDER_MISSING | The WhatsApp campaign "staff_credentials" does not exist at the provider. HTTP 400 "Campaign does not exist." — 6 occurrences across both tenants, 2026-07-31 through 2026-08-12. Not one staff credential has EVER been delivered over WhatsApp. The Brevo welcome email is the only channel that has ever worked for this flow. Create and approve it in AiSensy, or the message cannot be sent on any channel but email. |
 | `certificate_ready` | BLOCKED | Certificate pages are localStorage-backed (ModuleStarterPage, storageKey "certificates"), so no server-side certificate row exists to trigger from. |
 | `live_class_created` | MISSING_TRIGGER | A resolver exists (resolveLiveClass) but no live-class creation path dispatches the event. |
 | `class_cancelled` | MISSING_TRIGGER | Superseded by class_cancelled_students, which is what classReminder.service.ts dispatches. This key remains in the registry with no caller. |
