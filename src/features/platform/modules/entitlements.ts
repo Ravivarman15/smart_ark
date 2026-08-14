@@ -22,11 +22,18 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import type { ModuleId } from "@/features/rbac/constants/catalog";
-import { MODULE_IDS, MODULE_METADATA, isCustomerFacing } from "./moduleRegistry";
+import {
+  MODULE_IDS,
+  MODULE_METADATA,
+  PLATFORM_SUBMODULES,
+  isCustomerFacing,
+  moduleLabel,
+} from "./moduleRegistry";
 
 /** Which layer decided. Ordered most-authoritative first. */
 export type EntitlementSource =
   | "audience"            // not a customer-facing module at all
+  | "parent_module"       // the submodule's module is off, so it is too
   | "global_governance"   // withdrawn platform-wide
   | "organization_status" // suspended / hold / archived
   | "override"            // explicit per-organization decision
@@ -239,6 +246,84 @@ export const resolveEntitlements = (
       enabled: true,
       source: "default",
       explain: "Included by default — no plan rule or override applies.",
+    };
+  }
+
+  // ── Submodules ────────────────────────────────────────────────────────────
+  //
+  // Resolved in a SECOND pass, after every module has an answer, because the
+  // first rule below needs the parent's resolved state and the catalog does not
+  // guarantee a parent is visited first.
+  //
+  // ┌── THE CONTAINMENT INVARIANT ───────────────────────────────────────┐
+  // │ A submodule can never be enabled while its module is off.          │
+  // │                                                                     │
+  // │ Not a stylistic choice: the module gate is what the sidebar, the    │
+  // │ route guard and the RBAC resolver already enforce. If a submodule   │
+  // │ override could outrank it, revoking Fee would leave `fee.refund`    │
+  // │ reporting `enabled: true` — and any surface that checks the         │
+  // │ submodule rather than the module would hand back a page inside a    │
+  // │ module the organization does not have.                              │
+  // │                                                                     │
+  // │ So the parent is checked FIRST, above the submodule's own override, │
+  // │ and the override is not consulted at all when the parent is off.    │
+  // └─────────────────────────────────────────────────────────────────────┘
+  for (const sub of PLATFORM_SUBMODULES) {
+    const parent = out[sub.moduleId];
+
+    // 1 ── parent module
+    if (!parent || !parent.enabled) {
+      out[sub.id] = {
+        enabled: false,
+        source: "parent_module",
+        // Carries the PARENT's reason, so an operator reading a disabled
+        // submodule is told why the module is off rather than being sent
+        // looking for a submodule rule that does not exist.
+        explain: `Unavailable because ${moduleLabel(sub.moduleId)} is not enabled. ${
+          parent?.explain ?? ""
+        }`.trim(),
+      };
+      continue;
+    }
+
+    // 2 ── override on the submodule itself
+    const ov = layers.overrides?.[sub.id];
+    if (ov && (!ov.expires_at || new Date(ov.expires_at).getTime() > nowMs)) {
+      const planRow = layers.plan?.[sub.id];
+      out[sub.id] = {
+        enabled: ov.enabled,
+        source: "override",
+        expiresAt: ov.expires_at,
+        overridesPlan: ov.enabled !== (planRow ? planRow.enabled : true),
+        explain: ov.expires_at
+          ? `Super Admin override (${ov.reason}), expires ${ov.expires_at.slice(0, 10)}.`
+          : `Super Admin override (${ov.reason}).`,
+      };
+      continue;
+    }
+
+    // 3 ── plan
+    const planRow = layers.plan?.[sub.id];
+    if (planRow) {
+      out[sub.id] = {
+        enabled: planRow.enabled,
+        source: "plan",
+        explain: planRow.enabled
+          ? `Included in the ${layers.plan_code ?? "current"} plan.`
+          : `Not included in the ${layers.plan_code ?? "current"} plan.`,
+      };
+      continue;
+    }
+
+    // 4 ── default: follow the module.
+    //
+    // Silence means "included", exactly as it does for a module — and for the
+    // same reason. Anything else would switch off all 204 submodules for every
+    // existing customer the moment this shipped.
+    out[sub.id] = {
+      enabled: true,
+      source: "default",
+      explain: `Included with ${moduleLabel(sub.moduleId)} — no submodule rule applies.`,
     };
   }
 

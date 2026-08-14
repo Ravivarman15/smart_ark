@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveEntitlements } from "@/features/platform/modules/entitlements";
 import type { EntitlementLayers } from "@/features/platform/modules/entitlements";
-import { MODULE_IDS } from "@/features/platform/modules/moduleRegistry";
+import { MODULE_IDS, SUBMODULE_IDS } from "@/features/platform/modules/moduleRegistry";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ARK SNAPSHOT BRIDGE
@@ -35,9 +35,16 @@ describe.skipIf(!existsSync(LAYERS))("ARK module snapshot bridge", () => {
     const now = process.env.ENTITLEMENT_NOW ? new Date(process.env.ENTITLEMENT_NOW) : undefined;
     const resolved = resolveEntitlements(layers, now);
 
-    // Every catalog module must resolve to something. A module present in the
-    // catalog but missing here would be invisible to the sidebar gate.
-    expect(Object.keys(resolved).sort()).toEqual([...MODULE_IDS].sort());
+    // Every catalog module AND submodule must resolve to something. A key
+    // present in the catalog but missing here would be invisible to the
+    // sidebar gate — and, for a submodule, would mean a Super Admin could
+    // revoke it, see the write succeed, and have nothing change.
+    //
+    // Widened from modules alone when submodule entitlements shipped: the
+    // resolver now answers for all 19 modules plus their 204 submodules.
+    expect(Object.keys(resolved).sort()).toEqual(
+      [...MODULE_IDS, ...SUBMODULE_IDS].sort(),
+    );
 
     const out: Record<string, { enabled: boolean; source: string; explain: string }> = {};
     for (const [id, v] of Object.entries(resolved)) {

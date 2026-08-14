@@ -32,8 +32,10 @@ import type { EntitlementMap } from "./entitlements";
 import { enabledSet } from "./entitlements";
 import {
   MODULE_METADATA,
+  PARENT_OF_SUBMODULE,
   PLATFORM_MODULES_BY_ID,
   isCustomerFacing,
+  isSubmoduleKey,
   moduleLabel,
 } from "./moduleRegistry";
 
@@ -70,7 +72,8 @@ export interface PlanEntry {
 }
 
 export interface BulkPlan {
-  module: ModuleId;
+  /** Module id, or a namespaced submodule id such as `fee.refund`. */
+  module: string;
   enable: boolean;
   /** Every organization considered. */
   total: number;
@@ -103,9 +106,17 @@ export interface BulkPlan {
  */
 export const planBulkOperation = (
   orgs: readonly PlannableOrg[],
-  module: ModuleId,
+  /** Module id, or a submodule id. Both are entitlement keys. */
+  module: string,
   enable: boolean,
 ): BulkPlan => {
+  // A submodule inherits its module's audience, is never essential, and has no
+  // dependants — nothing in the catalog declares that it needs `fee.refund`.
+  // So the module-level refusals below are evaluated against the PARENT, and
+  // the dependency scan is skipped entirely.
+  const isSub = isSubmoduleKey(module);
+  const owner = (isSub ? PARENT_OF_SUBMODULE.get(module) : module) as ModuleId;
+
   const base: BulkPlan = {
     module,
     enable,
@@ -121,16 +132,19 @@ export const planBulkOperation = (
   // Checked once, not per organization: the answer cannot differ between them,
   // and reporting "23 blocked" for a fact about the module reads like a data
   // problem rather than a category error.
-  if (!isCustomerFacing(module)) {
+  if (!isCustomerFacing(owner)) {
     return {
       ...base,
-      refusal: `${moduleLabel(module)} is not a customer-facing module. It is never offered to institutions, so there is nothing to grant or revoke.`,
+      refusal: `${moduleLabel(owner)} is not a customer-facing module. It is never offered to institutions, so there is nothing to grant or revoke.`,
     };
   }
-  if (!enable && MODULE_METADATA[module]?.essential) {
+  // Only the MODULE is protected by essentiality. A core module's individual
+  // pages are exactly what granular control is for: an organization can keep
+  // Students and still not have "Bulk Delete Students".
+  if (!enable && !isSub && MODULE_METADATA[owner]?.essential) {
     return {
       ...base,
-      refusal: `${moduleLabel(module)} is a core module and cannot be revoked. Every other module depends on it; switching it off would leave the portal unusable rather than cheaper.`,
+      refusal: `${moduleLabel(owner)} is a core module and cannot be revoked. Every other module depends on it; switching it off would leave the portal unusable rather than cheaper.`,
     };
   }
 
@@ -158,8 +172,8 @@ export const planBulkOperation = (
     // Students is safe for a customer who has neither Fees nor Exams, and
     // refusing globally would block a legitimate change on the strength of a
     // different tenant's configuration.
-    if (!enable) {
-      const dependants = (PLATFORM_MODULES_BY_ID.get(module)?.requiredBy ?? []).filter((d) =>
+    if (!enable && !isSub) {
+      const dependants = (PLATFORM_MODULES_BY_ID.get(owner)?.requiredBy ?? []).filter((d) =>
         on.has(d),
       );
       if (dependants.length > 0) {
@@ -167,7 +181,7 @@ export const planBulkOperation = (
           ...entry,
           outcome: "blocked",
           modules: dependants,
-          reason: `${moduleLabel(module)} is required by ${dependants
+          reason: `${moduleLabel(owner)} is required by ${dependants
             .map(moduleLabel)
             .join(", ")}. Revoke ${dependants.length === 1 ? "that" : "those"} first.`,
         });

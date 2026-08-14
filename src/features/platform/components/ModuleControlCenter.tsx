@@ -33,6 +33,7 @@ import { resolveEntitlements, type EntitlementLayers } from "../modules/entitlem
 import { planBulkOperation, type PlannableOrg, type BulkPlan } from "../modules/bulkPlan";
 import {
   PLATFORM_MODULES, CATEGORY_LABELS, AUDIENCE_LABELS, AVAILABILITY_LABELS,
+  SUBMODULES_OF, featureLabel, isSubmoduleKey,
   moduleAvailability, type ModuleAudience, type ModuleAvailability,
 } from "../modules/moduleRegistry";
 import type { ModuleId } from "@/features/rbac/constants/catalog";
@@ -72,6 +73,14 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
   const [search, setSearch] = useState("");
   const [audience, setAudience] = useState<ModuleAudience | "all">("all");
   const [openModule, setOpenModule] = useState<ModuleId | null>(null);
+  /**
+   * What the grant/revoke buttons act on — the module itself, or one of its
+   * submodules. Held separately from `openModule` so the organization columns
+   * re-sort to the narrowed target as soon as it is chosen: an operator about
+   * to revoke "Fee Refund" from everyone needs to see who has Fee REFUND, not
+   * who has Fee.
+   */
+  const [feature, setFeature] = useState<string>("");
   const [orgSearch, setOrgSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ plan: BulkPlan; note: string } | null>(null);
@@ -127,18 +136,24 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
   const detail = openModule ? PLATFORM_MODULES.find((m) => m.id === openModule) : null;
 
   const detailOrgs = useMemo(() => {
-    if (!openModule) return { withIt: [] as PlannableOrg[], without: [] as PlannableOrg[] };
+    if (!feature) return { withIt: [] as PlannableOrg[], without: [] as PlannableOrg[] };
     const q = orgSearch.trim().toLowerCase();
     const match = (o: PlannableOrg) =>
       !q || o.displayName.toLowerCase().includes(q) || o.slug.toLowerCase().includes(q);
     return {
-      withIt: orgs.filter((o) => o.entitlements[openModule]?.enabled && match(o)),
-      without: orgs.filter((o) => !o.entitlements[openModule]?.enabled && match(o)),
+      withIt: orgs.filter((o) => o.entitlements[feature]?.enabled && match(o)),
+      without: orgs.filter((o) => !o.entitlements[feature]?.enabled && match(o)),
     };
-  }, [openModule, orgs, orgSearch]);
+  }, [feature, orgs, orgSearch]);
+
+  const openDetail = (id: ModuleId) => {
+    setOpenModule(id);
+    setFeature(id);
+  };
 
   const closeDetail = () => {
     setOpenModule(null);
+    setFeature("");
     setSelected(new Set());
     setOrgSearch("");
   };
@@ -151,7 +166,11 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
   const propose = (scope: "selected" | "all", enable: boolean) => {
     if (!openModule) return;
     const target = scope === "all" ? orgs : orgs.filter((o) => selected.has(o.id));
-    setConfirm({ plan: planBulkOperation(target, openModule, enable), note: "" });
+    // `feature` is the module id, or a submodule id when the operator has
+    // narrowed the target. The planner handles both — a submodule has no
+    // dependants and cannot be essential, so it simply falls through to the
+    // will-change / already comparison on its own resolved state.
+    setConfirm({ plan: planBulkOperation(target, feature, enable), note: "" });
   };
 
   const execute = () => {
@@ -250,7 +269,7 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
                     {n} / {orgs.length}
                   </td>
                   <td className="px-3 py-2.5 text-right">
-                    <Button size="sm" variant="outline" onClick={() => setOpenModule(m.id)}>
+                    <Button size="sm" variant="outline" onClick={() => openDetail(m.id)}>
                       Manage
                     </Button>
                   </td>
@@ -300,6 +319,34 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
                 )}
               </div>
 
+              {/* ── What to act on ─────────────────────────────────────────
+                  The whole module, or one page inside it. Choosing narrows
+                  the two columns below immediately, so the counts an operator
+                  confirms are always about the thing they are changing. */}
+              <div className="space-y-1.5">
+                <Label>Apply to</Label>
+                <Select value={feature} onValueChange={setFeature}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value={detail.id}>
+                      {detail.label} — the whole module
+                    </SelectItem>
+                    {(SUBMODULES_OF.get(detail.id) ?? []).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.label}
+                        {!s.wired && " (not built)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isSubmoduleKey(feature) && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Revoking one page leaves the rest of {detail.label} untouched. A submodule
+                    cannot be switched on while its module is off.
+                  </p>
+                )}
+              </div>
+
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -312,21 +359,21 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <OrgColumn
-                  title={`Has ${detail.label}`}
+                  title={`Has ${featureLabel(feature)}`}
                   count={detailOrgs.withIt.length}
                   orgs={detailOrgs.withIt}
                   selected={selected}
                   onToggle={toggleOrg}
-                  moduleId={detail.id}
+                  moduleId={feature}
                   tone="on"
                 />
                 <OrgColumn
-                  title={`Without ${detail.label}`}
+                  title={`Without ${featureLabel(feature)}`}
                   count={detailOrgs.without.length}
                   orgs={detailOrgs.without}
                   selected={selected}
                   onToggle={toggleOrg}
-                  moduleId={detail.id}
+                  moduleId={feature}
                   tone="off"
                 />
               </div>
@@ -375,7 +422,7 @@ export const ModuleControlCenter: React.FC<{ rows: MatrixRowInput[]; withdrawn: 
           <DialogHeader>
             <DialogTitle>
               {confirm?.plan.enable ? "Grant" : "Revoke"}{" "}
-              {confirm ? PLATFORM_MODULES.find((m) => m.id === confirm.plan.module)?.label : ""}
+              {confirm ? featureLabel(confirm.plan.module) : ""}
             </DialogTitle>
             <DialogDescription>
               Applied to each organization individually, so one failure never aborts the rest and
@@ -438,7 +485,7 @@ const OrgColumn: React.FC<{
   orgs: PlannableOrg[];
   selected: Set<string>;
   onToggle: (id: string) => void;
-  moduleId: ModuleId;
+  moduleId: string;
   tone: "on" | "off";
 }> = ({ title, count, orgs, selected, onToggle, moduleId, tone }) => (
   <div className="rounded-lg border border-border">

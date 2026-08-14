@@ -254,6 +254,77 @@ export const MODULE_IDS: ModuleId[] = PLATFORM_MODULES.map((m) => m.id);
 
 export const moduleLabel = (id: string): string => byId.get(id as ModuleId)?.label ?? id;
 
+// ── Submodules ────────────────────────────────────────────────────────────────
+//
+// ┌── WHY SUBMODULES NEED NO SCHEMA OF THEIR OWN ──────────────────────────┐
+// │ `organization_features.feature_key` is unconstrained text keyed by      │
+// │ (organization_id, feature_key), and `entitlement_layers()` aggregates   │
+// │ every row for the organization without filtering the key. A row for     │
+// │ `fee.refund` therefore travels the existing pipeline end to end — plan  │
+// │ layer, override layer, expiry sweep, history and audit — with no        │
+// │ migration and no second table.                                          │
+// │                                                                         │
+// │ What DID have to change is the resolver, which iterated module ids      │
+// │ only, so a submodule override was written, stored, and silently ignored.│
+// └─────────────────────────────────────────────────────────────────────────┘
+
+export interface PlatformSubmodule {
+  /** Namespaced id, e.g. "fee.refund". Also the entitlement feature_key. */
+  id: string;
+  label: string;
+  moduleId: ModuleId;
+  /** True when the app actually renders a page for it today. */
+  wired: boolean;
+}
+
+export const PLATFORM_SUBMODULES: PlatformSubmodule[] = MODULE_CATALOG.flatMap((m) =>
+  m.submodules.map((s) => ({
+    id: s.id,
+    label: s.label,
+    moduleId: m.id,
+    wired: !!s.route || !!s.legacyAction,
+  })),
+);
+
+export const SUBMODULE_IDS: string[] = PLATFORM_SUBMODULES.map((s) => s.id);
+
+/** submodule id → owning module id. */
+export const PARENT_OF_SUBMODULE = new Map<string, ModuleId>(
+  PLATFORM_SUBMODULES.map((s) => [s.id, s.moduleId]),
+);
+
+/** module id → its submodules, in catalog order. */
+export const SUBMODULES_OF = new Map<ModuleId, PlatformSubmodule[]>(
+  MODULE_CATALOG.map((m) => [
+    m.id,
+    PLATFORM_SUBMODULES.filter((s) => s.moduleId === m.id),
+  ]),
+);
+
+const submoduleLabelById = new Map<string, string>(
+  PLATFORM_SUBMODULES.map((s) => [s.id, s.label]),
+);
+
+/** Human label for a module OR submodule id. */
+export const featureLabel = (id: string): string =>
+  submoduleLabelById.get(id) ?? moduleLabel(id);
+
+/** True when the id names a submodule rather than a module. */
+export const isSubmoduleKey = (id: string): boolean => PARENT_OF_SUBMODULE.has(id);
+
+/**
+ * Every key an entitlement row may legitimately carry.
+ *
+ * A feature_key outside this set is not an error the database can catch — the
+ * column is plain text — so it becomes a stored row that the resolver ignores
+ * and an operator believes did something. The platform UI only ever offers keys
+ * from here, and a gate asserts it.
+ */
+export const ENTITLEMENT_KEYS: ReadonlySet<string> = new Set<string>([
+  ...MODULE_IDS,
+  ...SUBMODULE_IDS,
+]);
+
 // ── Dependency checks ─────────────────────────────────────────────────────────
 
 export interface DependencyBlock {

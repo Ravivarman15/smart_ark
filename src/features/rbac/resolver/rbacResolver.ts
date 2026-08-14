@@ -134,11 +134,18 @@ export const resolveAccess = (input: ResolverInput): EffectiveAccess => {
     for (const m of MODULE_CATALOG) {
       const denied = notEntitled(m.id);
       modules[m.id] = denied ? entitlementDenied() : superEntry();
-      for (const s of m.submodules) submodules[s.id] = denied ? entitlementDenied() : superEntry();
+      // A submodule is denied by its own entitlement as well as its module's.
+      // Checking only the module would make a submodule revoke a no-op for the
+      // one role most likely to notice.
+      for (const s of m.submodules) {
+        submodules[s.id] = denied || notEntitled(s.id) ? entitlementDenied() : superEntry();
+      }
     }
     for (const a of ACTION_CATALOG) {
       const owner = MODULE_OF_SUBMODULE.get(a.submoduleId);
-      actions[a.id] = owner && notEntitled(owner) ? entitlementDenied() : superEntry();
+      const blocked =
+        (owner && notEntitled(owner)) || notEntitled(a.submoduleId);
+      actions[a.id] = blocked ? entitlementDenied() : superEntry();
     }
     return { role, isSuper: true, modules, submodules, actions };
   }
@@ -226,7 +233,11 @@ export const resolveAccess = (input: ResolverInput): EffectiveAccess => {
     // module the organization does not have.
     const moduleDenied = notEntitled(m.id);
     for (const s of m.submodules) {
-      if (moduleDenied) {
+      // Either the module or the submodule itself may be unentitled, and
+      // neither is recoverable by a per-user override — `decide()` below would
+      // let an explicit user_override outrank the parent and hand back a
+      // feature the organization does not have.
+      if (moduleDenied || notEntitled(s.id)) {
         submodules[s.id] = entitlementDenied();
         continue;
       }
@@ -262,7 +273,10 @@ export const resolveAccess = (input: ResolverInput): EffectiveAccess => {
   const actions: Record<string, AccessEntry> = {};
   for (const a of ACTION_CATALOG) {
     const owner = MODULE_OF_SUBMODULE.get(a.submoduleId);
-    if (owner && notEntitled(owner)) {
+    // An action inside a revoked submodule is revoked with it. Without this an
+    // organization could lose "Fee Refund" and keep the button that performs
+    // one, which is worse than not revoking it at all.
+    if ((owner && notEntitled(owner)) || notEntitled(a.submoduleId)) {
       actions[a.id] = entitlementDenied();
       continue;
     }

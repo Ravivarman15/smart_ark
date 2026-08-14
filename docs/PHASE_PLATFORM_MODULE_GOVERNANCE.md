@@ -179,6 +179,72 @@ to switch it back.
 
 ---
 
+## 4b. Submodule entitlements
+
+A Super Admin can grant or revoke an individual **page** as well as a whole
+module — "keep Fee, drop Fee Collection". All 19 modules and their 204
+submodules are entitlement keys.
+
+**No migration was required.** `organization_features.feature_key` is
+unconstrained text keyed by `(organization_id, feature_key)`, and
+`entitlement_layers()` aggregates every row for the organization without
+filtering the key. A row for `fee.collection` already travelled the whole
+pipeline — plan layer, override layer, expiry sweep, history, audit.
+
+What *was* broken is that the resolver iterated module ids only. A submodule
+override could be written, stored and audited — and silently ignored. The
+console would have reported success for a change that did nothing.
+
+### The containment invariant
+
+> **A submodule can never be enabled while its module is off.**
+
+Not a stylistic choice. The module gate is what the sidebar, the route guard and
+the RBAC resolver already enforce. If a submodule override could outrank it,
+revoking Fee would leave `fee.collection` reporting `enabled: true`, and any
+surface that checks the submodule rather than the module would hand back a page
+inside a module the organization does not have.
+
+So the parent is checked **first**, above the submodule's own override, and the
+override is not consulted at all when the parent is off. The disabled submodule
+carries the *parent's* explanation, so an operator is not sent hunting for a
+submodule rule that does not exist.
+
+Resolution order for a submodule:
+
+```
+1. parent module      off → off, source "parent_module"
+2. override           an explicit, unexpired decision on the submodule
+3. plan               a plan rule naming the submodule
+4. default            follows the module — silence means included
+```
+
+### What differs from a module
+
+| | Module | Submodule |
+|---|---|---|
+| Essential can block a revoke | yes | **no** — keep Students, drop "Bulk Delete Students" |
+| Dependency scan | yes | **no** — nothing declares it needs `fee.collection` |
+| Audience | its own | inherited from the parent |
+| Global withdrawal | yes | via its module |
+
+### Where to change it
+
+- **Organization detail** → expand a module to see its submodules, each with its
+  own switch, source badge and override reset. The collapsed row shows how many
+  are individually switched off, so a partly-withdrawn module is visible without
+  opening all nineteen.
+- **Control Center** → module detail → **Apply to**, which narrows the target to
+  one submodule. The organization columns re-sort immediately, so the counts an
+  operator confirms are always about the thing being changed.
+
+Enforcement is the same resolver, so a revoked submodule disappears from the
+sidebar, its route is blocked, and the actions inside it are revoked with it —
+losing "Fee Collection" while keeping the button that performs one would be
+worse than not revoking it at all.
+
+---
+
 ## 5. Dependencies
 
 Declared in `MODULE_METADATA.dependsOn` as a **product** fact ("a fee receipt
@@ -276,9 +342,11 @@ a client.
 | Layers, dependencies, RLS, ARK protection, capabilities, audit, idempotency | `src/test/security/phase9.test.ts` |
 | Planning, audience, mirror drift, bulk scoping | `src/features/platform/testing/moduleGovernance.test.ts` |
 | Direct-URL enforcement, fail-open, leak-free messaging | `src/features/rbac/testing/entitlementRouteGate.test.tsx` |
+| Submodule resolution, containment invariant, RBAC denial | `src/features/platform/testing/submoduleEntitlements.test.ts` |
 
 Mutation-tested: restoring the `isSuper` short-circuit, drifting the server
-dependency graph, and removing the bulk guard each fail the suite.
+dependency graph, removing the bulk guard, and letting a submodule override
+outrank its parent module each fail the suite.
 
 ### Live verification (2026-08-14, ABC Academi, rolled back)
 
