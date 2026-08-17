@@ -147,3 +147,17 @@ verify_jwt = false
 # and a tenant can only ever act on its OWN domains.
 [functions.domain-verify]
 verify_jwt = true
+
+# ─── assistant: public documentation assistant (summary refinement only) ─────
+# verify_jwt = false because the callers are anonymous website visitors reading
+# the marketing site — there is no session to verify and requiring one would
+# defeat the purpose of a public assistant.
+#
+# Safe to leave open because the function holds NO privilege: no database
+# client, no service-role key, no tenant context. It accepts a question and an
+# already-composed summary and returns a rephrasing of that summary. Abuse is
+# bounded by an in-function per-IP rate limit, a body-size cap and a hard
+# max_tokens ceiling; when no LLM key is configured it returns immediately
+# without calling anything, which is this repository's default state.
+[functions.assistant]
+verify_jwt = false

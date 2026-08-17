@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MotionProvider } from "./motion";
 import { CtaButton } from "./ui";
+import { AssistantLauncher } from "@/features/assistant";
 import "../styles/marketing.css";
 
 // ── Navigation model ────────────────────────────────────────────────────────
@@ -484,6 +485,12 @@ export const MarketingLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
         <Header />
         <main id="main">{children ?? <Outlet />}</main>
         <Footer />
+        {/* Public documentation assistant. Mounted at the layout so it is on
+            every public page, and LAST so its floating button sits above the
+            page content without needing a larger z-index than the header. It
+            answers from the Documentation Center's own articles and touches no
+            tenant data — see src/features/assistant. */}
+        <AssistantLauncher />
       </div>
     </MotionProvider>
   );
