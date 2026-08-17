@@ -48,7 +48,23 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
 
 export const THEME_LIST: ThemeDefinition[] = Object.values(THEMES);
 
-export const DEFAULT_THEME: ThemeId = "ark-dark";
+/**
+ * What a visitor with no saved preference gets.
+ *
+ * White surfaces with navy brand accents — `ark-light`. A first-time visitor
+ * landing on the public site should meet the product on white, and navy should
+ * read as the brand rather than the wallpaper.
+ *
+ * This is the ONLY place the default is decided in application code, but it is
+ * not the only place it is written: `index.html` carries the same id twice (a
+ * static `data-theme` on <html> for no-JS and prerendered pages, and the
+ * no-flash boot script's fallback). All three must agree or a returning visitor
+ * sees one theme paint and then swap. A test asserts they do.
+ *
+ * Anyone who has ever used the toggle is unaffected — their choice is in
+ * localStorage and still wins.
+ */
+export const DEFAULT_THEME: ThemeId = "ark-light";
 
 export const isThemeId = (v: unknown): v is ThemeId =>
   typeof v === "string" && v in THEMES;

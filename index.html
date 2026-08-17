@@ -1,5 +1,9 @@
 <!doctype html>
-<html lang="en">
+<!-- data-theme is set STATICALLY as well as by the boot script below.
+     Without it, a no-JS visitor or a crawler reading a prerendered marketing
+     page falls through to the bare :root palette, which is still the dark one —
+     so the page Google indexes would not be the page a visitor sees. -->
+<html lang="en" data-theme="ark-light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -16,8 +20,9 @@
 
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Mobile browser chrome colour — updated at runtime by ThemeProvider. -->
-    <meta name="theme-color" content="#0a2543" />
+    <!-- Mobile browser chrome colour — updated at runtime by ThemeProvider.
+         Matches THEMES["ark-light"].preview.background, the default surface. -->
+    <meta name="theme-color" content="#ffffff" />
 
     <!-- No-flash theme boot: runs before React paints, so the saved theme
          is in place before the first stylesheet evaluation. -->
@@ -25,11 +30,12 @@
       (function () {
         try {
           var t = localStorage.getItem('ark-theme');
-          if (t !== 'ark-light' && t !== 'ark-dark') t = 'ark-dark';
+          // Fallback must match DEFAULT_THEME in src/core/theme/themes.ts.
+          if (t !== 'ark-light' && t !== 'ark-dark') t = 'ark-light';
           document.documentElement.dataset.theme = t;
           document.documentElement.classList.add('theme-instant');
         } catch (_) {
-          document.documentElement.dataset.theme = 'ark-dark';
+          document.documentElement.dataset.theme = 'ark-light';
         }
       })();
     </script>
