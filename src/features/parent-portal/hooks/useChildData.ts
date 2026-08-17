@@ -8,10 +8,12 @@
 // instead of refetching into a shared slot — the previous child's data stays
 // warm and switching back is instant.
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { queryKeys } from "@/core/constants/queryKeys";
 import { fetchStudentInsights } from "@/features/students/hooks/useStudentInsights";
 import { documentsService } from "@/features/students/services";
+import { communicationService } from "@/features/students/services/communication.service";
 import { commsTimelineService } from "@/features/communication/services";
 import { parentPortalService } from "../services/parentPortal.service";
 import { parentAuditService } from "../services/parentAudit.service";
@@ -149,3 +151,65 @@ export const useChildDocuments = (studentId: string | undefined) =>
     enabled: !!studentId,
     staleTime: 60_000,
   });
+
+// ── Two-way chat ────────────────────────────────────────────────────────────
+//
+// The same `student_messages` table the staff "Chat With Students" page writes
+// to, through the same service. The parent portal previously showed only
+// `message_queue` — an OUTBOUND delivery log — which is why a staff chat
+// message never appeared here: it was never in that table, and never would be.
+//
+// `staleTime: 0` and a poll, unlike every other hook in this file. The rest of
+// the portal reads yesterday's attendance and last term's results, where a
+// minute of staleness is invisible. A conversation is the one surface where it
+// is the whole experience.
+
+const CHAT_POLL_MS = 15_000;
+
+export const useChildChat = (studentId: string | undefined) =>
+  useQuery({
+    queryKey: studentId
+      ? queryKeys.parentPortal.chat(studentId)
+      : [...queryKeys.parentPortal.all, "chat", "none"],
+    queryFn: () => communicationService.list(studentId as string),
+    enabled: !!studentId,
+    staleTime: 0,
+    refetchInterval: studentId ? CHAT_POLL_MS : false,
+  });
+
+/**
+ * Send a reply as the family.
+ *
+ * Writes `direction: "in"` with a null sender — RLS refuses anything else from
+ * a parent account, so a reply can never be rendered as though the institution
+ * sent it.
+ */
+export const useSendChildReply = (studentId: string | undefined) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => communicationService.reply(studentId as string, body),
+    onSuccess: () => {
+      if (studentId) {
+        qc.invalidateQueries({ queryKey: queryKeys.parentPortal.chat(studentId) });
+      }
+    },
+    onError: (err) =>
+      toast.error(
+        err instanceof Error ? err.message : "Your message could not be sent. Please try again.",
+      ),
+  });
+};
+
+/** Mark the institution's messages as read once the family has seen them. */
+export const useMarkChatRead = (studentId: string | undefined) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => communicationService.markRead(ids),
+    onSuccess: (changed) => {
+      if (changed > 0 && studentId) {
+        qc.invalidateQueries({ queryKey: queryKeys.parentPortal.chat(studentId) });
+      }
+    },
+    onError: () => undefined,
+  });
+};

@@ -291,6 +291,112 @@
 
 .mk-root .mk-pulse-ring { animation: mk-pulse-ring 2.4s var(--mk-ease) infinite; }
 
+/* ── Assistant launcher ──────────────────────────────────────────────────
+   The "Ask Smart ARK" button has to be noticed on a page that is already
+   competing for attention, WITHOUT stealing the hero CTA's job. Three quiet
+   layers rather than one loud one:
+
+     1. a slow breathing glow  — presence, not motion
+     2. a sheen sweeping the pill every few seconds
+     3. a conic gradient ring that rotates behind it
+
+   All three are paint-only (box-shadow, background-position, rotation on a
+   pseudo-element) so nothing here triggers layout or reflows the page while
+   it loops. The ring uses @property where supported so the angle can be
+   interpolated; browsers without it simply get the static ring, which still
+   reads as intentional rather than broken.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@property --mk-ring-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.mk-root .mk-assistant-cta {
+  position: relative;
+  isolation: isolate;
+  animation: mk-assistant-glow 4.5s ease-in-out infinite;
+}
+
+/* The rotating gradient ring. Sits BEHIND the button (z-index -1 within the
+   isolated stacking context) and is inset by -1.5px so it reads as a ring
+   rather than a fill. */
+.mk-root .mk-assistant-cta::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--mk-ring-angle),
+    hsl(var(--accent) / 0),
+    hsl(var(--accent) / 0.75),
+    hsl(var(--primary) / 0.6),
+    hsl(var(--accent) / 0)
+  );
+  animation: mk-assistant-ring 6s linear infinite;
+  opacity: 0.9;
+}
+
+/* The sheen. Clipped to the pill, and pointer-events:none so it can never
+   swallow the click — the failure that makes a decorated button feel broken. */
+.mk-root .mk-assistant-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    hsl(var(--accent) / 0.18) 42%,
+    hsl(var(--foreground) / 0.1) 50%,
+    hsl(var(--accent) / 0.18) 58%,
+    transparent 80%
+  );
+  background-size: 220% 100%;
+  animation: mk-assistant-sheen 4.5s var(--mk-ease) infinite;
+}
+
+/* Hover settles the loops and hands the feedback to the hover state itself —
+   an element that keeps pulsing while you point at it feels unresponsive. */
+.mk-root .mk-assistant-cta:hover,
+.mk-root .mk-assistant-cta:focus-visible {
+  animation-play-state: paused;
+}
+.mk-root .mk-assistant-cta:hover::after,
+.mk-root .mk-assistant-cta:focus-visible::after {
+  animation-duration: 1.6s;
+}
+
+/* The sparkle keeps its own slower beat so the icon and the pill are never
+   perfectly in phase — synchronised loops read as one mechanical blink. */
+.mk-root .mk-assistant-spark {
+  animation: mk-assistant-spark 3.2s ease-in-out infinite;
+}
+
+@keyframes mk-assistant-glow {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.28), var(--mk-shadow-lg); }
+  50%      { box-shadow: 0 0 22px 3px hsl(var(--accent) / 0.22), var(--mk-shadow-lg); }
+}
+
+@keyframes mk-assistant-ring {
+  to { --mk-ring-angle: 360deg; }
+}
+
+@keyframes mk-assistant-sheen {
+  0%       { background-position: 180% 0; }
+  55%, 100% { background-position: -80% 0; }
+}
+
+@keyframes mk-assistant-spark {
+  0%, 100%  { transform: scale(1) rotate(0deg); opacity: 1; }
+  50%       { transform: scale(1.18) rotate(12deg); opacity: 0.85; }
+}
+
 /* ── Reduced motion ──────────────────────────────────────────────────────
    Not a nicety. Vestibular disorders are real, the marquee and float loops
    run forever, and a user who has asked the OS for stillness must get it —
@@ -304,6 +410,10 @@
   .mk-root .mk-float-delayed,
   .mk-root .mk-float-reverse,
   .mk-root .mk-pulse-ring,
+  .mk-root .mk-assistant-cta,
+  .mk-root .mk-assistant-cta::before,
+  .mk-root .mk-assistant-cta::after,
+  .mk-root .mk-assistant-spark,
   /* Belt and braces for the Tailwind arbitrary-animation utilities used by
      LiveDashboard. Those are gated in JS too, but a CSS-level kill switch
      survives a component that forgets to check. */
@@ -314,6 +424,16 @@
   }
   .mk-root * {
     scroll-behavior: auto !important;
+  }
+
+  /* The blanket rule above forces `opacity: 1`, which would leave the
+     assistant button's sheen frozen mid-sweep as a permanent grey band across
+     it — stillness, but broken-looking stillness. The decorative layers are
+     removed outright instead; the button keeps its border, shadow and hover
+     state, which is all it needs to read as a button. */
+  .mk-root .mk-assistant-cta::before,
+  .mk-root .mk-assistant-cta::after {
+    display: none !important;
   }
 }
 

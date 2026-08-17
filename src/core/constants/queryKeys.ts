@@ -58,6 +58,8 @@ export const queryKeys = {
       [...queryKeys.students.all, "feedback", filters ?? {}] as const,
     messages: (studentId: string) =>
       [...queryKeys.students.all, "messages", studentId] as const,
+    /** Staff chat inbox — one entry per family with an open conversation. */
+    conversations: () => [...queryKeys.students.all, "conversations"] as const,
     appAccess: (studentId: string) =>
       [...queryKeys.students.all, "app-access", studentId] as const,
     importHistory: () => [...queryKeys.students.all, "import-history"] as const,
@@ -435,6 +437,9 @@ export const queryKeys = {
       [...queryKeys.parentPortal.all, "fees", studentId] as const,
     schedule: (studentId: string, date: string) =>
       [...queryKeys.parentPortal.all, "schedule", studentId, date] as const,
+    /** Two-way chat thread with the institution, per child. */
+    chat: (studentId: string) =>
+      [...queryKeys.parentPortal.all, "chat", studentId] as const,
     liveClasses: (studentId: string) =>
       [...queryKeys.parentPortal.all, "live-classes", studentId] as const,
     communication: (studentId: string) =>

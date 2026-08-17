@@ -726,6 +726,35 @@ describe("The assistant is mounted and usable", () => {
     expect(panel).toMatch(/motion-safe:/);
   });
 
+  it("the launcher's animation is inside the site's reduced-motion kill switch", () => {
+    // The looping glow/ring/sheen are defined in marketing.css rather than as
+    // Tailwind utilities specifically so they sit behind the same
+    // prefers-reduced-motion block as every other infinite animation here.
+    // A utility-based animation would bypass it silently.
+    const css = read(
+      join(ROOT, "src", "features", "marketing", "styles", "marketing.css"),
+    );
+    expect(launcher).toMatch(/mk-assistant-cta/);
+
+    const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toMatch(/\.mk-assistant-cta/);
+    expect(reduced).toMatch(/\.mk-assistant-spark/);
+    // The blanket rule forces opacity:1, which would freeze the sheen visible;
+    // the pseudo-elements must be removed rather than merely stilled.
+    expect(reduced).toMatch(/\.mk-assistant-cta::after[\s\S]{0,80}display: none/);
+  });
+
+  it("the decorative layers cannot swallow the click", () => {
+    const css = read(
+      join(ROOT, "src", "features", "marketing", "styles", "marketing.css"),
+    );
+    const sheen = css.slice(
+      css.indexOf(".mk-root .mk-assistant-cta::after"),
+      css.indexOf("@keyframes mk-assistant-glow"),
+    );
+    expect(sheen).toMatch(/pointer-events: none/);
+  });
+
   it("renders answers without an HTML parser", () => {
     // Model-influenced text through dangerouslySetInnerHTML on a public,
     // unauthenticated page is an XSS bug waiting for its first bad day.

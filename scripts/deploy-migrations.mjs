@@ -100,6 +100,7 @@ const ORDER = [
   ["20261005_phase11b_principal_memberships.sql", "organization_users rows for parent/student principals provisioned before grantMembership existed; without one the JWT carries no org claim, RLS hides the principal's own account row and they land on /signup instead of their portal. Idempotent, asserts zero stranded principals at the end"],
   ["20261006_phase11c_whatsapp_drain_schedule.sql", "message_queue has never had a drain schedule — send-aisensy was verify_jwt=true, which pg_cron cannot satisfy, so a queued message only ever went out if a human clicked something. Registers the cron job INACTIVE (enabling it transmits every queued message) and fails loudly if the job is missing"],
   ["20261007_phase11d_platform_feature_defaults.sql", "Platform-wide feature DEFAULTS so a grant can reach organizations that do not exist yet. Adds one nullable column (NULL = today behaviour) and returns a defaults map from entitlement_layers; the resolver reads it at its LAST layer so plan and per-org override still win"],
+  ["20261008_student_chat_two_way.sql", "Staff chat wrote to student_messages while the parent portal read message_queue, so a message sent to a family could never appear. Adds the parent half of the RLS (read own children, reply as direction=in with a null sender and channel pinned to app), widens staff SEND from three roles to any staff member, and guards read receipts with a trigger so an UPDATE cannot rewrite the body. Additive: no policy removed, no row written"],
 ];
 
 const args = process.argv.slice(2);

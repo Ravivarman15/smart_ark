@@ -77,7 +77,13 @@ export const AssistantLauncher: React.FC = () => {
             "group fixed z-[55] inline-flex items-center gap-2 rounded-full",
             "border border-border bg-card/95 py-2.5 pl-3 pr-4 backdrop-blur",
             "shadow-[--mk-shadow-lg] transition-all duration-[--mk-dur]",
-            "hover:border-accent/40 hover:shadow-[--mk-shadow-glow]",
+            // Breathing glow, rotating gradient ring and a sweeping sheen.
+            // Defined in marketing.css so the loops sit behind the same
+            // prefers-reduced-motion kill switch as every other animation on
+            // the public site, rather than in a utility that bypasses it.
+            "mk-assistant-cta",
+            "hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-[--mk-shadow-glow]",
+            "active:translate-y-0",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
             "focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             // Sits above the safe area on phones, and clear of the corner where
@@ -85,8 +91,8 @@ export const AssistantLauncher: React.FC = () => {
             "bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 sm:bottom-6 sm:right-6",
           )}
         >
-          <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-accent/12 text-accent">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+          <span className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full bg-accent/12 text-accent">
+            <Sparkles className="mk-assistant-spark h-3.5 w-3.5" aria-hidden />
             {/* Pulses only until first use, and only for motion-tolerant
                 visitors. A permanent attention ring on a public page is noise
                 that trains people to ignore it. */}
@@ -97,7 +103,9 @@ export const AssistantLauncher: React.FC = () => {
               />
             )}
           </span>
-          <span className="text-[13px] font-medium text-foreground">Ask Smart ARK</span>
+          <span className="relative z-[2] text-[13px] font-medium text-foreground">
+            Ask Smart ARK
+          </span>
         </button>
       )}
 

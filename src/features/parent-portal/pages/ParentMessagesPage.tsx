@@ -1,13 +1,32 @@
 // ── Parent Portal — Communication Center ─────────────────────────────────────
-// Read-only history of everything the institution has sent about this child.
-// Reuses commsTimelineService over `message_queue` — the same rows the staff
-// Communication Timeline renders, so delivery status can never disagree.
+//
+// TWO different things live here, and conflating them was the bug:
+//
+//   Chat          `student_messages` — a two-way conversation with staff.
+//   Notifications `message_queue`    — the OUTBOUND delivery log (receipts,
+//                                      absence alerts), read-only by nature.
+//
+// This page previously rendered only the second. So a message sent from the
+// staff "Chat With Students" page was written to `student_messages` and never
+// appeared, because nothing here has ever read that table — and could not have,
+// since its only SELECT policy required `is_staff()`.
+//
+// They stay as separate tabs rather than one merged timeline: a fee receipt and
+// a reply from a teacher are not the same kind of thing, and interleaving them
+// would make the conversation impossible to follow.
 
-import { useMemo, useState } from "react";
-import { Mail, MessageSquare, Smartphone, Bell } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Mail, MessageSquare, Smartphone, Bell, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useActiveChild } from "../providers/ActiveChildProvider";
-import { useChildMessages } from "../hooks/useChildData";
+import {
+  useChildMessages,
+  useChildChat,
+  useSendChildReply,
+  useMarkChatRead,
+} from "../hooks/useChildData";
 import {
   Card,
   Chip,
@@ -70,11 +89,110 @@ const prettyTemplate = (t: string): string =>
     ? t.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : "Notification";
 
+/** The conversation with staff. */
+const ChatTab = ({ studentId }: { studentId: string }) => {
+  const { data: thread = [], isLoading, error } = useChildChat(studentId);
+  const sendReply = useSendChildReply(studentId);
+  const markRead = useMarkChatRead(studentId);
+  const [draft, setDraft] = useState("");
+  const endRef = useRef<HTMLDivElement>(null);
+
+  // Mark the institution's messages read once they are on screen. Keyed on the
+  // ids so this fires when new ones arrive, not on every render.
+  const unreadIds = useMemo(
+    () => thread.filter((m) => m.direction === "out" && !m.readAt).map((m) => m.id),
+    [thread],
+  );
+  const unreadKey = unreadIds.join(",");
+  useEffect(() => {
+    if (unreadIds.length > 0) markRead.mutate(unreadIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unreadKey]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView?.({ block: "end" });
+  }, [thread.length]);
+
+  const send = () => {
+    const body = draft.trim();
+    if (!body) return;
+    sendReply.mutate(body, { onSuccess: () => setDraft("") });
+  };
+
+  return (
+    <Card className="!p-0 overflow-hidden">
+      <div className="max-h-[52vh] min-h-[240px] overflow-y-auto p-3.5 space-y-2">
+        {isLoading && <LoadingRows rows={3} />}
+        {error && <ErrorState error={error as Error} />}
+        {!isLoading && !error && thread.length === 0 && (
+          <EmptyState
+            title="No messages yet"
+            hint="When the institution messages you, the conversation appears here — and you can reply."
+            icon={<MessageSquare className="w-9 h-9" />}
+          />
+        )}
+        {thread.map((m) => (
+          <div
+            key={m.id}
+            // `out` is staff → family, so from the FAMILY's side it is the
+            // incoming message and sits on the left. The staff page mirrors
+            // this exactly, which is why direction is stored rather than
+            // inferred from who is looking.
+            className={cn("flex", m.direction === "in" ? "justify-end" : "justify-start")}
+          >
+            <div
+              className={cn(
+                "max-w-[80%] rounded-lg px-3 py-2",
+                m.direction === "in"
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-muted text-foreground",
+              )}
+            >
+              <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+              <p className="text-[10px] opacity-70 mt-0.5">
+                {m.direction === "out" ? "Institution · " : "You · "}
+                {formatDateTime(m.createdAt)}
+              </p>
+            </div>
+          </div>
+        ))}
+        <div ref={endRef} />
+      </div>
+
+      <div className="flex items-center gap-2 border-t border-border/60 p-2.5">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+          placeholder="Write a reply…"
+          aria-label="Write a reply to the institution"
+          maxLength={2000}
+        />
+        <Button
+          size="icon"
+          onClick={send}
+          disabled={sendReply.isPending || !draft.trim()}
+          aria-label="Send reply"
+        >
+          <Send className="w-4 h-4" />
+        </Button>
+      </div>
+    </Card>
+  );
+};
+
 export const ParentMessagesPage = () => {
   const { activeChild } = useActiveChild();
   const student = activeChild?.student;
   const { data: messages = [], isLoading, error } = useChildMessages(student);
   const [filter, setFilter] = useState<FilterId>("all");
+  const [tab, setTab] = useState<"chat" | "notifications">("chat");
+  const { data: thread = [] } = useChildChat(student?.id);
+
+  const chatUnread = useMemo(
+    () => thread.filter((m) => m.direction === "out" && !m.readAt).length,
+    [thread],
+  );
 
   const categorised = useMemo(
     () =>
@@ -102,9 +220,39 @@ export const ParentMessagesPage = () => {
     <div className="max-w-4xl mx-auto">
       <PageHeader
         title="Messages"
-        subtitle={`Everything the institution has sent about ${student.name}`}
+        subtitle={`Talk to the institution about ${student.name}, and see everything they've sent`}
       />
 
+      {/* Chat first: it is the only tab a parent can act on. */}
+      <div className="flex gap-1.5 mb-4 border-b border-border">
+        {([
+          { id: "chat", label: "Chat", badge: chatUnread },
+          { id: "notifications", label: "Notifications", badge: 0 },
+        ] as const).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "relative -mb-px flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium transition-colors",
+              tab === t.id
+                ? "border-b-2 border-accent text-foreground"
+                : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label}
+            {t.badge > 0 && (
+              <span className="rounded-full bg-accent px-1.5 text-[10px] font-semibold text-accent-foreground">
+                {t.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tab === "chat" && <ChatTab studentId={student.id} />}
+
+      {tab === "notifications" && (
+      <>
       <div className="flex flex-wrap gap-1.5 mb-4">
         {FILTERS.map((f) => (
           <button
@@ -156,16 +304,18 @@ export const ParentMessagesPage = () => {
         ))}
       </div>
 
-      {/* Two-way messaging is intentionally absent: message_queue is an
-          OUTBOUND delivery log with no inbound thread model, and no staff
-          inbox exists to receive a parent's reply. A send box here would drop
-          messages into a queue nobody reads. */}
+      {/* This tab remains read-only, and correctly so: `message_queue` is a
+          DELIVERY LOG. A reply box here would have nothing to attach a reply
+          to. Conversation lives in the Chat tab, on `student_messages`, which
+          the staff Chat With Students page reads and writes. */}
       <Card className="mt-4">
         <p className="text-xs text-muted-foreground">
-          This is a record of messages sent to you. To contact a teacher, please reach the
-          institution office — replies are not received here.
+          This is a record of notifications sent to you — receipts, reminders and alerts.
+          To ask a question, use the <strong>Chat</strong> tab.
         </p>
       </Card>
+      </>
+      )}
     </div>
   );
 };
