@@ -744,6 +744,31 @@ describe("The assistant is mounted and usable", () => {
     expect(reduced).toMatch(/\.mk-assistant-cta::after[\s\S]{0,80}display: none/);
   });
 
+  it("the decoration stylesheet does not override the button's own layout", () => {
+    // A real regression. `.mk-root .mk-assistant-cta` is specificity (0,2,0);
+    // Tailwind's `.fixed` is (0,1,0). A `position` declaration in that rule
+    // wins, the button leaves fixed positioning and lands in normal flow below
+    // the footer — styled, in the DOM, passing every render test, and invisible
+    // to anyone who does not scroll to the bottom of the page.
+    //
+    // jsdom does not apply this stylesheet, so no render test can catch it.
+    const css = read(
+      join(ROOT, "src", "features", "marketing", "styles", "marketing.css"),
+    );
+    const rule = css.slice(
+      css.indexOf(".mk-root .mk-assistant-cta {"),
+      css.indexOf(".mk-root .mk-assistant-cta::before"),
+    );
+    expect(rule.length).toBeGreaterThan(10);
+    for (const prop of ["position", "display", "top", "left", "right", "bottom"]) {
+      expect(rule, `stylesheet sets ${prop}, which overrides the component`).not.toMatch(
+        new RegExp(`^\\s*${prop}\\s*:`, "m"),
+      );
+    }
+    // The component keeps ownership of it.
+    expect(launcher).toMatch(/fixed z-\[55\]/);
+  });
+
   it("the decorative layers cannot swallow the click", () => {
     const css = read(
       join(ROOT, "src", "features", "marketing", "styles", "marketing.css"),

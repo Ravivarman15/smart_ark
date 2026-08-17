@@ -8,7 +8,7 @@
 //   3. AI MCQ Exam Parser -> Instant Structured Test Card
 // ──────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   CalendarCheck,
   Wallet,
@@ -24,6 +24,19 @@ import {
 import { cn } from "@/lib/utils";
 import { m, useReducedMotion } from "./motion";
 import { Card } from "./ui";
+// THE PRODUCT'S OWN PARSER, not a marketing re-implementation.
+//
+// Tab 3 used to be static JSX: a fixed block of "raw text", a fixed result
+// card, and a "Re-run AI" button that flipped a boolean for 800ms and changed
+// nothing. It also advertised a syntax the parser does not accept — feeding its
+// own sample text to the real parser yields subject "Biology]", marks 1 instead
+// of 4, and no correct answer detected.
+//
+// Importing the real thing is what makes the section's claims checkable. It is
+// a pure module with type-only imports, so this costs the marketing bundle
+// nothing but the parsing code itself, and "runs securely on local schema" is
+// now literally true — it executes in the visitor's browser and sends nothing.
+import { parsePaper } from "@/features/exams/utils/paperParser";
 
 interface Student {
   id: string;
@@ -32,6 +45,41 @@ interface Student {
   status: "present" | "absent" | "late";
   parentPhone: string;
 }
+
+/**
+ * Seed text for the parser demo.
+ *
+ * Written in the format `parsePaper` genuinely reads: `Subject:` in the header,
+ * marks as `[4]`, and the correct option given by an `Answer:` line. The
+ * previous static mockup used `[Correct]` and `[Marks: +4, Neg: -1, Subject:
+ * Biology]`, none of which the parser understands — it produced subject
+ * "Biology]" and one mark instead of four.
+ *
+ * Deliberately mixes an MCQ, a short-answer and a one-word question so the type
+ * detection is visible rather than asserted.
+ */
+const SAMPLE_PAPER = `Subject: Biology
+Class: 10
+Duration: 90 minutes
+
+Q1. What is the power house of the cell? [4]
+A) Ribosome
+B) Mitochondria
+C) Nucleus
+D) Lysosome
+Answer: B
+
+Q2. Which organelle is responsible for protein synthesis? [4]
+A) Golgi apparatus
+B) Ribosome
+C) Vacuole
+D) Chloroplast
+Answer: B
+
+Q3. Define osmosis. [2]
+
+Q4. Explain the process of photosynthesis and justify why it matters. [5]
+`;
 
 const INITIAL_STUDENTS: Student[] = [
   { id: "1", name: "Ananya Sharma", rollNo: "Roll #14", status: "present", parentPhone: "+91 98765 43210" },
@@ -90,15 +138,28 @@ export const InteractiveSimulator: React.FC = () => {
     }, 600);
   };
 
-  // AI Exam simulation state
-  const [isAiParsing, setIsAiParsing] = useState(false);
+  // ── AI exam parser: REAL, not simulated ──────────────────────────────────
+  //
+  // The sample is written in the syntax the parser actually accepts — marks in
+  // square brackets, an `Answer:` line or an answer key — because a demo that
+  // teaches a format the product cannot read is worse than no demo. Every
+  // question below parses at full confidence; edit it and watch it change.
+  const [paperText, setPaperText] = useState(SAMPLE_PAPER);
+  const [parseNonce, setParseNonce] = useState(0);
 
-  const handleReparse = () => {
-    setIsAiParsing(true);
-    setTimeout(() => {
-      setIsAiParsing(false);
-    }, 800);
-  };
+  const parsed = useMemo(() => {
+    const started =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    const result = parsePaper(paperText);
+    const elapsed =
+      (typeof performance !== "undefined" ? performance.now() : Date.now()) - started;
+    return { ...result, ms: elapsed };
+    // `parseNonce` is a deliberate dependency: "Re-run" genuinely re-parses and
+    // re-times, rather than showing a spinner over a cached result.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paperText, parseNonce]);
+
+  const mcqCount = parsed.questions.filter((q) => q.options.length > 0).length;
 
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -427,7 +488,7 @@ export const InteractiveSimulator: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="grid gap-6 lg:grid-cols-12"
           >
-            {/* Left side: Raw Question Paper input */}
+            {/* Left side: the actual input. Editable — this is the demo. */}
             <Card className="p-5 lg:col-span-6 sm:p-6">
               <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div>
@@ -438,34 +499,45 @@ export const InteractiveSimulator: React.FC = () => {
                     Raw Question Paper Text
                   </h4>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleReparse}
-                  disabled={isAiParsing}
-                  className="min-h-[36px] rounded bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent hover:bg-accent/20 transition-colors"
-                >
-                  {isAiParsing ? "Parsing..." : "Re-run AI"}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPaperText(SAMPLE_PAPER)}
+                    className="min-h-[36px] rounded px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setParseNonce((n) => n + 1)}
+                    className="min-h-[36px] rounded bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent hover:bg-accent/20 transition-colors"
+                  >
+                    Re-run
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-3 rounded-lg border border-border/80 bg-background/60 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
-                Q1. What is the power house of the cell?
-                <br />
-                A) Ribosome
-                <br />
-                B) Mitochondria [Correct]
-                <br />
-                C) Nucleus
-                <br />
-                D) Lysosome
-                <br />
-                <span className="text-accent">[Marks: +4, Neg: -1, Subject: Biology]</span>
-              </div>
+              <label htmlFor="mk-paper-input" className="sr-only">
+                Paste your question paper text
+              </label>
+              <textarea
+                id="mk-paper-input"
+                value={paperText}
+                onChange={(e) => setPaperText(e.target.value)}
+                spellCheck={false}
+                rows={12}
+                placeholder="Paste your question paper here…"
+                className="mt-3 w-full resize-y rounded-lg border border-border/80 bg-background/60 p-3 font-mono text-[11px] leading-relaxed text-foreground outline-none focus:border-accent/50"
+              />
 
-              <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Runs securely on local schema.</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                  {isAiParsing ? "Extracting tokens..." : "1 Question Formatted"}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>Runs entirely in your browser — nothing is uploaded.</span>
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  {parsed.questions.length === 0
+                    ? "No questions detected"
+                    : `${parsed.questions.length} question${
+                        parsed.questions.length === 1 ? "" : "s"
+                      } formatted`}
                 </span>
               </div>
             </Card>
@@ -477,39 +549,122 @@ export const InteractiveSimulator: React.FC = () => {
                   <FileCheck className="h-3.5 w-3.5" />
                   Live Exam Ready Test Card
                 </span>
+                {/* Measured, not asserted. */}
                 <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  Parsed in 0.2s
+                  Parsed in {parsed.ms < 1 ? "<1" : Math.round(parsed.ms)}ms
                 </span>
               </div>
 
-              <div className="rounded-xl border border-border bg-card p-3.5 text-xs shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-foreground">Question 1 (Biology)</span>
-                  <span className="text-[10px] text-muted-foreground">+4 / -1 Mark</span>
-                </div>
-                <p className="mt-2 text-foreground font-medium">
-                  What is the power house of the cell?
-                </p>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded border border-border p-2 text-[11px] text-muted-foreground">
-                    A) Ribosome
-                  </div>
-                  <div className="rounded border border-emerald-500/50 bg-emerald-500/10 p-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
-                    <span>B) Mitochondria</span>
-                    <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                  </div>
-                  <div className="rounded border border-border p-2 text-[11px] text-muted-foreground">
-                    C) Nucleus
-                  </div>
-                  <div className="rounded border border-border p-2 text-[11px] text-muted-foreground">
-                    D) Lysosome
-                  </div>
-                </div>
+              {/* Everything the parser read from the header. Blank fields are
+                  left out rather than filled with a plausible guess. */}
+              <div className="mb-3 flex flex-wrap gap-1.5 text-[10px]">
+                {parsed.meta.subject && (
+                  <span className="rounded bg-accent/10 px-1.5 py-0.5 font-medium text-accent">
+                    {parsed.meta.subject}
+                  </span>
+                )}
+                {parsed.meta.standard && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                    Class {parsed.meta.standard}
+                  </span>
+                )}
+                {parsed.meta.durationMinutes > 0 && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                    {parsed.meta.durationMinutes} min
+                  </span>
+                )}
+                {mcqCount > 0 && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                    {mcqCount} MCQ
+                  </span>
+                )}
               </div>
 
+              {parsed.questions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                  Nothing to format yet. Number your questions (<code>Q1.</code>,{" "}
+                  <code>1)</code>) and put the marks in brackets, like{" "}
+                  <code>[4]</code>.
+                </div>
+              ) : (
+                <div className="max-h-[320px] space-y-2.5 overflow-y-auto pr-1">
+                  {parsed.questions.map((q, i) => (
+                    <div
+                      key={`${q.questionNo}-${i}`}
+                      className="rounded-xl border border-border bg-card p-3.5 text-xs shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-foreground">
+                          Question {q.questionNo}
+                          {parsed.meta.subject ? ` (${parsed.meta.subject})` : ""}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {/* Negative marking is shown only when the paper
+                              actually declared it. The old card printed
+                              "+4 / -1" unconditionally; the parser returns 0. */}
+                          {q.marks} mark{q.marks === 1 ? "" : "s"}
+                          {q.negativeMarks > 0 ? ` / -${q.negativeMarks}` : ""}
+                        </span>
+                      </div>
+
+                      <p className="mt-2 font-medium text-foreground">{q.questionText}</p>
+
+                      {q.options.length > 0 && (
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {q.options.map((o, oi) => (
+                            <div
+                              key={oi}
+                              className={cn(
+                                "flex items-center justify-between rounded border p-2 text-[11px]",
+                                o.isCorrect
+                                  ? "border-emerald-500/50 bg-emerald-500/10 font-semibold text-emerald-700 dark:text-emerald-300"
+                                  : "border-border text-muted-foreground",
+                              )}
+                            >
+                              <span>
+                                {String.fromCharCode(65 + oi)}) {o.text}
+                              </span>
+                              {o.isCorrect && (
+                                <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-600" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                          {q.questionType.replace(/_/g, " ")}
+                        </span>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                          {q.difficulty}
+                        </span>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                          Bloom: {q.bloomLevel}
+                        </span>
+                        {/* The parser's own honesty signal: anything it could
+                            not read from the paper deducts from confidence, and
+                            the real import screen sends sub-75% to a human. */}
+                        <span
+                          className={cn(
+                            "rounded px-1.5 py-0.5 font-medium",
+                            q.confidence >= 75
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                          )}
+                        >
+                          {q.confidence}% confident
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <p className="mt-3 text-xs text-muted-foreground">
-                Paste 50 questions at once — Smart ARK formats, tags, and schedules tests in seconds without manual entry.
+                Paste a whole paper at once — Smart ARK formats and tags every question,
+                and flags anything under 75% confidence for a teacher to check rather
+                than guessing.
               </p>
             </Card>
           </m.div>

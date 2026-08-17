@@ -313,9 +313,17 @@
   inherits: false;
 }
 
+/* NO `position` HERE — this rule must not fight the component's own layout.
+   `.mk-root .mk-assistant-cta` has specificity (0,2,0) and Tailwind's `.fixed`
+   has (0,1,0), so declaring `position: relative` here silently WINS: the button
+   leaves fixed positioning, drops into normal flow at the end of the document
+   below the footer, and disappears from the page. It is styled, present in the
+   DOM and passes every render test — it is simply somewhere nobody scrolls to.
+
+   The component owns position (`fixed`); this file owns decoration only.
+   `fixed` + `z-index` already establishes both the containing block for the
+   pseudo-elements below and a stacking context for their z-index. */
 .mk-root .mk-assistant-cta {
-  position: relative;
-  isolation: isolate;
   animation: mk-assistant-glow 4.5s ease-in-out infinite;
 }
 
