@@ -26,15 +26,36 @@ import type { PayrollItem, PayrollRun } from "../types/payroll.types";
 // payslips performs ONE lookup, not 200.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const waitForImages = (root: HTMLElement, timeoutMs = 4000): Promise<void> =>
+/**
+ * Resolve once the slip has mounted and its logo has loaded.
+ *
+ * The deadline is enforced by BOTH a timer and the polling loop, and that is
+ * not redundancy. `requestAnimationFrame` does not fire in a backgrounded tab,
+ * and the deadline check lives inside the rAF callback — so an approver who
+ * switches tabs during a payroll run (the normal thing to do while N employees
+ * are emailed one at a time) parked this promise forever. Not slow: never. The
+ * send loop awaits it, so the whole run hangs and the approval dialog spins
+ * with no error to show.
+ *
+ * `setTimeout` is throttled in background tabs but still fires, so the timer is
+ * the one that has to own the deadline.
+ */
+export const waitForImages = (root: HTMLElement, timeoutMs = 4000): Promise<void> =>
   new Promise((resolve) => {
-    const start = Date.now();
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(deadline);
+      resolve();
+    };
+    const deadline = setTimeout(finish, timeoutMs);
     const tick = () => {
+      if (done) return;
       const slip = root.querySelector("#payroll-slip");
       const imgs = Array.from(root.querySelectorAll("img"));
       const ready = imgs.every((img) => img.complete && img.naturalWidth > 0);
-      if (slip && ready) resolve();
-      else if (Date.now() - start > timeoutMs) resolve();
+      if (slip && ready) finish();
       else requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);

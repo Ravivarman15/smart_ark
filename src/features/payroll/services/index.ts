@@ -15,5 +15,7 @@ export {
 export { payrollApprovalService } from "./payrollApproval.service";
 export {
   payrollEmailService,
+  summarisePayslipDelivery,
   type PayslipEmailResult,
+  type PayslipDelivery,
 } from "./payrollEmail.service";

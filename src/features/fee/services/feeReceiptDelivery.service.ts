@@ -35,6 +35,7 @@ import { studentFeeService } from "./studentFee.service";
 import { buildReceipt, receiptToPdfBlob } from "../utils/receipt";
 import { formatINR } from "../utils/feeCalc";
 import { orgPath } from "@/lib/orgStorage";
+import { blobToBase64 } from "@/lib/base64";
 
 // Was a hardcoded constant. Fee receipts go to every tenant's parents, so
 // the sending institution has to be resolved, not assumed.
@@ -86,16 +87,6 @@ const formatDate = (iso?: string): string => {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const blobToBase64 = async (blob: Blob): Promise<string> => {
-  const buf = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-};
 
 class FeeReceiptDeliveryService extends BaseService {
   /**

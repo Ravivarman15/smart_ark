@@ -205,8 +205,23 @@ export interface SalarySlipParams {
   netSalary: string;
   /** Pay-period label, e.g. "01 Jun 2026 – 30 Jun 2026". */
   periodLabel: string;
-  /** Deep link to the employee's own My Salary page (their slip only). */
+  /**
+   * Either a signed, forced-download link to the payslip PDF, or a deep link to
+   * the employee's own My Salary page. Which one it is decides the button's
+   * LABEL — see `downloadIsFile`.
+   */
   downloadUrl: string;
+  /**
+   * True when `downloadUrl` really downloads the PDF.
+   *
+   * Absent/false means it opens the app, which for a signed-out employee is a
+   * login screen. A button reading "Download Payslip" that leads to a login
+   * screen is how this template shipped, and the recipient's reasonable
+   * conclusion is that payroll is broken.
+   */
+  downloadIsFile?: boolean;
+  /** True when the PDF is attached to this message. */
+  pdfAttached?: boolean;
 }
 
 export interface FeeReceiptParams {
@@ -382,9 +397,23 @@ const renderGenericNotice = (
 // ── Template: salary-slip ───────────────────────────────────────────────────
 // Sent to EACH employee after Management approves the monthly payroll. The email
 // itself reveals only the recipient's own figures; the full itemised PDF is
-// downloaded in-app via the secure CTA (each user can only see their own slip).
+// ATTACHED to the message (and additionally linked, when a signed storage URL
+// could be minted).
+//
+// The three states below are all real and all reachable, so each one gets copy
+// that is true of it. The old template had one state and asserted it
+// unconditionally: "Click the button above to download your detailed payslip
+// (PDF)" printed beside a link to a login page whenever the PDF was missing.
 const renderSalarySlip = (p: SalarySlipParams, b: Branding): RenderedEmail => {
   const subject = `Salary Slip - ${p.month}`;
+  const cta = p.downloadIsFile
+    ? ctaButton("Download Payslip", p.downloadUrl, b.accentColor)
+    : ctaButton("View in Smart ARK", p.downloadUrl, b.accentColor);
+  const note = p.pdfAttached
+    ? "Your detailed payslip is attached to this email as a PDF."
+    : p.downloadIsFile
+      ? "Click the button above to download your detailed payslip (PDF)."
+      : "Sign in with your staff account to view and download your detailed payslip.";
   const bodyHtml = `
     <h1 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Your salary slip for ${esc(p.month)}</h1>
     <p style="margin:0 0 12px;">Hi ${esc(p.employeeName)},</p>
@@ -396,9 +425,9 @@ const renderSalarySlip = (p: SalarySlipParams, b: Branding): RenderedEmail => {
         <td style="padding:10px 0;color:#0f172a;font-size:18px;font-weight:800;">${esc(p.netSalary)}</td>
       </tr>
     </table>
-    ${ctaButton("Download Payslip", p.downloadUrl, b.accentColor)}
+    ${cta}
     <p style="margin:8px 0;color:#64748b;font-size:13px;">
-      Click the button above to download your detailed payslip (PDF).
+      ${esc(note)}
     </p>
     <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:12px 16px;margin:20px 0;color:#065f46;font-size:13px;">
       This is a confidential document intended only for ${esc(p.employeeName)}. If you believe you received this in error, please contact us.
@@ -416,7 +445,12 @@ const renderSalarySlip = (p: SalarySlipParams, b: Branding): RenderedEmail => {
     `Pay period: ${p.periodLabel}`,
     `Net salary: ${p.netSalary}`,
     ``,
-    `Download your detailed payslip: ${p.downloadUrl}`,
+    // Spread rather than an empty string: the blank entries around it are
+    // deliberate paragraph breaks, so a filter would flatten the whole block.
+    ...(p.pdfAttached ? ["Your detailed payslip is attached to this email as a PDF."] : []),
+    p.downloadIsFile
+      ? `Download your detailed payslip: ${p.downloadUrl}`
+      : `View your detailed payslip (sign-in required): ${p.downloadUrl}`,
     ``,
     `This is a confidential document intended only for you.`,
     `Need help? ${b.supportEmail}`,

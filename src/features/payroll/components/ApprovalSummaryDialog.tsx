@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useApproveAndLock } from "../hooks/usePayrollApproval";
+import { summarisePayslipDelivery } from "../services/payrollEmail.service";
 import { formatINR } from "../utils/payrollCalc";
 import type { ApprovalSummary, PayrollRun } from "../types/payroll.types";
 
@@ -62,6 +63,11 @@ export const ApprovalSummaryDialog = ({
       toast.success(
         `Payroll approved & locked. ${sent}/${res.emails.length} payslip email(s) sent.`,
       );
+      // A degraded PDF is not a failed send, so it never reaches the count
+      // above — and an employee opening an email with no payslip in it is
+      // exactly what the approver needs to hear about.
+      const degraded = summarisePayslipDelivery(res.emails);
+      if (degraded) toast.warning(degraded, { duration: 10_000 });
       close();
     } catch (e) {
       toast.error((e as Error).message);

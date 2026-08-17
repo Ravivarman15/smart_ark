@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { useResendPayslips } from "../hooks/usePayrollApproval";
+import { summarisePayslipDelivery } from "../services/payrollEmail.service";
 import { formatINR } from "../utils/payrollCalc";
 import type { ApprovalGridRow, PayrollRun } from "../types/payroll.types";
 
@@ -100,6 +101,8 @@ export const ResendPayslipsDialog = ({
       const emails = await resend.mutateAsync({ runId: run.id, month, staffIds });
       const sent = emails.filter((e) => e.status === "sent").length;
       toast.success(`${sent}/${emails.length} payslip email(s) sent.`);
+      const degraded = summarisePayslipDelivery(emails);
+      if (degraded) toast.warning(degraded, { duration: 10_000 });
       close(false);
     } catch (e) {
       toast.error((e as Error).message);
@@ -114,8 +117,8 @@ export const ResendPayslipsDialog = ({
             <Mail className="h-5 w-5 text-primary" /> Resend Payslips — {month}
           </DialogTitle>
           <DialogDescription>
-            Re-emails the salary slip + PDF. The run's status, lock and Finance
-            posting are unaffected.
+            Re-emails the salary slip with the PDF attached. The run's status,
+            lock and Finance posting are unaffected.
           </DialogDescription>
         </DialogHeader>
 

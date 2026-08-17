@@ -193,7 +193,8 @@
       "Bash(perl -0pi -e 's/    if \\\\\\(existing\\\\.data\\\\\\) return toSummary\\\\\\(existing\\\\.data as unknown as SummaryRow\\\\\\);/    if \\(existing.data\\) {\\\\n      const row = toSummary\\(existing.data as unknown as SummaryRow\\);\\\\n      return { ...row, ...\\(await this.derivedTotals\\(profileId\\)\\) };\\\\n    }/' src/features/settings/services/referral.service.ts)",
       "Bash(curl -s -o /dev/null http://localhost:4186/pricing)",
       "Bash(perl -0pi -e 's/        <div className=\"mt-10 grid gap-4 lg:grid-cols-4\">/        <div className=\"mt-10 grid gap-4 lg:grid-cols-4\" aria-busy={isLoading}>/' src/features/marketing/pages/PricingPage.tsx)",
-      "Bash(grep -oE 'def\\\\\\(\\\\s*$|\"[a-z_0-9]+\",$' src/features/communication/utils/whatsappTemplates.ts)"
+      "Bash(grep -oE 'def\\\\\\(\\\\s*$|\"[a-z_0-9]+\",$' src/features/communication/utils/whatsappTemplates.ts)",
+      "PowerShell(npx supabase db query --linked --file \"C:\\\\Users\\\\arrav\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-arrav-Pictures-smart-ark-main\\\\8acbd722-701d-4bb1-8545-a683e9b81caf\\\\scratchpad\\\\q_pol.sql\" 2>&1 | Select-Object -Last 40)"
     ]
   }
 }
