@@ -29,6 +29,7 @@ import { Menu, X, Settings as SettingsIcon } from "lucide-react";
 import { RoleSidebar } from "@/shared/layouts";
 import { ThemeToggle } from "@/core/theme";
 import { SettingsSidebar } from "../components/SettingsSidebar";
+import { SettingsAccessGuard } from "../components/SettingsAccessGuard";
 
 const SettingsLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -87,7 +88,11 @@ const SettingsLayout = () => {
               <SettingsSidebar />
             </aside>
             <div className="min-w-0">
-              <Outlet />
+              {/* Direct-URL access is gated by the same list that builds the
+                  nav beside it — see SettingsAccessGuard. */}
+              <SettingsAccessGuard>
+                <Outlet />
+              </SettingsAccessGuard>
             </div>
           </div>
         </main>

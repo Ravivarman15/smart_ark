@@ -915,8 +915,9 @@ const AppRoutes: React.FC = () => (
         <Route path="*" element={<Navigate to="/parent" replace />} />
       </Route>
 
-      {/* Settings — role-agnostic shell at /settings/*. RBAC submodule gates
-          on each child link decide what each role can see. */}
+      {/* Settings — role-agnostic shell at /settings/*. Visibility AND direct
+          -URL access are both decided by SettingsAccessGuard inside the shell,
+          from the same resolved navigation that builds the sidebar. */}
       <Route
         path="/settings"
         element={
@@ -925,6 +926,8 @@ const AppRoutes: React.FC = () => (
           </ProtectedRoute>
         }
       >
+        {/* Fallback only. The guard redirects /settings to the first section
+            the user can actually see, which is Profile unless it is revoked. */}
         <Route index element={<Navigate to="/settings/profile" replace />} />
         <Route path="profile" element={<ProfileSettingsPage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
@@ -934,8 +937,7 @@ const AppRoutes: React.FC = () => (
         <Route path="my-plan" element={<MyPlanPage />} />
         <Route path="sms-plan" element={<SmsPlanPage />} />
         <Route path="my-referral" element={<MyReferralPage />} />
-        {/* Phase 5 / Phase 6. Mounted on the shared /settings shell; the
-            RBAC submodule gate on each menu item decides visibility. */}
+        {/* Phase 5 / Phase 6. Mounted on the shared /settings shell. */}
         <Route path="billing" element={<BillingPage />} />
         <Route path="branding" element={<BrandingPage />} />
         <Route path="check-in" element={<CheckinSettingsPage />} />

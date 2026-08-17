@@ -4,7 +4,7 @@ import { usePermissions } from "@/core/permissions";
 import { useEffectiveAccess, useSidebarAccess } from "@/features/rbac";
 import { getRoutePath } from "@/core/routing/sharedRoutes";
 import { NAV_CONFIG, type NavGroupConfig, type NavItemConfig } from "./menu.config";
-import { ROLE_HOME_ROUTE, type Role } from "@/core/constants/roles";
+import { ROLE_HOME_ROUTE, ROLES, type Role } from "@/core/constants/roles";
 
 interface VisibleNavItem extends NavItemConfig {
   /** Resolved roles after group inheritance (helpful for debugging). */
@@ -17,6 +17,20 @@ interface VisibleNavItem extends NavItemConfig {
 interface VisibleNavGroup extends Omit<NavGroupConfig, "items"> {
   items: VisibleNavItem[];
 }
+
+/**
+ * True when a menu path is mounted ONCE for every role rather than under a
+ * role layout — `/settings/*` is the whole of this category today.
+ *
+ * It matters for non-native grants. The synthesis path below assumes an item a
+ * role does not natively own has no working URL for that role, so it falls back
+ * to a coming-soon stub. That is right for `/admin/payroll` (the coordinator
+ * layout never mounts it) and wrong for `/settings/billing`, which every role
+ * can already open — sending a granted user to "coming soon" for a page that
+ * exists makes the grant look broken.
+ */
+const isRoleAgnosticPath = (path: string): boolean =>
+  !ROLES.some((r) => path.startsWith(`/${r}/`));
 
 /**
  * Returns the navigation tree the current user is allowed to see.
@@ -146,8 +160,9 @@ export const useNavigation = (): VisibleNavGroup[] => {
         const registeredPath = item.submodule
           ? getRoutePath(role, item.submodule)
           : null;
-        const synthPath =
-          registeredPath ?? `/${role}/coming-soon/${item.submodule ?? group.key}`;
+        const synthPath = isRoleAgnosticPath(item.path)
+          ? item.path
+          : registeredPath ?? `/${role}/coming-soon/${item.submodule ?? group.key}`;
 
         // If a native item already targets this synth path, don't overwrite
         // (effectively never — the role's own path won't collide with a

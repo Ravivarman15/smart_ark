@@ -76,4 +76,14 @@ export {
   TemplateEditor,
   UsageStatCard,
   SettingsSidebar,
+  SettingsAccessGuard,
 } from "./components";
+
+export {
+  useSettingsSections,
+  settingsLanding,
+  SETTINGS_GROUP_ORDER,
+  SETTINGS_PRESENTATION,
+  type SettingsSection,
+  type SettingsGroup,
+} from "./navigation/settingsNav";

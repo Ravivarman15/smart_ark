@@ -368,7 +368,10 @@ describe("Registered like every other module", () => {
   it("appears in the RBAC catalog, the menu and the settings sidebar", () => {
     expect(read("src/features/rbac/constants/catalog.ts")).toContain('"settings.checkin"');
     expect(read("src/core/navigation/menu.config.ts")).toContain('"settings.checkin"');
-    expect(read("src/features/settings/components/SettingsSidebar.tsx")).toContain('"settings.checkin"');
+    // The settings sub-nav is derived from menu.config now, so what has to
+    // name the submodule is its presentation entry — without one it renders
+    // under a fallback icon in an "Other" section.
+    expect(read("src/features/settings/navigation/settingsNav.ts")).toContain('"settings.checkin"');
   });
 
   it("the route is mounted", () => {

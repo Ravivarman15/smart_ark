@@ -1,49 +1,19 @@
 import { NavLink } from "react-router-dom";
 import {
-  User, KeyRound, MessageSquare, BellRing, MessageCircle,
-  BadgeCheck, Gauge, Gift, CreditCard, Palette, MapPin,
-} from "lucide-react";
-import { useSidebarAccess } from "@/features/rbac";
+  SETTINGS_GROUP_ORDER,
+  useSettingsSections,
+} from "../navigation/settingsNav";
 
 /**
  * Secondary navigation for the Settings space.
  *
- * Items are gated by the same RBAC submodule ids the main sidebar uses, so
- * revoking access in the permission matrix removes the section here too.
+ * The list is DERIVED from `useNavigation` — the same resolver that builds the
+ * main sidebar — so what a user sees here is, by construction, what they see
+ * under Settings in the sidebar. See `../navigation/settingsNav.ts` for why
+ * this stopped being a hardcoded array.
  *
- * ┌── TWO SECTIONS WERE MISSING ───────────────────────────────────────────┐
- * │ Billing & Subscription and Branding & White Label have routes, RBAC    │
- * │ submodules and entries in menu.config — but not here. So once a user   │
- * │ was inside Settings there was no way to reach either without typing    │
- * │ the URL. Added, and a gate now asserts this list matches the Settings  │
- * │ group in menu.config, because the two drifted silently once already.   │
- * └────────────────────────────────────────────────────────────────────────┘
+ * Nothing here decides visibility. This component only lays sections out.
  */
-interface Section {
-  path: string;
-  label: string;
-  /** RBAC submodule id used by useSidebarAccess. */
-  submodule: string;
-  icon: React.ComponentType<{ className?: string }>;
-  group: "Account" | "Automation" | "Plan & billing";
-}
-
-const SECTIONS: Section[] = [
-  { path: "/settings/profile",            label: "Profile",                 submodule: "settings.profile",            icon: User,          group: "Account" },
-  { path: "/settings/change-password",    label: "Change Password",         submodule: "settings.change_password",    icon: KeyRound,      group: "Account" },
-  { path: "/settings/auto-sms",           label: "Auto SMS",                submodule: "settings.auto_sms",           icon: MessageSquare, group: "Automation" },
-  { path: "/settings/auto-notifications", label: "Auto Notifications",      submodule: "settings.auto_notifications", icon: BellRing,      group: "Automation" },
-  { path: "/settings/auto-whatsapp",      label: "Auto WhatsApp",           submodule: "settings.auto_whatsapp",      icon: MessageCircle, group: "Automation" },
-  { path: "/settings/my-plan",            label: "My Plan",                 submodule: "settings.my_plan",            icon: BadgeCheck,    group: "Plan & billing" },
-  { path: "/settings/sms-plan",           label: "SMS Plan",                submodule: "settings.sms_plan",           icon: Gauge,         group: "Plan & billing" },
-  { path: "/settings/my-referral",        label: "My Referral",             submodule: "settings.my_referral",        icon: Gift,          group: "Plan & billing" },
-  { path: "/settings/billing",            label: "Billing & Subscription",  submodule: "settings.billing",            icon: CreditCard,    group: "Plan & billing" },
-  { path: "/settings/branding",           label: "Branding & White Label",  submodule: "settings.branding",           icon: Palette,       group: "Plan & billing" },
-  { path: "/settings/check-in",           label: "Check-in & Check-out",    submodule: "settings.checkin",            icon: MapPin,        group: "Organisation" },
-];
-
-const GROUP_ORDER: Section["group"][] = ["Account", "Automation", "Plan & billing"];
-
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
     isActive
@@ -52,8 +22,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export const SettingsSidebar = () => {
-  const { canViewSubmodule } = useSidebarAccess();
-  const visible = SECTIONS.filter((s) => canViewSubmodule(s.submodule));
+  const visible = useSettingsSections();
 
   if (visible.length === 0) {
     return (
@@ -94,7 +63,7 @@ export const SettingsSidebar = () => {
 
       {/* Desktop: grouped vertical nav. */}
       <nav className="hidden lg:block space-y-4" aria-label="Settings sections">
-        {GROUP_ORDER.map((group) => {
+        {SETTINGS_GROUP_ORDER.map((group) => {
           const items = visible.filter((s) => s.group === group);
           if (items.length === 0) return null;
           return (

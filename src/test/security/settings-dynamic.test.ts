@@ -271,24 +271,28 @@ describe("Settings looks like every other module", () => {
     // Billing and Branding had routes, RBAC submodules and menu entries but
     // were absent from this nav, so they were unreachable from inside
     // Settings. The two lists drifted silently; this stops it recurring.
+    //
+    // The nav is now derived from NAV_CONFIG rather than declared in the
+    // component, so the coverage question is asked of the menu config — which
+    // is the list that has to be complete.
     const block = app.slice(app.indexOf('path="/settings"'));
     const routes = [...block.slice(0, block.indexOf("</Route>")).matchAll(/path="([a-z-]+)"/g)]
       .map((m) => `/settings/${m[1]}`);
     expect(routes.length).toBeGreaterThan(8);
 
-    const linked = [...nav.matchAll(/path: "(\/settings\/[a-z-]+)"/g)].map((m) => m[1]);
+    const menu = read(join(ROOT, "src", "core", "navigation", "menu.config.ts"));
+    const linked = [...menu.matchAll(/path: "(\/settings\/[a-z-]+)"/g)].map((m) => m[1]);
     const missing = routes.filter((r) => !linked.includes(r));
     expect(missing, `routes with no link in the settings nav: ${missing.join(", ")}`).toEqual([]);
   });
 
-  it("every sub-nav item is RBAC-gated", () => {
-    // Adding a link without a submodule id would show it to roles that cannot
-    // open the page.
-    const items = [...nav.matchAll(/path: "\/settings\/[a-z-]+",[^}]*/g)].map((m) => m[0]);
-    expect(items.length).toBeGreaterThan(8);
-    for (const item of items) {
-      expect(item, `nav item has no submodule: ${item.slice(0, 60)}`).toMatch(/submodule: "settings\./);
-    }
-    expect(nav).toMatch(/canViewSubmodule\(s\.submodule\)/);
+  it("the sub-nav declares no visibility rule of its own", () => {
+    // The whole defect: a second hardcoded list, filtered differently from the
+    // sidebar, showed a coordinator four sections when two were granted.
+    expect(nav, "settings links are declared in menu.config, not here")
+      .not.toMatch(/path: "\/settings\//);
+    expect(nav, "a second permission filter is how the two lists diverged")
+      .not.toMatch(/canViewSubmodule/);
+    expect(nav).toMatch(/useSettingsSections\(\)/);
   });
 });
