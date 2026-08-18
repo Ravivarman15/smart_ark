@@ -225,7 +225,7 @@ describe("Deleting a branch cannot orphan records", () => {
   });
 
   it("the page gates Delete on that check, not on a role alone", () => {
-    expect(PAGE).toMatch(/canDelete && branchIsDeletable\(b\) && rows\.length > 1/);
+    expect(PAGE).toMatch(/canDelete && branchIsDeletable\(b\) && allRows\.length > 1/);
   });
 });
 
@@ -313,6 +313,99 @@ describe("The module is registered everywhere RBAC looks", () => {
   it("the page checks the actions it declares", () => {
     for (const action of ["setup.branch.create", "setup.branch.edit", "setup.branch.delete"]) {
       expect(PAGE, `${action} declared but never checked`).toContain(action);
+    }
+  });
+});
+
+describe("Viewing a branch is separate from editing it", () => {
+  it("every row offers View, regardless of edit rights", () => {
+    // View is not gated on canEdit: read-only access to the branch list is a
+    // real permission state, and it should still answer "how many students
+    // are at North Campus?".
+    expect(PAGE).toMatch(/onView=\{\(\) => setViewing\(b\)\}/);
+    expect(PAGE).toMatch(/onEdit=\{canEdit \? \(\) => openEdit\(b\) : undefined\}/);
+  });
+
+  it("a row click opens the read-only view, not the form", () => {
+    expect(PAGE).toMatch(/onRowClick=\{\(b\) => setViewing\(b\)\}/);
+  });
+
+  it("the detail view explains why Delete is missing", () => {
+    const detail = read("src/features/setup/components/BranchDetailDialog.tsx");
+    expect(detail).toMatch(/cannot be deleted while records are assigned/);
+    expect(detail).toMatch(/Deactivating does not free a plan slot/);
+    expect(detail).toMatch(/branchIsDeletable/);
+  });
+});
+
+describe("Filtering the list never changes what is safe to do", () => {
+  it("delete and primary decisions read the UNFILTERED set", () => {
+    // "Is this the last branch?" is a question about the organization, not
+    // about the current search box. Reading `rows` there would offer Delete on
+    // the only branch left simply because a filter hid the others.
+    expect(PAGE).toMatch(/branchIsDeletable\(b\) && allRows\.length > 1/);
+    expect(PAGE).toMatch(/isPrimary: allRows\.length === 0/);
+    expect(PAGE).toMatch(/disabled=\{editing\?\.isPrimary \|\| allRows\.length === 0\}/);
+  });
+
+  it("distinguishes 'no branches' from 'no matches'", () => {
+    expect(PAGE).toMatch(/No branches yet/);
+    expect(PAGE).toMatch(/No branches match/);
+    expect(PAGE).toMatch(/Clear filters/);
+  });
+});
+
+describe("The branch filter is wired to the column it filters", () => {
+  const wiring: [string, string, RegExp][] = [
+    [
+      "students",
+      "src/features/students/pages/ManageStudentsPage.tsx",
+      /value=\{filters\.campusId\}[\s\S]{0,80}campusId: v/,
+    ],
+    [
+      "classes",
+      "src/features/setup/pages/ManageBatchesPage.tsx",
+      /value=\{filters\.campusId\}[\s\S]{0,120}campusId: v/,
+    ],
+    ["staff", "src/pages/shared/ManageStaff.tsx", /value=\{campusFilter\}/],
+  ];
+
+  it.each(wiring)("%s uses the shared component", (_name, file, pattern) => {
+    const src = read(file);
+    // The batches page lives inside the setup feature, so it imports the
+    // component relatively. Both spellings are the same module.
+    expect(src, `${file} does not import BranchFilter`).toMatch(
+      /BranchFilter,?\s*[\s\S]{0,200}from "(@\/features\/setup\/components|\.\.\/components)"/,
+    );
+    expect(src, `${file} does not bind the filter to a campus id`).toMatch(pattern);
+  });
+
+  it("students filter on the server, where campusId already worked", () => {
+    // toServerParams has mapped campusId to a SQL filter since before this
+    // page had any way to set it.
+    const filters = read("src/features/students/utils/studentFilters.ts");
+    expect(filters).toMatch(/f\.campusId !== "all" \? \{ campusId: f\.campusId \}/);
+  });
+
+  it("staff filter on the server too, not in the client list", () => {
+    // Client-side filtering after paging would show "12 staff" and list 4.
+    const page = read("src/pages/shared/ManageStaff.tsx");
+    expect(page).toMatch(/campusId: campusFilter === "all" \? undefined : campusFilter/);
+  });
+
+  it("classes pass the campus through to the batches service", () => {
+    const service = read("src/features/setup/services/batches.service.ts");
+    expect(service).toMatch(/filters\?\.campusId.*b\.campusId === filters\.campusId/);
+    const hook = read("src/features/setup/hooks/useBatches.ts");
+    expect(hook).toMatch(/campusId\?: string/);
+  });
+
+  it("is defined exactly once", () => {
+    // Four copies of the same dropdown would become four different empty-state
+    // behaviours. Only the shared component may build the option list.
+    for (const file of wiring.map(([, f]) => f)) {
+      expect(read(file), `${file} builds its own campus dropdown`)
+        .not.toMatch(/All branches<\/SelectItem>/);
     }
   });
 });

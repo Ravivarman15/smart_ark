@@ -91,6 +91,45 @@ The allowance shown on the page is **advisory**, read from `usage_status()`,
 and **fails open**: a slow or failed usage read leaves the Add button enabled
 and lets the database refuse. A UI that guesses should guess permissive.
 
+## Viewing
+
+Every row has a **View** button, and clicking the row opens the same read-only
+dialog — not the edit form. A stray click on a table should not put a live
+branch into an editable state, and "how many students are at North Campus?" is
+the most-asked question about a branch.
+
+The dialog shows the counts, the code/address/coordinates, whether geofenced
+check-in is on, and — the part that stops a support ticket — **why Delete is
+absent** when records are still assigned.
+
+View is deliberately **not** gated on `setup.branch.edit`. Read-only access to
+the branch list is a real permission state.
+
+## Filtering
+
+| Where | Control | Applied |
+|---|---|---|
+| Manage Branches | search (name / code / address) + Active / Inactive / All | client-side; the directory is a handful of rows |
+| Manage Students | Branch dropdown | **server-side** — `toServerParams` has mapped `campusId` to SQL since before the page could set it |
+| Manage Staff | Branch dropdown | **server-side** — `useStaff({ campusId })`, so paging and counts stay honest |
+| Manage Classes / Batches | Branch dropdown | in `batchesService.list`, beside the existing standard/course filters |
+
+One component, `setup/components/BranchFilter.tsx`, backs all three dropdowns.
+It reads `campuses` rather than the branch directory on purpose: `campus_id` is
+the column being filtered, so the options are exactly the values that can
+appear there — and a deactivated branch stays selectable, because you still
+need to find the records attached to one.
+
+**It renders nothing while the organization has fewer than two branches.** Most
+tenants have exactly one, and a dropdown whose only option is "All branches" is
+furniture on three toolbars at once. It appears by itself the day a second
+branch is created.
+
+> Filtering the branch list never changes what is safe to do on it. "Is this
+> the last branch?" and "is this the first?" read the **unfiltered** set —
+> otherwise hiding the others behind a search would offer Delete on the only
+> branch an organization has.
+
 ## Deleting
 
 A branch is deletable only while nothing points at its campus. Nine foreign

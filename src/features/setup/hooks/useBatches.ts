@@ -8,6 +8,7 @@ import type { BatchInput } from "../types/setup.types";
 export const useBatches = (filters?: {
   standardId?: string;
   courseTypeId?: string;
+  campusId?: string;
   isActive?: boolean;
 }) =>
   useQuery({

@@ -1,11 +1,14 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
+  /** Omit to hide the button — read-only detail, available without edit rights. */
+  onView?: () => void;
   /** Omit to hide the button — e.g. RBAC denies the edit action. */
   onEdit?: () => void;
   /** Omit to hide the button — e.g. the row cannot be deleted yet. */
   onDelete?: () => void;
+  viewLabel?: string;
   editLabel?: string;
   deleteLabel?: string;
 }
@@ -20,12 +23,24 @@ interface Props {
  * unavailable should not be on it.
  */
 export const RowActions = ({
+  onView,
   onEdit,
   onDelete,
+  viewLabel = "View",
   editLabel = "Edit",
   deleteLabel = "Delete",
 }: Props) => (
   <div className="flex gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
+    {onView && (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 gap-1.5 text-xs"
+        onClick={onView}
+      >
+        <Eye className="w-3 h-3" /> {viewLabel}
+      </Button>
+    )}
     {onEdit && (
       <Button
         size="sm"

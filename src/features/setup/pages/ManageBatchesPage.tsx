@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  BranchFilter,
   ConfirmDeleteDialog,
   EmptyState,
   EntityFormSheet,
@@ -82,13 +83,15 @@ const ManageBatchesPage = () => {
   const [filters, setFilters] = useState<{
     standardId: string;
     courseTypeId: string;
+    campusId: string;
     status: string;
-  }>({ standardId: "all", courseTypeId: "all", status: "all" });
+  }>({ standardId: "all", courseTypeId: "all", campusId: "all", status: "all" });
 
   const queryFilters = useMemo(
     () => ({
       ...(filters.standardId !== "all" ? { standardId: filters.standardId } : {}),
       ...(filters.courseTypeId !== "all" ? { courseTypeId: filters.courseTypeId } : {}),
+      ...(filters.campusId !== "all" ? { campusId: filters.campusId } : {}),
       ...(filters.status !== "all" ? { isActive: filters.status === "active" } : {}),
     }),
     [filters]
@@ -308,6 +311,10 @@ const ManageBatchesPage = () => {
               ))}
             </SelectContent>
           </Select>
+          <BranchFilter
+            value={filters.campusId}
+            onChange={(v) => setFilters((f) => ({ ...f, campusId: v }))}
+          />
           <Select
             value={filters.courseTypeId}
             onValueChange={(v) => setFilters((f) => ({ ...f, courseTypeId: v }))}

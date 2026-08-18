@@ -73,6 +73,7 @@ import {
 import { useStudentFilterPresets } from "../hooks/useStudentFilterPresets";
 import { studentsService } from "../services/students.service";
 import { openReportWindow, closeReportWindow } from "@/lib/reportWindow";
+import { BranchFilter } from "@/features/setup/components";
 import {
   exportStudents,
   type ExportFormat,
@@ -403,6 +404,11 @@ const ManageStudentsPage = () => {
               ))}
             </SelectContent>
           </Select>
+          {/* Hidden while the organization has one branch — see BranchFilter. */}
+          <BranchFilter
+            value={filters.campusId}
+            onChange={(v) => set({ campusId: v })}
+          />
           <Select value={filters.status} onValueChange={(v) => set({ status: v as StudentFilters["status"] })}>
             <SelectTrigger className="h-8 w-28">
               <SelectValue placeholder="Status" />

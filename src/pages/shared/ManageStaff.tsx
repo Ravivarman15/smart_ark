@@ -3,6 +3,7 @@ import { Plus, Search, UserCheck, UserCog, Users, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BranchFilter } from "@/features/setup/components";
 import { useConfirm, usePrompt } from "@/components/ui/confirm-dialog";
 import {
   Select,
@@ -78,12 +79,16 @@ const ManageStaff = () => {
     OnboardingStatus | "all"
   >("all");
   const [departmentFilter, setDepartmentFilter] = useState("");
+  // "all" or a campus id. Applied SERVER side (profiles.campus_id) rather than
+  // in the client filter below, so paging and the counts stay honest.
+  const [campusFilter, setCampusFilter] = useState("all");
   const [page, setPage] = useState(1);
 
   // Server-side filters: include inactive so the lifecycle column is honest.
   const { data: staff = [], isLoading, refetch } = useStaff({
     includeInactive: true,
     role: roleFilter === "all" ? undefined : (roleFilter as Role),
+    campusId: campusFilter === "all" ? undefined : campusFilter,
   });
 
   const deactivate = useDeactivateStaff();
@@ -393,6 +398,14 @@ const ManageStaff = () => {
           />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:flex">
+          <BranchFilter
+            className="h-10 lg:w-36"
+            value={campusFilter}
+            onChange={(v) => {
+              setCampusFilter(v);
+              setPage(1);
+            }}
+          />
           <Select
             value={roleFilter}
             onValueChange={(v) => {

@@ -6,3 +6,5 @@ export { EmptyState } from "./EmptyState";
 export { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 export { FormField } from "./FormField";
 export { RowActions } from "./RowActions";
+export { BranchFilter } from "./BranchFilter";
+export { BranchDetailDialog } from "./BranchDetailDialog";

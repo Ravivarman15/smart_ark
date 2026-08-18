@@ -47,6 +47,8 @@ class BatchesService extends BaseService {
   async list(filters?: {
     standardId?: string;
     courseTypeId?: string;
+    /** Campus (branch) id. Applied client-side beside the others. */
+    campusId?: string;
     isActive?: boolean;
   }): Promise<Batch[]> {
     // Try the rich projection first; fall back to a legacy one if newer
@@ -80,6 +82,7 @@ class BatchesService extends BaseService {
     if (filters?.standardId) mapped = mapped.filter((b) => b.standardId === filters.standardId);
     if (filters?.courseTypeId)
       mapped = mapped.filter((b) => b.courseTypeId === filters.courseTypeId);
+    if (filters?.campusId) mapped = mapped.filter((b) => b.campusId === filters.campusId);
     if (typeof filters?.isActive === "boolean")
       mapped = mapped.filter((b) => b.isActive === filters.isActive);
     return mapped;

@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, Star, MapPin, Users, GraduationCap, Layers } from "lucide-react";
+import { Building2, Star, MapPin, Users, GraduationCap, Layers, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { usePermissions } from "@/core/permissions";
 import {
+  BranchDetailDialog,
   ConfirmDeleteDialog,
   EmptyState,
   EntityFormSheet,
@@ -68,8 +76,10 @@ const blank: FormState = {
 const numberOrUndefined = (v: string): number | undefined =>
   v.trim() === "" ? undefined : Number(v);
 
+type StatusFilter = "all" | "active" | "inactive";
+
 const ManageBranchesPage = () => {
-  const { data: rows = [], isLoading, error: fetchError } = useBranches();
+  const { data: allRows = [], isLoading, error: fetchError } = useBranches();
   const { data: allowance } = useBranchUsage();
   const createMut = useCreateBranch();
   const updateMut = useUpdateBranch();
@@ -94,13 +104,31 @@ const ManageBranchesPage = () => {
   const [form, setForm] = useState<FormState>(blank);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingDelete, setPendingDelete] = useState<Branch | null>(null);
+  const [viewing, setViewing] = useState<Branch | null>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+
+  // Filtering happens here rather than in the query: the directory is a handful
+  // of rows already fetched, and re-querying on every keystroke would make the
+  // list flicker for no gain.
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allRows.filter((b) => {
+      if (status === "active" && !b.isActive) return false;
+      if (status === "inactive" && b.isActive) return false;
+      if (!q) return true;
+      return `${b.name} ${b.code ?? ""} ${b.address ?? ""}`.toLowerCase().includes(q);
+    });
+  }, [allRows, search, status]);
+
+  const filtering = search.trim() !== "" || status !== "all";
 
   const openCreate = () => {
     setEditing(null);
     // The first branch an organization creates is primary whether or not the
     // box is ticked (create_branch enforces it), so pre-tick it when there is
     // nothing else — otherwise the UI would contradict what happens.
-    setForm({ ...blank, isPrimary: rows.length === 0 });
+    setForm({ ...blank, isPrimary: allRows.length === 0 });
     setErrors({});
     setSheetOpen(true);
   };
@@ -231,12 +259,13 @@ const ManageBranchesPage = () => {
       align: "right",
       cell: (b) => (
         <RowActions
+          onView={() => setViewing(b)}
           onEdit={canEdit ? () => openEdit(b) : undefined}
           // Offering Delete on a branch with 400 students trains people to
           // press it and read an error. The row shows the counts; the action
           // simply is not there until they are zero.
           onDelete={
-            canDelete && branchIsDeletable(b) && rows.length > 1
+            canDelete && branchIsDeletable(b) && allRows.length > 1
               ? () => setPendingDelete(b)
               : undefined
           }
@@ -260,27 +289,55 @@ const ManageBranchesPage = () => {
           : undefined
       }
       toolbar={
-        usageLabel ? (
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span
-              className={
-                atLimit
-                  ? "rounded-md bg-destructive/10 px-2 py-1 font-medium text-destructive"
-                  : "rounded-md bg-muted px-2 py-1 text-muted-foreground"
-              }
-            >
-              {usageLabel}
-            </span>
-            {atLimit && (
-              <Link
-                to="/settings/billing"
-                className="font-medium text-accent underline underline-offset-4"
-              >
-                Upgrade your plan to add another
-              </Link>
-            )}
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Name, code, address…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 w-56 pl-9"
+            />
           </div>
-        ) : undefined
+          <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+            <SelectTrigger className="h-8 w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All branches</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {filtering && (
+            <span className="text-xs text-muted-foreground">
+              {rows.length} of {allRows.length}
+            </span>
+          )}
+
+          {usageLabel && (
+            <div className="ml-auto flex flex-wrap items-center gap-2 text-xs">
+              <span
+                className={
+                  atLimit
+                    ? "rounded-md bg-destructive/10 px-2 py-1 font-medium text-destructive"
+                    : "rounded-md bg-muted px-2 py-1 text-muted-foreground"
+                }
+              >
+                {usageLabel}
+              </span>
+              {atLimit && (
+                <Link
+                  to="/settings/billing"
+                  className="font-medium text-accent underline underline-offset-4"
+                >
+                  Upgrade your plan to add another
+                </Link>
+              )}
+            </div>
+          )}
+        </>
       }
     >
       <EntityTable
@@ -288,15 +345,40 @@ const ManageBranchesPage = () => {
         rows={rows}
         rowKey={(b) => b.id}
         loading={isLoading}
-        onRowClick={canEdit ? openEdit : undefined}
+        // Row click opens the read-only view. Editing is a deliberate second
+        // step — a stray click on a table should not put a live branch into an
+        // editable form.
+        onRowClick={(b) => setViewing(b)}
         empty={
-          <EmptyState
-            icon={<Building2 className="w-5 h-5" />}
-            title="No branches yet"
-            description="Add your first branch to assign students, staff and classes to a location."
-            action={canCreate ? { label: "Add Branch", onClick: openCreate } : undefined}
-          />
+          filtering ? (
+            <EmptyState
+              icon={<Search className="w-5 h-5" />}
+              title="No branches match"
+              description="No branch matches that search or status. Clear the filters to see all of them."
+              action={{
+                label: "Clear filters",
+                onClick: () => {
+                  setSearch("");
+                  setStatus("all");
+                },
+              }}
+            />
+          ) : (
+            <EmptyState
+              icon={<Building2 className="w-5 h-5" />}
+              title="No branches yet"
+              description="Add your first branch to assign students, staff and classes to a location."
+              action={canCreate ? { label: "Add Branch", onClick: openCreate } : undefined}
+            />
+          )
         }
+      />
+
+      <BranchDetailDialog
+        branch={viewing}
+        open={!!viewing}
+        onOpenChange={(o) => !o && setViewing(null)}
+        onEdit={canEdit ? openEdit : undefined}
       />
 
       <EntityFormSheet
@@ -308,7 +390,7 @@ const ManageBranchesPage = () => {
         submitting={createMut.isPending || updateMut.isPending}
         onSubmit={submit}
         onDelete={
-          editing && canDelete && branchIsDeletable(editing) && rows.length > 1
+          editing && canDelete && branchIsDeletable(editing) && allRows.length > 1
             ? () => setPendingDelete(editing)
             : undefined
         }
@@ -376,7 +458,7 @@ const ManageBranchesPage = () => {
             checked={form.isPrimary}
             // Un-ticking the only primary would leave the organization without
             // one; the server refuses that, so the control refuses it first.
-            disabled={editing?.isPrimary || rows.length === 0}
+            disabled={editing?.isPrimary || allRows.length === 0}
             onCheckedChange={(v) => setForm({ ...form, isPrimary: v })}
           />
         </div>
