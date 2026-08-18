@@ -314,6 +314,10 @@ export const queryKeys = {
     timetable: (batchId: string) =>
       [...queryKeys.setup.all, "timetable", batchId] as const,
     campuses: () => [...queryKeys.setup.all, "campuses"] as const,
+    branches: () => [...queryKeys.setup.all, "branches"] as const,
+    /** Plan allowance for branches — separate key so adding a branch can
+     *  refresh "2 of 5" without refetching the whole directory. */
+    branchUsage: () => [...queryKeys.setup.all, "branch-usage"] as const,
     teachers: () => [...queryKeys.setup.all, "teachers"] as const,
   },
   settings: {

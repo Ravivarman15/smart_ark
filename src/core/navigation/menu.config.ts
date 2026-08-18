@@ -185,6 +185,8 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     items: [
       // "Add X" links deep-link to the matching Manage page with ?new=1,
       // which auto-opens the create slide-over (see useNewParam).
+      ...sub("setup.add_branch",        "Add Branch",            { admin: "/admin/setup/branches?new=1",     management: "/management/setup/branches?new=1" },     adminMgmt, { action: "setup.branch.create" }),
+      ...sub("setup.manage_branch",     "Manage Branch",         { admin: "/admin/setup/branches",           management: "/management/setup/branches" },           adminMgmt),
       ...sub("setup.add_year",          "Add Year",              { admin: "/admin/setup/years?new=1",        management: "/management/setup/years?new=1" },        adminMgmt),
       ...sub("setup.manage_year",       "Manage Year",           { admin: "/admin/setup/years",              management: "/management/setup/years" },              adminMgmt),
       ...sub("setup.assign_standard",   "Assign Standard",       { admin: "/admin/setup/standards",          management: "/management/setup/standards" },          adminMgmt),

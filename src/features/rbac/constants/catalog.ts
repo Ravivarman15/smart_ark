@@ -98,6 +98,12 @@ export const MODULE_CATALOG: ModuleDef[] = [
     icon: "ListChecks",
     defaultRoles: mgmtAdmin,
     submodules: [
+      // Branches come first: everything else in Setup is assigned to one.
+      // No legacyAction — this surface never existed under the old
+      // staff_action_rights system, so there is nothing to stay compatible
+      // with and a legacy key would only make the resolver fall back.
+      { id: "setup.add_branch",      label: "Add Branch" },
+      { id: "setup.manage_branch",   label: "Manage Branch",     route: "/admin/setup/branches" },
       { id: "setup.add_year",        label: "Add Year" },
       { id: "setup.manage_year",     label: "Manage Year",       route: "/admin/setup/years",         legacyAction: "setup.years" },
       { id: "setup.assign_standard", label: "Assign Standard",   route: "/admin/setup/standards",     legacyAction: "setup.standards" },

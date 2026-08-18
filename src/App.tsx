@@ -93,6 +93,7 @@ const LeaveManagement = lazy(() => import("./pages/shared/LeaveManagement"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Setup module pages (feature-based — src/features/setup)
+const ManageBranchesPage = lazy(() => import("./features/setup/pages/ManageBranchesPage"));
 const ManageYearsPage = lazy(() => import("./features/setup/pages/ManageYearsPage"));
 const ManageStandardsPage = lazy(() => import("./features/setup/pages/ManageStandardsPage"));
 const ManageSubjectsPage = lazy(() => import("./features/setup/pages/ManageSubjectsPage"));
@@ -188,6 +189,11 @@ const RptFeeAnalysis = lazy(() => import("./features/reports/pages/FeeAnalysisRe
 const RptProfitLossAnalysis = lazy(() => import("./features/reports/pages/ProfitLossAnalysisPage"));
 
 // Communication module pages (feature-based — src/features/communication)
+// The Communication Center hub. Registered in SHARED_ROUTES for
+// coordinator/teacher only (layouts: ["coordinator","teacher"]), so admin and
+// management need their own mount — without it the sidebar's "Communication
+// Center" 404s for the two roles most likely to open it.
+const CommCenter = lazy(() => import("./features/communication/pages/CommunicationCenterPage"));
 const CommSendInquiry = lazy(() => import("./features/communication/pages/SendInquiryPage"));
 const CommSendStudent = lazy(() => import("./features/communication/pages/SendStudentPage"));
 const CommSendStaff = lazy(() => import("./features/communication/pages/SendStaffPage"));
@@ -596,6 +602,7 @@ const AppRoutes: React.FC = () => (
         <Route path="leave-management" element={<LeaveManagement />} />
         <Route path="teacher-checkins" element={<TeacherCheckins />} />
         {/* Setup module routes — feature-based */}
+        <Route path="setup/branches" element={<ManageBranchesPage />} />
         <Route path="setup/years" element={<ManageYearsPage />} />
         <Route path="setup/standards" element={<ManageStandardsPage />} />
         <Route path="setup/subjects" element={<ManageSubjectsPage />} />
@@ -634,6 +641,8 @@ const AppRoutes: React.FC = () => (
         <Route path="finance/add-income" element={<FinAddIncomePage />} />
         <Route path="finance/manage-income" element={<FinManageIncomePage />} />
         {/* Communication module routes — feature-based */}
+        {/* Exact path, declared before the children so it does not shadow them. */}
+        <Route path="communication" element={<CommCenter />} />
         <Route path="communication/send-inquiry" element={<CommSendInquiry />} />
         <Route path="communication/send-student" element={<CommSendStudent />} />
         <Route path="communication/send-staff" element={<CommSendStaff />} />
@@ -741,6 +750,7 @@ const AppRoutes: React.FC = () => (
         <Route path="leave-management" element={<LeaveManagement />} />
         <Route path="timetable" element={<TimetableView />} />
         {/* Setup module routes — feature-based, management-owned */}
+        <Route path="setup/branches" element={<ManageBranchesPage />} />
         <Route path="setup/years" element={<ManageYearsPage />} />
         <Route path="setup/standards" element={<ManageStandardsPage />} />
         <Route path="setup/subjects" element={<ManageSubjectsPage />} />
@@ -779,6 +789,8 @@ const AppRoutes: React.FC = () => (
         <Route path="finance/add-income" element={<FinAddIncomePage />} />
         <Route path="finance/manage-income" element={<FinManageIncomePage />} />
         {/* Communication module routes — feature-based, management-owned */}
+        {/* Exact path, declared before the children so it does not shadow them. */}
+        <Route path="communication" element={<CommCenter />} />
         <Route path="communication/send-inquiry" element={<CommSendInquiry />} />
         <Route path="communication/send-student" element={<CommSendStudent />} />
         <Route path="communication/send-staff" element={<CommSendStaff />} />

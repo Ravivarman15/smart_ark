@@ -23,6 +23,7 @@ import type { Role } from "@/core/constants/roles";
 
 // ── Lazy imports ────────────────────────────────────────────────────────────
 // Setup module
+const ManageBranchesPage = lazy(() => import("@/features/setup/pages/ManageBranchesPage"));
 const ManageYearsPage = lazy(() => import("@/features/setup/pages/ManageYearsPage"));
 const ManageStandardsPage = lazy(() => import("@/features/setup/pages/ManageStandardsPage"));
 const ManageSubjectsPage = lazy(() => import("@/features/setup/pages/ManageSubjectsPage"));
@@ -288,6 +289,18 @@ export interface SharedRouteDef {
 // specific blocks directly for now.
 export const SHARED_ROUTES: SharedRouteDef[] = [
   // ── Setup ─────────────────────────────────────────────────────────────
+  {
+    path: "setup/branches",
+    element: <ManageBranchesPage />,
+    submodule: "setup.manage_branch",
+    label: "Manage Branch",
+  },
+  {
+    path: "setup/branches",
+    element: <ManageBranchesPage />,
+    submodule: "setup.add_branch",
+    label: "Add Branch",
+  },
   {
     path: "setup/years",
     element: <ManageYearsPage />,

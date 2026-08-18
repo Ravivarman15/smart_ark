@@ -15,6 +15,26 @@ export const academicYearSchema = z
   });
 export type AcademicYearValues = z.infer<typeof academicYearSchema>;
 
+// ── Branch ──────────────────────────────────────────────────────────────────
+// Coordinates are optional and validated as a PAIR: half a coordinate places a
+// branch off the coast of Africa, and the check-in geofence would then reject
+// every staff member who checked in from the actual building.
+export const branchSchema = z
+  .object({
+    name: z.string().trim().min(2, "Enter at least 2 characters").max(120),
+    code: z.string().trim().max(20).optional().or(z.literal("")),
+    address: z.string().trim().max(300).optional().or(z.literal("")),
+    geoLat: z.number().min(-90).max(90).optional(),
+    geoLng: z.number().min(-180).max(180).optional(),
+    isPrimary: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((v) => (v.geoLat === undefined) === (v.geoLng === undefined), {
+    path: ["geoLng"],
+    message: "Enter both latitude and longitude, or neither",
+  });
+export type BranchValues = z.infer<typeof branchSchema>;
+
 // ── Standard ────────────────────────────────────────────────────────────────
 export const standardSchema = z.object({
   name: z.string().trim().min(1).max(80),

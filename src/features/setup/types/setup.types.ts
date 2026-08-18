@@ -155,3 +155,43 @@ export interface TimetablePeriodUpsert {
   room?: string | null;
   notes?: string | null;
 }
+
+// ── Branch ───────────────────────────────────────────────────────────────────
+// A branch is ONE domain object over two DB rows: the `campuses` row every
+// campus_id in the product points at, and the `organization_branches` row that
+// carries the tenant-facing detail. See services/branches.service.ts for why
+// they are never written separately.
+
+export interface Branch {
+  /** organization_branches.id — the id every RPC here takes. */
+  id: string;
+  /** campuses.id — what students, batches, exams and finance actually store. */
+  campusId?: string;
+  name: string;
+  code?: string;
+  address?: string;
+  geoLat?: number;
+  geoLng?: number;
+  geoRadiusMeters?: number;
+  mapsUrl?: string;
+  /** Exactly one per organization; the fallback location for anything unassigned. */
+  isPrimary: boolean;
+  isActive: boolean;
+  /** Set from Settings → Check-in & Check-out, shown here read-only. */
+  isCheckinLocation: boolean;
+  createdAt?: string;
+  /** Live counts — a branch can only be deleted while all three are zero. */
+  studentCount: number;
+  staffCount: number;
+  batchCount: number;
+}
+
+export interface BranchInput {
+  name: string;
+  code?: string;
+  address?: string;
+  geoLat?: number;
+  geoLng?: number;
+  isPrimary?: boolean;
+  isActive?: boolean;
+}

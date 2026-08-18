@@ -232,6 +232,13 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("payroll.settings",         "Edit payroll settings",      "edit",    "payroll.settings",    "payroll.settings"),
 
   // ── Setup ──────────────────────────────────────────────────────────────
+  // Branch actions are separately grantable from the page itself: a plan sells
+  // a fixed number of branches, so "who may spend one" is a decision an
+  // organization should be able to make independently of who may look at the
+  // list. Deleting one frees a paid slot, which is why it is its own action.
+  A("setup.branch.create",   "Create branch",             "create",  "setup.add_branch"),
+  A("setup.branch.edit",     "Edit branch",               "edit",    "setup.manage_branch"),
+  A("setup.branch.delete",   "Delete branch",             "delete",  "setup.manage_branch"),
   A("setup.batch.create",    "Create class/batch",        "create",  "setup.add_batch",      "setup.batches"),
   A("setup.batch.edit",      "Edit class/batch",          "edit",    "setup.manage_batch",   "setup.batches"),
   A("setup.batch.delete",    "Delete class/batch",        "delete",  "setup.manage_batch",   "setup.batches"),

@@ -1,4 +1,5 @@
 export { academicYearsService } from "./academicYears.service";
+export { branchesService, branchIsDeletable } from "./branches.service";
 export { standardsService } from "./standards.service";
 export { subjectsService } from "./subjects.service";
 export { courseTypesService } from "./courseTypes.service";

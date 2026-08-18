@@ -45,3 +45,11 @@ export {
   useClearTimetableCell,
 } from "./useTimetable";
 export { useCampuses, useTeachers } from "./useSupport";
+export {
+  useBranches,
+  useBranchUsage,
+  useCreateBranch,
+  useUpdateBranch,
+  useDeleteBranch,
+  type BranchAllowance,
+} from "./useBranches";
