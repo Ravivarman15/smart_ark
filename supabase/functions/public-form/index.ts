@@ -264,19 +264,31 @@ async function notify(
       undefined,
       brand,
     );
-    const res = await sendBrevoEmail({
-      to: [{ email: r.email, name: r.name ?? undefined }],
-      subject: `${mail.subject} — ${present(ctx.clean.name)}${
-        ctx.clean.organization_name ? ` — ${ctx.clean.organization_name}` : ""
-      }`,
-      htmlContent: mail.html,
-      textContent: mail.text,
-      tags: ["platform-lead-alert", ctx.formType],
-      // So an admin can reply straight to the enquirer. Safe: the address was
-      // validated and stripped of control characters, so it cannot inject a
-      // header.
-      replyTo: { email: ctx.clean.email, name: ctx.clean.name },
-    });
+    const res = await sendBrevoEmail(
+      {
+        to: [{ email: r.email, name: r.name ?? undefined }],
+        subject: `${mail.subject} — ${present(ctx.clean.name)}${
+          ctx.clean.organization_name ? ` — ${ctx.clean.organization_name}` : ""
+        }`,
+        htmlContent: mail.html,
+        textContent: mail.text,
+        tags: ["platform-lead-alert", ctx.formType],
+        // So an admin can reply straight to the enquirer. Safe: the address was
+        // validated and stripped of control characters, so it cannot inject a
+        // header.
+        replyTo: { email: ctx.clean.email, name: ctx.clean.name },
+      },
+      // No tenant, for the same reason the WhatsApp path takes `direct` mode: a
+      // platform marketing enquiry belongs to no organization. These sends have
+      // their own ledger — `platform_form_notifications`, via ledger()/settle()
+      // above — so they are recorded, just not in message_queue.
+      {
+        db: supabase,
+        organizationId: null,
+        template: "platform-lead-alert",
+        recipientName: r.name ?? undefined,
+      },
+    );
     await settle(supabase, ctx.submissionId, r.platform_user_id, "email", res);
     if (res.ok) ctx.notified.adminEmail += 1;
   }
@@ -347,13 +359,22 @@ async function notify(
       undefined,
       brand,
     );
-    const res = await sendBrevoEmail({
-      to: [{ email: ctx.clean.email, name: ctx.clean.name }],
-      subject: ack.subject,
-      htmlContent: ack.html,
-      textContent: ack.text,
-      tags: ["public-form-ack", ctx.formType],
-    });
+    const res = await sendBrevoEmail(
+      {
+        to: [{ email: ctx.clean.email, name: ctx.clean.name }],
+        subject: ack.subject,
+        htmlContent: ack.html,
+        textContent: ack.text,
+        tags: ["public-form-ack", ctx.formType],
+      },
+      // Recorded in platform_form_notifications — see the alert above.
+      {
+        db: supabase,
+        organizationId: null,
+        template: "public-form-ack",
+        recipientName: ctx.clean.name,
+      },
+    );
     await settle(supabase, ctx.submissionId, ctx.clean.email, "email", res);
     if (res.ok) ctx.notified.submitterEmail += 1;
   }

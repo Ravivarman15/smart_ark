@@ -87,6 +87,12 @@ async function sendWelcomeEmail(db: Db, orgId: string): Promise<Record<string, u
     body: {
       templateId: "organization-ready",
       to: { email: admin.email, name: admin.name },
+      // A service-role caller has no membership for send-email to derive the
+      // tenant from, so it must name it. Without this the email is sent with
+      // the PLATFORM's generic branding instead of the new customer's.
+      organizationId: orgId,
+      contextType: "organization_ready",
+      contextId: orgId,
       params: {
         organizationName: org.display_name,
         // The welcome email is the FIRST thing a new customer receives, and

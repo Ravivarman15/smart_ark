@@ -5,6 +5,11 @@ import jsPDF from "jspdf";
 import { SlipBody } from "../components/SalarySlip";
 import { resolveDocumentBranding } from "@/features/branding/documents";
 import type { PayrollItem, PayrollRun } from "../types/payroll.types";
+import {
+  addRasterPage,
+  documentCanvasOptions,
+  documentPdfOptions,
+} from "@/lib/documentRaster";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Headless payslip → PDF Blob.
@@ -85,18 +90,12 @@ export const generatePayslipPdfBlob = async (
     await waitForImages(host);
 
     const node = (host.querySelector("#payroll-slip") as HTMLElement) ?? host;
-    const canvas = await html2canvas(node, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-    });
+    const canvas = await html2canvas(node, documentCanvasOptions);
 
-    const pdf = new jsPDF({ unit: "pt", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const margin = 28;
-    const w = pageW - margin * 2;
-    const h = (canvas.height * w) / canvas.width;
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, margin, w, h);
+    // Payslips measured 5.4 MB as lossless PNG pages, and this blob is both
+    // uploaded to storage and attached to the payslip email.
+    const pdf = new jsPDF(documentPdfOptions);
+    addRasterPage(pdf, canvas);
     return pdf.output("blob");
   } finally {
     root.unmount();

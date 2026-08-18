@@ -3,6 +3,11 @@ import { Printer, Download, Loader2, FileText, Image } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import {
+  addRasterPage,
+  documentCanvasOptions,
+  documentPdfOptions,
+} from "@/lib/documentRaster";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -288,7 +293,7 @@ export const SalarySlipDialog = ({
   const rasterize = async () => {
     const node = slipRef.current;
     if (!node) return null;
-    return html2canvas(node, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+    return html2canvas(node, documentCanvasOptions);
   };
 
   const handleDownloadPdf = async () => {
@@ -296,13 +301,9 @@ export const SalarySlipDialog = ({
     try {
       const canvas = await rasterize();
       if (!canvas) return;
-      const img = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ unit: "pt", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const margin = 28;
-      const w = pageW - margin * 2;
-      const h = (canvas.height * w) / canvas.width;
-      pdf.addImage(img, "PNG", margin, margin, w, h);
+      // Same encoding as the emailed/archived payslip.
+      const pdf = new jsPDF(documentPdfOptions);
+      addRasterPage(pdf, canvas);
       pdf.save(`${fileBase}.pdf`);
     } finally {
       setBusy(null);

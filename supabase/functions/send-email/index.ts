@@ -24,12 +24,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { requireRole } from "../_shared/auth.ts";
+import { isServiceRoleCaller, resolveCaller } from "../_shared/auth.ts";
 import { resolveEmailCredentials, recordIntegrationUse } from "../_shared/integrations.ts";
 import { sendBrevoEmail } from "../_shared/brevo.ts";
 import {
   type EmailTemplateId,
   KNOWN_TEMPLATES,
+  maySendTemplate,
   renderEmail,
 } from "../_shared/email-templates.ts";
 
@@ -40,6 +41,19 @@ interface SendEmailPayload {
   branch?: string;
   /** Optional file attachments (e.g. the fee receipt PDF) — url or base64. */
   attachment?: { name: string; url?: string; content?: string }[];
+  /**
+   * INTERNAL CALLERS ONLY (service-role key). Names the tenant the email is
+   * for, because a service-role caller has no membership to derive it from.
+   *
+   * A user-authenticated caller cannot influence the tenant: the branch below
+   * takes it from the verified membership and ignores this field entirely.
+   */
+  organizationId?: string;
+  /** Links the delivery-log row to what the email is about. */
+  contextType?: string;
+  contextId?: string;
+  /** Domain fields merged into the delivery-log payload (e.g. receipt_no). */
+  logPayload?: Record<string, unknown>;
 }
 
 Deno.serve(async (req) => {
@@ -53,11 +67,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Phase 0: signature-verified caller + role gate. Previously the JWT
-    // payload was base64-decoded and trusted — see _shared/auth.ts.
-    const gate = await requireRole(req, supabase, ["management", "admin"]);
-    if (!gate.ok) return jsonResponse(gate.status, { error: gate.error });
-
     const body = (await req.json()) as SendEmailPayload;
     if (!body?.templateId || !body?.to?.email) {
       return jsonResponse(400, { error: "templateId and to.email are required" });
@@ -68,23 +77,66 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Sender identity ────────────────────────────────────────────────────
-    // Resolved from the VERIFIED caller's organization, exactly like the
-    // credentials below — never from the request body, which would let one
-    // tenant send mail signed with another tenant's name.
+    // ── Who is calling, and may they send THIS template? ───────────────────
     //
-    // Service role, so RLS does not apply: the org id comes from `gate.caller`,
-    // which requireRole() derived from a signature-verified JWT.
+    // Two kinds of caller, and both used to be rejected in cases where they
+    // should not have been:
+    //
+    //  1. OUR OWN SERVER-SIDE CODE, holding the service-role key. resolveCaller
+    //     verifies against GoTrue, which does not know service tokens, so
+    //     provisioning-worker and billing-lifecycle got a flat 401 — every
+    //     welcome email and every billing email, since the day they shipped.
+    //
+    //  2. A SIGNED-IN STAFF MEMBER. The gate was a single ["management",
+    //     "admin"] list for all mail, which locked out the 4 coordinators the
+    //     database explicitly permits to collect fees and the 15 teachers whose
+    //     actions fire the parent automations.
+    //
+    // Signature verification is unchanged: a user token still goes through
+    // resolveCaller, and the tenant still comes from verified membership.
+    const internal = isServiceRoleCaller(req);
+
+    let organizationId: string | null;
+    let callerRole: string | null = null;
+    let callerProfileId: string | null = null;
+
+    if (internal) {
+      // Trusted: the service-role key never reaches a browser.
+      organizationId = body.organizationId ?? null;
+    } else {
+      const caller = await resolveCaller(req, supabase);
+      if (!caller) return jsonResponse(401, { error: "Unauthorized" });
+      organizationId = caller.organizationId;
+      callerRole = caller.role;
+      callerProfileId = caller.profileId;
+    }
+
+    if (!maySendTemplate(body.templateId, callerRole, internal)) {
+      return jsonResponse(403, {
+        error:
+          `Forbidden — the "${body.templateId}" email cannot be sent by ` +
+          `${callerRole ? `the "${callerRole}" role` : "this caller"}.`,
+      });
+    }
+
+    // ── Sender identity ────────────────────────────────────────────────────
+    // For a user caller this is the VERIFIED membership organization — never
+    // the request body, which would let one tenant send mail signed with
+    // another tenant's name. For an internal caller it is the org that caller
+    // named, which is safe because holding the service-role key already means
+    // full database access.
     //
     // A failed lookup degrades to the PLATFORM default, which is generic. It
     // does not degrade to a tenant.
     let orgBranding: Record<string, string> | undefined;
     try {
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("display_name, organization_branding(app_name, support_email, support_phone, website_url, primary_color, accent_color, logo_url)")
-        .eq("id", gate.caller.organizationId)
-        .maybeSingle();
+      const { data: org } = organizationId
+        ? await supabase
+            .from("organizations")
+            .select("display_name, organization_branding(app_name, support_email, support_phone, website_url, primary_color, accent_color, logo_url)")
+            .eq("id", organizationId)
+            .maybeSingle()
+        : { data: null };
       if (org) {
         const b = (Array.isArray(org.organization_branding)
           ? org.organization_branding[0]
@@ -114,7 +166,7 @@ Deno.serve(async (req) => {
     // whenever the organization has no integration, has chosen 'platform', or
     // has a custom one that is unverified or incomplete. So this call behaves
     // exactly as it did before for every existing tenant, ARK included.
-    const creds = await resolveEmailCredentials(supabase, gate.caller.organizationId);
+    const creds = await resolveEmailCredentials(supabase, organizationId);
 
     const result = await sendBrevoEmail(
       {
@@ -125,6 +177,17 @@ Deno.serve(async (req) => {
         tags: [body.templateId],
         attachment: Array.isArray(body.attachment) ? body.attachment : undefined,
       },
+      // Every send is recorded — see _shared/email-log.ts.
+      {
+        db: supabase,
+        organizationId,
+        template: body.templateId,
+        recipientName: body.to.name,
+        contextType: body.contextType,
+        contextId: body.contextId,
+        createdBy: callerProfileId ?? undefined,
+        extraPayload: body.logPayload,
+      },
       // Only pass an override for a genuinely custom sender; otherwise let
       // sendBrevoEmail read the platform env exactly as it always has.
       creds.mode === "custom"
@@ -133,7 +196,7 @@ Deno.serve(async (req) => {
     );
 
     await recordIntegrationUse(
-      supabase, gate.caller.organizationId, "email", result.ok, result.error,
+      supabase, organizationId, "email", result.ok, result.error,
     );
 
     return jsonResponse(result.ok ? 200 : 502, {

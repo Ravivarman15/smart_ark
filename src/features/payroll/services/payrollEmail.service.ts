@@ -268,6 +268,10 @@ class PayrollEmailService extends BaseService {
           attachment: artifact.attachment
             ? [{ name: fileName, content: artifact.attachment }]
             : undefined,
+          // So the payslip shows up in the delivery log against its run rather
+          // than as an unattributed "salary-slip" row.
+          contextType: "payslip",
+          contextId: item.id,
         });
         results.push({
           ...base,

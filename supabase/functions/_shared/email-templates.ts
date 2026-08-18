@@ -660,6 +660,151 @@ const renderPublicFormAck = (
   return { subject, text, html: baseLayout({ branding: b, preheader: p.confirmation, bodyHtml }) };
 };
 
+// ── Operational notices (provisioning + billing) ────────────────────────────
+//
+// ┌── THESE NINE IDS WERE BEING SENT AND NONE OF THEM EXISTED ─────────────┐
+// │ `provisioning-worker` posts `organization-ready` and `billing-         │
+// │ lifecycle` posts eight billing ids. Not one was in KNOWN_TEMPLATES, so │
+// │ send-email rejected every single one with                             │
+// │     400 Unknown templateId. Allowed: …                                 │
+// │                                                                        │
+// │ The live evidence: `organization_settings.welcome_email` reads         │
+// │ {"sent": false} for BOTH organizations ever provisioned. No customer   │
+// │ has ever received a welcome email, and no billing email — trial        │
+// │ ending, payment failed, invoice issued — has ever been delivered.      │
+// │                                                                        │
+// │ Both callers treat a mail failure as best-effort and only increment a  │
+// │ `skipped` counter, so nothing ever surfaced.                           │
+// └────────────────────────────────────────────────────────────────────────┘
+//
+// They are rendered through the SAME notice body as `generic-notice` rather
+// than nine bespoke layouts: the content is a heading, a few lines and one
+// button, and a shared body cannot drift out of alignment with the branding.
+
+export interface OperationalNoticeParams {
+  /** Free-text detail from the emitting event; optional for every notice. */
+  detail?: string;
+  /** Absolute link for the notice's button. Relative paths are dropped. */
+  billingUrl?: string;
+  /** organization-ready only. */
+  organizationName?: string;
+  adminName?: string;
+  loginUrl?: string;
+  docsUrl?: string;
+}
+
+/**
+ * A CTA is only rendered for an ABSOLUTE url.
+ *
+ * `billing-lifecycle` passed `billingUrl: "/admin/billing"`. A relative href in
+ * an email resolves against the mail client's own origin, so the button would
+ * have led nowhere from every inbox. Dropping it leaves a correct email with no
+ * button, which is strictly better than a broken one.
+ */
+const absoluteCta = (
+  label: string,
+  url: string | undefined,
+): { label: string; url: string } | undefined =>
+  url && /^https?:\/\//i.test(url) ? { label, url } : undefined;
+
+type NoticeId =
+  | "organization-ready"
+  | "trial-ending"
+  | "trial-expired"
+  | "renewal-reminder"
+  | "payment-failed"
+  | "subscription-activated"
+  | "subscription-suspended"
+  | "subscription-restored"
+  | "invoice";
+
+/** heading + paragraphs + optional CTA for each operational notice. */
+const OPERATIONAL_NOTICES: Record<
+  NoticeId,
+  (p: OperationalNoticeParams, b: Branding) => GenericNoticeParams
+> = {
+  "organization-ready": (p, b) => ({
+    recipientName: p.adminName,
+    heading: `${p.organizationName ?? "Your institution"} is ready`,
+    paragraphs: [
+      `Your ${b.productName} workspace has been provisioned and is ready to use.`,
+      "Sign in with the credentials you set during signup to add your staff, students and fee structures.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("Sign in", p.loginUrl),
+  }),
+  "trial-ending": (p) => ({
+    heading: "Your trial ends soon",
+    paragraphs: [
+      "Your free trial is coming to an end. Add a payment method to keep your workspace active.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("Manage billing", p.billingUrl),
+  }),
+  "trial-expired": (p) => ({
+    heading: "Your trial has ended",
+    paragraphs: [
+      "Your free trial has ended. Your data is safe — choose a plan to restore full access.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("Choose a plan", p.billingUrl),
+  }),
+  "renewal-reminder": (p) => ({
+    heading: "Your subscription renews soon",
+    paragraphs: [
+      "This is a reminder that your subscription is due to renew.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("Review billing", p.billingUrl),
+  }),
+  "payment-failed": (p) => ({
+    heading: "We could not process your payment",
+    paragraphs: [
+      "A payment for your subscription did not go through. Please update your payment method to avoid interruption.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("Update payment method", p.billingUrl),
+  }),
+  "subscription-activated": (p) => ({
+    heading: "Your subscription is active",
+    paragraphs: [
+      "Thank you — your subscription is now active and every feature on your plan is available.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("View billing", p.billingUrl),
+  }),
+  "subscription-suspended": (p) => ({
+    heading: "Your workspace has been suspended",
+    paragraphs: [
+      "Your workspace has been suspended. No data has been deleted — settle the outstanding balance to restore access.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("Restore access", p.billingUrl),
+  }),
+  "subscription-restored": (p) => ({
+    heading: "Your workspace has been restored",
+    paragraphs: [
+      "Your workspace is active again and everyone on your team can sign in as before.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("View billing", p.billingUrl),
+  }),
+  invoice: (p) => ({
+    heading: "Your invoice is ready",
+    paragraphs: [
+      "A new invoice has been issued for your subscription.",
+      p.detail ?? "",
+    ].filter(Boolean),
+    cta: absoluteCta("View invoice", p.billingUrl),
+  }),
+};
+
+const renderOperationalNotice = (
+  id: NoticeId,
+  p: OperationalNoticeParams,
+  b: Branding,
+): RenderedEmail => renderGenericNotice(OPERATIONAL_NOTICES[id](p, b), b);
+
 // ── Registry dispatcher ─────────────────────────────────────────────────────
 export type EmailTemplateId =
   | "staff-welcome"
@@ -668,7 +813,8 @@ export type EmailTemplateId =
   | "salary-slip"
   | "fee-receipt"
   | "platform-lead-alert"
-  | "public-form-ack";
+  | "public-form-ack"
+  | NoticeId;
 
 export const KNOWN_TEMPLATES: EmailTemplateId[] = [
   "staff-welcome",
@@ -678,7 +824,71 @@ export const KNOWN_TEMPLATES: EmailTemplateId[] = [
   "fee-receipt",
   "platform-lead-alert",
   "public-form-ack",
+  // Operational notices. Derived from OPERATIONAL_NOTICES rather than retyped,
+  // so adding a notice cannot leave it unregistered — which is precisely how
+  // all nine came to be rejected at runtime.
+  ...(Object.keys(OPERATIONAL_NOTICES) as NoticeId[]),
 ];
+
+// ── Who may send which template ─────────────────────────────────────────────
+//
+// ┌── THE GATE WAS ONE LIST FOR EVERY TEMPLATE ────────────────────────────┐
+// │ send-email required ["management", "admin"] for ALL mail. On the live  │
+// │ system that is 11 of 30 staff — the other 19 are coordinators (4) and  │
+// │ teachers (15), and both of them legitimately trigger email:            │
+// │                                                                        │
+// │  • A COORDINATOR may collect a fee. `is_fee_collector()` in the        │
+// │    database resolves to ('admin','management','coordinator'), and the  │
+// │    fee-write RLS was widened to match. So the database lets a          │
+// │    coordinator take the payment and the mailer then refused to send    │
+// │    the receipt — 403, and the parent hears nothing.                    │
+// │                                                                        │
+// │  • A TEACHER marking attendance or entering results fires the comms    │
+// │    automations, which send `generic-notice` to parents.                │
+// │                                                                        │
+// │ So the gate is per-template. A coordinator can send a receipt; only an │
+// │ admin can send payroll or staff credentials; and the operational       │
+// │ notices are internal-only — no human role can send them at all.        │
+// └────────────────────────────────────────────────────────────────────────┘
+
+/** Roles allowed to send a template, or "internal" for server-side only. */
+export const TEMPLATE_SENDERS: Record<EmailTemplateId, string[] | "internal"> = {
+  // Staff credentials and payroll stay with the roles that own those modules.
+  "staff-welcome": ["admin", "management"],
+  "staff-password-reset": ["admin", "management"],
+  "salary-slip": ["admin", "management"],
+  // Mirrors public.is_fee_collector() — deliberately the same three roles.
+  "fee-receipt": ["admin", "management", "coordinator"],
+  // Automations: attendance, exam results, reminders. Any staff member.
+  "generic-notice": ["admin", "management", "coordinator", "teacher"],
+  "platform-lead-alert": ["admin", "management", "coordinator"],
+  "public-form-ack": ["admin", "management", "coordinator"],
+  // Provisioning + billing. Emitted by edge functions, never by a person.
+  "organization-ready": "internal",
+  "trial-ending": "internal",
+  "trial-expired": "internal",
+  "renewal-reminder": "internal",
+  "payment-failed": "internal",
+  "subscription-activated": "internal",
+  "subscription-suspended": "internal",
+  "subscription-restored": "internal",
+  invoice: "internal",
+};
+
+/**
+ * May a caller with `role` send `templateId`?
+ * `internal` is true only for our own server-side callers.
+ */
+export const maySendTemplate = (
+  templateId: EmailTemplateId,
+  role: string | null,
+  internal: boolean,
+): boolean => {
+  const allowed = TEMPLATE_SENDERS[templateId];
+  if (internal) return true; // our own infrastructure may send anything
+  if (allowed === "internal") return false;
+  return !!role && allowed.includes(role);
+};
 
 /**
  * Render a registered template. Throws on an unknown id so the generic
@@ -708,6 +918,13 @@ export const renderEmail = (
     case "public-form-ack":
       return renderPublicFormAck(params as unknown as PublicFormAckParams, branding);
     default:
+      if (templateId in OPERATIONAL_NOTICES) {
+        return renderOperationalNotice(
+          templateId as NoticeId,
+          params as unknown as OperationalNoticeParams,
+          branding,
+        );
+      }
       throw new Error(`Unknown email template: ${templateId}`);
   }
 };

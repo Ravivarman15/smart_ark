@@ -22,7 +22,19 @@
 //   wired up.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { type EmailAuditContext, logEmailDelivery } from "./email-log.ts";
+
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+
+/**
+ * Transient failures worth retrying: Brevo rate-limiting, its own 5xx, and any
+ * network error. A 400 (bad template, invalid recipient) is never retried —
+ * repeating it just burns time and produces the same rejection.
+ */
+const isTransient = (httpStatus: number | undefined): boolean =>
+  httpStatus === undefined || httpStatus === 429 || httpStatus >= 500;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface BrevoRecipient {
   email: string;
@@ -75,6 +87,15 @@ export const brevoConfigured = (): boolean =>
 export const sendBrevoEmail = async (
   params: BrevoSendParams,
   /**
+   * REQUIRED delivery-log context — see _shared/email-log.ts.
+   *
+   * It is required rather than optional because "most emails leave no record"
+   * was the actual defect: fee receipts were the only path that logged, so
+   * every other failure was invisible. An optional parameter would be
+   * forgotten by the next caller, which is exactly how this happened.
+   */
+  audit: EmailAuditContext,
+  /**
    * Phase 6 — OPTIONAL per-organization sender.
    *
    * Omitted (every existing caller): the platform's own Deno.env secrets are
@@ -97,69 +118,95 @@ export const sendBrevoEmail = async (
   // overrides it; a tenant without one is now merely generic.
   const senderName = override?.senderName ?? Deno.env.get("SENDER_NAME") ?? "Smart ARK";
 
+  const recipient = params.to[0]?.email ?? "(no recipient)";
+
+  const finish = async (result: BrevoSendResult): Promise<BrevoSendResult> => {
+    await logEmailDelivery(audit, recipient, result);
+    return result;
+  };
+
   if (!apiKey || !senderEmail) {
-    return {
+    return finish({
       ok: false,
       status: "skipped",
       error:
         "Email not sent — BREVO_API_KEY / SENDER_EMAIL secrets are not configured.",
-    };
+    });
   }
 
-  try {
-    const res = await fetch(BREVO_API_URL, {
-      method: "POST",
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        sender: { email: senderEmail, name: senderName },
-        to: params.to,
-        subject: params.subject,
-        htmlContent: params.htmlContent,
-        textContent: params.textContent,
-        tags: params.tags,
-        replyTo: params.replyTo,
-        attachment:
-          params.attachment && params.attachment.length > 0
-            ? params.attachment
-            : undefined,
-      }),
-    });
+  const payload = JSON.stringify({
+    sender: { email: senderEmail, name: senderName },
+    to: params.to,
+    subject: params.subject,
+    htmlContent: params.htmlContent,
+    textContent: params.textContent,
+    tags: params.tags,
+    replyTo: params.replyTo,
+    attachment:
+      params.attachment && params.attachment.length > 0
+        ? params.attachment
+        : undefined,
+  });
 
-    const text = await res.text();
-    let body: Record<string, unknown> = {};
+  // Up to three attempts for TRANSIENT failures only (429, 5xx, network).
+  // Brevo rate-limits per second on the lower plans, and a bulk payslip or
+  // fee-reminder run trips it — those sends used to be reported as permanent
+  // failures when waiting a moment would have delivered them.
+  const MAX_ATTEMPTS = 3;
+  let last: BrevoSendResult = { ok: false, status: "failed", error: "not attempted" };
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let httpStatus: number | undefined;
     try {
-      body = JSON.parse(text);
-    } catch {
-      /* Brevo returns JSON; plain text only on infra errors */
-    }
+      const res = await fetch(BREVO_API_URL, {
+        method: "POST",
+        headers: {
+          "api-key": apiKey,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: payload,
+      });
+      httpStatus = res.status;
 
-    // Log status only — never the full body (may contain recipient PII).
-    console.log(`Brevo → ${params.to[0]?.email}: HTTP ${res.status}`);
+      const text = await res.text();
+      let body: Record<string, unknown> = {};
+      try {
+        body = JSON.parse(text);
+      } catch {
+        /* Brevo returns JSON; plain text only on infra errors */
+      }
 
-    if (res.ok) {
-      return {
-        ok: true,
-        status: "sent",
-        messageId: (body.messageId as string) ?? undefined,
+      // Log status only — never the full body (may contain recipient PII).
+      console.log(`Brevo → ${recipient}: HTTP ${res.status} (attempt ${attempt})`);
+
+      if (res.ok) {
+        return finish({
+          ok: true,
+          status: "sent",
+          messageId: (body.messageId as string) ?? undefined,
+        });
+      }
+
+      last = {
+        ok: false,
+        status: "failed",
+        error: `Brevo error (${res.status}): ${
+          (body.message as string) || res.statusText
+        }`,
+      };
+    } catch (err) {
+      httpStatus = undefined; // network-level — always transient
+      last = {
+        ok: false,
+        status: "failed",
+        error: `Brevo request failed: ${(err as Error).message}`,
       };
     }
 
-    return {
-      ok: false,
-      status: "failed",
-      error: `Brevo error (${res.status}): ${
-        (body.message as string) || res.statusText
-      }`,
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      status: "failed",
-      error: `Brevo request failed: ${(err as Error).message}`,
-    };
+    if (attempt === MAX_ATTEMPTS || !isTransient(httpStatus)) break;
+    await sleep(attempt * 600); // 600ms, then 1.2s
   }
+
+  return finish(last);
 };

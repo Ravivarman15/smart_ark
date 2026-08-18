@@ -19,7 +19,7 @@
 
 import { BaseService } from "@/shared/services";
 import { studentsService } from "@/features/students/services";
-import { emailService } from "@/features/staff/services/email.service";
+import { emailService, isTransportError } from "@/features/staff/services/email.service";
 import {
   aisensyService,
   commsAuditService,
@@ -170,7 +170,15 @@ class FeeReceiptDeliveryService extends BaseService {
     }
   }
 
-  /** Best-effort email audit row in message_queue so it shows in timeline/health. */
+  /**
+   * Record an attempt that NEVER REACHED the server.
+   *
+   * `send-email` now logs every send it handles, so a rejection or a provider
+   * failure is already on record and writing a second row here would
+   * double-count it. A dropped request is the one case the server cannot have
+   * seen — and it is exactly the case that produced every failed receipt row
+   * on the live system, so it must still leave a trace.
+   */
   private async logEmail(
     studentFeeId: string,
     studentId: string | undefined,
@@ -211,34 +219,53 @@ class FeeReceiptDeliveryService extends BaseService {
     to: { email: string; name?: string },
     branded: Record<string, unknown>,
     fallback: Record<string, unknown>,
+    studentFeeId: string,
+    receiptNo: string,
     attachment?: { name: string; content: string }[],
-  ): Promise<{ ok: boolean; error?: string }> {
-    const interpret = (res: { status: string; error?: string }): { ok: boolean; error?: string } =>
+  ): Promise<{ ok: boolean; error?: string; reachedServer: boolean }> {
+    const interpret = (res: {
+      status: string;
+      error?: string;
+    }): { ok: boolean; error?: string; reachedServer: boolean } =>
       res.status === "sent"
-        ? { ok: true }
+        ? { ok: true, reachedServer: true }
         : {
             ok: false,
+            reachedServer: true,
             error:
               res.error ??
               (res.status === "skipped"
                 ? "Email service not configured — set BREVO_API_KEY + SENDER_EMAIL secrets."
                 : "Email rejected by the provider."),
           };
+    // Carried so the ONE delivery-log row send-email writes still satisfies the
+    // duplicate guard, which finds a sent receipt by payload->>receipt_no.
+    const trace = {
+      contextType: "fee_receipt",
+      contextId: studentFeeId,
+      logPayload: { receipt_no: receiptNo },
+    };
     try {
       return interpret(
-        await emailService.sendTemplateEmail({ templateId: "fee-receipt", to, params: branded, attachment }),
+        await emailService.sendTemplateEmail({
+          templateId: "fee-receipt", to, params: branded, attachment, ...trace,
+        }),
       );
     } catch (e) {
       const msg = (e as Error).message ?? "";
-      if (!/unknown template/i.test(msg)) return { ok: false, error: msg };
+      if (!/unknown template/i.test(msg)) {
+        return { ok: false, error: msg, reachedServer: !isTransportError(e) };
+      }
       // Deployed send-email is older than the fee-receipt template — fall back to
       // generic-notice but STILL attach the branded PDF so the receipt rides along.
       try {
         return interpret(
-          await emailService.sendTemplateEmail({ templateId: "generic-notice", to, params: fallback, attachment }),
+          await emailService.sendTemplateEmail({
+            templateId: "generic-notice", to, params: fallback, attachment, ...trace,
+          }),
         );
       } catch (e2) {
-        return { ok: false, error: (e2 as Error).message };
+        return { ok: false, error: (e2 as Error).message, reachedServer: !isTransportError(e2) };
       }
     }
   }
@@ -396,19 +423,25 @@ class FeeReceiptDeliveryService extends BaseService {
             { email, name: parentName },
             branded,
             fallback,
+            input.studentFeeId,
+            input.receiptNo,
             base64 ? [{ name: `Receipt-${input.receiptNo}.pdf`, content: base64 }] : undefined,
           );
           result.email = out.ok ? "sent" : "failed";
           if (!out.ok) result.emailError = out.error;
-          await this.logEmail(
-            input.studentFeeId,
-            fee.studentId,
-            input.receiptNo,
-            parentName,
-            email,
-            out.ok ? "sent" : "failed",
-            out.error,
-          );
+          // Only when the request never arrived — send-email records everything
+          // it actually handled, and a second row here would double-count it.
+          if (!out.reachedServer) {
+            await this.logEmail(
+              input.studentFeeId,
+              fee.studentId,
+              input.receiptNo,
+              parentName,
+              email,
+              "failed",
+              out.error,
+            );
+          }
         }
       }
 

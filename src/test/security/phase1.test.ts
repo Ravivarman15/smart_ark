@@ -317,17 +317,39 @@ describe("Edge functions never trust a client-supplied organization", () => {
   });
 
   it("no function reads organization_id out of the request body", () => {
+    // ┌── ONE FUNCTION IS EXEMPT, AND ONLY UNDER PROOF ────────────────────┐
+    // │ send-email is called BOTH by a signed-in user and by our own edge  │
+    // │ functions holding the service-role key. The latter have no         │
+    // │ membership row, so resolveCaller returns null and the call was     │
+    // │ answered 401 — every organization welcome email and every billing  │
+    // │ email, since they shipped. It therefore accepts a body-supplied    │
+    // │ org for THAT caller alone.                                         │
+    // │                                                                    │
+    // │ The exemption is not a free pass: the file must also contain the   │
+    // │ service-role guard, the list of exempt functions is pinned, and    │
+    // │ phase6.test.ts asserts the read sits inside `if (internal)`.       │
+    // └────────────────────────────────────────────────────────────────────┘
+    const EXEMPT = new Set(["send-email"]);
+
     const offenders: string[] = [];
+    const exemptSeen: string[] = [];
     for (const d of readdirSync(FUNCTIONS, { withFileTypes: true })) {
       if (!d.isDirectory() || d.name === "_shared") continue;
       const f = join(FUNCTIONS, d.name, "index.ts");
       if (!existsSync(f)) continue;
       const src = stripComments(read(f));
-      if (/body[?.]*\.?\[?["']?organization_id|body\.organizationId/.test(src)) {
-        offenders.push(d.name);
+      if (!/body[?.]*\.?\[?["']?organization_id|body\.organizationId/.test(src)) continue;
+      // An exempt function still has to prove it guards the read.
+      if (EXEMPT.has(d.name) && /isServiceRoleCaller\(req\)/.test(src)) {
+        exemptSeen.push(d.name);
+        continue;
       }
+      offenders.push(d.name);
     }
     expect(offenders, `functions trusting a body-supplied org: ${offenders.join(", ")}`).toEqual([]);
+    // Pinned: if send-email stops needing the exemption, remove it from EXEMPT
+    // rather than leaving a standing hole nothing uses.
+    expect(exemptSeen.sort()).toEqual([...EXEMPT].sort());
   });
 
   it("the highest-risk BOLA site is scoped", () => {

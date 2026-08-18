@@ -513,13 +513,23 @@ Deno.serve(async (req) => {
         branch,
         orgBranding,
       );
-      const sent = await sendBrevoEmail({
-        to: [{ email: resolved.authEmail, name: resolved.name }],
-        subject: mail.subject,
-        htmlContent: mail.html,
-        textContent: mail.text,
-        tags: ["staff-welcome", "resend"],
-      });
+      const sent = await sendBrevoEmail(
+        {
+          to: [{ email: resolved.authEmail, name: resolved.name }],
+          subject: mail.subject,
+          htmlContent: mail.html,
+          textContent: mail.text,
+          tags: ["staff-welcome", "resend"],
+        },
+        {
+          db: supabase,
+          organizationId: orgId,
+          template: "staff-welcome",
+          recipientName: resolved.name,
+          contextType: "staff_invite",
+          contextId: resolved.profileId,
+        },
+      );
 
       await patchProfile(
         supabase,
@@ -595,13 +605,23 @@ Deno.serve(async (req) => {
         branch,
         orgBranding,
       );
-      const sent = await sendBrevoEmail({
-        to: [{ email: resolved.authEmail, name: resolved.name }],
-        subject: mail.subject,
-        htmlContent: mail.html,
-        textContent: mail.text,
-        tags: ["staff-password-reset"],
-      });
+      const sent = await sendBrevoEmail(
+        {
+          to: [{ email: resolved.authEmail, name: resolved.name }],
+          subject: mail.subject,
+          htmlContent: mail.html,
+          textContent: mail.text,
+          tags: ["staff-password-reset"],
+        },
+        {
+          db: supabase,
+          organizationId: orgId,
+          template: "staff-password-reset",
+          recipientName: resolved.name,
+          contextType: "staff_password_reset",
+          contextId: resolved.profileId,
+        },
+      );
 
       await logEvent(supabase, orgId, {
         profile_id: resolved.profileId,
@@ -940,13 +960,23 @@ Deno.serve(async (req) => {
       branch,
       orgBranding,
     );
-    const sent = await sendBrevoEmail({
-      to: [{ email, name: fullName }],
-      subject: mail.subject,
-      htmlContent: mail.html,
-      textContent: mail.text,
-      tags: ["staff-welcome", "invite"],
-    });
+    const sent = await sendBrevoEmail(
+      {
+        to: [{ email, name: fullName }],
+        subject: mail.subject,
+        htmlContent: mail.html,
+        textContent: mail.text,
+        tags: ["staff-welcome", "invite"],
+      },
+      {
+        db: supabase,
+        organizationId: orgId,
+        template: "staff-welcome",
+        recipientName: fullName,
+        contextType: "staff_invite",
+        contextId: profileId,
+      },
+    );
 
     // 4) Persist the email outcome on the profile + audit log.
     await patchProfile(

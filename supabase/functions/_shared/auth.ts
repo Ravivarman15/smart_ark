@@ -57,6 +57,38 @@ export interface Caller {
 }
 
 /**
+ * True when the bearer token IS this project's service-role key — i.e. the
+ * caller is our own server-side code (another edge function, or cron).
+ *
+ * ┌── WHY THIS IS NEEDED ──────────────────────────────────────────────────┐
+ * │ `resolveCaller` verifies the token against GoTrue, which only knows    │
+ * │ about USER tokens. A service-role key is a valid project JWT but not a │
+ * │ user, so `getUser()` fails and resolveCaller returns null.             │
+ * │                                                                        │
+ * │ `provisioning-worker` and `billing-lifecycle` both call send-email     │
+ * │ with a service-role client. Every one of those calls was answered      │
+ * │ `401 Unauthorized` — confirmed by calling the live function. That is   │
+ * │ why `organization_settings.welcome_email` reads {"sent": false} for    │
+ * │ every organization ever provisioned, and why no billing email has ever │
+ * │ been delivered.                                                        │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * The key never leaves the server, so holding it is proof of being our own
+ * infrastructure. It is NOT a way for a user to escalate: a browser cannot
+ * obtain it, and anything that could would already have full database access.
+ */
+export function isServiceRoleCaller(req: Request): boolean {
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  // FAIL CLOSED when the secret is unset — an empty === empty comparison
+  // would admit any caller as "internal".
+  if (!serviceKey) return false;
+  const header =
+    req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
+  if (!header.startsWith("Bearer ")) return false;
+  return header.slice("Bearer ".length).trim() === serviceKey;
+}
+
+/**
  * Verify the Authorization bearer token and resolve the caller.
  *
  * Returns null when the header is missing/malformed or the token fails

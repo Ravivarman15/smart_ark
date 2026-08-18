@@ -9,6 +9,11 @@
 
 import type { FeeInstallment, ReceiptData, StudentFee } from "../types/fee.types";
 import { formatINR } from "./feeCalc";
+import {
+  addRasterPage,
+  documentCanvasOptions,
+  documentPdfOptions,
+} from "@/lib/documentRaster";
 
 /** Build the canonical receipt payload for one payment against one fee. */
 export const buildReceipt = (
@@ -179,17 +184,12 @@ export const receiptToPdfBlob = async (r: ReceiptData): Promise<Blob> => {
     await waitForImages(host);
 
     const node = (host.querySelector("#fee-receipt") as HTMLElement) ?? host;
-    const canvas = await html2canvas(node, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-    });
-    const pdf = new jsPDF({ unit: "pt", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const margin = 28;
-    const w = pageW - margin * 2;
-    const h = (canvas.height * w) / canvas.width;
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, margin, w, h);
+    const canvas = await html2canvas(node, documentCanvasOptions);
+    // JPEG + deflate, not a lossless PNG page. A receipt used to weigh ~4.8 MB,
+    // which is what made both the storage upload and the emailed base64
+    // attachment fail — see src/lib/documentRaster.ts.
+    const pdf = new jsPDF(documentPdfOptions);
+    addRasterPage(pdf, canvas);
     return pdf.output("blob");
   } finally {
     root.unmount();

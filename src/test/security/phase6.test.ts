@@ -93,11 +93,64 @@ describe("INVARIANT 1 — platform credentials by default", () => {
     expect(sendEmail).toMatch(/creds\.mode === "custom"[\s\S]{0,200}?: undefined/);
   });
 
-  it("send-email takes the organization from the VERIFIED caller, not the body", () => {
+  it("send-email takes a USER caller's organization from verified membership", () => {
     // A body-supplied org would let one tenant send under another's verified
-    // sender identity.
-    expect(sendEmail).toMatch(/resolveEmailCredentials\(supabase, gate\.caller\.organizationId\)/);
-    expect(stripTsComments(sendEmail)).not.toMatch(/body\.organizationId|body\?\.organization_id/);
+    // sender identity. The user branch must read it from resolveCaller only.
+    const src = stripTsComments(sendEmail);
+    expect(src).toMatch(/const caller = await resolveCaller\(req, supabase\)/);
+    expect(src).toMatch(/organizationId = caller\.organizationId/);
+    expect(src).toMatch(/resolveEmailCredentials\(supabase, organizationId\)/);
+  });
+
+  it("send-email honours a body-supplied organization ONLY for the service role", () => {
+    // ┌── THIS NARROWS A PHASE-1 INVARIANT, DELIBERATELY ──────────────────┐
+    // │ "No function reads organization_id out of the request body" was    │
+    // │ absolute, and it made send-email unusable from our own server-side │
+    // │ code: provisioning-worker and billing-lifecycle call it with a     │
+    // │ service-role client, which has no membership to derive a tenant    │
+    // │ from. Every one of those calls was answered 401, which is why no   │
+    // │ organization has ever received its welcome email.                  │
+    // │                                                                    │
+    // │ So the body is trusted for exactly one caller: the holder of the   │
+    // │ service-role key, which never reaches a browser. This test pins    │
+    // │ that shape — a single guarded read — so the exception cannot widen │
+    // │ into the hole the original invariant existed to prevent.           │
+    // └────────────────────────────────────────────────────────────────────┘
+    const src = stripTsComments(sendEmail);
+
+    // Exactly one read of the body-supplied org, and it is the internal branch.
+    const reads = [...src.matchAll(/body\.organizationId/g)];
+    expect(reads.length, "body.organizationId must be read exactly once").toBe(1);
+    expect(src).toMatch(
+      /const internal = isServiceRoleCaller\(req\);[\s\S]{0,600}?if \(internal\) \{\s*organizationId = body\.organizationId \?\? null;/,
+    );
+
+    // And the internal check is a real key comparison that fails closed.
+    const auth = stripTsComments(read(join(FUNCTIONS, "_shared", "auth.ts")));
+    expect(auth).toMatch(/export function isServiceRoleCaller/);
+    expect(auth).toMatch(/if \(!serviceKey\) return false;/);
+    expect(auth).toMatch(/=== serviceKey/);
+  });
+
+  it("send-email gates each template by role, matching is_fee_collector()", () => {
+    // A single admin/management list locked coordinators out of the fee receipt
+    // the database explicitly lets them collect, and teachers out of the parent
+    // automations their own actions fire.
+    const templates = read(join(FUNCTIONS, "_shared", "email-templates.ts"));
+    expect(templates).toMatch(/export const TEMPLATE_SENDERS/);
+    // Mirrors public.is_fee_collector() = (admin, management, coordinator).
+    expect(templates).toMatch(
+      /"fee-receipt": \["admin", "management", "coordinator"\]/,
+    );
+    // Payroll and staff credentials stay with admin/management.
+    expect(templates).toMatch(/"salary-slip": \["admin", "management"\]/);
+    expect(templates).toMatch(/"staff-welcome": \["admin", "management"\]/);
+    // Provisioning/billing notices are unreachable from any human role.
+    expect(templates).toMatch(/"organization-ready": "internal"/);
+    expect(templates).toMatch(/if \(allowed === "internal"\) return false;/);
+    expect(stripTsComments(sendEmail)).toMatch(
+      /maySendTemplate\(body\.templateId, callerRole, internal\)/,
+    );
   });
 
   it("send-aisensy resolves per ROW and keeps the platform key as fallback", () => {

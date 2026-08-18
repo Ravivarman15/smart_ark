@@ -17,6 +17,14 @@ import { resolveCaller } from "../_shared/auth.ts";
 // deno-lint-ignore no-explicit-any
 type Db = any;
 
+/**
+ * Origin for links in billing emails. Matches provisioning-worker's default so
+ * both functions point at the deployment that actually answers.
+ */
+const SITE_ORIGIN = (
+  Deno.env.get("PUBLIC_SITE_URL") ?? "https://smart-ark-main.vercel.app"
+).replace(/\/+$/, "");
+
 /** Billing events that should reach the customer, and their email template. */
 const EMAIL_FOR: Record<string, string> = {
   "trial.ending_soon":      "trial-ending",
@@ -100,7 +108,19 @@ Deno.serve(async (req) => {
         body: {
           templateId: template,
           to: recipient,
-          params: { detail: e.detail ?? "", billingUrl: "/admin/billing" },
+          // Service-role caller: name the tenant, since there is no membership
+          // to derive it from.
+          organizationId: e.organization_id,
+          contextType: "billing",
+          contextId: e.id,
+          params: {
+            detail: e.detail ?? "",
+            // ABSOLUTE. This was "/admin/billing" — a relative href in an email
+            // resolves against the mail client's own origin, so the button led
+            // nowhere from every inbox. The template now drops a non-absolute
+            // CTA rather than rendering a broken button.
+            billingUrl: `${SITE_ORIGIN}/admin/billing`,
+          },
         },
       });
       // Best-effort: a mail failure must never roll back a state transition
