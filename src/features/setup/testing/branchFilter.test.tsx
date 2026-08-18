@@ -26,9 +26,20 @@ const setCampuses = (names: string[]) => {
 describe("The branch filter earns its place on the toolbar", () => {
   beforeEach(() => setCampuses([]));
 
-  it("renders nothing for an organization with one branch", () => {
+  it("shows for an organization with a single branch", () => {
+    // It used to hide here. Reported missing from Manage Students the same day:
+    // an absent control and a present-but-inert one look identical, and only
+    // one of them makes you wonder whether the feature shipped at all.
     setCampuses(["Main Branch"]);
-    const { container } = render(<BranchFilter value="all" onChange={() => {}} />);
+    render(<BranchFilter value="all" onChange={() => {}} />);
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+  });
+
+  it("still hides on request, for a toolbar genuinely short of room", () => {
+    setCampuses(["Main Branch"]);
+    const { container } = render(
+      <BranchFilter value="all" onChange={() => {}} hideWhenSingle />,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -43,10 +54,12 @@ describe("The branch filter earns its place on the toolbar", () => {
     expect(screen.getByRole("combobox")).toBeInTheDocument();
   });
 
-  it("can be forced on, for a page that wants a stable toolbar", () => {
-    setCampuses(["Main Branch"]);
-    render(<BranchFilter value="all" onChange={() => {}} hideWhenSingle={false} />);
-    expect(screen.getByRole("combobox")).toBeInTheDocument();
+  it("renders nothing when there are no branches to choose between", () => {
+    // Distinct from the single-branch case: an empty dropdown is a dead
+    // control, and this is also what an unreadable campus list looks like.
+    setCampuses([]);
+    const { container } = render(<BranchFilter value="all" onChange={() => {}} />);
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("shows the current selection rather than the placeholder", () => {

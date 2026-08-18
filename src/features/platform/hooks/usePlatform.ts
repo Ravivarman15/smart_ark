@@ -457,8 +457,43 @@ export const useReviewDelete = () => {
       platformService.reviewDelete(input),
     onSuccess: (_r, v) => {
       qc.invalidateQueries({ queryKey: platformKeys.deleteRequests() });
-      toast.success(v.decision === "approved" ? "Request approved for manual erasure" : "Request cancelled");
+      toast.success(v.decision === "approved" ? "Request approved — erasure can now be run" : "Request cancelled");
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+/**
+ * Preview an erasure. Deliberately a MUTATION rather than a query even though
+ * it changes nothing: it must run when a person asks for it, never on mount,
+ * never on a refetch, and never on window focus.
+ */
+export const usePurgePreview = () =>
+  useMutation({
+    mutationFn: (input: { organizationId: string; requestId: string }) =>
+      platformService.purgeOrganization({ ...input, dryRun: true }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+export const usePurgeOrganization = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { organizationId: string; requestId: string; confirmSlug: string }) =>
+      platformService.purgeOrganization({ ...input, dryRun: false }),
+    onSuccess: (r) => {
+      // The organization is gone; every list that mentioned it is now wrong.
+      qc.invalidateQueries({ queryKey: platformKeys.all });
+      const files = r.storage?.removed ?? 0;
+      toast.success(`${r.organization} erased — ${r.rows_deleted ?? 0} rows, ${files} files.`);
+      // Reported separately: the tenant IS gone, and a storage failure must not
+      // read as though the erasure did not happen.
+      if (r.storage?.errors?.length) {
+        toast.warning(
+          `Some files could not be removed: ${r.storage.errors.join("; ")}. The database records are erased.`,
+          { duration: 15_000 },
+        );
+      }
+    },
+    onError: (e: Error) => toast.error(e.message, { duration: 15_000 }),
   });
 };

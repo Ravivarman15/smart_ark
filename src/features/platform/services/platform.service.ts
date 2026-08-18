@@ -112,6 +112,28 @@ export interface DeleteRequest {
   reviewedAt: string | null; reviewNote: string | null;
 }
 
+/**
+ * The result of a purge — preview or execution.
+ *
+ * `tables` is table name → row count. On a dry run those are the rows that
+ * WOULD go; on an execution they are the rows the sweep deleted directly, and
+ * the two differ because some rows disappear by cascade from a parent deleted
+ * first. `verified_empty` is the completeness proof, not the count.
+ */
+export interface PurgeReport {
+  ok: boolean;
+  dry_run: boolean;
+  organization: string;
+  status?: string;
+  purged?: boolean;
+  verified_empty?: boolean;
+  total_rows: number;
+  rows_deleted?: number;
+  passes?: number;
+  tables: Record<string, number>;
+  storage?: { removed: number; buckets: string[]; errors: string[] };
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const num = (v: unknown, d = 0) => (typeof v === "number" ? v : Number(v ?? d) || d);
@@ -697,6 +719,23 @@ class PlatformService {
 
   reviewDelete(input: { requestId: string; decision: "approved" | "cancelled"; note?: string }) {
     return invokePlatform<{ ok: boolean; changed: boolean }>("review_delete", input);
+  }
+
+  /**
+   * Preview or execute an irreversible erasure.
+   *
+   * `dryRun: true` (the default everywhere it is called for a preview) counts
+   * rows per table and changes nothing. The destructive call additionally
+   * requires the typed slug, which the edge function re-verifies server-side —
+   * the client-side check is a courtesy, this is the control.
+   */
+  purgeOrganization(input: {
+    organizationId: string;
+    requestId: string;
+    dryRun: boolean;
+    confirmSlug?: string;
+  }) {
+    return invokePlatform<PurgeReport>("purge_organization", input);
   }
 
   async deleteRequests(): Promise<DeleteRequest[]> {

@@ -13,6 +13,7 @@
 //   set_module_governance       withdraw a module platform-wide
 //   request_delete              open a reviewed delete request (deletes nothing)
 //   review_delete               approve or cancel one (still deletes nothing)
+//   purge_organization          the irreversible one — see below
 //   start_impersonation         mint a short-lived session AS a tenant user
 //   end_impersonation           close a grant early
 //   refresh_metrics             recompute the aggregate rollup
@@ -111,6 +112,37 @@ async function dependencyRefusal(db: any, orgId: string, moduleKey: string) {
   const { data, error } = await db.rpc("platform_entitlement_layers", { _org: orgId });
   if (error || !data) return null;
   return refuseRevoke(data as Layers, moduleKey);
+}
+
+/**
+ * Every object under `<organizationId>/` in one bucket, walked recursively.
+ *
+ * Storage `list()` returns ONE level: a folder comes back as an entry with a
+ * null `id`, and its contents are a second call. A single non-recursive list
+ * would find the folders and delete nothing.
+ *
+ * HONEST LIMIT: this finds tenant-prefixed paths only. Objects written before
+ * the Phase 1C storage-prefix migration sit at the bucket root with no
+ * organization in their path, and cannot be attributed to a tenant at all —
+ * they are not deleted, and the count returned reflects that.
+ */
+// deno-lint-ignore no-explicit-any
+async function listStoragePaths(db: any, bucket: string, prefix: string, depth = 0): Promise<string[]> {
+  if (depth > 6) return [];
+  const { data, error } = await db.storage.from(bucket).list(prefix, { limit: 1000 });
+  if (error || !data) return [];
+
+  const files: string[] = [];
+  for (const entry of data) {
+    const path = `${prefix}/${entry.name}`;
+    // A folder placeholder has no id. Anything else is a real object.
+    if (entry.id === null || entry.id === undefined) {
+      files.push(...(await listStoragePaths(db, bucket, path, depth + 1)));
+    } else {
+      files.push(path);
+    }
+  }
+  return files;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -564,6 +596,107 @@ Deno.serve(async (req) => {
         });
       }
       return jsonResponse(200, { ok: true, ...data });
+    }
+
+    // ── purge_organization ───────────────────────────────────────────────
+    //
+    // ┌── THE ONE ACTION THAT CANNOT BE UNDONE ────────────────────────────┐
+    // │ Everything else in this file is reversible. This erases a tenant.  │
+    // │                                                                    │
+    // │ Four gates stand in front of it, and three of them are in the      │
+    // │ database where a mistake in this file cannot skip them:            │
+    // │   1. organizations.purge — owner only, and NOT granted to admin,   │
+    // │      so no single account can request, approve and execute.        │
+    // │   2. an APPROVED delete request for this exact organization        │
+    // │      (7-day cooling-off, approved by someone else) — checked in    │
+    // │      platform_purge_organization.                                  │
+    // │   3. the organization must already be archived or cancelled.       │
+    // │   4. protected organizations are refused outright.                 │
+    // │ Plus the typed slug re-confirmed here, server-side.                │
+    // │                                                                    │
+    // │ ORDER: database first, storage second. The DB purge is one         │
+    // │ transaction that either completes or changes nothing; deleting     │
+    // │ files first would leave a tenant alive with its documents gone if  │
+    // │ that transaction then failed.                                      │
+    // └────────────────────────────────────────────────────────────────────┘
+    if (action === "purge_organization") {
+      if (!need("organizations.purge")) {
+        return jsonResponse(403, {
+          error: "organizations.purge required — only a platform owner can erase a tenant.",
+        });
+      }
+
+      const { organizationId, requestId, confirmSlug, dryRun } = body;
+      if (!organizationId || !requestId) {
+        return jsonResponse(400, { error: "organizationId and requestId are required" });
+      }
+
+      const { data: org } = await db
+        .from("organizations").select("slug, display_name").eq("id", organizationId).maybeSingle();
+      if (!org) return jsonResponse(404, { error: "No such organization" });
+
+      const isDryRun = dryRun !== false;
+
+      // The typed slug is re-verified for the destructive call only — a
+      // preview should not need it, and requiring it there would train people
+      // to type the slug before they have seen what it costs.
+      if (!isDryRun && confirmSlug !== org.slug) {
+        return jsonResponse(400, {
+          error: `Confirmation does not match. Type the slug exactly: ${org.slug}`,
+        });
+      }
+
+      const { data: purge, error: purgeError } = await db.rpc("platform_purge_organization", {
+        _org: organizationId,
+        _request: requestId,
+        _dry_run: isDryRun,
+        _actor: actor.platformUserId,
+        _actor_email: actor.email,
+      });
+      if (purgeError) return jsonResponse(400, { error: purgeError.message });
+      if (isDryRun) return jsonResponse(200, { ok: true, ...purge });
+
+      // ── Storage ──────────────────────────────────────────────────────────
+      // Rows are gone; the bytes are in object storage and have to be removed
+      // through its own API. Failures here are REPORTED, not thrown: the
+      // tenant is already erased, and a storage error must not read as though
+      // the purge failed. The organization id is returned so it can be retried.
+      const storage = { removed: 0, buckets: [] as string[], errors: [] as string[] };
+      try {
+        const { data: buckets } = await db.storage.listBuckets();
+        for (const bucket of buckets ?? []) {
+          const paths = await listStoragePaths(db, bucket.name, String(organizationId));
+          if (paths.length === 0) continue;
+          const { error } = await db.storage.from(bucket.name).remove(paths);
+          if (error) storage.errors.push(`${bucket.name}: ${error.message}`);
+          else {
+            storage.removed += paths.length;
+            storage.buckets.push(`${bucket.name} (${paths.length})`);
+          }
+        }
+      } catch (e) {
+        storage.errors.push(String((e as Error).message ?? e));
+      }
+
+      // A SECOND audit row, deliberately under a DIFFERENT action.
+      // platform_purge_organization already wrote `organization.purged` inside
+      // its transaction — it has to, because it is reachable with service-role
+      // credentials without coming through this function. Writing the same
+      // action again here would double-log one event, which is the trap the
+      // entitlement history fell into. File cleanup is a genuinely separate
+      // event that happens after the transaction commits, and can fail alone.
+      await audit(db, actor, {
+        action: "organization.purge_storage",
+        target_type: "organization",
+        target_id: String(organizationId),
+        detail: storage.errors.length
+          ? `${org.slug}: ${storage.removed} files removed, ${storage.errors.length} bucket(s) failed`
+          : `${org.slug}: ${storage.removed} files removed`,
+        payload: { slug: org.slug, storage },
+        ip_address: ip,
+      });
+
+      return jsonResponse(200, { ok: true, ...purge, storage });
     }
 
     // ── start_impersonation ──────────────────────────────────────────────

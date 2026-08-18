@@ -28,11 +28,19 @@ interface Props {
   onChange: (value: string) => void;
   className?: string;
   /**
-   * Render nothing when the organization has fewer than two branches.
+   * Hide the control while the organization has fewer than two branches.
    *
-   * Most tenants have exactly one, and a filter with a single option is
-   * furniture: it takes toolbar space on four pages and can never change a
-   * result. It appears by itself the day a second branch is created.
+   * DEFAULTS TO FALSE — the filter is always shown.
+   *
+   * It defaulted to true at first, on the reasoning that a dropdown whose only
+   * option is your one branch cannot change a result. That reasoning was
+   * wrong in practice: the filter was reported missing from Manage Students
+   * within a day, because "the control is not there" and "the control is there
+   * and does nothing" look identical from the outside, and only one of them
+   * makes you doubt the feature shipped. A visible filter also shows people
+   * where branch filtering WILL appear once they add a second branch.
+   *
+   * Kept as an opt-in for anywhere genuinely short of toolbar space.
    */
   hideWhenSingle?: boolean;
 }
@@ -41,10 +49,13 @@ export const BranchFilter = ({
   value,
   onChange,
   className,
-  hideWhenSingle = true,
+  hideWhenSingle = false,
 }: Props) => {
   const { data: campuses = [] } = useCampuses();
 
+  // Nothing to choose from at all — the list has not loaded, or this session
+  // cannot read campuses. Rendering an empty dropdown would be a dead control.
+  if (campuses.length === 0) return null;
   if (hideWhenSingle && campuses.length < 2) return null;
 
   return (

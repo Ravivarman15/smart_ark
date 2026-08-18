@@ -35,6 +35,10 @@ export type PlatformCapability =
   // silently passes.
   | "organizations.hold" | "organizations.archive"
   | "organizations.delete_request" | "organizations.review_delete"
+  // The irreversible one. Owner only, and deliberately NOT held by admin —
+  // admin can request a delete and support can approve it, so no single
+  // platform account can request, approve AND execute an erasure.
+  | "organizations.purge"
   | "modules.grant" | "modules.revoke" | "modules.bulk" | "modules.govern";
 
 export interface PlatformUser {

@@ -528,9 +528,20 @@ describe("Every action is safe to repeat", () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe("Deletion is a reviewed request, never a button that erases", () => {
-  it("no code path deletes an organizations row", () => {
+  // Erasure became real in 20261010_organization_purge.sql. What must stay
+  // true of PHASE 9A is that the request/review path is not itself a delete:
+  // opening a request and approving it move a status column and nothing else.
+  // The erasure is a separate, owner-only action standing behind these gates —
+  // see src/test/security/organizationPurge.test.ts.
+  it("the request/review path still deletes nothing", () => {
     expect(executable).not.toMatch(/DELETE\s+FROM\s+public\.organizations\b/i);
     expect(EDGE).not.toMatch(/\.from\("organizations"\)[\s\S]{0,80}\.delete\(\)/);
+    // Approving a request may only move its own status column.
+    const review = executable.slice(
+      executable.indexOf("FUNCTION public.platform_review_delete_request"),
+    );
+    const body = review.slice(0, review.indexOf("$$;"));
+    expect(body).not.toMatch(/DELETE\s+FROM/i);
   });
 
   it("requires a two-person review with a cooling-off period", () => {
@@ -547,10 +558,17 @@ describe("Deletion is a reviewed request, never a button that erases", () => {
     expect(req).toMatch(/confirmSlug !== org\.slug/);
   });
 
-  it("tells the operator plainly that erasure is not automated", () => {
+  it("tells the operator plainly what erasure does now", () => {
+    // This asserted the OPPOSITE until erasure was built — "does not support
+    // one-click tenant erasure" — and that was the honest copy at the time.
+    // The screen has to describe the product it is attached to, so the gate
+    // moved with the behaviour instead of being deleted.
     const page = read("src/features/platform/pages/OrganizationDetailPage.tsx");
-    expect(page).toMatch(/does not support one-click tenant erasure/);
-    expect(page).toMatch(/ON DELETE RESTRICT/);
+    expect(page).toMatch(/irreversible/i);
+    expect(page).toMatch(/cooling-off/i);
+    expect(page).toMatch(/only an\s+owner/i);
+    // Archive is still the recommendation, and now also the prerequisite.
+    expect(page).toMatch(/Archive first/);
   });
 });
 

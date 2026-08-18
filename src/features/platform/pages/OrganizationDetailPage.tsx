@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, ShieldAlert, RefreshCw, PauseCircle, PlayCircle, Archive, Ban, Trash2,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import {
 import { usePlatformAuth } from "../context/PlatformAuthContext";
 import { ImpersonationDialog } from "../components/ImpersonationDialog";
 import { LifecycleDialog, type LifecycleAction } from "../components/LifecycleDialog";
+import { PurgeOrganizationDialog } from "../components/PurgeOrganizationDialog";
 import { ModuleEntitlementsPanel } from "../components/ModuleEntitlementsPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +79,7 @@ const UsageBar: React.FC<{ label: string; used: number | null; limit: number | n
 
 const OrganizationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data, isLoading } = useOrganizationDetail(id);
   const { data: protections } = useProtections();
   const { data: deleteRequests } = useDeleteRequests();
@@ -93,6 +95,7 @@ const OrganizationDetailPage: React.FC = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [purgeOpen, setPurgeOpen] = useState(false);
 
   const org = (data?.organization ?? {}) as Record<string, unknown>;
   const sub = (data?.subscription ?? null) as Record<string, unknown> | null;
@@ -107,6 +110,13 @@ const OrganizationDetailPage: React.FC = () => {
   const isProtected = Boolean(id && protections?.has(id));
   const openRequest = useMemo(
     () => (deleteRequests ?? []).find((r) => r.organizationId === id && r.status === "pending_review"),
+    [deleteRequests, id],
+  );
+  // An approved request is what unlocks the irreversible step. Kept separate
+  // from `openRequest` so the pending and approved states can be shown
+  // differently — they mean very different things.
+  const approvedRequest = useMemo(
+    () => (deleteRequests ?? []).find((r) => r.organizationId === id && r.status === "approved"),
     [deleteRequests, id],
   );
 
@@ -440,20 +450,56 @@ const OrganizationDetailPage: React.FC = () => {
                 Permanent deletion
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Smart ARK does not support one-click tenant erasure, and this screen will not
-                pretend otherwise. Every <code>organization_id</code> foreign key is
-                <code> ON DELETE RESTRICT</code> across 167 tables, and a complete erasure would
-                also have to reach storage objects, billing records and the audit trail that
-                proves what happened. What you can do here is open a reviewed request; the
-                erasure itself remains a manual, two-person operation.
+                Erasure is real and irreversible: the organization's rows are deleted across
+                every tenant table and its files are removed from storage. There is no restore
+                behind it. It stays a two-person operation — one platform user opens the
+                request, a different one approves it after a seven-day cooling-off, and only an
+                owner can run the erasure itself.
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                <span className="font-medium">Archive is the terminal state this platform supports.</span>{" "}
-                It closes access and retains everything — which is what most deletion requests
-                actually want.
+                <span className="font-medium">Archive first — and consider stopping there.</span>{" "}
+                Archiving closes access, retains everything and is reversible, which is what
+                most deletion requests actually want. An organization must be archived or
+                cancelled before it can be erased.
               </p>
 
-              {openRequest ? (
+              {approvedRequest ? (
+                <div className="mt-3 rounded-lg border border-red-500/40 bg-background p-3 text-sm">
+                  <div className="font-medium text-red-600 dark:text-red-400">
+                    Approved for erasure
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    Requested {approvedRequest.requestedAt.slice(0, 10)} by{" "}
+                    {approvedRequest.requestedEmail ?? "unknown"} · approved{" "}
+                    {approvedRequest.reviewedAt?.slice(0, 10) ?? "—"}
+                  </div>
+                  <div className="mt-1.5 text-xs">{approvedRequest.reason}</div>
+
+                  {can("organizations.purge") ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="mt-3"
+                        disabled={isProtected || !["archived", "cancelled"].includes(status)}
+                        onClick={() => setPurgeOpen(true)}
+                      >
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Erase permanently
+                      </Button>
+                      {!["archived", "cancelled"].includes(status) && (
+                        <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                          Archive this organization first. Erasing a live tenant would pull the
+                          database out from under anyone signed in.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Approved, but erasure requires a platform owner. Your account cannot run it.
+                    </p>
+                  )}
+                </div>
+              ) : openRequest ? (
                 <div className="mt-3 rounded-lg border border-border bg-background p-3 text-sm">
                   <div className="font-medium">Delete request open</div>
                   <div className="mt-0.5 text-xs text-muted-foreground">
@@ -512,6 +558,20 @@ const OrganizationDetailPage: React.FC = () => {
           onOpenChange={setImpersonateOpen}
           organizationId={id}
           organizationName={String(org.display_name ?? "")}
+        />
+      )}
+
+      {id && approvedRequest && (
+        <PurgeOrganizationDialog
+          open={purgeOpen}
+          onOpenChange={setPurgeOpen}
+          organizationId={id}
+          organizationSlug={slug}
+          organizationName={String(org.display_name ?? "")}
+          requestId={approvedRequest.id}
+          // The organization no longer exists; staying on its detail page would
+          // show a screen of empty fields.
+          onPurged={() => navigate("/platform/organizations")}
         />
       )}
 
