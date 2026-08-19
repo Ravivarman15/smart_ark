@@ -514,7 +514,16 @@ describe("Phase 2D — commerce writes cannot fail silently", () => {
 
   it("a zero-row write is reported as an error, not a success", () => {
     // Asking for the rows back is worthless if nobody looks at them.
-    const guards = svc.match(/if \(!data\?\.length\)/g)?.length ?? 0;
+    //
+    // The pattern accepts a NAMED result (`updated.data`, `inserted.data`) and
+    // a positive early return, not only `if (!data?.length) throw`. An
+    // update-then-insert inspects both writes — the update's zero-row case
+    // falls through to the insert, the insert's throws — and the old
+    // name-matching regex read that correct shape as two unguarded writes. The
+    // claim being enforced is "every write's result is looked at", which that
+    // shape satisfies; matching only one spelling of it pushed code toward a
+    // worse form for the sake of the check.
+    const guards = svc.match(/if \(!?[\w.]*data\?\.length\)/g)?.length ?? 0;
     const writes =
       stripTsComments(svc).match(/\.(upsert|update|insert|delete)\(/g)?.length ?? 0;
     // saveSubscription's ternary is two write verbs guarded once, after the

@@ -1193,18 +1193,8 @@ export const RevenuePage: React.FC = () => {
   );
 };
 
-// ── Invoices (reserved) ─────────────────────────────────────────────────────
-
-export const InvoicesPage: React.FC = () => (
-  <div>
-    <PageHeader title="Invoices" />
-    <div className="p-6">
-      <ReservedNotice phase="Phase 5 (Billing)">
-        The `invoices` and `invoice_lines` tables exist with full RLS so Phase 5 is
-        additive, but nothing writes them yet. Per-organization gapless numbering
-        (an Indian GST requirement) must be a sequence at issue time, never a count —
-        which is why this page waits for the billing phase rather than faking it.
-      </ReservedNotice>
-    </div>
-  </div>
-);
+// ── Invoices ───────────────────────────────────────────────
+//
+// Moved to its own file (pages/InvoicesPage.tsx). It carries a GST engine, a
+// numbering-integrity check and a PDF renderer, none of which is "commerce
+// catalogue" — and this file was already the longest page module here.

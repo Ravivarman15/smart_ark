@@ -38,11 +38,22 @@ const walk = (dir: string, out: string[] = []): string[] => {
 };
 
 /** Every `onConflict: "..."` string in src/, excluding this test tree. */
+/**
+ * Comments removed, so a call-site scan cannot match prose.
+ *
+ * Added when a doc comment EXPLAINING why a call site avoids
+ * `onConflict: "key"` was itself reported as a violation. A gate that cannot
+ * tell code from the note about the code punishes documenting the decision,
+ * and the fix people reach for is deleting the explanation.
+ */
+const stripComments = (src: string): string =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
 function collectOnConflicts(): { file: string; cols: string[] }[] {
   const out: { file: string; cols: string[] }[] = [];
   for (const file of walk(SRC)) {
     if (file.includes(join("test", "security"))) continue;
-    const src = read(file);
+    const src = stripComments(read(file));
     for (const m of src.matchAll(/onConflict:\s*"([^"]+)"/g)) {
       out.push({ file: file.replace(ROOT, ""), cols: m[1].split(",").map((c) => c.trim()) });
     }

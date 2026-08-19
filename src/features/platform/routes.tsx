@@ -31,7 +31,7 @@ const Commerce = {
   Subscriptions: lazy(() => import("./pages/CommercePages").then((m) => ({ default: m.SubscriptionsPage }))),
   Coupons: lazy(() => import("./pages/CommercePages").then((m) => ({ default: m.CouponsPage }))),
   Revenue: lazy(() => import("./pages/CommercePages").then((m) => ({ default: m.RevenuePage }))),
-  Invoices: lazy(() => import("./pages/CommercePages").then((m) => ({ default: m.InvoicesPage }))),
+  Invoices: lazy(() => import("./pages/InvoicesPage")),
 };
 
 const Ops = {
@@ -42,7 +42,7 @@ const Ops = {
   Security: lazy(() => import("./pages/OperationsPages").then((m) => ({ default: m.SecurityPage }))),
   Logs: lazy(() => import("./pages/OperationsPages").then((m) => ({ default: m.LogsPage }))),
   Support: lazy(() => import("./pages/OperationsPages").then((m) => ({ default: m.SupportPage }))),
-  Backups: lazy(() => import("./pages/OperationsPages").then((m) => ({ default: m.BackupsPage }))),
+  Backups: lazy(() => import("./pages/BackupsPage")),
   Settings: lazy(() => import("./pages/OperationsPages").then((m) => ({ default: m.PlatformSettingsPage }))),
   Users: lazy(() => import("./pages/OperationsPages").then((m) => ({ default: m.PlatformUsersPage }))),
   FeatureFlags: lazy(() => import("./pages/OperationsPages").then((m) => ({ default: m.FeatureFlagsPage }))),

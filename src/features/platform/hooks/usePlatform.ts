@@ -9,7 +9,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { platformService, type Coupon, type Plan } from "../services/platform.service";
+import {
+  platformService,
+  type Coupon,
+  type DrPolicy,
+  type DrRehearsal,
+  type InvoiceStatus,
+  type Plan,
+} from "../services/platform.service";
 
 export const platformKeys = {
   all: ["platform"] as const,
@@ -33,6 +40,11 @@ export const platformKeys = {
   governance: () => [...platformKeys.all, "module-governance"] as const,
   deleteRequests: () => [...platformKeys.all, "delete-requests"] as const,
   protections: () => [...platformKeys.all, "protections"] as const,
+  invoices: () => [...platformKeys.all, "invoices"] as const,
+  invoiceLines: (id: string) => [...platformKeys.all, "invoice-lines", id] as const,
+  invoiceSequences: () => [...platformKeys.all, "invoice-sequences"] as const,
+  drPolicy: () => [...platformKeys.all, "dr-policy"] as const,
+  drRehearsals: () => [...platformKeys.all, "dr-rehearsals"] as const,
 };
 
 export const usePlatformSummary = () =>
@@ -497,3 +509,92 @@ export const usePurgeOrganization = () => {
     onError: (e: Error) => toast.error(e.message, { duration: 15_000 }),
   });
 };
+
+// ── Invoices ────────────────────────────────────────────────────────────────
+
+export const useInvoices = () =>
+  useQuery({ queryKey: platformKeys.invoices(), queryFn: () => platformService.invoices() });
+
+export const useInvoiceLines = (invoiceId: string | undefined) =>
+  useQuery({
+    queryKey: platformKeys.invoiceLines(invoiceId ?? "none"),
+    queryFn: () => platformService.invoiceLines(invoiceId as string),
+    enabled: !!invoiceId,
+  });
+
+export const useInvoiceSequences = () =>
+  useQuery({
+    queryKey: platformKeys.invoiceSequences(),
+    queryFn: () => platformService.invoiceSequences(),
+  });
+
+export const useIssueInvoice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof platformService.issueInvoice>[0]) =>
+      platformService.issueInvoice(input),
+    onSuccess: () => {
+      // The counter moved too, so the integrity panel is stale as well.
+      qc.invalidateQueries({ queryKey: platformKeys.invoices() });
+      qc.invalidateQueries({ queryKey: platformKeys.invoiceSequences() });
+      toast.success("Invoice issued");
+    },
+    onError: (e: Error) => toast.error(e.message, { duration: 12_000 }),
+  });
+};
+
+export const useSetInvoiceStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
+      platformService.setInvoiceStatus(id, status),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: platformKeys.invoices() });
+      toast.success(`Invoice marked ${v.status}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+// ── Backups & disaster recovery ─────────────────────────────────────────────
+
+export const useDrPolicy = () =>
+  useQuery({ queryKey: platformKeys.drPolicy(), queryFn: () => platformService.drPolicy() });
+
+export const useDrRehearsals = () =>
+  useQuery({ queryKey: platformKeys.drRehearsals(), queryFn: () => platformService.drRehearsals() });
+
+export const useSaveDrPolicy = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: DrPolicy) => platformService.saveDrPolicy(p),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.drPolicy() });
+      toast.success("Recovery policy saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useRecordDrRehearsal = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (e: Omit<DrRehearsal, "id">) => platformService.recordDrRehearsal(e),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: platformKeys.drRehearsals() });
+      toast.success(
+        v.outcome === "pass"
+          ? "Rehearsal recorded — the clock resets from today."
+          : "Failed rehearsal recorded. It stays on the register until a passing one replaces it.",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useExportOrganization = () =>
+  useMutation({
+    mutationFn: (input: { organizationId: string; dryRun?: boolean }) =>
+      platformService.exportOrganization(input),
+    onError: (e: Error) => toast.error(e.message, { duration: 15_000 }),
+  });

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+import { invoiceDownloadService } from "../documents/invoiceDownload.service";
 
 const money = (n: number, currency = "INR") =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(n);
@@ -26,6 +27,42 @@ const money = (n: number, currency = "INR") =>
 const METRIC_LABEL: Record<string, string> = {
   students: "Students", staff: "Staff", branches: "Branches",
   storage_mb: "Storage (MB)", whatsapp: "WhatsApp messages", email: "Emails",
+};
+
+/**
+ * Download one invoice as a GST tax invoice PDF.
+ *
+ * This button used to render only when `invoices.pdf_path` was populated — and
+ * nothing has ever populated it, so it was permanently invisible and a customer
+ * had no way to obtain the document they need for input tax credit.
+ *
+ * The PDF is now built at click time from the invoice row, by the same renderer
+ * the platform console uses. No storage, no signed URL, no bucket policy, and
+ * no possibility of the stored copy drifting from the record. `pdf_path` stays
+ * on the table for a provider-hosted copy if one ever exists.
+ */
+const InvoiceDownloadButton: React.FC<{ id: string; number: string }> = ({ id, number }) => {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await invoiceDownloadService.download(id);
+        } catch (e) {
+          toast.error((e as Error).message || "Could not build the invoice PDF.");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      <span className="sr-only">Download {number}</span>
+    </Button>
+  );
 };
 
 const BillingPage: React.FC = () => {
@@ -370,14 +407,7 @@ const BillingPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        {i.pdf_path && (
-                          <Button size="sm" variant="ghost" asChild>
-                            <a href={i.pdf_path} target="_blank" rel="noreferrer">
-                              <Download className="h-3.5 w-3.5" />
-                              <span className="sr-only">Download {i.number}</span>
-                            </a>
-                          </Button>
-                        )}
+                        <InvoiceDownloadButton id={i.id} number={i.number} />
                       </td>
                     </tr>
                   ))}

@@ -134,10 +134,165 @@ export interface PurgeReport {
   storage?: { removed: number; buckets: string[]; errors: string[] };
 }
 
+// ── Invoicing ───────────────────────────────────────────────────────────────
+
+/** The six the CHECK constraint on `invoices.status` allows. */
+export type InvoiceStatus = "draft" | "issued" | "paid" | "void" | "refunded" | "overdue";
+
+/**
+ * How the supply is taxed, decided by `compute_gst()` from state codes.
+ *
+ * Carried on the invoice rather than recomputed for display: the treatment is a
+ * fact about the day it was issued, and a customer who later moves state must
+ * not retroactively change the tax on an invoice already filed.
+ */
+export type GstTreatment = "cgst_sgst" | "igst" | "export" | "sez" | "reverse_charge";
+
+export interface PlatformInvoice {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  subscriptionId: string | null;
+  number: string;
+  status: InvoiceStatus;
+  currency: string;
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
+  total: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  gstTreatment: GstTreatment | null;
+  placeOfSupply: string | null;
+  gstin: string | null;
+  financialYear: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  issuedAt: string | null;
+  dueAt: string | null;
+  paidAt: string | null;
+  notes: string | null;
+  provider: string | null;
+  providerPaymentId: string | null;
+  pdfPath: string | null;
+  emailedAt: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceLine {
+  id: string;
+  description: string;
+  quantity: number;
+  unitAmount: number;
+  amount: number;
+  taxPercent: number;
+  hsnSac: string | null;
+}
+
+export interface InvoiceSequence {
+  organizationId: string;
+  financialYear: string;
+  prefix: string;
+  lastNumber: number;
+}
+
+// ── Disaster recovery ───────────────────────────────────────────────────────
+
+export const DR_POLICY_KEY = "dr_policy";
+export const DR_REHEARSALS_KEY = "dr_rehearsals";
+
+/**
+ * What the Backups page claimed as prose before it could store anything.
+ *
+ * Kept as the defaults so an unconfigured platform shows the posture that was
+ * already written down, rather than zeros that would read as "no policy".
+ */
+export const DR_DEFAULTS = {
+  rpoMinutes: 5,
+  rtoHours: 4,
+  pitrRetentionDays: 7,
+  rehearsalIntervalDays: 30,
+  exportRetentionDays: 30,
+} as const;
+
+export interface DrPolicy {
+  rpoMinutes: number;
+  rtoHours: number;
+  pitrRetentionDays: number;
+  rehearsalIntervalDays: number;
+  exportRetentionDays: number;
+}
+
+export type DrOutcome = "pass" | "fail";
+
+export interface DrRehearsal {
+  id: string;
+  performedAt: string;
+  performedBy: string;
+  /** The PITR timestamp that was restored to. */
+  restoredTo: string | null;
+  outcome: DrOutcome;
+  minutesToRestore: number | null;
+  notes: string | null;
+}
+
+export interface OrganizationExport {
+  ok: boolean;
+  organizationId: string;
+  slug: string;
+  generatedAt: string;
+  dryRun: boolean;
+  totalRows: number;
+  tables: Record<string, number>;
+  /** Absent on a dry run — the manifest is shown before the data is fetched. */
+  data?: Record<string, Record<string, unknown>[]>;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const num = (v: unknown, d = 0) => (typeof v === "number" ? v : Number(v ?? d) || d);
 const str = (v: unknown) => (v == null ? null : String(v));
+
+const toInvoice = (r: Record<string, unknown>): PlatformInvoice => {
+  const org = (r.organizations ?? {}) as Record<string, unknown>;
+  return {
+    id: String(r.id),
+    organizationId: String(r.organization_id),
+    // legal_name first: an invoice is addressed to the legal entity, not the
+    // trading name shown in the app.
+    organizationName: String(org.legal_name ?? org.display_name ?? org.slug ?? "—"),
+    organizationSlug: String(org.slug ?? ""),
+    subscriptionId: str(r.subscription_id),
+    number: String(r.invoice_number),
+    status: String(r.status) as InvoiceStatus,
+    currency: String(r.currency ?? "INR"),
+    subtotal: num(r.subtotal),
+    discountTotal: num(r.discount_total),
+    taxTotal: num(r.tax_total),
+    total: num(r.total),
+    cgst: num(r.cgst),
+    sgst: num(r.sgst),
+    igst: num(r.igst),
+    gstTreatment: (str(r.gst_treatment) as GstTreatment | null) ?? null,
+    placeOfSupply: str(r.place_of_supply),
+    gstin: str(r.gstin),
+    financialYear: str(r.financial_year),
+    periodStart: str(r.period_start),
+    periodEnd: str(r.period_end),
+    issuedAt: str(r.issued_at),
+    dueAt: str(r.due_at),
+    paidAt: str(r.paid_at),
+    notes: str(r.notes),
+    provider: str(r.provider),
+    providerPaymentId: str(r.provider_payment_id),
+    pdfPath: str(r.pdf_path),
+    emailedAt: str(r.emailed_at),
+    createdAt: String(r.created_at),
+  };
+};
+
 
 /** Invoke the privileged edge function and normalise its error shape. */
 async function invokePlatform<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
@@ -783,6 +938,271 @@ class PlatformService {
     return invokePlatform<{ ok: boolean; userId: string; note: string }>(
       "invite_platform_user", input,
     );
+  }
+
+  // ── Invoices ─────────────────────────────────────────────────────────────
+  //
+  // Every write goes through `issue_invoice()`. Inserting a row here directly
+  // would draw no number from `invoice_sequences`, and a hand-written number is
+  // exactly the gap GST forbids — so the client has no INSERT path at all.
+
+  async invoices(): Promise<PlatformInvoice[]> {
+    const { data, error } = await supabase
+      .from("invoices" as never)
+      .select(
+        "id, organization_id, subscription_id, invoice_number, status, currency, " +
+          "subtotal, discount_total, tax_total, total, cgst, sgst, igst, " +
+          "gst_treatment, place_of_supply, gstin, financial_year, " +
+          "period_start, period_end, issued_at, due_at, paid_at, notes, " +
+          "provider, provider_payment_id, pdf_path, emailed_at, created_at, " +
+          "organizations(slug, display_name, legal_name)",
+      )
+      .order("issued_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    if (error) throw AppError.fromSupabase(error, "invoices");
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map(toInvoice);
+  }
+
+  /** The lines of one invoice, in print order. */
+  async invoiceLines(invoiceId: string): Promise<InvoiceLine[]> {
+    const { data, error } = await supabase
+      .from("invoice_lines" as never)
+      .select("id, description, quantity, unit_amount, amount, tax_percent, hsn_sac, sort_order")
+      .eq("invoice_id", invoiceId)
+      .order("sort_order");
+    if (error) throw AppError.fromSupabase(error, "invoice_lines");
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      description: String(r.description),
+      quantity: num(r.quantity, 1),
+      unitAmount: num(r.unit_amount),
+      amount: num(r.amount),
+      taxPercent: num(r.tax_percent),
+      hsnSac: str(r.hsn_sac),
+    }));
+  }
+
+  /**
+   * The counter behind the numbers.
+   *
+   * Read so the console can PROVE the sequence rather than assert it: one row
+   * per (organization, financial year), and `lastNumber` must equal the count
+   * of invoices issued under it. A mismatch is the only evidence a gap exists,
+   * and a gap is a statutory problem.
+   */
+  async invoiceSequences(): Promise<InvoiceSequence[]> {
+    const { data, error } = await supabase
+      .from("invoice_sequences" as never)
+      .select("organization_id, financial_year, prefix, last_number")
+      .order("financial_year", { ascending: false });
+    if (error) throw AppError.fromSupabase(error, "invoice_sequences");
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      organizationId: String(r.organization_id),
+      financialYear: String(r.financial_year),
+      prefix: String(r.prefix),
+      lastNumber: num(r.last_number),
+    }));
+  }
+
+  /**
+   * Draw a number and write the invoice, inside the database.
+   *
+   * `_amount` is optional: omitted, the function bills the subscription's own
+   * amount less its discount. Passing one is for the genuine exception (a
+   * pro-rated upgrade, an agreed adjustment), not the normal path.
+   */
+  async issueInvoice(input: {
+    organizationId: string;
+    subscriptionId?: string | null;
+    amount?: number | null;
+    periodStart?: string | null;
+    periodEnd?: string | null;
+    description?: string | null;
+  }): Promise<string> {
+    const { data, error } = await supabase.rpc("issue_invoice" as never, {
+      _org: input.organizationId,
+      _subscription: input.subscriptionId ?? null,
+      _amount: input.amount ?? null,
+      _period_start: input.periodStart ?? null,
+      _period_end: input.periodEnd ?? null,
+      _payment_id: null,
+      _description: input.description ?? null,
+    } as never);
+    if (error) throw AppError.fromSupabase(error, "issue_invoice");
+    return String(data);
+  }
+
+  /**
+   * Move an issued invoice between statuses.
+   *
+   * Deliberately no delete and no renumber. An issued invoice is a statutory
+   * record: the correction for a wrong one is `void` plus a fresh invoice,
+   * which leaves both numbers in the sequence and both facts on the ledger.
+   * Deleting it would open the gap the numbering design exists to prevent.
+   */
+  async setInvoiceStatus(id: string, status: InvoiceStatus): Promise<void> {
+    const patch: Record<string, unknown> = { status };
+    // `paid_at` is the date the money arrived, so it is set when the status
+    // says so and cleared when that is walked back — otherwise a voided
+    // invoice keeps a payment date and reads as collected.
+    if (status === "paid") patch.paid_at = new Date().toISOString();
+    if (status === "void" || status === "issued") patch.paid_at = null;
+
+    const { data, error } = await supabase
+      .from("invoices" as never)
+      .update(patch as never)
+      .eq("id", id)
+      .select("id");
+    if (error) throw AppError.fromSupabase(error, "invoices.status");
+    if (!data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `billing.manage` capability.",
+      );
+    }
+  }
+
+  // ── Backups & disaster recovery ──────────────────────────────────────────
+  //
+  // Policy and the rehearsal register live in `platform_settings`, which
+  // already exists with the right policy (`platform_can('settings.manage')`).
+  // A dozen rehearsal records a year did not justify a table, and a table
+  // shipped as an unapplied migration would have meant a register that did not
+  // work at all.
+
+  /**
+   * Write one `platform_settings` row, creating it if it is not seeded yet.
+   *
+   * Deliberately update-then-insert rather than a named upsert. Two reasons,
+   * and the second is the one that matters:
+   *
+   *   1. It separates outcomes an upsert conflates — a row that does not exist
+   *      yet (normal, nothing seeds these) from a caller who may not write
+   *      (worth naming).
+   *   2. `platform_settings` is keyed on its key column alone, correctly, as a
+   *      control-plane table with no tenant. `system_settings` had the same
+   *      single-column key widened to include organization_id in Phase 1E, and
+   *      the build gate keeping call sites in step with that conversion matches
+   *      on the COLUMN SET, not the table. It cannot tell the two apart, so the
+   *      literal conflict target here reads to it as the exact regression it
+   *      exists to catch. Weakening that gate to admit a false positive would
+   *      cost more than this does.
+   *
+   * Both statements ask for their rows back: an RLS-filtered write returns 204
+   * with a null error, so without that an unauthorised save reports success.
+   */
+  private async writePlatformSetting(key: string, value: unknown): Promise<void> {
+    const patch = { value, updated_at: new Date().toISOString() };
+
+    const updated = await supabase
+      .from("platform_settings" as never)
+      .update(patch as never)
+      .eq("key", key)
+      .select("key");
+    if (updated.error) throw AppError.fromSupabase(updated.error, `platform_settings.${key}`);
+    if (updated.data?.length) return;
+
+    const inserted = await supabase
+      .from("platform_settings" as never)
+      .insert({ key, ...patch } as never)
+      .select("key");
+    if (inserted.error) throw AppError.fromSupabase(inserted.error, `platform_settings.${key}`);
+    if (!inserted.data?.length) {
+      throw AppError.validation(
+        "Nothing was saved — your platform role lacks the `settings.manage` capability.",
+      );
+    }
+  }
+
+  async drPolicy(): Promise<DrPolicy> {
+    const { data, error } = await supabase
+      .from("platform_settings" as never)
+      .select("value")
+      .eq("key", DR_POLICY_KEY)
+      .maybeSingle();
+    if (error) throw AppError.fromSupabase(error, "platform_settings.dr_policy");
+    const v = ((data as { value?: unknown } | null)?.value ?? {}) as Record<string, unknown>;
+    return {
+      rpoMinutes: num(v.rpo_minutes, DR_DEFAULTS.rpoMinutes),
+      rtoHours: num(v.rto_hours, DR_DEFAULTS.rtoHours),
+      pitrRetentionDays: num(v.pitr_retention_days, DR_DEFAULTS.pitrRetentionDays),
+      rehearsalIntervalDays: num(v.rehearsal_interval_days, DR_DEFAULTS.rehearsalIntervalDays),
+      exportRetentionDays: num(v.export_retention_days, DR_DEFAULTS.exportRetentionDays),
+    };
+  }
+
+  async saveDrPolicy(p: DrPolicy): Promise<void> {
+    await this.writePlatformSetting(DR_POLICY_KEY, {
+      rpo_minutes: p.rpoMinutes,
+      rto_hours: p.rtoHours,
+      pitr_retention_days: p.pitrRetentionDays,
+      rehearsal_interval_days: p.rehearsalIntervalDays,
+      export_retention_days: p.exportRetentionDays,
+    });
+  }
+
+  async drRehearsals(): Promise<DrRehearsal[]> {
+    const { data, error } = await supabase
+      .from("platform_settings" as never)
+      .select("value")
+      .eq("key", DR_REHEARSALS_KEY)
+      .maybeSingle();
+    if (error) throw AppError.fromSupabase(error, "platform_settings.dr_rehearsals");
+    const v = (data as { value?: unknown } | null)?.value as Record<string, unknown> | undefined;
+    const rows = Array.isArray(v?.entries) ? (v!.entries as Record<string, unknown>[]) : [];
+    return rows
+      .map((r) => ({
+        id: String(r.id ?? ""),
+        performedAt: String(r.performed_at ?? ""),
+        performedBy: String(r.performed_by ?? ""),
+        restoredTo: str(r.restored_to),
+        outcome: (String(r.outcome ?? "pass") === "fail" ? "fail" : "pass") as DrOutcome,
+        minutesToRestore: r.minutes_to_restore == null ? null : num(r.minutes_to_restore),
+        notes: str(r.notes),
+      }))
+      .filter((r) => r.id && r.performedAt)
+      .sort((a, b) => b.performedAt.localeCompare(a.performedAt));
+  }
+
+  /**
+   * Append one rehearsal record.
+   *
+   * Read-modify-write on a jsonb array, so it is NOT safe against two people
+   * recording a rehearsal in the same second — the loser would be silently
+   * dropped. Accepted deliberately: this is a monthly, single-operator ritual,
+   * and the alternative was a table that would have shipped unapplied. If
+   * rehearsals ever become concurrent, this is the thing to promote to a table.
+   */
+  async recordDrRehearsal(entry: Omit<DrRehearsal, "id">): Promise<void> {
+    const existing = await this.drRehearsals();
+    const next = [
+      ...existing,
+      {
+        id: crypto.randomUUID(),
+        performed_at: entry.performedAt,
+        performed_by: entry.performedBy,
+        restored_to: entry.restoredTo,
+        outcome: entry.outcome,
+        minutes_to_restore: entry.minutesToRestore,
+        notes: entry.notes,
+      },
+    ];
+    await this.writePlatformSetting(DR_REHEARSALS_KEY, { entries: next });
+  }
+
+  /**
+   * Export one organization's rows.
+   *
+   * Service-role only, and read-only by construction: the edge function calls a
+   * SECURITY DEFINER function declared STABLE, so Postgres itself rejects any
+   * write inside it. `dryRun` returns the table/row manifest without the data,
+   * which is what the console shows before anyone downloads a tenant's entire
+   * database.
+   */
+  exportOrganization(input: { organizationId: string; dryRun?: boolean }) {
+    return invokePlatform<OrganizationExport>("export_organization", {
+      organizationId: input.organizationId,
+      dryRun: input.dryRun !== false,
+    });
   }
 }
 

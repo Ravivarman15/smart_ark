@@ -389,29 +389,10 @@ export const SupportPage: React.FC = () => {
 };
 
 // ── Backups ─────────────────────────────────────────────────────────────────
-
-export const BackupsPage: React.FC = () => (
-  <div>
-    <PageHeader title="Backups & Disaster Recovery" />
-    <div className="p-6 space-y-4">
-      <div className="rounded-lg border border-border p-4 text-sm space-y-2">
-        <div className="font-medium">Current posture</div>
-        <p className="text-muted-foreground">
-          Backups and point-in-time recovery are managed by Supabase at the project
-          level and are not controllable from SQL — so this page deliberately does not
-          offer a "Back up now" button it cannot honour.
-        </p>
-        <p className="text-muted-foreground">
-          Operational requirement: <strong>a restore that has not been tested is not a
-          backup.</strong> Verify PITR monthly. Target RPO 5 minutes, RTO 4 hours.
-        </p>
-      </div>
-      <ReservedNotice phase="Phase 11 (Scale)">
-        Per-organization export, retention policy and automated restore rehearsal.
-      </ReservedNotice>
-    </div>
-  </div>
-);
+//
+// Moved to its own file (pages/BackupsPage.tsx) when it stopped being a
+// paragraph and grew a stored policy, a rehearsal register and a per-tenant
+// export.
 
 // ── Platform settings ───────────────────────────────────────────────────────
 

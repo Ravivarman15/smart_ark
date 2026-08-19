@@ -864,6 +864,63 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── export_organization ──────────────────────────────────────────────
+    //
+    // The read-only twin of purge, and the only door to it: the underlying
+    // functions have EXECUTE revoked from anon and authenticated, so a tenant
+    // JWT cannot reach a whole-tenant dump even though the functions run as
+    // SECURITY DEFINER.
+    //
+    // Gated on `organizations.purge` rather than a softer read capability.
+    // Every row of a tenant in one file is the same disclosure as erasing
+    // them is a destruction — a support agent who can read a ticket has no
+    // business downloading a school's entire database — and reusing the
+    // existing owner-only capability means there is one bar, not two that can
+    // drift apart.
+    if (action === "export_organization") {
+      if (!need("organizations.purge")) {
+        return jsonResponse(403, {
+          error: "organizations.purge required — exporting a whole tenant is owner-only.",
+        });
+      }
+
+      const { organizationId, dryRun } = body;
+      if (!organizationId) return jsonResponse(400, { error: "organizationId is required" });
+
+      // Default to the manifest. The expensive, disclosing call has to be
+      // asked for explicitly, the same way the purge preview is the default.
+      const isDryRun = dryRun !== false;
+      const fn = isDryRun ? "platform_export_manifest" : "platform_export_organization";
+
+      const { data, error } = await db.rpc(fn, { _org: organizationId });
+      if (error) {
+        // The migration ships unapplied by design; say so rather than
+        // surfacing a raw "function does not exist" to an operator.
+        const missing = /does not exist|schema cache/i.test(error.message);
+        return jsonResponse(missing ? 501 : 400, {
+          error: missing
+            ? "Export is not available on this project yet — apply migration 20261011_organization_export.sql."
+            : error.message,
+        });
+      }
+
+      // Audited even on a dry run. "Who looked at how much data this tenant
+      // has" is itself worth recording, and a manifest is reconnaissance for
+      // the real thing.
+      const report = data as { slug?: string; total_rows?: number } | null;
+      await audit(db, actor, {
+        action: isDryRun ? "organization.export_preview" : "organization.export",
+        target_type: "organization",
+        target_id: String(organizationId),
+        detail: `${report?.slug ?? organizationId}: ${report?.total_rows ?? 0} rows${
+          isDryRun ? " (manifest only)" : " exported"
+        }`,
+        ip_address: ip,
+      });
+
+      return jsonResponse(200, { ok: true, ...(data as Record<string, unknown>) });
+    }
+
     return jsonResponse(400, { error: `Unknown action: ${action}` });
   } catch (e) {
     console.error("[platform-admin]", e);
