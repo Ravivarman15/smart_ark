@@ -33,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveChild } from "../providers/ActiveChildProvider";
+import { useParentPathVisible } from "../hooks/useParentModules";
 import {
   useChildAttendance,
   useChildClasses,
@@ -84,6 +85,10 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
  * A compact tile. Deliberately not the bordered `StatTile`: six of these sit
  * shoulder-to-shoulder, and six boxed cards in a row reads as clutter rather
  * than a summary.
+ *
+ * A tile whose destination this institution has hidden renders NOTHING — see
+ * `useParentPathVisible`. Leaving the tile and dropping only its link would
+ * keep printing the very figure the institution chose not to publish.
  */
 const TodayTile = ({
   icon: Icon,
@@ -100,6 +105,9 @@ const TodayTile = ({
   tone?: "default" | "good" | "warn" | "bad";
   to?: string;
 }) => {
+  const visible = useParentPathVisible();
+  if (!visible(to)) return null;
+
   const body = (
     <div className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3 h-full transition-colors hover:border-accent/40">
       <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -131,6 +139,10 @@ const TodayTile = ({
 
 // ── Insight card shell ───────────────────────────────────────────────────────
 
+/**
+ * Same rule as `TodayTile`: an insight card is a summary OF the page it points
+ * at, so hiding that page hides the card rather than orphaning it.
+ */
 const InsightCard = ({
   title,
   icon: Icon,
@@ -143,24 +155,29 @@ const InsightCard = ({
   to?: string;
   action?: string;
   children: React.ReactNode;
-}) => (
-  <Card className="!p-4 flex flex-col">
-    <div className="flex items-center justify-between gap-2 mb-3">
-      <div className="flex items-center gap-1.5 min-w-0">
-        <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
-          {title}
-        </h3>
+}) => {
+  const visible = useParentPathVisible();
+  if (!visible(to)) return null;
+
+  return (
+    <Card className="!p-4 flex flex-col">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
+            {title}
+          </h3>
+        </div>
+        {to && (
+          <Link to={to} className="text-[10px] font-medium text-accent hover:underline shrink-0">
+            {action ?? "View"}
+          </Link>
+        )}
       </div>
-      {to && (
-        <Link to={to} className="text-[10px] font-medium text-accent hover:underline shrink-0">
-          {action ?? "View"}
-        </Link>
-      )}
-    </div>
-    <div className="flex-1">{children}</div>
-  </Card>
-);
+      <div className="flex-1">{children}</div>
+    </Card>
+  );
+};
 
 const Delta = ({ value, unit = "pts" }: { value: number | null; unit?: string }) => {
   if (value === null) return null;
@@ -189,6 +206,8 @@ export const ParentHomePage = () => {
     useActiveChild();
   const student = activeChild?.student;
   const colors = useStatusColors();
+  // Shortcuts and cards must not lead anywhere this institution has withdrawn.
+  const pathVisible = useParentPathVisible();
 
   const today = iso(new Date());
   const summary = useChildSummary(student);
@@ -532,7 +551,11 @@ export const ParentHomePage = () => {
                 { to: "/parent/documents", label: "Documents", icon: FileText },
                 { to: "/parent/messages", label: "Messages", icon: MessageSquare },
                 { to: "/parent/assistant", label: "Assistant", icon: Sparkles },
-              ].map(({ to, label, icon: Icon }) => (
+                // Quick actions are shortcuts to pages, so a shortcut to a
+                // page this institution does not offer is a dead end.
+              ]
+                .filter(({ to }) => pathVisible(to))
+                .map(({ to, label, icon: Icon }) => (
                 <Link
                   key={to}
                   to={to}

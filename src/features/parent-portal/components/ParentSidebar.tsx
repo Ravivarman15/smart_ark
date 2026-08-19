@@ -7,10 +7,19 @@
 // mechanism owned which page. One list, always the same order, is easier to
 // learn than two.
 //
-// The fourteen destinations are GROUPED. An ungrouped list of fourteen is a
-// wall of text to scan; five short labelled groups can be read at a glance and
-// map onto how a parent thinks — "how is my child doing", "what do I owe",
-// "what have you sent me".
+// The destinations are GROUPED. An ungrouped list of fourteen is a wall of text
+// to scan; five short labelled groups can be read at a glance and map onto how
+// a parent thinks — "how is my child doing", "what do I owe", "what have you
+// sent me".
+//
+// ── THE LIST IS PER-INSTITUTION ──────────────────────────────────────────────
+// It is built from `constants/parentModules` and filtered by what THIS
+// organization offers its parents (see the settings screen at
+// /settings/parent-portal). The nav array that used to live here was the reason
+// there was nothing to configure: a page had no name outside this file.
+//
+// An empty group renders nothing at all — a heading with no links under it
+// reads as a loading failure.
 //
 // ── WHY THE MENU CARRIES LIVE STATE ──────────────────────────────────────────
 // A parent opens this portal to answer one question: "is anything wrong?" A
@@ -25,29 +34,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TouchEvent as ReactTouchEvent } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import {
-  Bell,
-  BookOpen,
-  Bus,
-  CalendarCheck,
-  ChevronDown,
-  CreditCard,
-  FileText,
-  GraduationCap,
-  History,
-  Home,
-  LogOut,
-  MessageSquare,
-  Settings,
-  Sparkles,
-  User,
-  Video,
-  X,
-} from "lucide-react";
+import { ChevronDown, Home, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgLogo } from "@/features/branding/components/OrgLogo";
 import { useActiveChild } from "../providers/ActiveChildProvider";
 import { useChildSummary } from "../hooks/useChildData";
+import { useParentModules } from "../hooks/useParentModules";
+import {
+  PARENT_GROUP_ORDER,
+  PARENT_MODULES,
+  type ParentModuleId,
+} from "../constants/parentModules";
 import type { ChildSummary } from "../types/parentPortal.types";
 
 export interface ParentNavItem {
@@ -62,42 +59,23 @@ export interface ParentNavGroup {
   items: ParentNavItem[];
 }
 
-export const PARENT_NAV: ParentNavGroup[] = [
-  {
-    items: [{ to: "/parent", label: "Home", icon: Home }],
-  },
-  {
-    label: "Learning",
-    items: [
-      { to: "/parent/attendance", label: "Attendance", icon: CalendarCheck },
-      { to: "/parent/academics", label: "Academics", icon: BookOpen },
-      { to: "/parent/exams", label: "Exams & Results", icon: GraduationCap },
-      { to: "/parent/classes", label: "Classes", icon: Video },
-    ],
-  },
-  {
-    label: "Fees",
-    items: [{ to: "/parent/fees", label: "Fees & Receipts", icon: CreditCard }],
-  },
-  {
-    label: "Updates",
-    items: [
-      { to: "/parent/messages", label: "Messages", icon: MessageSquare },
-      { to: "/parent/documents", label: "Documents", icon: FileText },
-      { to: "/parent/timeline", label: "Activity", icon: History },
-    ],
-  },
-  {
-    label: "More",
-    items: [
-      { to: "/parent/assistant", label: "Assistant", icon: Sparkles },
-      { to: "/parent/profile", label: "Student profile", icon: User },
-      { to: "/parent/services", label: "Transport & Hostel", icon: Bus },
-      { to: "/parent/reports", label: "Reports", icon: Bell },
-      { to: "/parent/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
+/**
+ * The grouped menu for a given set of enabled pages.
+ *
+ * Pure, and exported so the shape of the menu can be asserted without a DOM.
+ * Registry order is preserved inside each group and `PARENT_GROUP_ORDER` fixes
+ * the order of the groups themselves, so hiding a page never reshuffles the
+ * ones around it — a parent who has learned where Fees sits keeps it there.
+ */
+export const parentNavGroups = (enabled: ReadonlySet<ParentModuleId>): ParentNavGroup[] =>
+  PARENT_GROUP_ORDER.map((label) => ({
+    label: label || undefined,
+    items: PARENT_MODULES.filter((m) => m.group === label && enabled.has(m.id)).map((m) => ({
+      to: m.path,
+      label: m.label,
+      icon: m.icon,
+    })),
+  })).filter((g) => g.items.length > 0);
 
 export const isActivePath = (pathname: string, to: string): boolean =>
   to === "/parent"
@@ -261,10 +239,16 @@ const NavBody = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { data: summary } = useChildSummary(activeChild?.student);
   const badges = useMemo(() => navBadges(summary), [summary]);
   const { collapsed, toggle } = useCollapsedGroups();
+  const { enabled, isLoading } = useParentModules();
+  const groups = useMemo(() => parentNavGroups(enabled), [enabled]);
+
+  // Render nothing rather than the full list — see `useParentModules`. A menu
+  // that appears complete and then loses four links is a moving tap target.
+  if (isLoading) return <nav className="flex-1" aria-busy="true" aria-label="Parent portal" />;
 
   return (
     <nav className="flex-1 overflow-y-auto py-3 px-2.5" aria-label="Parent portal">
-      {PARENT_NAV.map((group, gi) => {
+      {groups.map((group, gi) => {
         // Never fold away the group you are currently standing in — the menu
         // would look like it had lost the page.
         const holdsActive = group.items.some((i) => isActivePath(loc.pathname, i.to));

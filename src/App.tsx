@@ -370,6 +370,9 @@ const MyReferralPage = lazy(() => import("./features/settings/pages/MyReferralPa
 const BillingPage = lazy(() => import("./features/billing/pages/BillingPage"));
 const BrandingPage = lazy(() => import("./features/branding/pages/BrandingPage"));
 const CheckinSettingsPage = lazy(() => import("./features/settings/pages/CheckinSettingsPage"));
+const ParentPortalSettingsPage = lazy(
+  () => import("./features/settings/pages/ParentPortalSettingsPage"),
+);
 const DocsPage = lazy(() => import("./features/docs/DocsPage"));
 
 // ProtectedRoute / AuthRedirect now live in @/core/routing.
@@ -953,6 +956,8 @@ const AppRoutes: React.FC = () => (
         <Route path="billing" element={<BillingPage />} />
         <Route path="branding" element={<BrandingPage />} />
         <Route path="check-in" element={<CheckinSettingsPage />} />
+        {/* Which parent-portal sections this organization offers ITS parents. */}
+        <Route path="parent-portal" element={<ParentPortalSettingsPage />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

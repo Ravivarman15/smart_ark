@@ -90,6 +90,8 @@ export const MODULE_CATALOG: ModuleDef[] = [
       // Phase 8. Staff check-in verification mode + the organization's own
       // verified locations — replaces two GPS coordinates that were hardcoded.
       { id: "settings.checkin",  label: "Check-in & Check-out",   route: "/settings/check-in" },
+      // Which parent-portal sections THIS organization offers its own parents.
+      { id: "settings.parent_portal", label: "Parent Portal", route: "/settings/parent-portal" },
     ],
   },
   {

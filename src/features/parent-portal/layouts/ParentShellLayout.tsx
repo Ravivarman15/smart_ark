@@ -5,10 +5,14 @@
 // machinery a parent has no row in. Feeding a parent through it would mean
 // inventing a fake staff role purely to draw a menu.
 //
-// The portal's navigation is instead a fixed, small, purpose-built list (see
-// components/ParentSidebar). A parent's menu is not configurable by design:
-// what they may see is decided by RLS, not by a menu, so there is nothing for
-// an administrator to toggle.
+// The portal's navigation is instead a small, purpose-built list built from
+// `constants/parentModules` (see components/ParentSidebar).
+//
+// That list is configurable PER INSTITUTION — an organization decides which
+// pages its own parents are offered, at /settings/parent-portal. What it is
+// NOT is a permission system: RLS still decides what a parent may read, and
+// hiding a page changes what is presented, never what is protected. The two
+// answer different questions and are kept deliberately separate.
 //
 // LAYOUT — one navigation surface, not two.
 // Desktop docks the sidebar; mobile opens the SAME list as a slide-in drawer
@@ -26,24 +30,22 @@ import { OrgLogo } from "@/features/branding/components/OrgLogo";
 import { ActiveChildProvider, useActiveChild } from "../providers/ActiveChildProvider";
 import { ParentRealtimeProvider } from "../providers/ParentRealtimeProvider";
 import { ChildSwitcher } from "../components/ChildSwitcher";
-import {
-  PARENT_NAV,
-  ParentSidebarDocked,
-  ParentSidebarDrawer,
-  isActivePath,
-} from "../components/ParentSidebar";
+import { ParentSidebarDocked, ParentSidebarDrawer } from "../components/ParentSidebar";
+import { ParentModuleGate } from "../components/ParentModuleGate";
+import { parentModuleForPath } from "../constants/parentModules";
 import { parentAuditService } from "../services/parentAudit.service";
 import { EmptyState } from "../components/primitives";
 
-/** Page title for the mobile header — parents lose their place without it. */
+/**
+ * Page title for the mobile header — parents lose their place without it.
+ *
+ * Resolved from the registry rather than by walking the rendered menu: the menu
+ * is now filtered per organization, and reading the label out of it would leave
+ * a hidden-but-reachable page titled "Parent Portal".
+ */
 const useCurrentPageLabel = (): string => {
   const loc = useLocation();
-  for (const group of PARENT_NAV) {
-    for (const item of group.items) {
-      if (isActivePath(loc.pathname, item.to)) return item.label;
-    }
-  }
-  return "Parent Portal";
+  return parentModuleForPath(loc.pathname)?.label ?? "Parent Portal";
 };
 
 /** Inner shell — needs ActiveChildProvider mounted, hence the split. */
@@ -141,7 +143,9 @@ const Shell = () => {
               hint="Your portal account is active but has not been linked to a student. Please contact the institution office — they can link your child from Staff → Authentication → Parent Accounts."
             />
           ) : (
-            <Outlet />
+            <ParentModuleGate>
+              <Outlet />
+            </ParentModuleGate>
           )}
         </main>
       </div>

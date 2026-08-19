@@ -171,6 +171,7 @@ export const NAV_CONFIG: NavGroupConfig[] = [
       { path: "/settings/billing",            label: "Billing & Subscription",      roles: adminMgmt, submodule: "settings.billing" },
       { path: "/settings/branding",           label: "Branding & White Label",      roles: adminMgmt, submodule: "settings.branding" },
       { path: "/settings/check-in",           label: "Check-in & Check-out",        roles: adminMgmt, submodule: "settings.checkin" },
+      { path: "/settings/parent-portal",      label: "Parent Portal",               roles: adminMgmt, submodule: "settings.parent_portal" },
     ],
   },
 

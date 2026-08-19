@@ -41,6 +41,7 @@ import {
   Palette,
   MapPin,
   SlidersHorizontal,
+  Users,
 } from "lucide-react";
 import { useNavigation } from "@/core/navigation";
 
@@ -81,6 +82,7 @@ export const SETTINGS_PRESENTATION: Record<
   "settings.billing": { icon: CreditCard, group: "Plan & billing" },
   "settings.branding": { icon: Palette, group: "Plan & billing" },
   "settings.checkin": { icon: MapPin, group: "Organisation" },
+  "settings.parent_portal": { icon: Users, group: "Organisation" },
 };
 
 const FALLBACK = { icon: SlidersHorizontal, group: "Other" as SettingsGroup };
