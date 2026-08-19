@@ -11,6 +11,7 @@ import {
   ACTION_CATALOG,
   ACTIONS_BY_SUBMODULE,
   EffectiveAccessPanel,
+  GRANTABLE_MODULES,
   MODULE_CATALOG,
   resolveAccess,
   useActionRights,
@@ -82,7 +83,7 @@ export const RoleDiagnosticsTab = ({ role }: Props) => {
     }
 
     // Actions enabled while their parent submodule is hidden.
-    for (const m of MODULE_CATALOG) {
+    for (const m of GRANTABLE_MODULES) {
       const modOn = access.modules[m.id]?.allowed ?? true;
       for (const s of m.submodules) {
         const subOn = access.submodules[s.id]?.allowed ?? true;

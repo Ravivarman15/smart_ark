@@ -187,7 +187,11 @@ class AttendanceStudentService extends BaseService {
   }): Promise<StudentAttendanceRow[]> {
     const cols =
       "id, student_id, batch_id, date, attendance_date, status, method, remarks, " +
-      "marked_by_name, marked_by_role, marked_at, students(name, roll_number)";
+      "marked_by_name, marked_by_role, marked_at, " +
+      // Named by CONSTRAINT: student_attendance has two FKs to students (the
+      // plain one and the composite tenant-integrity pair), and PostgREST
+      // refuses to guess. See docs/POSTGREST_AMBIGUOUS_EMBEDS.md.
+      "students:students!student_attendance_student_id_fkey(name, roll_number)";
     const run = (dateCol: "attendance_date" | "date") => {
       let q = this.db.from("student_attendance").select(cols).gte(dateCol, params.from).lte(dateCol, params.to);
       if (params.batchId) q = q.eq("batch_id", params.batchId);
@@ -235,7 +239,11 @@ class AttendanceStudentService extends BaseService {
     // ── Step 2: query student_attendance with embedded students join ────────
     const cols =
       "id, student_id, batch_id, date, attendance_date, status, method, remarks, " +
-      "marked_by_name, marked_by_role, marked_at, students(name, roll_number)";
+      "marked_by_name, marked_by_role, marked_at, " +
+      // Named by CONSTRAINT: student_attendance has two FKs to students (the
+      // plain one and the composite tenant-integrity pair), and PostgREST
+      // refuses to guess. See docs/POSTGREST_AMBIGUOUS_EMBEDS.md.
+      "students:students!student_attendance_student_id_fkey(name, roll_number)";
 
     // Simpler cols without the students join (fallback)
     const simpleCols =

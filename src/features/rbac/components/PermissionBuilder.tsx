@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { resolveIcon } from "@/shared/icons";
-import { MODULE_CATALOG, type ModuleDef, type SubmoduleDef } from "../constants/catalog";
+import { GRANTABLE_MODULES, type ModuleDef, type SubmoduleDef } from "../constants/catalog";
 import {
   ACTION_CATALOG,
   ACTIONS_BY_SUBMODULE,
@@ -70,9 +70,9 @@ export const PermissionBuilder = ({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const filteredModules = useMemo(() => {
-    if (!search) return MODULE_CATALOG;
+    if (!search) return GRANTABLE_MODULES;
     const q = search.toLowerCase();
-    return MODULE_CATALOG.filter((m) => {
+    return GRANTABLE_MODULES.filter((m) => {
       if (m.label.toLowerCase().includes(q) || m.id.toLowerCase().includes(q))
         return true;
       if (m.submodules.some((s) => matchSub(s, q))) return true;
@@ -86,8 +86,8 @@ export const PermissionBuilder = ({
     });
   }, [search]);
 
-  const moduleCount = MODULE_CATALOG.length;
-  const enabledModules = MODULE_CATALOG.filter((m) => draft.modules[m.id]).length;
+  const moduleCount = GRANTABLE_MODULES.length;
+  const enabledModules = GRANTABLE_MODULES.filter((m) => draft.modules[m.id]).length;
   const totalActions = ACTION_CATALOG.length;
   const enabledActions = ACTION_CATALOG.filter((a) => draft.actions[a.id]).length;
 
@@ -95,7 +95,7 @@ export const PermissionBuilder = ({
     const modules: Record<string, boolean> = {};
     const submodules: Record<string, boolean> = {};
     const actions: Record<string, boolean> = {};
-    for (const m of MODULE_CATALOG) {
+    for (const m of GRANTABLE_MODULES) {
       modules[m.id] = value;
       for (const s of m.submodules) {
         submodules[s.id] = value;

@@ -444,7 +444,9 @@ class AttendanceService extends BaseService {
     const tryWith = (cols: string, dateCol: "attendance_date" | "date") =>
       dbAny
         .from("student_attendance")
-        .select(`${cols}, students(name)`)
+        // Named by CONSTRAINT — student_attendance has two FKs to students.
+        // See docs/POSTGREST_AMBIGUOUS_EMBEDS.md.
+        .select(`${cols}, students:students!student_attendance_student_id_fkey(name)`)
         .eq(dateCol, date)
         .in("status", ["absent", "late"])
         .order("status");

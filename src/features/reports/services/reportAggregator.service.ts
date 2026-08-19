@@ -359,8 +359,11 @@ class ReportAggregatorService extends BaseService {
       payment_method: string | null;
       students?: { name: string | null; batches?: { name: string | null } | null } | null;
     };
+    // students is named by CONSTRAINT: student_fees has two foreign keys to
+    // students, and PostgREST refuses to guess between them (PGRST201, HTTP
+    // 300). See docs/POSTGREST_AMBIGUOUS_EMBEDS.md.
     const select =
-      "id, student_id, total_amount, received_amount, pending_amount, discount_amount, refund_amount, tax_amount, paid, status, due_date, paid_at, payment_method, students:students(name, batches:batches(name))";
+      "id, student_id, total_amount, received_amount, pending_amount, discount_amount, refund_amount, tax_amount, paid, status, due_date, paid_at, payment_method, students:students!student_fees_student_id_fkey(name, batches:batches(name))";
     let q = this.db.from("student_fees").select(select);
     if (filters.from) q = q.gte("due_date", filters.from);
     if (filters.to) q = q.lte("due_date", filters.to);

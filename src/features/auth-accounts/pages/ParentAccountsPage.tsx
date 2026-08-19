@@ -22,6 +22,7 @@ import {
   KeyRound,
   Link2,
   Loader2,
+  Lock,
   Mail,
   Pencil,
   PencilOff,
@@ -50,6 +51,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useModuleEntitlements } from "@/features/rbac/hooks/useModuleEntitlements";
+import { parentPortalEntitled } from "@/features/parent-portal/constants/parentModules";
 import { useStudents } from "@/features/students/hooks";
 import {
   useLinkChild,
@@ -437,7 +440,16 @@ export const ParentAccountsPage = () => {
   const setStatus = useSetAccountStatus();
   const unlink = useUnlinkChild();
 
-  const canProvision = user?.role === "admin" || user?.role === "management";
+  // Parent Portal is a per-plan module. Without it a provisioned login has
+  // nowhere to sign in to, so the page renders the reason rather than letting
+  // staff create accounts that cannot be used — and the existing list stays
+  // readable, because the accounts are still there and come back the moment
+  // the plan includes the portal again.
+  const { data: entitlements } = useModuleEntitlements();
+  const portalEntitled = parentPortalEntitled(entitlements?.flags);
+
+  const canProvision =
+    portalEntitled && (user?.role === "admin" || user?.role === "management");
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -522,6 +534,17 @@ export const ParentAccountsPage = () => {
           </Button>
         )}
       </div>
+
+      {!portalEntitled && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+          <p className="text-amber-700 dark:text-amber-400">
+            The parent portal is not part of your current plan, so parents cannot sign in and new
+            logins cannot be issued. Existing accounts are kept and start working again as soon as
+            the plan includes it.
+          </p>
+        </div>
+      )}
 
       {!canProvision && (
         <Card className="border-amber-500/40 bg-amber-500/5">

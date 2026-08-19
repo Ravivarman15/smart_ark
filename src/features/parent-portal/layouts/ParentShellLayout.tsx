@@ -32,6 +32,7 @@ import { ParentRealtimeProvider } from "../providers/ParentRealtimeProvider";
 import { ChildSwitcher } from "../components/ChildSwitcher";
 import { ParentSidebarDocked, ParentSidebarDrawer } from "../components/ParentSidebar";
 import { ParentModuleGate } from "../components/ParentModuleGate";
+import { useParentModules } from "../hooks/useParentModules";
 import { parentModuleForPath } from "../constants/parentModules";
 import { parentAuditService } from "../services/parentAudit.service";
 import { EmptyState } from "../components/primitives";
@@ -55,6 +56,7 @@ const Shell = () => {
   const { children: kids, isLoading, activeChild } = useActiveChild();
   const [menuOpen, setMenuOpen] = useState(false);
   const pageLabel = useCurrentPageLabel();
+  const { portalEntitled, isLoading: modulesLoading } = useParentModules();
 
   // Close on navigation so a back-gesture never leaves the drawer stuck open.
   useEffect(() => setMenuOpen(false), [loc.pathname]);
@@ -86,6 +88,36 @@ const Shell = () => {
   // A provisioned parent with zero links would otherwise land on a dashboard of
   // empty cards and conclude the portal is broken. Name the actual situation.
   const noChildren = !isLoading && kids.length === 0;
+
+  // ── The whole portal is not on this organization's plan ───────────────────
+  //
+  // Replaces the application rather than rendering a chrome of empty menus
+  // around a notice: an institution that has not bought the portal should not
+  // have one drawn for their parents, and a sidebar of fourteen unreachable
+  // links is a worse answer than no sidebar. Sign-out stays, because a parent
+  // who cannot leave a screen has been trapped by a billing decision.
+  if (!modulesLoading && !portalEntitled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md text-center">
+          <OrgLogo className="mx-auto mb-4 h-12 w-12 rounded-xl" decorative />
+          <h1 className="text-lg font-semibold text-foreground">
+            The parent portal is not available
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your institution's plan does not currently include the parent portal. Please contact
+            the office — they can enable it from their subscription.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="mt-6 text-xs text-muted-foreground underline hover:text-foreground"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

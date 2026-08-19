@@ -5,6 +5,9 @@
 // ── Catalog ─────────────────────────────────────────────────────────────────
 export {
   MODULE_CATALOG,
+  // The subset a staff role can actually be granted — everything except
+  // modules that exist only to be sold, like `parent_portal`.
+  GRANTABLE_MODULES,
   MODULES_BY_ID,
   SUBMODULES_BY_ID,
   isCatalogModule,

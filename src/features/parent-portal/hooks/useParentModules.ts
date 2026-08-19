@@ -16,6 +16,7 @@ import { useModuleEntitlements } from "@/features/rbac/hooks/useModuleEntitlemen
 import {
   enabledParentModules,
   parentModuleForPath,
+  parentPortalEntitled,
   resolveParentModules,
   type ParentModuleId,
   type ParentModuleMap,
@@ -38,6 +39,15 @@ export const useParentModuleSettings = () =>
 export interface ResolvedParentModules {
   map: ParentModuleMap;
   enabled: Set<ParentModuleId>;
+  /**
+   * Does this organization's PLAN include the parent portal at all?
+   *
+   * Separate from `enabled` being empty, which an institution can also produce
+   * by hiding every page. The two need different words in front of a parent:
+   * one is "your school has not shared this", the other is "your school does
+   * not have this product" — and only the second is anybody's to buy.
+   */
+  portalEntitled: boolean;
   /** True until BOTH inputs have settled. */
   isLoading: boolean;
 }
@@ -62,6 +72,7 @@ export const useParentModules = (): ResolvedParentModules => {
   return {
     map,
     enabled: useMemo(() => enabledParentModules(map), [map]),
+    portalEntitled: parentPortalEntitled(entitlements.data?.flags),
     isLoading: settings.isLoading || entitlements.isLoading,
   };
 };

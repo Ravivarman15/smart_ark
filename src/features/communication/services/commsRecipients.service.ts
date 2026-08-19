@@ -133,7 +133,10 @@ class CommsRecipientsService extends BaseService {
     const res = await this.db
       .from("student_attendance" as never)
       .select(
-        "student_id, students!inner(id, name, parent_contact, parent_name, section, communication_preference, batches(name), standards(name))"
+        // Named by CONSTRAINT — student_attendance has two FKs to students (the
+        // plain one and the composite tenant-integrity pair) and PostgREST
+        // refuses to guess. See docs/POSTGREST_AMBIGUOUS_EMBEDS.md.
+        "student_id, students:students!student_attendance_student_id_fkey!inner(id, name, parent_contact, parent_name, section, communication_preference, batches(name), standards(name))"
       )
       .eq("date", date)
       .eq("status", "absent")
@@ -298,7 +301,8 @@ class CommsRecipientsService extends BaseService {
     const res = await this.db
       .from("student_fees" as never)
       .select(
-        "id, amount_paid, total_amount, due_date, student_id, students(id, name, parent_contact, parent_name, batches(name))"
+        // Named by CONSTRAINT — student_fees has two FKs to students.
+        "id, amount_paid, total_amount, due_date, student_id, students:students!student_fees_student_id_fkey(id, name, parent_contact, parent_name, batches(name))"
       )
       .limit(2000);
     if (res.error) {

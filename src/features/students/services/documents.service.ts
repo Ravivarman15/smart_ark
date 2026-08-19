@@ -54,7 +54,12 @@ class DocumentsService extends BaseService {
     let q = this.db
       .from("student_documents" as never)
       .select(
-        "id, student_id, category, title, file_name, file_path, mime_type, size_bytes, is_shared, shared_at, uploaded_by, created_at, students(name)"
+        // students is named by CONSTRAINT, not by table. `student_documents`
+        // has two foreign keys to `students` — the plain one and the composite
+        // tenant-integrity `(organization_id, student_id)` — and PostgREST
+        // refuses to guess between them (PGRST201, HTTP 300). See
+        // docs/POSTGREST_AMBIGUOUS_EMBEDS.md.
+        "id, student_id, category, title, file_name, file_path, mime_type, size_bytes, is_shared, shared_at, uploaded_by, created_at, students:students!student_documents_student_id_fkey(name)"
       )
       .order("created_at", { ascending: false });
     if (filters?.studentId) q = q.eq("student_id", filters.studentId);

@@ -43,7 +43,8 @@ export type ModuleId =
   | "expense_income"
   | "payroll"
   | "reports"
-  | "help";
+  | "help"
+  | "parent_portal";
 
 export interface SubmoduleDef {
   /** Stable id, namespaced under the module. e.g. "settings.change_password". */
@@ -62,6 +63,20 @@ export interface ModuleDef {
   /** Roles that *may* see this module by default. Permission rows can override. */
   defaultRoles: Role[];
   submodules: SubmoduleDef[];
+  /**
+   * False for a module no STAFF member navigates.
+   *
+   * The catalog is one vocabulary shared by three consumers — staff
+   * permissions, plan features, and per-organization entitlement overrides —
+   * and `parent_portal` belongs to the last two only. A parent is not a
+   * `profiles` role and has no permission row, so offering "Parent Portal" as
+   * a grant in Manage Staff Role would be a switch that does nothing, on a
+   * screen whose entire purpose is that its switches do something.
+   *
+   * It stays a first-class module because that is how it becomes sellable: a
+   * plan feature, a pricing row and an override all key on ModuleId.
+   */
+  staffGrantable?: boolean;
 }
 
 const all: Role[] = ["admin", "coordinator", "management", "teacher"];
@@ -452,9 +467,38 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "help.analytics",       label: "Ticket Analytics" },
     ],
   },
+  {
+    // ── Parent Portal ────────────────────────────────────────────────────
+    // A sellable capability rather than a staff screen: it decides whether an
+    // institution may run the /parent portal at all. Super Admin toggles it
+    // per PLAN (Commerce → Plans → Modules), the pricing table draws the row
+    // straight from that, and an organization on a plan that includes it can
+    // provision parent logins the moment it signs up.
+    //
+    // No submodules on purpose. WHICH sections a tenant shows its parents is
+    // the tenant's own decision, made at /settings/parent-portal — not
+    // something Smart ARK sells by the page. See docs/PARENT_PORTAL_MODULES.md.
+    id: "parent_portal",
+    label: "Parent Portal",
+    icon: "Users",
+    defaultRoles: all,
+    staffGrantable: false,
+    submodules: [],
+  },
 ];
 
 void mgmt;
+
+/**
+ * The modules Manage Staff Role may grant.
+ *
+ * Everything a staff member can be given or refused, and nothing else. Kept
+ * beside the catalog so the exclusion is stated once rather than repeated as
+ * a filter at four call sites that would drift.
+ */
+export const GRANTABLE_MODULES: ModuleDef[] = MODULE_CATALOG.filter(
+  (m) => m.staffGrantable !== false,
+);
 
 // ── Convenience lookups ─────────────────────────────────────────────────────
 export const MODULES_BY_ID: Record<ModuleId, ModuleDef> = MODULE_CATALOG.reduce(

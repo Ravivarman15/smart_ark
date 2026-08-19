@@ -18,7 +18,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { MODULE_CATALOG } from "@/features/rbac/constants/catalog";
+import { GRANTABLE_MODULES, MODULE_CATALOG } from "@/features/rbac/constants/catalog";
+import { MODULE_METADATA } from "@/features/platform/modules/moduleRegistry";
 import {
   CONFIGURABLE_PARENT_MODULES,
   PARENT_GROUP_ORDER,
@@ -26,6 +27,7 @@ import {
   PARENT_MODULE_IDS,
   enabledParentModules,
   parentModuleForPath,
+  parentPortalEntitled,
   resolveParentModules,
   sanitiseDisabledList,
   toDisabledList,
@@ -94,6 +96,85 @@ describe("The parent module registry is well-formed", () => {
 // ════════════════════════════════════════════════════════════════════════════
 // 2 — PRECEDENCE
 // ════════════════════════════════════════════════════════════════════════════
+
+describe("The portal is a plan-level product", () => {
+  it("is a first-class module, so it can be priced and sold", () => {
+    // `parent_portal` has to be a ModuleId or none of the machinery reaches it:
+    // plan features, the pricing table, per-organization overrides and the
+    // entitlement resolver all key on that one vocabulary.
+    expect(MODULE_CATALOG.map((m) => m.id)).toContain("parent_portal");
+    expect(MODULE_METADATA.parent_portal.audience).toBe("customer");
+    expect(MODULE_METADATA.parent_portal.dependsOn).toContain("student");
+    expect(MODULE_METADATA.parent_portal.essential).toBeFalsy();
+  });
+
+  it("is never offered as a staff permission", () => {
+    // A parent is not a `profiles` role and has no permission row, so a grant
+    // here would be a switch that does nothing on a screen whose whole point
+    // is that its switches do something.
+    expect(GRANTABLE_MODULES.map((m) => m.id)).not.toContain("parent_portal");
+    expect(MODULE_CATALOG.find((m) => m.id === "parent_portal")!.submodules).toEqual([]);
+  });
+
+  it("closes the whole portal when the plan excludes it", () => {
+    const r = resolveParentModules([], { ...allEntitled(), parent_portal: false });
+    for (const m of PARENT_MODULES) {
+      expect(r[m.id].enabled, m.id).toBe(false);
+      expect(r[m.id].source, m.id).toBe("portal");
+      expect(r[m.id].configurable, m.id).toBe(false);
+    }
+  });
+
+  it("outranks 'essential' — the one layer that does", () => {
+    // "Home is always on" is a statement about a portal the institution HAS.
+    // If essential won here, an unsold portal would still render two pages.
+    const r = resolveParentModules([], { ...allEntitled(), parent_portal: false });
+    expect(r.home.enabled).toBe(false);
+    expect(r.settings.enabled).toBe(false);
+  });
+
+  it("cannot be reopened by anything the tenant stores", () => {
+    const r = resolveParentModules(undefined, { ...allEntitled(), parent_portal: false });
+    expect(enabledParentModules(r).size).toBe(0);
+  });
+
+  it("fails OPEN so a lookup failure never locks parents out", () => {
+    expect(parentPortalEntitled(undefined)).toBe(true);
+    expect(parentPortalEntitled({})).toBe(true);
+    expect(parentPortalEntitled({ parent_portal: true })).toBe(true);
+    expect(parentPortalEntitled({ parent_portal: false })).toBe(false);
+  });
+
+  it("is mirrored in the server-side dependency graph", () => {
+    // The console previews a revoke and the edge function enforces it. A graph
+    // that knows nothing about parent_portal would let an operator switch off
+    // Students without being warned the portal goes with it.
+    const graph = read("supabase/functions/_shared/moduleGraph.ts");
+    expect(graph).toMatch(/parent_portal:\s*\["student"\]/);
+  });
+
+  it("is priced from the same plan feature everything else reads", () => {
+    const pricing = read("src/features/marketing/pages/PricingPage.tsx");
+    expect(pricing).toContain("p.features.parent_portal ?? true");
+    // A missing plan row means INCLUDED in resolveEntitlements. Reading it as
+    // excluded on the pricing page promises less than the product delivers.
+    expect(pricing).toContain("p.features[m.id] ?? true");
+  });
+
+  it("stops staff issuing logins that could not be used", () => {
+    const page = read("src/features/auth-accounts/pages/ParentAccountsPage.tsx");
+    expect(page).toContain("parentPortalEntitled");
+    expect(page).toMatch(/canProvision =\s*\n?\s*portalEntitled/);
+  });
+
+  it("replaces the parent's whole shell rather than framing a notice", () => {
+    const shell = read("src/features/parent-portal/layouts/ParentShellLayout.tsx");
+    expect(shell).toContain("!modulesLoading && !portalEntitled");
+    // Sign-out survives: a parent who cannot leave the screen has been trapped
+    // by a billing decision.
+    expect(shell.slice(shell.indexOf("!modulesLoading && !portalEntitled"))).toContain("handleLogout");
+  });
+});
 
 describe("Parent module resolution is deterministic", () => {
   it("offers everything when the organization has said nothing", () => {

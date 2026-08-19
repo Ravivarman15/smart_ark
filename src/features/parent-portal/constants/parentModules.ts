@@ -261,8 +261,23 @@ export const parentModuleForPath = (pathname: string): ParentModuleDef | undefin
 
 // ── Resolution ────────────────────────────────────────────────────────────────
 
+/**
+ * Is the parent portal part of this organization's plan at all?
+ *
+ * `parent_portal` is a first-class module (RBAC catalog → platform registry →
+ * plan features), so Super Admin sells it per plan and the pricing table draws
+ * the row from the same answer. Nothing here is a second opinion: it reads the
+ * flags `resolveEntitlements` already produced.
+ *
+ * Fail-open on `undefined`, exactly as every other entitlement read is. A
+ * failed lookup must never be the reason a school's parents cannot sign in.
+ */
+export const parentPortalEntitled = (entitlements?: Record<string, boolean>): boolean =>
+  entitlements?.parent_portal !== false;
+
 /** Which layer decided. Ordered most-authoritative first. */
 export type ParentModuleSource =
+  | "portal"        // the whole portal is not on this organization's plan
   | "essential"     // part of the portal's floor
   | "entitlement"   // the organization does not have the underlying module
   | "organization"  // this institution switched it off for its parents
@@ -281,6 +296,14 @@ export type ParentModuleMap = Record<ParentModuleId, ParentModuleState>;
 
 /**
  * Resolve every parent-portal page for ONE organization.
+ *
+ * Precedence, most authoritative first:
+ *
+ *   0. portal        the plan does not include the Parent Portal at all
+ *   1. essential     Home and Settings — the portal's floor
+ *   2. entitlement   the organization does not have the page's own module
+ *   3. organization  this institution hid the page from its parents
+ *   4. default       nobody said otherwise → offered
  *
  * Pure and synchronous — no React, no Supabase — because three surfaces have to
  * agree on the answer and the cheapest way to guarantee that is for all three
@@ -305,6 +328,24 @@ export const resolveParentModules = (
 ): ParentModuleMap => {
   const off = new Set(disabled ?? []);
   const out = {} as ParentModuleMap;
+
+  // 0 ── the portal itself
+  //
+  // Above `essential`, and the only layer that is. "Home is always on" is a
+  // statement about a portal the institution HAS; it must not resurrect one
+  // their plan does not include. Nothing below this line runs in that case, so
+  // there is no combination of stored settings that can reopen a single page.
+  if (!parentPortalEntitled(entitlements)) {
+    for (const m of PARENT_MODULES) {
+      out[m.id] = {
+        enabled: false,
+        source: "portal",
+        explain: "The Parent Portal is not part of your organization's current plan.",
+        configurable: false,
+      };
+    }
+    return out;
+  }
 
   for (const m of PARENT_MODULES) {
     // 1 ── essential

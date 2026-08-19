@@ -154,6 +154,11 @@ export const MODULE_METADATA: Record<ModuleId, ModuleMetadata> = {
     category: "operations", audience: "customer", dependsOn: [],
     description: "In-product documentation and support contact.",
   },
+  parent_portal: {
+    category: "communication", audience: "customer", dependsOn: ["student"],
+    description:
+      "The parent-facing portal: a login for every family, with attendance, results, fees, documents and a two-way message thread for their own child. The institution chooses which of those sections its parents see.",
+  },
 };
 
 export const AUDIENCE_LABELS: Record<ModuleAudience, string> = {

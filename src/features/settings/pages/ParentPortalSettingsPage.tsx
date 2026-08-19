@@ -29,6 +29,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Loader2, Lock, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ const ModuleRow = ({
 
 const ParentPortalSettingsPage = () => {
   const { user } = useAuth();
-  const { map, isLoading } = useParentModules();
+  const { map, portalEntitled, isLoading } = useParentModules();
   const save = useSaveParentModules();
 
   /** The draft. `null` until the saved state has loaded — see the effect below. */
@@ -155,6 +156,37 @@ const ParentPortalSettingsPage = () => {
       <div className="max-w-3xl space-y-4">
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-72 w-full" />
+      </div>
+    );
+  }
+
+  // The portal is not on this organization's plan. Every row below would be
+  // locked and every switch inert, so say the one thing that is actionable —
+  // and where the action is — instead of presenting fourteen dead toggles.
+  if (!portalEntitled) {
+    return (
+      <div className="max-w-3xl space-y-4">
+        <SettingsCard
+          title="Parent Portal"
+          description="Not included in your current plan."
+        >
+          <div className="flex items-start gap-3">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <div className="space-y-2 text-sm">
+              <p className="text-foreground">
+                Your plan does not include the parent portal, so parents at your organization
+                cannot sign in and no parent logins can be issued.
+              </p>
+              <p className="text-muted-foreground">
+                Upgrading turns it on immediately — no migration and no setup. Existing parent
+                accounts are kept and start working again the moment the plan includes it.
+              </p>
+              <Link to="/settings/my-plan" className="inline-block text-sm font-medium text-primary hover:underline">
+                See plans →
+              </Link>
+            </div>
+          </div>
+        </SettingsCard>
       </div>
     );
   }

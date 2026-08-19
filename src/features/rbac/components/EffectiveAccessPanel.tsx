@@ -12,7 +12,7 @@ import { Eye, EyeOff, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MODULE_CATALOG } from "../constants/catalog";
+import { GRANTABLE_MODULES } from "../constants/catalog";
 import { ACTION_CATALOG } from "../constants/actionCatalog";
 import type { AccessEntry, EffectiveAccess } from "../resolver/types";
 import { AccessTracePanel } from "./AccessTracePanel";
@@ -80,7 +80,7 @@ export const EffectiveAccessPanel = ({ access, showTrace = true, caption }: Prop
   const [selected, setSelected] = useState<string | null>(null);
 
   const moduleRows = useMemo<Row[]>(() => {
-    return MODULE_CATALOG.flatMap((m) => {
+    return GRANTABLE_MODULES.flatMap((m) => {
       const moduleEntry = access.modules[m.id];
       return moduleEntry
         ? [{ id: m.id, label: m.label, entry: moduleEntry }]
@@ -89,7 +89,7 @@ export const EffectiveAccessPanel = ({ access, showTrace = true, caption }: Prop
   }, [access.modules]);
 
   const submoduleRows = useMemo<Row[]>(() => {
-    return MODULE_CATALOG.flatMap((m) =>
+    return GRANTABLE_MODULES.flatMap((m) =>
       m.submodules.flatMap((s) => {
         const entry = access.submodules[s.id];
         return entry

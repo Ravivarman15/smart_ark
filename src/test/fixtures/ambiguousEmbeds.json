@@ -1,0 +1,548 @@
+{
+  "_": "GENERATED \u2014 do not hand-edit. Table pairs joined by MORE THAN ONE foreign key. Any PostgREST embed across such a pair is ambiguous and returns HTTP 300 / PGRST201 at runtime, so the embed must name its constraint. Regenerate: see docs/POSTGREST_AMBIGUOUS_EMBEDS.md.",
+  "generatedAt": "2026-08-19",
+  "pairs": [
+    {
+      "child": "admission_calls",
+      "parent": "profiles",
+      "constraints": [
+        "admission_calls_admin_id_fkey",
+        "admission_calls_assigned_to_fkey"
+      ]
+    },
+    {
+      "child": "admissions",
+      "parent": "profiles",
+      "constraints": [
+        "admissions_counselor_id_fkey",
+        "admissions_created_by_fkey",
+        "admissions_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "alerts",
+      "parent": "profiles",
+      "constraints": [
+        "alerts_related_user_id_fkey",
+        "alerts_reviewed_by_fkey"
+      ]
+    },
+    {
+      "child": "attendance_approvals",
+      "parent": "profiles",
+      "constraints": [
+        "attendance_approvals_decided_by_fkey",
+        "attendance_approvals_requested_by_fkey"
+      ]
+    },
+    {
+      "child": "attendance_closings",
+      "parent": "profiles",
+      "constraints": [
+        "attendance_closings_closed_by_fkey",
+        "attendance_closings_reopened_by_fkey"
+      ]
+    },
+    {
+      "child": "batches",
+      "parent": "profiles",
+      "constraints": [
+        "batches_coordinator_id_fkey",
+        "batches_teacher_id_fkey"
+      ]
+    },
+    {
+      "child": "class_schedules",
+      "parent": "profiles",
+      "constraints": [
+        "class_schedules_coordinator_id_fkey",
+        "class_schedules_created_by_fkey",
+        "class_schedules_original_teacher_id_fkey",
+        "class_schedules_teacher_id_fkey"
+      ]
+    },
+    {
+      "child": "class_students",
+      "parent": "students",
+      "constraints": [
+        "class_students_student_id_fkey",
+        "class_students_student_id_same_org"
+      ]
+    },
+    {
+      "child": "comms_campaigns",
+      "parent": "profiles",
+      "constraints": [
+        "comms_campaigns_approved_by_fkey",
+        "comms_campaigns_created_by_fkey"
+      ]
+    },
+    {
+      "child": "coordinator_staff",
+      "parent": "profiles",
+      "constraints": [
+        "coordinator_staff_assigned_by_fkey",
+        "coordinator_staff_coordinator_id_fkey",
+        "coordinator_staff_staff_id_fkey"
+      ]
+    },
+    {
+      "child": "coordinator_standards",
+      "parent": "profiles",
+      "constraints": [
+        "coordinator_standards_assigned_by_fkey",
+        "coordinator_standards_coordinator_id_fkey"
+      ]
+    },
+    {
+      "child": "counselor_course_mapping",
+      "parent": "profiles",
+      "constraints": [
+        "counselor_course_mapping_counselor_id_fkey",
+        "counselor_course_mapping_created_by_fkey",
+        "counselor_course_mapping_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "demo_classes",
+      "parent": "profiles",
+      "constraints": [
+        "demo_classes_created_by_fkey",
+        "demo_classes_faculty_id_fkey",
+        "demo_classes_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "escalation_log",
+      "parent": "profiles",
+      "constraints": [
+        "escalation_log_escalated_to_fkey",
+        "escalation_log_raised_by_fkey"
+      ]
+    },
+    {
+      "child": "exam_results",
+      "parent": "students",
+      "constraints": [
+        "exam_results_student_id_fkey",
+        "exam_results_student_id_same_org"
+      ]
+    },
+    {
+      "child": "exams",
+      "parent": "profiles",
+      "constraints": [
+        "exams_created_by_fkey",
+        "exams_faculty_id_fkey"
+      ]
+    },
+    {
+      "child": "expense_transactions",
+      "parent": "campuses",
+      "constraints": [
+        "expense_transactions_branch_id_fkey",
+        "expense_transactions_campus_id_fkey"
+      ]
+    },
+    {
+      "child": "expense_transactions",
+      "parent": "profiles",
+      "constraints": [
+        "expense_transactions_approved_by_fkey",
+        "expense_transactions_entered_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_activities",
+      "parent": "profiles",
+      "constraints": [
+        "lead_activities_actor_id_fkey",
+        "lead_activities_created_by_fkey",
+        "lead_activities_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_followups",
+      "parent": "profiles",
+      "constraints": [
+        "lead_followups_assigned_to_fkey",
+        "lead_followups_created_by_fkey",
+        "lead_followups_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_notes",
+      "parent": "profiles",
+      "constraints": [
+        "lead_notes_created_by_fkey",
+        "lead_notes_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_notifications",
+      "parent": "profiles",
+      "constraints": [
+        "lead_notifications_created_by_fkey",
+        "lead_notifications_recipient_id_fkey",
+        "lead_notifications_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_reminders",
+      "parent": "profiles",
+      "constraints": [
+        "lead_reminders_created_by_fkey",
+        "lead_reminders_recipient_id_fkey",
+        "lead_reminders_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_score_history",
+      "parent": "profiles",
+      "constraints": [
+        "lead_score_history_created_by_fkey",
+        "lead_score_history_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_sla",
+      "parent": "profiles",
+      "constraints": [
+        "lead_sla_created_by_fkey",
+        "lead_sla_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_whatsapp_logs",
+      "parent": "profiles",
+      "constraints": [
+        "lead_whatsapp_logs_created_by_fkey",
+        "lead_whatsapp_logs_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "lead_workflows",
+      "parent": "profiles",
+      "constraints": [
+        "lead_workflows_created_by_fkey",
+        "lead_workflows_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "leads",
+      "parent": "profiles",
+      "constraints": [
+        "leads_assigned_to_fkey",
+        "leads_created_by_fkey",
+        "leads_updated_by_fkey"
+      ]
+    },
+    {
+      "child": "leave_requests",
+      "parent": "profiles",
+      "constraints": [
+        "leave_requests_user_id_fkey",
+        "leave_requests_user_id_same_org"
+      ]
+    },
+    {
+      "child": "live_classes",
+      "parent": "profiles",
+      "constraints": [
+        "live_classes_created_by_fkey",
+        "live_classes_teacher_id_fkey"
+      ]
+    },
+    {
+      "child": "mcq_papers",
+      "parent": "profiles",
+      "constraints": [
+        "mcq_papers_created_by_fkey",
+        "mcq_papers_owner_id_fkey"
+      ]
+    },
+    {
+      "child": "mcq_questions",
+      "parent": "profiles",
+      "constraints": [
+        "mcq_questions_created_by_fkey",
+        "mcq_questions_owner_id_fkey"
+      ]
+    },
+    {
+      "child": "organization_delete_requests",
+      "parent": "platform_users",
+      "constraints": [
+        "organization_delete_requests_requested_by_fkey",
+        "organization_delete_requests_reviewed_by_fkey"
+      ]
+    },
+    {
+      "child": "override_log",
+      "parent": "profiles",
+      "constraints": [
+        "override_log_approved_by_fkey",
+        "override_log_requested_by_fkey"
+      ]
+    },
+    {
+      "child": "parent_student_links",
+      "parent": "students",
+      "constraints": [
+        "parent_student_links_student_id_fkey",
+        "parent_student_links_student_id_same_org"
+      ]
+    },
+    {
+      "child": "payroll_item_history",
+      "parent": "profiles",
+      "constraints": [
+        "payroll_item_history_actor_id_fkey",
+        "payroll_item_history_staff_id_fkey"
+      ]
+    },
+    {
+      "child": "payroll_items",
+      "parent": "profiles",
+      "constraints": [
+        "payroll_items_staff_id_fkey",
+        "payroll_items_staff_id_same_org"
+      ]
+    },
+    {
+      "child": "payroll_runs",
+      "parent": "profiles",
+      "constraints": [
+        "payroll_runs_approved_by_fkey",
+        "payroll_runs_generated_by_fkey",
+        "payroll_runs_locked_by_fkey"
+      ]
+    },
+    {
+      "child": "payroll_staff_rates",
+      "parent": "profiles",
+      "constraints": [
+        "payroll_staff_rates_created_by_fkey",
+        "payroll_staff_rates_staff_id_fkey"
+      ]
+    },
+    {
+      "child": "question_paper_extractions",
+      "parent": "mcq_questions",
+      "constraints": [
+        "question_paper_extractions_duplicate_of_fkey",
+        "question_paper_extractions_question_id_fkey"
+      ]
+    },
+    {
+      "child": "rbac_action_audit",
+      "parent": "profiles",
+      "constraints": [
+        "rbac_action_audit_actor_id_fkey",
+        "rbac_action_audit_target_user_id_fkey"
+      ]
+    },
+    {
+      "child": "rbac_permission_audit",
+      "parent": "profiles",
+      "constraints": [
+        "rbac_permission_audit_actor_id_fkey",
+        "rbac_permission_audit_target_user_id_fkey"
+      ]
+    },
+    {
+      "child": "rbac_user_action_overrides",
+      "parent": "profiles",
+      "constraints": [
+        "rbac_user_action_overrides_granted_by_fkey",
+        "rbac_user_action_overrides_user_profile_id_fkey"
+      ]
+    },
+    {
+      "child": "rbac_user_permission_overrides",
+      "parent": "profiles",
+      "constraints": [
+        "rbac_user_permission_overrides_granted_by_fkey",
+        "rbac_user_permission_overrides_user_profile_id_fkey"
+      ]
+    },
+    {
+      "child": "referrals",
+      "parent": "organizations",
+      "constraints": [
+        "referrals_referred_org_id_fkey",
+        "referrals_referrer_org_id_fkey"
+      ]
+    },
+    {
+      "child": "retests",
+      "parent": "profiles",
+      "constraints": [
+        "retests_allocated_by_fkey",
+        "retests_teacher_id_fkey"
+      ]
+    },
+    {
+      "child": "settings_referral_events",
+      "parent": "profiles",
+      "constraints": [
+        "settings_referral_events_referred_profile_id_fkey",
+        "settings_referral_events_referrer_profile_id_fkey"
+      ]
+    },
+    {
+      "child": "staff_attendance",
+      "parent": "profiles",
+      "constraints": [
+        "staff_attendance_last_updated_by_fkey",
+        "staff_attendance_marked_by_fkey",
+        "staff_attendance_staff_id_fkey",
+        "staff_attendance_staff_id_same_org"
+      ]
+    },
+    {
+      "child": "staff_attendance_audit",
+      "parent": "profiles",
+      "constraints": [
+        "staff_attendance_audit_changed_by_fkey",
+        "staff_attendance_audit_staff_id_fkey"
+      ]
+    },
+    {
+      "child": "staff_onboarding_events",
+      "parent": "profiles",
+      "constraints": [
+        "staff_onboarding_events_actor_profile_id_fkey",
+        "staff_onboarding_events_profile_id_fkey"
+      ]
+    },
+    {
+      "child": "student_attendance",
+      "parent": "profiles",
+      "constraints": [
+        "student_attendance_last_updated_by_fkey",
+        "student_attendance_marked_by_fkey"
+      ]
+    },
+    {
+      "child": "student_attendance",
+      "parent": "students",
+      "constraints": [
+        "student_attendance_student_id_fkey",
+        "student_attendance_student_id_same_org"
+      ]
+    },
+    {
+      "child": "student_auth_accounts",
+      "parent": "students",
+      "constraints": [
+        "student_auth_accounts_student_id_fkey",
+        "student_auth_accounts_student_id_same_org"
+      ]
+    },
+    {
+      "child": "student_documents",
+      "parent": "students",
+      "constraints": [
+        "student_documents_student_id_fkey",
+        "student_documents_student_id_same_org"
+      ]
+    },
+    {
+      "child": "student_fees",
+      "parent": "profiles",
+      "constraints": [
+        "student_fees_created_by_fkey",
+        "student_fees_discount_approved_by_fkey"
+      ]
+    },
+    {
+      "child": "student_fees",
+      "parent": "students",
+      "constraints": [
+        "student_fees_student_id_fkey",
+        "student_fees_student_id_same_org"
+      ]
+    },
+    {
+      "child": "student_import_batches",
+      "parent": "profiles",
+      "constraints": [
+        "student_import_batches_imported_by_fkey",
+        "student_import_batches_rolled_back_by_fkey"
+      ]
+    },
+    {
+      "child": "student_leave_requests",
+      "parent": "profiles",
+      "constraints": [
+        "student_leave_requests_applied_by_fkey",
+        "student_leave_requests_reviewed_by_fkey"
+      ]
+    },
+    {
+      "child": "student_year_transfers",
+      "parent": "academic_years",
+      "constraints": [
+        "student_year_transfers_from_academic_year_id_fkey",
+        "student_year_transfers_to_academic_year_id_fkey"
+      ]
+    },
+    {
+      "child": "student_year_transfers",
+      "parent": "batches",
+      "constraints": [
+        "student_year_transfers_from_batch_id_fkey",
+        "student_year_transfers_to_batch_id_fkey"
+      ]
+    },
+    {
+      "child": "student_year_transfers",
+      "parent": "profiles",
+      "constraints": [
+        "student_year_transfers_rolled_back_by_fkey",
+        "student_year_transfers_transferred_by_fkey"
+      ]
+    },
+    {
+      "child": "student_year_transfers",
+      "parent": "standards",
+      "constraints": [
+        "student_year_transfers_from_standard_id_fkey",
+        "student_year_transfers_to_standard_id_fkey"
+      ]
+    },
+    {
+      "child": "support_tickets",
+      "parent": "profiles",
+      "constraints": [
+        "support_tickets_assigned_to_profile_id_fkey",
+        "support_tickets_requester_profile_id_fkey"
+      ]
+    },
+    {
+      "child": "teacher_attendance",
+      "parent": "organization_branches",
+      "constraints": [
+        "teacher_attendance_checkout_location_id_fkey",
+        "teacher_attendance_location_id_fkey"
+      ]
+    },
+    {
+      "child": "teacher_students",
+      "parent": "profiles",
+      "constraints": [
+        "teacher_students_assigned_by_fkey",
+        "teacher_students_teacher_id_fkey"
+      ]
+    },
+    {
+      "child": "test_results",
+      "parent": "profiles",
+      "constraints": [
+        "test_results_teacher_id_fkey",
+        "test_results_verified_by_fkey"
+      ]
+    }
+  ]
+}

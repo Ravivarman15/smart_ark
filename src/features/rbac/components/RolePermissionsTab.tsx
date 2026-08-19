@@ -13,6 +13,7 @@ import {
 import {
   ACTION_CATALOG,
   ACTIONS_BY_SUBMODULE,
+  GRANTABLE_MODULES,
   MODULE_CATALOG,
   PermissionBuilder,
   EffectiveAccessPanel,
@@ -48,7 +49,7 @@ const seedDraftFromRole = (
   const modules: Record<string, boolean> = {};
   const submodules: Record<string, boolean> = {};
   const actions: Record<string, boolean> = {};
-  for (const m of MODULE_CATALOG) {
+  for (const m of GRANTABLE_MODULES) {
     modules[m.id] = eff.modules[m.id]?.allowed ?? true;
     for (const s of m.submodules) {
       submodules[s.id] = eff.submodules[s.id]?.allowed ?? true;
@@ -100,7 +101,7 @@ export const RolePermissionsTab = ({ role }: Props) => {
 
   const previewAccess = useMemo(() => {
     const synth: import("../types/rbac.types").RolePermission[] = [];
-    for (const m of MODULE_CATALOG) {
+    for (const m of GRANTABLE_MODULES) {
       synth.push({
         id: `draft:${m.id}`,
         role: role.slug,
@@ -136,7 +137,7 @@ export const RolePermissionsTab = ({ role }: Props) => {
 
   const handleSave = async () => {
     const moduleRows: RolePermissionUpsert[] = [];
-    for (const m of MODULE_CATALOG) {
+    for (const m of GRANTABLE_MODULES) {
       if (draft.modules[m.id] !== original.modules[m.id]) {
         moduleRows.push({
           role: role.slug,
@@ -194,7 +195,7 @@ export const RolePermissionsTab = ({ role }: Props) => {
     // Seed every catalog row as explicit; subsequent edits show the matrix as
     // the source of truth (no more "implicit defaultRoles" surprises).
     const moduleRows: RolePermissionUpsert[] = [];
-    for (const m of MODULE_CATALOG) {
+    for (const m of GRANTABLE_MODULES) {
       const baseRole = role.baseRole ?? role.slug;
       const visible = m.defaultRoles.includes(baseRole as never);
       moduleRows.push({

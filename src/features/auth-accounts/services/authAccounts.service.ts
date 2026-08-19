@@ -443,9 +443,17 @@ class AuthAccountsService extends BaseService {
     // So: fall back exactly the way students.service.ts does (RICH → BASE), and
     // if even the minimal shape fails, report the error instead of inventing an
     // empty list. An unknown state and an empty state must never look alike.
+    //
+    // students is named by CONSTRAINT in both shapes. `parent_student_links`
+    // has two foreign keys to `students` — the plain one and the composite
+    // tenant-integrity `(organization_id, student_id)` — and PostgREST refuses
+    // to guess (PGRST201, HTTP 300). Without the constraint name the RICH→BASE
+    // fallback is useless: BOTH shapes fail for the same reason, so the retry
+    // buys nothing. See docs/POSTGREST_AMBIGUOUS_EMBEDS.md.
+    const LINK_STUDENT = "students:students!parent_student_links_student_id_fkey";
     const LINK_RICH =
-      "parent_account_id, student_id, relation, is_primary, students(name, section, enrolment_no, standards(name))";
-    const LINK_BASE = "parent_account_id, student_id, relation, is_primary, students(name)";
+      `parent_account_id, student_id, relation, is_primary, ${LINK_STUDENT}(name, section, enrolment_no, standards(name))`;
+    const LINK_BASE = `parent_account_id, student_id, relation, is_primary, ${LINK_STUDENT}(name)`;
 
     let links = await this.db.from("parent_student_links" as never).select(LINK_RICH);
     if (links.error) {

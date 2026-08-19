@@ -121,10 +121,14 @@ const PricingPage: React.FC = () => {
   return (
     <>
       <Section hero>
+        {/* The heading used to read "Every plan includes unlimited parent and
+            student logins." Parent Portal is now a per-plan module, so that is
+            a promise the product no longer keeps on every tier — the cards
+            below state it per plan instead of the heading claiming it for all. */}
         <SectionHeading
           eyebrow="Pricing"
           title="Priced per institution, not per headache"
-          description="Every plan includes unlimited parent and student logins. No setup fee, no card for the trial, and your data is yours to export whenever you like."
+          description="Unlimited student and parent logins on every plan that includes the portal. No setup fee, no card for the trial, and your data is yours to export whenever you like."
         />
 
         {/* Billing period switch.
@@ -237,6 +241,12 @@ const PricingPage: React.FC = () => {
 
                     <div className="mt-5 flex-1 space-y-1.5 border-t border-border pt-4">
                       {[
+                        // Parent Portal is a MODULE, so it comes from the same
+                        // `plan_features` row the comparison table below reads
+                        // and the entitlement resolver enforces. Super Admin
+                        // toggles it per plan and all three move together —
+                        // there is no second list to update here.
+                        ["Parent portal", p.features.parent_portal ?? true],
                         ["White-label", p.allowWhiteLabel],
                         ["Custom domain", p.allowCustomDomain],
                         ["Marketplace", p.allowMarketplace],
@@ -299,7 +309,13 @@ const PricingPage: React.FC = () => {
                 <tr key={m.id}>
                   <th scope="row" className="px-4 py-2 text-left font-normal">{m.label}</th>
                   {visible.map((p) => {
-                    const on = p.features[m.id];
+                    // `?? true` mirrors `resolveEntitlements`, where a plan that
+                    // is SILENT about a module includes it. Reading a missing
+                    // row as "excluded" here is how the table ends up promising
+                    // less than the product delivers — a module Super Admin has
+                    // not yet ruled on would show a cross while every customer
+                    // on that plan can use it.
+                    const on = p.features[m.id] ?? true;
                     return (
                       <td key={p.id} className="px-4 py-2 text-center">
                         {on ? (

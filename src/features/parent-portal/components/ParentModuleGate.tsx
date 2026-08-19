@@ -45,12 +45,14 @@ export const ParentModuleGate = ({ children }: { children: ReactNode }) => {
   const state = map[mod.id];
   if (state?.enabled) return <>{children}</>;
 
+  // "portal" is handled by the shell, which replaces the whole application
+  // rather than putting a notice inside a menu that should not be there.
   return (
     <EmptyState
       icon={<EyeOff className="w-9 h-9" />}
       title={`${mod.label} is not available`}
       hint={
-        state?.source === "entitlement"
+        state?.source === "entitlement" || state?.source === "portal"
           ? "This section is not part of your institution's current plan. Please contact the office if you were expecting it."
           : "Your institution does not currently share this section through the parent portal. Please contact the office if you need this information."
       }
