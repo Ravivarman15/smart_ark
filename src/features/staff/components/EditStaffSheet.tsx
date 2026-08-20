@@ -20,6 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useRoles } from "../hooks/useRoles";
+import { useStaffRoleGrants, useSetStaffRoleGrants } from "../hooks/useStaffRoleGrants";
+import { AdditionalRolesField } from "./AdditionalRolesField";
+import type { Role } from "@/core/constants/roles";
 import { useUpdateStaff } from "../hooks/useStaffMutations";
 import { isWhatsappPhone } from "@/features/leads/utils/whatsappPhone";
 import { updateStaffSchema, type UpdateStaffFormValues } from "../schemas/staff.schema";
@@ -89,6 +92,12 @@ const seed = (s: Staff): UpdateStaffFormValues => ({
 export const EditStaffSheet = ({ staff, onOpenChange, onSaved }: Props) => {
   const roles = useRoles();
   const update = useUpdateStaff();
+  const { data: grantedRoles } = useStaffRoleGrants(staff?.id);
+  const setGrants = useSetStaffRoleGrants();
+  // `undefined` until the grants load, so an empty array cannot be mistaken
+  // for "the admin cleared them" and revoke a role nobody touched.
+  const [extraRoles, setExtraRoles] = useState<Role[] | undefined>(undefined);
+  useEffect(() => setExtraRoles(grantedRoles), [grantedRoles]);
 
   const [values, setValues] = useState<UpdateStaffFormValues>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -136,6 +145,14 @@ export const EditStaffSheet = ({ staff, onOpenChange, onSaved }: Props) => {
         id: staff.id,
         updates: { ...editable, active },
       });
+      const primary = (parsed.data.role ?? staff.role) as Role;
+      if (extraRoles) {
+        await setGrants.mutateAsync({
+          profileId: staff.id,
+          primaryRole: primary,
+          roles: extraRoles,
+        });
+      }
       toast.success("Staff updated");
       warnIfWhatsappMissing(parsed.data.role ?? staff.role, parsed.data.mobile ?? staff.mobile);
       onSaved?.();
@@ -226,6 +243,16 @@ export const EditStaffSheet = ({ staff, onOpenChange, onSaved }: Props) => {
                   </SelectContent>
                 </Select>
               </Field>
+              <div className="sm:col-span-2">
+                <AdditionalRolesField
+                  primaryRole={(values.role ?? staff.role) as Role}
+                  value={extraRoles ?? []}
+                  onChange={(next) =>
+                    setExtraRoles(next.filter((r) => r !== (values.role ?? staff.role)))
+                  }
+                  disabled={update.isPending || setGrants.isPending}
+                />
+              </div>
               <Field label="Status" error={errors.status}>
                 <Select
                   value={values.status}

@@ -14,6 +14,7 @@ import { useOrganizationBranding } from "@/core/theme/OrganizationThemeProvider"
 import type { Role } from "@/core/constants/roles";
 import { useTheme } from "@/core/theme";
 import { AccessSyncIndicator } from "@/features/rbac";
+import { PortalSwitcher } from "./PortalSwitcher";
 import { resolveIcon } from "@/shared/icons";
 import { OrgLogo } from "@/features/branding/components/OrgLogo";
 
@@ -297,6 +298,9 @@ export const RoleSidebar = ({ collapsed, onToggle, onNavigate }: Props) => {
           </div>
         )}
         <div className="px-2 pb-3 space-y-0.5">
+          {/* Renders nothing unless this person holds more than one role, so
+              the footer is unchanged for almost everybody. */}
+          <PortalSwitcher collapsed={collapsed} />
           <button
             onClick={toggleTheme}
             title={collapsed ? `Theme: ${themeDef.label}` : undefined}

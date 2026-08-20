@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 // Imported from the service file directly (not the feature barrel) to avoid a
 // circular import — staff components depend on this AuthContext.
 import { onboardingService } from "@/features/staff/services/onboarding.service";
+import { ROLES, type Role } from "@/core/constants/roles";
+import { clearPortalChoice } from "@/core/portals/portalSession";
+
+/** Narrow a database string to a known role — an unrecognised one has no
+ *  portal behind it and must be dropped, not rendered. */
+const isRole = (v: string): v is Role => (ROLES as readonly string[]).includes(v);
 
 export type UserRole = "teacher" | "admin" | "management" | "coordinator";
 
@@ -40,6 +46,14 @@ export interface ParentIdentity {
 /** Which portal the current session belongs to. */
 export type PortalKind = "staff" | "parent";
 
+/** The portals a staff session may enter, and the one it is in. */
+interface RoleContext {
+  /** `profiles.active_role` — null until they have ever switched. */
+  activeRole: string | null;
+  /** Primary role plus every granted role. */
+  availableRoles: string[];
+}
+
 // Minimal session bookkeeping. The reactive role/name/campus live in the
 // React Query cache (`current-profile` key) so the realtime layer can refresh
 // them without an explicit setUser call.
@@ -75,6 +89,20 @@ interface AuthContextType {
    */
   hasSession: boolean;
   loading: boolean;
+  /**
+   * Every portal this person may enter — their primary role plus any granted
+   * ones. A single entry (the overwhelming majority) means no choice to make.
+   */
+  availableRoles: Role[];
+  /** Their PRIMARY role: what they are in the directory, not the hat they wear. */
+  primaryRole: Role | null;
+  /**
+   * Enter another of your portals.
+   *
+   * Resolves only once the database has accepted the switch and every cached
+   * query has been dropped — the caller may navigate immediately afterwards.
+   */
+  switchRole: (role: Role) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,6 +110,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Public so the realtime layer can invalidate the same key.
 export const CURRENT_PROFILE_QUERY_KEY = ["current-profile"] as const;
 export const CURRENT_PARENT_QUERY_KEY = ["current-parent"] as const;
+
 
 interface DbProfile {
   id: string;
@@ -99,6 +128,43 @@ async function loadProfileByAuthId(authUserId: string): Promise<DbProfile | null
     .single();
   if (error || !data) return null;
   return data as unknown as DbProfile;
+}
+
+/**
+ * Which portals this session may enter, and which one it is in.
+ *
+ * A SEPARATE query from `loadProfileByAuthId` on purpose. `active_role` and
+ * `staff_role_grants` arrive with a migration, and a column or table PostgREST
+ * cannot resolve fails the WHOLE statement — folding them into the profile
+ * query would mean that a frontend deployed one migration ahead logs NOBODY in.
+ * Here, the same failure degrades to "one role, no chooser", which is exactly
+ * the behaviour that preceded the feature.
+ *
+ * The embed names its constraint. `staff_role_grants` has TWO foreign keys to
+ * `profiles` — `profile_id` and `granted_by` — so an unqualified embed is
+ * ambiguous and PostgREST rejects it with HTTP 300 before RLS is even reached.
+ */
+async function loadRoleContext(authUserId: string): Promise<RoleContext> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role, active_role, staff_role_grants!staff_role_grants_profile_id_fkey(role)")
+    .eq("user_id", authUserId)
+    .maybeSingle();
+  if (error || !data) return { activeRole: null, availableRoles: [] };
+
+  const row = data as unknown as {
+    role: string | null;
+    active_role: string | null;
+    staff_role_grants: { role: string }[] | null;
+  };
+  const available = [
+    ...(row.role ? [row.role] : []),
+    ...(row.staff_role_grants ?? []).map((g) => g.role),
+  ];
+  return {
+    activeRole: row.active_role,
+    availableRoles: [...new Set(available)],
+  };
 }
 
 const pickCampusName = (c: DbProfile["campuses"]): string | undefined => {
@@ -193,19 +259,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // which is a terminal destination, and ProtectedRoute still sends it to
   // /login. Neither bounces back.
 
+  // Which portals they may enter. Only fetched once a profile exists, so a
+  // parent session never pays for it.
+  const hasProfile = !!profileQuery.data;
+  const rolesQuery = useQuery({
+    // Nested UNDER the profile key on purpose: the realtime layer already
+    // invalidates CURRENT_PROFILE_QUERY_KEY whenever the `profiles` row
+    // changes, and active_role lives on that row — so a switch made in another
+    // tab refreshes the portal list here for free, and nothing needs to know
+    // about a second key.
+    queryKey: session
+      ? [...CURRENT_PROFILE_QUERY_KEY, "roles", session.authUserId]
+      : [...CURRENT_PROFILE_QUERY_KEY, "roles"],
+    queryFn: () => loadRoleContext(session!.authUserId),
+    enabled: !!session && hasProfile,
+    staleTime: 60_000,
+  });
+
+  const availableRoles = useMemo<Role[]>(
+    () => (rolesQuery.data?.availableRoles ?? []).filter(isRole),
+    [rolesQuery.data],
+  );
+
   const user = useMemo<User | null>(() => {
     if (!session || !profileQuery.data) return null;
     const p = profileQuery.data;
+    // `user.role` is the EFFECTIVE role — the hat currently worn — because
+    // every route guard, nav item and permission check in the app reads it.
+    // Mirroring the database's `effective_role()` exactly matters: an active
+    // role the grants no longer include is ignored here for the same reason
+    // SQL ignores it, so the UI can never render a portal the database has
+    // already stopped honouring.
+    const active = rolesQuery.data?.activeRole;
+    const honoured =
+      active && isRole(active) && availableRoles.includes(active) ? active : null;
     return {
       id: session.authUserId,
       name: p.name,
       email: session.email,
-      role: p.role as UserRole,
+      role: (honoured ?? p.role) as UserRole,
       profileId: p.id,
       campusId: p.campus_id || undefined,
       campus: pickCampusName(p.campuses),
     };
-  }, [session, profileQuery.data]);
+  }, [session, profileQuery.data, rolesQuery.data, availableRoles]);
 
   const parent = useMemo<ParentIdentity | null>(() => {
     if (!session || !parentQuery.data) return null;
@@ -251,9 +348,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   }, []);
 
+  const switchRole = useCallback(
+    async (role: Role) => {
+      const { error } = await supabase.rpc("switch_active_role" as never, {
+        _role: role,
+      } as never);
+      // The RPC re-checks the grant server-side and raises if it is missing, so
+      // a failure here is authoritative and must surface rather than leave the
+      // UI showing a portal the database refused.
+      if (error) throw new Error(error.message);
+
+      // EVERY cached query is dropped, not merely invalidated. The other portal
+      // answers the same questions differently — a coordinator's class list is
+      // not a teacher's — and react-query would otherwise paint the previous
+      // role's rows into the new portal until each refetch landed. Nobody
+      // switches often enough for the refetch to matter.
+      qc.clear();
+    },
+    [qc],
+  );
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setSession(null);
+    // sessionStorage survives a sign-out within the same tab, so the next
+    // person to sign in here would skip the chooser and inherit whichever
+    // portal the previous one picked.
+    clearPortalChoice();
     qc.removeQueries({ queryKey: CURRENT_PROFILE_QUERY_KEY });
     qc.removeQueries({ queryKey: CURRENT_PARENT_QUERY_KEY });
   }, [qc]);
@@ -261,9 +382,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Stay "loading" through the parent fallback too, otherwise a parent session
   // would momentarily present as fully-resolved-and-unauthenticated and every
   // ProtectedRoute would bounce it to /login before the account resolved.
+  // The roles query is part of "loading" because `user.role` depends on it.
+  // Without this a multi-role session resolves for one render as their PRIMARY
+  // role, and AuthRedirect — which runs on that render — would send them
+  // straight into a portal before they were ever asked which one they wanted.
   const loading =
     bootstrapping ||
     (!!session && profileQuery.isLoading) ||
+    (!!session && hasProfile && rolesQuery.isLoading) ||
     (noProfile && parentQuery.isLoading);
 
   const portal: PortalKind | null = user ? "staff" : parent ? "parent" : null;
@@ -280,6 +406,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isParentAuthenticated: !!parent,
         hasSession: !!session,
         loading,
+        availableRoles,
+        primaryRole: (profileQuery.data?.role as Role | undefined) ?? null,
+        switchRole,
       }}
     >
       {children}

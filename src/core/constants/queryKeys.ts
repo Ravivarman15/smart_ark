@@ -100,6 +100,7 @@ export const queryKeys = {
     list: (params?: Record<string, unknown>) => [...queryKeys.staff.all, "list", params ?? {}] as const,
     detail: (id: string) => [...queryKeys.staff.all, "detail", id] as const,
     onboarding: (id: string) => [...queryKeys.staff.all, "onboarding", id] as const,
+    roleGrants: (id: string) => [...queryKeys.staff.all, "role-grants", id] as const,
   },
   allocation: {
     all: ["allocation"] as const,

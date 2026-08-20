@@ -30,6 +30,9 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "../hooks/useRoles";
+import { useSetStaffRoleGrants } from "../hooks/useStaffRoleGrants";
+import { AdditionalRolesField } from "./AdditionalRolesField";
+import type { Role } from "@/core/constants/roles";
 import { useInviteStaff } from "../hooks/useStaffMutations";
 import {
   staffCredentialsService,
@@ -128,6 +131,11 @@ export const CreateStaffSheet = ({
 }: Props) => {
   const { user } = useAuth();
   const roles = useRoles();
+  // Held outside `values` because it is not part of InviteStaffInput — the
+  // invite creates the profile, and grants are written against the profile id
+  // it returns.
+  const [extraRoles, setExtraRoles] = useState<Role[]>([]);
+  const setGrants = useSetStaffRoleGrants();
   const invite = useInviteStaff();
 
   const [values, setValues] = useState<CreateStaffFormValues>(EMPTY);
@@ -207,6 +215,27 @@ export const CreateStaffSheet = ({
       setEmailChecking(false); // hand the spinner over to invite.isPending
 
       const res = await invite.mutateAsync(values as InviteStaffInput);
+
+      // Deliberately after the account exists and NOT inside the same try as a
+      // hard failure: a granted role that did not save is a fixable omission on
+      // the staff record, whereas discarding a created account with a delivered
+      // password is not. The toast names it so nobody assumes it worked.
+      if (extraRoles.length > 0 && res.profileId) {
+        try {
+          await setGrants.mutateAsync({
+            profileId: res.profileId,
+            primaryRole: values.role as Role,
+            roles: extraRoles,
+          });
+        } catch (e) {
+          toast.warning(
+            `Staff created, but the extra portal could not be granted: ${
+              e instanceof Error ? e.message : "unknown error"
+            }. Add it from Edit staff.`,
+          );
+        }
+      }
+
       onCreated?.();
       setResult(res); // swap to the credential-delivery panel
       if (res.emailStatus === "sent") {
@@ -411,6 +440,18 @@ export const CreateStaffSheet = ({
                       </SelectContent>
                     </Select>
                   </Field>
+                  <div className="sm:col-span-2">
+                    <AdditionalRolesField
+                      primaryRole={values.role as Role}
+                      value={extraRoles}
+                      // Dropping the primary from the extras keeps "also works
+                      // as" honest when the Role select changes underneath it —
+                      // otherwise switching Role to Coordinator leaves
+                      // Coordinator sitting in the extras list too.
+                      onChange={(next) => setExtraRoles(next.filter((r) => r !== values.role))}
+                      disabled={submitting}
+                    />
+                  </div>
                   <Field label="Status" error={errors.status}>
                     <Select
                       value={values.status}

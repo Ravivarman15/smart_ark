@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHomeRoute } from "@/core/navigation";
 import { usePermissions } from "@/core/permissions";
+import { isPortalChosen } from "@/core/portals/portalSession";
 
 const Splash = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -14,7 +15,8 @@ const Splash = () => (
 // group that matches their role). Replaces the previous hardcoded
 // role→route map — adding a new role only requires updating menu.config.ts.
 export const AuthRedirect = () => {
-  const { isAuthenticated, isParentAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, isParentAuthenticated, loading: authLoading, availableRoles } =
+    useAuth();
   const { isLoading: permissionsLoading } = usePermissions();
   const home = useHomeRoute();
 
@@ -29,6 +31,24 @@ export const AuthRedirect = () => {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   if (permissionsLoading) return <Splash />;
+
+  // ── More than one role: ask which portal, once per sign-in ────────────────
+  //
+  // Placed AFTER the parent and authentication gates and BEFORE the home-route
+  // resolution, because `useHomeRoute()` answers for whichever role is active
+  // — it cannot represent "not decided yet".
+  //
+  // Gated on a per-session flag rather than on `active_role` being null: the
+  // requirement is that signing in ASKS. Reading the stored active role would
+  // silently reuse a choice made days ago, and someone signing in to do their
+  // coordinator work would land in the teacher portal.
+  // `?? []` is not defensive clutter: this component is the root redirector, so
+  // an undefined read here is a blank page at "/" rather than a caught error.
+  // It also keeps AuthRedirect renderable by anything that supplies a partial
+  // auth shape, which is how this was caught.
+  if ((availableRoles ?? []).length > 1 && !isPortalChosen()) {
+    return <Navigate to="/choose-portal" replace />;
+  }
 
   // A signed-in user with NO role has no home: useHomeRoute() falls back to
   // "/", and "/" renders RootRoute → AuthRedirect → "/" again. An infinite

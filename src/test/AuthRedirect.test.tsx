@@ -31,7 +31,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 describe("AuthRedirect Component", () => {
   it("should render Loading state when auth is loading", () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, loading: true });
+    mockUseAuth.mockReturnValue({ isAuthenticated: false, loading: true, availableRoles: [] });
     mockUsePermissions.mockReturnValue({ isLoading: false });
     mockUseHomeRoute.mockReturnValue("/admin");
 
@@ -45,7 +45,7 @@ describe("AuthRedirect Component", () => {
   });
 
   it("should render Loading state when permissions are loading", () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true, loading: false });
+    mockUseAuth.mockReturnValue({ isAuthenticated: true, loading: false, availableRoles: ["admin"] });
     mockUsePermissions.mockReturnValue({ isLoading: true });
     mockUseHomeRoute.mockReturnValue("/admin");
 
@@ -59,7 +59,7 @@ describe("AuthRedirect Component", () => {
   });
 
   it("should redirect to /login when not authenticated even if permissions are loading", () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, loading: false });
+    mockUseAuth.mockReturnValue({ isAuthenticated: false, loading: false, availableRoles: [] });
     mockUsePermissions.mockReturnValue({ isLoading: true });
     mockUseHomeRoute.mockReturnValue("/admin");
 
@@ -74,7 +74,7 @@ describe("AuthRedirect Component", () => {
   });
 
   it("should redirect to the home route when authenticated and fully loaded", () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true, loading: false });
+    mockUseAuth.mockReturnValue({ isAuthenticated: true, loading: false, availableRoles: ["admin"] });
     mockUsePermissions.mockReturnValue({ isLoading: false });
     mockUseHomeRoute.mockReturnValue("/admin");
 
@@ -127,6 +127,25 @@ describe("AuthRedirect Component", () => {
     );
 
     expect(screen.getByTestId("navigate").getAttribute("data-to")).toBe("/parent");
+  });
+
+  it("sends a multi-role sign-in to the chooser before any portal", () => {
+    // The whole point of the feature: someone holding two roles must be ASKED,
+    // not dropped into whichever one useHomeRoute() happens to resolve.
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      loading: false,
+      availableRoles: ["teacher", "coordinator"],
+    });
+    mockUsePermissions.mockReturnValue({ isLoading: false });
+    mockUseHomeRoute.mockReturnValue("/teacher");
+
+    render(
+      <MemoryRouter>
+        <AuthRedirect />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("navigate").getAttribute("data-to")).toBe("/choose-portal");
   });
 
   it("should still prefer the STAFF portal when somehow both resolve", () => {

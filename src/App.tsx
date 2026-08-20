@@ -490,10 +490,19 @@ const leadRoutes = (opts: { management?: boolean } = {}) => (
   </>
 );
 
+const ChoosePortal = lazy(() => import("./pages/ChoosePortal"));
+
 const AppRoutes: React.FC = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-4 border-accent border-t-transparent animate-spin"></div></div>}>
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* "Which portal?" — reached only by a signed-in staff member holding more
+          than one role. Deliberately OUTSIDE ProtectedRoute: it is not part of
+          any one portal, and gating it on a role would be circular, since the
+          whole point is that the role has not been chosen yet. It does its own
+          authentication check and redirects a single-role session straight
+          through. */}
+      <Route path="/choose-portal" element={<ChoosePortal />} />
       {/* Legacy admission enquiry URL → the WhatsApp-enabled lead capture form
           (single canonical public form: dynamic course dropdown + automation). */}
       {/* Legacy address. Kept so an old bookmark still lands somewhere that
