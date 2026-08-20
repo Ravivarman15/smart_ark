@@ -32,9 +32,7 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -76,9 +74,16 @@ import {
   type RangePreset,
 } from "@/features/allocation/utils/scheduleView";
 import {
-  isSubjectStillValid,
-  subjectsForStandards,
-} from "@/features/allocation/utils/subjectScope";
+  batchByStandard,
+  draftsToInput,
+  firstIncompleteDraft,
+  isPlanComplete,
+  batchesForStandard,
+  subjectsForStandard,
+  type DraftOptions,
+  type PlanDraft,
+} from "@/features/allocation/utils/standardPlan";
+import { StandardPlanBuilder } from "@/features/allocation/components/StandardPlanBuilder";
 import { ScheduleRangeBar } from "@/features/allocation/components/ScheduleRangeBar";
 import { ScheduleDayList } from "@/features/allocation/components/ScheduleDayList";
 import type {
@@ -106,13 +111,18 @@ const todayIso = localIso();
 
 const emptyForm = {
   teacherId: "",
-  // A class can cover several standards; the first is the primary one that
-  // stamps standard_id / standard_name for filters, RLS and reports.
-  standardIds: [] as string[],
+  /**
+   * One entry per standard, each with ITS OWN subject and batch.
+   *
+   * `standardIds`, `subjectId`, `batchId` and `sectionId` are no longer held
+   * in the form at all — they are DERIVED from this on every render. Keeping
+   * both would let them drift, and the last time this form held a subject
+   * independently of the standard it belonged to, that is exactly what
+   * happened: the dropdown listed one standard's subjects while the form still
+   * held another's.
+   */
+  plan: [] as PlanDraft[],
   studentIds: [] as string[],
-  sectionId: "",
-  subjectId: "",
-  batchId: "",
   scheduleDate: todayIso,
   startTime: "09:00",
   endTime: "10:00",
@@ -255,41 +265,35 @@ const ClassScheduling: React.FC = () => {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  // Sections belong to exactly one standard, so they still follow the primary.
-  const primaryStandardId = form.standardIds[0];
-  const { data: sections = [] } = useSections(primaryStandardId);
 
-  // Subjects are loaded UNSCOPED and narrowed client-side. Two reasons the
-  // server-side `{ standardId }` filter could not stay:
-  //   • it only ever knew the PRIMARY standard, so picking Std 2 then Std 4
-  //     kept listing Std 2's subjects — the reported bug;
-  //   • it issues `.eq("standard_id", …)`, which excludes the institute-wide
-  //     subjects (standard_id IS NULL) that the batch timetable page has always
-  //     shown. Same data, two screens, two answers.
+  // Subjects, batches and sections are all loaded UNSCOPED once and narrowed
+  // per standard in `utils/standardPlan`. The server-side `{ standardId }`
+  // filters take a SINGLE standard, which is the whole bug: a class covering
+  // two standards can only ever be given one of their subject lists. They also
+  // issue `.eq("standard_id", …)`, which drops the institute-wide rows
+  // (standard_id IS NULL) that every standard legitimately shares.
   const { data: allSubjects = [] } = useSubjects();
+  const { data: allBatches = [] } = useBatches();
+  const { data: allSections = [] } = useSections();
+
   const standardName = useMemo(() => {
     const byId = new Map(standards.map((s) => [s.id, s.name]));
     return (id: string) => byId.get(id) ?? "Standard";
   }, [standards]);
-  const subjectGroups = useMemo(
-    () => subjectsForStandards(allSubjects, form.standardIds, standardName),
-    [allSubjects, form.standardIds, standardName],
-  );
-  const subjectCount = useMemo(
-    () => subjectGroups.reduce((n, g) => n + g.subjects.length, 0),
-    [subjectGroups],
-  );
-  // Batches are loaded unscoped and filtered here: a multi-standard class needs
-  // the UNION of its standards' batches, which the single-standard hook filter
-  // cannot express.
-  const { data: allBatches = [] } = useBatches();
-  const batches = useMemo(
+
+  // What the plan collapses to: the standard ids, and the primary standard's
+  // own subject/batch/section. Derived, never stored — see `emptyForm.plan`.
+  const derived = useMemo(() => draftsToInput(form.plan), [form.plan]);
+  const planOptions = useMemo(
     () =>
-      form.standardIds.length === 0
-        ? allBatches
-        : allBatches.filter((b) => !b.standardId || form.standardIds.includes(b.standardId)),
-    [allBatches, form.standardIds],
+      (standardId: string): DraftOptions => ({
+        hasSubjects: subjectsForStandard(allSubjects, standardId).length > 0,
+        hasBatches: batchesForStandard(allBatches, standardId).length > 0,
+      }),
+    [allSubjects, allBatches],
   );
+  const planComplete = isPlanComplete(form.plan, planOptions);
+  const planBlocker = firstIncompleteDraft(form.plan, planOptions);
 
   const openCreate = (extra: boolean) => {
     setForm({ ...emptyForm, isExtra: extra });
@@ -299,40 +303,20 @@ const ClassScheduling: React.FC = () => {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  /**
-   * Toggle a standard. Dropping one also drops the dependent choices it made
-   * valid — a section belongs to a single standard, and a batch left behind
-   * from a removed standard would silently filter the roster to nothing.
-   */
-  const toggleStandard = (id: string) =>
-    setForm((f) => {
-      const standardIds = f.standardIds.includes(id)
-        ? f.standardIds.filter((s) => s !== id)
-        : [...f.standardIds, id];
-      const batchStillValid =
-        !f.batchId ||
-        standardIds.length === 0 ||
-        allBatches.some(
-          (b) => b.id === f.batchId && (!b.standardId || standardIds.includes(b.standardId)),
-        );
-      // A subject belongs to a standard. Switching from Std 2 to Std 4 while
-      // Std 2's Maths is still selected would save a Std 4 class against a
-      // subject that standard does not teach — and nothing on screen would show
-      // it, because the dropdown would already be listing Std 4's subjects
-      // while the FORM still held the old value. Clearing is the only honest
-      // outcome; a stale value invisible in its own list is worse than a blank.
-      const nextGroups = subjectsForStandards(allSubjects, standardIds, standardName);
-      return {
-        ...f,
-        standardIds,
-        sectionId: standardIds.length === 1 ? f.sectionId : "",
-        batchId: batchStillValid ? f.batchId : "",
-        subjectId: isSubjectStillValid(f.subjectId, nextGroups) ? f.subjectId : "",
-      };
-    });
-
   const submit = async () => {
-    const parsed = scheduleSchema.safeParse(form);
+    // Checked before the schema, and separately from it: whether a standard
+    // CAN be given a subject depends on what Setup holds for it, which the
+    // schema cannot see. Naming the standard is the point — a generic "check
+    // the form" makes the operator hunt through a list they just built.
+    if (planBlocker) {
+      toast.error(
+        `Choose ${planBlocker.subjectId ? "a batch" : "a subject"} for ${standardName(
+          planBlocker.standardId,
+        )} before scheduling`,
+      );
+      return;
+    }
+    const parsed = scheduleSchema.safeParse({ ...form, ...derived });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Check the form");
       return;
@@ -662,14 +646,14 @@ const ClassScheduling: React.FC = () => {
 
       {/* Create / Extra dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{form.isExtra ? "Assign Extra Class" : "Schedule Class"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {/* ── Academic scope. Every option is loaded from Setup, so adding a
                 year / term / campus needs no code change. ─────────────────── */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="Academic year">
                 <Select value={form.academicYear} onValueChange={(v) => set("academicYear", v)}>
                   <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
@@ -708,7 +692,7 @@ const ClassScheduling: React.FC = () => {
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Teacher">
                 <Select value={form.teacherId} onValueChange={(v) => set("teacherId", v)}>
                   <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
@@ -728,117 +712,33 @@ const ClassScheduling: React.FC = () => {
               </Field>
             </div>
 
-            {/* Standards — a class may cover more than one. The first picked
-                becomes the primary (what reports and filters group by). */}
-            <Field label="Standards (pick one or more)">
-              {scopedStandards.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No standards in your scope. Ask Management to assign them on the Staff
-                  Allocation page.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {scopedStandards.map((s, i) => {
-                    const on = form.standardIds.includes(s.id);
-                    const isPrimary = form.standardIds[0] === s.id;
-                    return (
-                      <Button
-                        key={s.id ?? i}
-                        type="button"
-                        size="sm"
-                        variant={on ? "default" : "outline"}
-                        onClick={() => toggleStandard(s.id)}
-                      >
-                        {s.name}
-                        {isPrimary && form.standardIds.length > 1 && (
-                          <span className="ml-1 text-[9px] uppercase opacity-80">primary</span>
-                        )}
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-            </Field>
-
-            <div
-              className={`grid gap-3 ${form.standardIds.length === 1 ? "grid-cols-3" : "grid-cols-2"}`}
-            >
-              {/* Sections belong to ONE standard, so the field only makes sense
-                  for a single-standard class. */}
-              {form.standardIds.length === 1 && (
-                <Field label="Section">
-                  <Select value={form.sectionId} onValueChange={(v) => set("sectionId", v)}>
-                    <SelectTrigger><SelectValue placeholder="Section" /></SelectTrigger>
-                    <SelectContent>
-                      {sections.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-              <Field label="Subject">
-                <Select value={form.subjectId} onValueChange={(v) => set("subjectId", v)}>
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        form.standardIds.length === 0 ? "Pick a standard first" : "Subject"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* Grouped by standard. With a combined Std 2 + Std 4 class
-                        the same subject NAME can exist under both, so a flat
-                        list would show "Maths" twice with no way to tell which
-                        one is which. */}
-                    {subjectGroups.map((g) => {
-                      if (g.subjects.length === 0) return null;
-                      return (
-                        <SelectGroup key={g.standardId ?? "shared"}>
-                          {subjectGroups.filter((x) => x.subjects.length).length > 1 && (
-                            <SelectLabel>{g.label}</SelectLabel>
-                          )}
-                          {g.subjects.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                          ))}
-                        </SelectGroup>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                {/* Name the standard that is unconfigured. "No subjects" alone
-                    sends a coordinator to Setup without telling them what to
-                    add there. */}
-                {form.standardIds.length > 0 && subjectCount === 0 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    No subjects configured for{" "}
-                    {form.standardIds.map(standardName).join(", ")}. Add them in Setup →
-                    Manage Subjects.
-                  </p>
-                )}
-              </Field>
-              <Field label="Batch (optional filter)">
-                <Select value={form.batchId} onValueChange={(v) => set("batchId", v)}>
-                  <SelectTrigger><SelectValue placeholder="All batches" /></SelectTrigger>
-                  <SelectContent>
-                    {batches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
+            {/* ── Standards & subjects ────────────────────────────────────
+                One card per standard, each with its own subject and batch, and
+                the next standard cannot be added until this one is finished.
+                Replaces a chip row + a single subject dropdown that could only
+                ever describe one subject for the whole room. */}
+            <StandardPlanBuilder
+              standards={scopedStandards}
+              subjects={allSubjects}
+              batches={allBatches}
+              sections={allSections}
+              value={form.plan}
+              onChange={(plan) => set("plan", plan)}
+            />
 
             {/* Who is actually in the class. Everyone eligible starts selected;
                 deselect the students who aren't attending. */}
             <ClassRosterPicker
-              standardIds={form.standardIds}
-              batchId={form.batchId || undefined}
+              standardIds={derived.standardIds}
+              // Per standard, not one batch for the class: 2nd STD may be
+              // drawn from Batch A while 3rd STD is drawn from Batch C, and a
+              // single batch id would filter one of them down to nobody.
+              batchByStandard={batchByStandard(derived.standardPlan)}
               value={form.studentIds}
               onChange={(studentIds) => set("studentIds", studentIds)}
             />
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="Date">
                 <Input type="date" value={form.scheduleDate} onChange={(e) => set("scheduleDate", e.target.value)} />
               </Field>
@@ -861,7 +761,7 @@ const ClassScheduling: React.FC = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Class type">
                 <Select value={form.mode} onValueChange={(v) => set("mode", v as ClassMode)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -902,7 +802,7 @@ const ClassScheduling: React.FC = () => {
             {/* ── Recurrence (Phase 1): daily / weekly / monthly + day mask ── */}
             {!form.isExtra && (
               <div className="space-y-3 rounded-md border px-3 py-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Field label="Repeat">
                     <Select
                       value={form.repeatPattern}
@@ -1006,7 +906,7 @@ const ClassScheduling: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={create.isPending}>
+            <Button onClick={submit} disabled={create.isPending || !planComplete}>
               {form.isExtra ? "Assign & Notify" : "Schedule"}
             </Button>
           </DialogFooter>

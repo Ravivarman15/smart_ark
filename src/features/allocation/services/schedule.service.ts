@@ -11,6 +11,7 @@ import {
 import { localContext } from "../utils/clientContext";
 import type {
   ClassSchedule,
+  ClassStandardPlanEntry,
   ClientContext,
   RepeatPattern,
   ScheduleFilters,
@@ -69,6 +70,31 @@ const minutesBetween = (start: string, end: string): number => {
   return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
 };
 
+/**
+ * Read `standard_plan` defensively.
+ *
+ * The column is jsonb, so nothing between here and Postgres guarantees the
+ * shape — and a class whose plan came back malformed must still RENDER. An
+ * entry with no standard id is dropped rather than passed on, because the plan
+ * is consumed positionally and a hole in it mislabels every entry after it.
+ */
+const toPlan = (v: unknown): ClassStandardPlanEntry[] => {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
+    .map((e) => ({
+      standardId: String(e.standard_id ?? ""),
+      standardName: (e.standard_name as string) ?? undefined,
+      subjectId: (e.subject_id as string) ?? undefined,
+      subjectName: (e.subject_name as string) ?? undefined,
+      batchId: (e.batch_id as string) ?? undefined,
+      batchName: (e.batch_name as string) ?? undefined,
+      sectionId: (e.section_id as string) ?? undefined,
+      sectionName: (e.section_name as string) ?? undefined,
+    }))
+    .filter((e) => e.standardId);
+};
+
 const toSchedule = (r: Record<string, unknown>): ClassSchedule => ({
   id: String(r.id),
   teacherId: (r.teacher_id as string) ?? undefined,
@@ -88,6 +114,11 @@ const toSchedule = (r: Record<string, unknown>): ClassSchedule => ({
     : r.standard_name
       ? [String(r.standard_name)]
       : [],
+  // Left EMPTY for pre-20261012 rows rather than derived here: `effectivePlan()`
+  // does that, and doing it in the mapper too would make `standardPlan.length`
+  // stop meaning "this class was written with a plan" — which is exactly the
+  // question `isSplitSubject()` asks before choosing how to label it.
+  standardPlan: toPlan(r.standard_plan),
   sectionId: (r.section_id as string) ?? undefined,
   sectionName: (r.section_name as string) ?? undefined,
   subjectId: (r.subject_id as string) ?? undefined,
@@ -159,10 +190,15 @@ interface Actor {
 export const normalizeStandards = (input: {
   standardId?: string;
   standardIds?: string[];
+  standardPlan?: { standardId: string }[];
 }): { ids: string[]; primaryId?: string } => {
-  // The array wins outright when present. Merging in the scalar would let a
-  // stale single-standard value ride along and become the primary.
-  const source = (input.standardIds ?? []).filter(Boolean);
+  // The PLAN outranks both when present: it is the only one of the three that
+  // also says what each standard is doing, so letting `standardIds` disagree
+  // with it would put a standard on the class with no subject attached to it.
+  // Then the array, then the scalar — merging would let a stale single-standard
+  // value ride along and become the primary.
+  const planIds = (input.standardPlan ?? []).map((e) => e.standardId).filter(Boolean);
+  const source = planIds.length > 0 ? planIds : (input.standardIds ?? []).filter(Boolean);
   const ids = [...new Set(source.length > 0 ? source : input.standardId ? [input.standardId] : [])];
   return { ids, primaryId: ids[0] };
 };
@@ -300,6 +336,78 @@ class ScheduleService extends BaseService {
     return res.data?.department ?? null;
   }
 
+  /**
+   * Resolve the class plan, with every label filled in.
+   *
+   * Callers that predate the plan (and the reschedule clone) pass none, so one
+   * is derived from the standards + scalar subject/batch they DID pass: that is
+   * genuinely what those rows meant, and deriving here keeps a single write
+   * path instead of two.
+   *
+   * Names are denormalised onto the entry for the same reason they are on the
+   * row — the timetable renders a week of classes without joining four lookup
+   * tables. They are resolved in three queries, not four per standard.
+   */
+  private async resolvePlan(input: ScheduleInput): Promise<ClassStandardPlanEntry[]> {
+    const source: ClassStandardPlanEntry[] = input.standardPlan?.length
+      ? input.standardPlan
+      : normalizeStandards(input).ids.map((standardId) => ({
+          standardId,
+          subjectId: input.subjectId || undefined,
+          batchId: input.batchId || undefined,
+          sectionId: input.sectionId || undefined,
+        }));
+    if (source.length === 0) return [];
+
+    const [standards, subjects, batches, sections] = await Promise.all([
+      this.nameMap("standards", source.map((e) => e.standardId)),
+      this.nameMap("subjects", source.map((e) => e.subjectId)),
+      this.nameMap("batches", source.map((e) => e.batchId)),
+      this.nameMap("sections", source.map((e) => e.sectionId)),
+    ]);
+    return source.map((e) => ({
+      standardId: e.standardId,
+      standardName: standards.get(e.standardId),
+      subjectId: e.subjectId,
+      subjectName: e.subjectId ? subjects.get(e.subjectId) : undefined,
+      batchId: e.batchId,
+      batchName: e.batchId ? batches.get(e.batchId) : undefined,
+      sectionId: e.sectionId,
+      sectionName: e.sectionId ? sections.get(e.sectionId) : undefined,
+    }));
+  }
+
+  /** id → name for a lookup table, in one round-trip. Labels are cosmetic, so
+   *  a failed lookup yields an unlabelled entry rather than a failed save. */
+  private async nameMap(
+    table: "standards" | "subjects" | "batches" | "sections",
+    ids: (string | null | undefined)[],
+  ): Promise<Map<string, string>> {
+    const unique = [...new Set(ids.filter((v): v is string => !!v))];
+    const map = new Map<string, string>();
+    if (unique.length === 0) return map;
+    const res = await this.db.from(table as never).select("id, name").in("id", unique);
+    if (res.error) return map;
+    for (const r of (res.data ?? []) as unknown as { id: string; name?: string }[]) {
+      if (r.name) map.set(String(r.id), r.name);
+    }
+    return map;
+  }
+
+  /** The jsonb shape. snake_case, like every other column on the row. */
+  private static planRow(plan: ClassStandardPlanEntry[]): Record<string, unknown>[] {
+    return plan.map((e) => ({
+      standard_id: e.standardId,
+      standard_name: e.standardName ?? null,
+      subject_id: e.subjectId ?? null,
+      subject_name: e.subjectName ?? null,
+      batch_id: e.batchId ?? null,
+      batch_name: e.batchName ?? null,
+      section_id: e.sectionId ?? null,
+      section_name: e.sectionName ?? null,
+    }));
+  }
+
   /** Labels for every standard on the class, in the same order as the ids. */
   private async standardLabels(ids: string[]): Promise<string[]> {
     if (ids.length === 0) return [];
@@ -320,21 +428,30 @@ class ScheduleService extends BaseService {
     coordinatorId?: string,
     actor?: Actor,
     standards: { ids: string[]; labels: string[] } = { ids: [], labels: [] },
+    plan: ClassStandardPlanEntry[] = [],
   ): Record<string, unknown> {
+    // The scalars ARE entry 0 whenever there is a plan — taken from it rather
+    // than from `input` so the two can never disagree. Everything downstream
+    // (RLS, the standardId filter, the denormalised labels on the timetable,
+    // payroll) still reads the scalars, and a class whose primary standard said
+    // Maths while the plan said Science would be wrong in whichever one the
+    // reader happened to consult.
+    const primary = plan[0];
     return {
       teacher_id: input.teacherId || null,
       teacher_name: names.teacher_name,
       coordinator_id: coordinatorId ?? actor?.id ?? null,
-      standard_id: standards.ids[0] ?? input.standardId ?? null,
-      standard_name: names.standard_name,
+      standard_id: primary?.standardId ?? standards.ids[0] ?? input.standardId ?? null,
+      standard_name: primary ? (primary.standardName ?? null) : names.standard_name,
       standard_ids: standards.ids,
       standard_names: standards.labels,
-      section_id: input.sectionId || null,
-      section_name: names.section_name,
-      subject_id: input.subjectId || null,
-      subject_name: names.subject_name,
-      batch_id: input.batchId || null,
-      batch_name: names.batch_name,
+      standard_plan: ScheduleService.planRow(plan),
+      section_id: (primary ? primary.sectionId : input.sectionId) || null,
+      section_name: primary ? (primary.sectionName ?? null) : names.section_name,
+      subject_id: (primary ? primary.subjectId : input.subjectId) || null,
+      subject_name: primary ? (primary.subjectName ?? null) : names.subject_name,
+      batch_id: (primary ? primary.batchId : input.batchId) || null,
+      batch_name: primary ? (primary.batchName ?? null) : names.batch_name,
       start_time: input.startTime,
       end_time: input.endTime,
       mode: input.mode,
@@ -359,6 +476,22 @@ class ScheduleService extends BaseService {
     };
   }
 
+  /**
+   * Insert, surviving a project where 20261012 has not been applied yet.
+   *
+   * A column PostgREST cannot resolve fails the WHOLE statement, so without
+   * this a deploy that reaches a database one migration behind cannot schedule
+   * a class at all. Retrying without `standard_plan` degrades to the previous
+   * behaviour — one subject for the class — which is worse than the new one and
+   * far better than an outage. The read side already tolerates the absence.
+   */
+  private async insertRows(rows: Record<string, unknown>[]) {
+    const res = await this.table().insert(rows as never).select("id");
+    if (!res.error || !isMissingColumn(res.error)) return res;
+    const stripped = rows.map(({ standard_plan: _ignored, ...rest }) => rest);
+    return this.table().insert(stripped as never).select("id");
+  }
+
   // ── Create ────────────────────────────────────────────────────────────────
   /**
    * Create one class (or a weekly series). Returns the created ids. Fires the
@@ -370,10 +503,11 @@ class ScheduleService extends BaseService {
   ): Promise<string[]> {
     await this.assertUnlocked(input.scheduleDate, opts.isOverride);
     const names = await this.resolveNames(input);
+    const plan = await this.resolvePlan(input);
     const { ids: standardIds } = normalizeStandards(input);
     const standards = { ids: standardIds, labels: await this.standardLabels(standardIds) };
     const dates = expandRecurrence(input);
-    const base = this.toRow(input, names, opts.coordinatorId, opts.actor, standards);
+    const base = this.toRow(input, names, opts.coordinatorId, opts.actor, standards, plan);
     // One series id per recurrence run so the whole series can be edited,
     // cancelled or reported on as a unit. Month / academic year are stamped per
     // occurrence because a series legitimately straddles both.
@@ -385,7 +519,7 @@ class ScheduleService extends BaseService {
       month: monthOf(schedule_date),
       academic_year: input.academicYear || academicYearOf(schedule_date),
     }));
-    const res = await this.table().insert(rows as never).select("id");
+    const res = await this.insertRows(rows);
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
     const ids = ((res.data as unknown as { id: string }[]) ?? []).map((r) => String(r.id));
 
@@ -412,11 +546,16 @@ class ScheduleService extends BaseService {
   async update(id: string, input: ScheduleInput, actor?: Actor, isOverride = false): Promise<void> {
     await this.assertUnlocked(input.scheduleDate, isOverride);
     const names = await this.resolveNames(input);
+    const plan = await this.resolvePlan(input);
     const { ids: standardIds } = normalizeStandards(input);
-    const row = this.toRow(input, names, undefined, actor, {
-      ids: standardIds,
-      labels: await this.standardLabels(standardIds),
-    });
+    const row = this.toRow(
+      input,
+      names,
+      undefined,
+      actor,
+      { ids: standardIds, labels: await this.standardLabels(standardIds) },
+      plan,
+    );
     // never clobber status/created_by/coordinator on an edit
     delete row.status;
     delete row.created_by;
@@ -425,7 +564,11 @@ class ScheduleService extends BaseService {
     // Keep the academic dimensions consistent when the date moves.
     row.month = monthOf(input.scheduleDate);
     row.academic_year = input.academicYear || academicYearOf(input.scheduleDate);
-    const res = await this.table().update(row as never).eq("id", id);
+    let res = await this.table().update(row as never).eq("id", id);
+    if (res.error && isMissingColumn(res.error)) {
+      const { standard_plan: _ignored, ...stripped } = row;
+      res = await this.table().update(stripped as never).eq("id", id);
+    }
     if (res.error) throw AppError.fromSupabase(res.error, "class_schedules");
     // `undefined` means "the caller isn't editing the roster"; an empty array
     // means "clear it". Treating them the same would wipe the roster on every
@@ -515,6 +658,10 @@ class ScheduleService extends BaseService {
         standard_name: orig.standardName ?? null,
         standard_ids: orig.standardIds,
         standard_names: orig.standardNames,
+        // Carried, not recomputed. A rescheduled split class is the SAME class
+        // on a different day; dropping the plan here would silently flatten it
+        // back to one subject for every standard in the room.
+        standard_plan: ScheduleService.planRow(orig.standardPlan ?? []),
         section_id: orig.sectionId ?? null,
         section_name: orig.sectionName ?? null,
         subject_id: orig.subjectId ?? null,

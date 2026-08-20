@@ -9,6 +9,26 @@ export const scheduleSchema = z
     /** A class may cover several standards; `standardId` is the first of these. */
     standardIds: z.array(z.string()).default([]),
     /**
+     * Per-standard subject / batch / section for a combined class.
+     *
+     * Validated as a whole rather than field-by-field: the rule the form
+     * enforces ("finish this standard before adding another") depends on what
+     * each standard actually HAS configured, which the schema cannot see. What
+     * it can guarantee is the shape and that no standard appears twice — two
+     * entries for one standard would write two subjects into a slot that reads
+     * back positionally, and the loser would vanish silently.
+     */
+    standardPlan: z
+      .array(
+        z.object({
+          standardId: z.string().min(1),
+          subjectId: z.string().optional(),
+          batchId: z.string().optional(),
+          sectionId: z.string().optional(),
+        }),
+      )
+      .default([]),
+    /**
      * The exact students in the class. Empty is legal — the class then falls
      * back to the whole batch, which is how classes behaved before per-class
      * assignment — but the UI pre-selects everyone so this is rarely empty.
@@ -40,6 +60,17 @@ export const scheduleSchema = z
   })
   // Standards stay OPTIONAL on purpose: an extra/revision class scheduled
   // without one was always legal, and tightening that here would reject it.
+  .refine(
+    (v) => new Set(v.standardPlan.map((e) => e.standardId)).size === v.standardPlan.length,
+    { message: "That standard is already in this class", path: ["standardPlan"] },
+  )
+  // NOT validated here: "every standard has a subject". It looks like the
+  // obvious rule and it is the wrong place for it — whether a standard CAN be
+  // given a subject depends on whether Setup has any for it, which the schema
+  // cannot see. Asserting it would make a class covering an unconfigured
+  // standard unsubmittable with no way out of the form, over a Setup problem.
+  // The form enforces the rule where it has that knowledge (isDraftComplete),
+  // and names the unconfigured standard instead of blocking.
   .refine((v) => v.endTime > v.startTime, {
     message: "End time must be after start time",
     path: ["endTime"],

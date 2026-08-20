@@ -115,8 +115,25 @@ export const queryKeys = {
       [...queryKeys.allocation.all, "teaching-hours", scope, from, to] as const,
     classRoster: (classScheduleId: string) =>
       [...queryKeys.allocation.all, "class-roster", classScheduleId] as const,
-    studentCandidates: (standardIds: string[], batchId?: string) =>
-      [...queryKeys.allocation.all, "student-candidates", [...standardIds].sort().join(","), batchId ?? "all"] as const,
+    studentCandidates: (
+      standardIds: string[],
+      batchId?: string,
+      batchByStandard?: Record<string, string | undefined>,
+    ) =>
+      [
+        ...queryKeys.allocation.all,
+        "student-candidates",
+        [...standardIds].sort().join(","),
+        batchId ?? "all",
+        // Part of the key, not just the query: changing one standard's batch
+        // changes the eligible list, and a key that ignored it would serve the
+        // previous standard's students from cache.
+        Object.entries(batchByStandard ?? {})
+          .filter(([, v]) => !!v)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => `${k}:${v}`)
+          .join(",") || "all",
+      ] as const,
     assignedStudents: (classScheduleId: string) =>
       [...queryKeys.allocation.all, "assigned-students", classScheduleId] as const,
     leaveImpact: (from: string, to: string, teacherId?: string) =>

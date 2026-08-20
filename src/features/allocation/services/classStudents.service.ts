@@ -54,6 +54,12 @@ export interface CandidateFilters {
   standardIds: string[];
   /** Optional narrowing — a class can be "Std 9 + 10, morning batch only". */
   batchId?: string;
+  /**
+   * Per-standard narrowing: standard id → batch id. An absent or undefined
+   * entry means "every batch of that standard". Applied on top of `batchId`,
+   * which stays for callers describing a class with one batch for the lot.
+   */
+  batchByStandard?: Record<string, string | undefined>;
 }
 
 const toAssignment = (r: AssignmentRow): ClassStudentAssignment => ({
@@ -93,11 +99,27 @@ class ClassStudentsService extends BaseService {
       .select("id, name, roll_number, standard_id, batch_id")
       .in("standard_id", standardIds)
       .eq("is_active", true);
+    // The class-wide batch filter still applies where a caller passes one (an
+    // existing single-batch class). Per-standard narrowing cannot be expressed
+    // as a WHERE clause over one column, so it is applied below instead.
     if (filters.batchId) q = q.eq("batch_id", filters.batchId);
 
     const res = await q.order("name");
     if (res.error) throw AppError.fromSupabase(res.error, "students");
-    const rows = (res.data ?? []) as unknown as StudentRow[];
+    let rows = (res.data ?? []) as unknown as StudentRow[];
+
+    // A combined class draws each standard from its OWN batch — 2nd STD out of
+    // Batch A, 3rd STD out of Batch C. One `.eq("batch_id", …)` would filter
+    // whichever standard did not match down to nobody, and the picker would
+    // report "no active students" for a standard that is full of them. A
+    // standard with no batch chosen keeps everyone.
+    const perStandard = filters.batchByStandard;
+    if (perStandard) {
+      rows = rows.filter((r) => {
+        const want = r.standard_id ? perStandard[r.standard_id] : undefined;
+        return !want || r.batch_id === want;
+      });
+    }
     if (rows.length === 0) return [];
 
     const [standardNames, batchNames] = await Promise.all([

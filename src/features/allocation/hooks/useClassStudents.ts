@@ -8,10 +8,14 @@ import { classStudentsService } from "../services/classStudents.service";
  * standards, optionally narrowed to one batch. Feeds the select/deselect
  * picker, where they start fully selected.
  */
-export const useClassStudentCandidates = (standardIds: string[], batchId?: string) =>
+export const useClassStudentCandidates = (
+  standardIds: string[],
+  batchId?: string,
+  batchByStandard?: Record<string, string | undefined>,
+) =>
   useQuery({
-    queryKey: queryKeys.allocation.studentCandidates(standardIds, batchId),
-    queryFn: () => classStudentsService.candidates({ standardIds, batchId }),
+    queryKey: queryKeys.allocation.studentCandidates(standardIds, batchId, batchByStandard),
+    queryFn: () => classStudentsService.candidates({ standardIds, batchId, batchByStandard }),
     enabled: standardIds.length > 0,
   });
 

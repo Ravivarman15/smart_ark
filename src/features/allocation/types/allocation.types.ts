@@ -51,6 +51,25 @@ export interface Section {
   isActive: boolean;
 }
 
+/**
+ * One standard inside a combined class, with the subject IT is actually doing.
+ *
+ * Entry 0 is the primary and is mirrored into the scalar
+ * standard_id / subject_id / batch_id / section_id columns, which every
+ * existing filter, report and RLS predicate still reads.
+ */
+export interface ClassStandardPlanEntry {
+  standardId: string;
+  standardName?: string;
+  subjectId?: string;
+  subjectName?: string;
+  /** Absent = every batch of this standard. */
+  batchId?: string;
+  batchName?: string;
+  sectionId?: string;
+  sectionName?: string;
+}
+
 /** One (possibly recurring) class in the timetable. */
 export interface ClassSchedule {
   id: string;
@@ -63,6 +82,11 @@ export interface ClassSchedule {
   /** Every standard this class covers (a class may span more than one). */
   standardIds: string[];
   standardNames: string[];
+  /**
+   * Per-standard subject / batch / section. Empty on rows written before the
+   * column existed — read it through `effectivePlan()`, which derives one.
+   */
+  standardPlan: ClassStandardPlanEntry[];
   sectionId?: string;
   sectionName?: string;
   subjectId?: string;
@@ -339,6 +363,11 @@ export interface ScheduleInput {
   standardId?: string;
   /** All standards the class covers. */
   standardIds?: string[];
+  /**
+   * The subject each standard is doing. When present it is authoritative:
+   * `standardIds` and the scalar subject/batch/section are derived from it.
+   */
+  standardPlan?: ClassStandardPlanEntry[];
   /**
    * The exact students in this class. Empty ⇒ the class falls back to the whole
    * batch roster, which is how every class behaved before per-class assignment.

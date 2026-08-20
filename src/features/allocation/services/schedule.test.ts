@@ -66,6 +66,23 @@ describe("normalizeStandards", () => {
     });
   });
 
+  it("lets the PLAN outrank both — it is the only one that carries subjects", () => {
+    // If `standardIds` were allowed to disagree with the plan, a standard would
+    // land on the class with no subject attached to it, and the timetable would
+    // print the primary standard's subject against it.
+    expect(
+      normalizeStandards({
+        standardId: "stale",
+        standardIds: ["std1", "std2"],
+        standardPlan: [{ standardId: "std9" }, { standardId: "std10" }],
+      }),
+    ).toEqual({ ids: ["std9", "std10"], primaryId: "std9" });
+  });
+
+  it("falls back to the array when the plan is empty", () => {
+    expect(normalizeStandards({ standardIds: ["std9"], standardPlan: [] }).ids).toEqual(["std9"]);
+  });
+
   it("de-duplicates and survives an empty selection", () => {
     expect(normalizeStandards({ standardIds: ["std9", "std9"] }).ids).toEqual(["std9"]);
     expect(normalizeStandards({})).toEqual({ ids: [], primaryId: undefined });

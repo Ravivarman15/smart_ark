@@ -10,6 +10,7 @@ import { ClassAttendanceDialog } from "@/features/allocation/components/ClassAtt
 import { ClassLifecycleActions } from "@/features/allocation/components/ClassLifecycleActions";
 import { hhmmToMinutes } from "@/features/allocation/services/classMonitor.service";
 import { attendanceDueIn } from "@/features/allocation/services/classReminder.service";
+import { classLabel } from "@/features/allocation/utils/scheduleView";
 import type { ClassSchedule } from "@/features/allocation/types/allocation.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,14 +24,9 @@ import type { ClassSchedule } from "@/features/allocation/types/allocation.types
 
 const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
-const labelOf = (c: ClassSchedule): string =>
-  [
-    c.standardNames.length > 0 ? c.standardNames.join(" + ") : c.standardName,
-    c.sectionName,
-    c.subjectName,
-  ]
-    .filter(Boolean)
-    .join(" / ") || "Class";
+// Shared with the coordinator's timetable — a teacher must not be shown a
+// different subject for the same class than the person who scheduled it.
+const labelOf = (c: ClassSchedule): string => classLabel(c, " / ");
 
 /** Minutes a class is past its start time with nobody having pressed Start. */
 const overdueStart = (c: ClassSchedule, nowMinutes: number): number =>

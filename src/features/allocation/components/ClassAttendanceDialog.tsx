@@ -17,6 +17,7 @@ import {
   useSubmitClassAttendance,
 } from "../hooks";
 import { ABSENT_LIKE } from "../services/classAttendance.service";
+import { classLabel } from "../utils/scheduleView";
 import type {
   ClassAttendanceStatus,
   ClassRosterRow,
@@ -139,16 +140,7 @@ export const ClassAttendanceDialog: React.FC<Props> = ({ schedule, open, onOpenC
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Class Attendance —{" "}
-            {[
-              schedule?.standardNames?.length
-                ? schedule.standardNames.join(" + ")
-                : schedule?.standardName,
-              schedule?.sectionName,
-              schedule?.subjectName,
-            ]
-              .filter(Boolean)
-              .join(" / ") || "Class"}
+            Class Attendance — {schedule ? classLabel(schedule, " / ") : "Class"}
           </DialogTitle>
         </DialogHeader>
 

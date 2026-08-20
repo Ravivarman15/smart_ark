@@ -135,6 +135,38 @@ describe("classStudentsService.candidates", () => {
       batchName: "Morning",
     });
   });
+
+  it("narrows each standard by ITS OWN batch, not one batch for the class", async () => {
+    // A teacher taking 2nd STD out of Batch A and 3rd STD out of Batch C in the
+    // same period. A single `.eq("batch_id", …)` would filter one of the two
+    // standards down to nobody, and the picker would report "no active
+    // students" for a standard that is full of them.
+    tableData.students = [
+      { id: "s1", name: "Aarav", standard_id: "std2", batch_id: "bA" },
+      { id: "s2", name: "Diya", standard_id: "std2", batch_id: "bB" },
+      { id: "s3", name: "Kabir", standard_id: "std3", batch_id: "bC" },
+    ];
+
+    const rows = await classStudentsService.candidates({
+      standardIds: ["std2", "std3"],
+      batchByStandard: { std2: "bA", std3: "bC" },
+    });
+    expect(rows.map((r) => r.studentId)).toEqual(["s1", "s3"]);
+  });
+
+  it("keeps every student of a standard whose batch was left as 'all'", async () => {
+    tableData.students = [
+      { id: "s1", name: "Aarav", standard_id: "std2", batch_id: "bA" },
+      { id: "s2", name: "Diya", standard_id: "std2", batch_id: "bB" },
+      { id: "s3", name: "Kabir", standard_id: "std3", batch_id: "bC" },
+    ];
+
+    const rows = await classStudentsService.candidates({
+      standardIds: ["std2", "std3"],
+      batchByStandard: { std2: undefined, std3: "bC" },
+    });
+    expect(rows.map((r) => r.studentId)).toEqual(["s1", "s2", "s3"]);
+  });
 });
 
 describe("groupRowsByBatch", () => {

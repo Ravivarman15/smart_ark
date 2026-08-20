@@ -29,6 +29,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import type { ClassSchedule } from "../types/allocation.types";
+import { isSplitSubject, splitSubjectTitle } from "./standardPlan";
 
 /** `YYYY-MM-DD` for a date, in the viewer's own timezone. */
 export const localIso = (d: Date = new Date()): string => {
@@ -194,15 +195,27 @@ export const groupByDay = (
 /**
  * "Std 4 · A · Maths" — every standard of a combined class, not just the
  * primary, otherwise a Std 2 + Std 4 class reads as if it only covers one.
+ *
+ * When the standards are doing DIFFERENT subjects the compact form stops being
+ * true: "2nd STD + 3rd STD · Maths" names a subject half the room is not
+ * taking. Those classes are titled per standard instead —
+ * "2nd STD · Maths  +  3rd STD · Science" — which is longer and is the only
+ * rendering that is correct for everyone in it.
  */
-export const classTitle = (c: ClassSchedule): string =>
-  [
-    c.standardNames?.length ? c.standardNames.join(" + ") : c.standardName,
-    c.sectionName,
-    c.subjectName,
-  ]
-    .filter(Boolean)
-    .join(" · ") || "Class";
+export const classLabel = (c: ClassSchedule, separator = " · "): string => {
+  if (isSplitSubject(c)) return splitSubjectTitle(c) || "Class";
+  return (
+    [
+      c.standardNames?.length ? c.standardNames.join(" + ") : c.standardName,
+      c.sectionName,
+      c.subjectName,
+    ]
+      .filter(Boolean)
+      .join(separator) || "Class"
+  );
+};
+
+export const classTitle = (c: ClassSchedule): string => classLabel(c);
 
 /** "1h 30m", or "45m" when under the hour. */
 export const durationLabel = (minutes: number): string => {

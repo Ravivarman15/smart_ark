@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ClassRosterPicker } from "./ClassRosterPicker";
+import { classLabel } from "../utils/scheduleView";
+import { batchByStandard, effectivePlan } from "../utils/standardPlan";
 import { useAssignedStudents, useSetClassRoster } from "../hooks/useClassStudents";
 import type { ClassSchedule } from "../types/allocation.types";
 
@@ -71,15 +73,7 @@ export const ClassRosterDialog: React.FC<Props> = ({ schedule, open, onOpenChang
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Students —{" "}
-            {[
-              schedule?.standardNames?.length
-                ? schedule.standardNames.join(" + ")
-                : schedule?.standardName,
-              schedule?.subjectName,
-            ]
-              .filter(Boolean)
-              .join(" / ") || "Class"}
+            Students — {schedule ? classLabel(schedule, " / ") : "Class"}
           </DialogTitle>
         </DialogHeader>
 
@@ -89,6 +83,12 @@ export const ClassRosterDialog: React.FC<Props> = ({ schedule, open, onOpenChang
           <ClassRosterPicker
             standardIds={standardIds}
             batchId={schedule?.batchId}
+            // A stored split class narrows each standard by its own batch.
+            // Without this the class-wide `batchId` — which is only the
+            // PRIMARY standard's batch — would empty out every other standard.
+            batchByStandard={
+              schedule ? batchByStandard(effectivePlan(schedule)) : undefined
+            }
             value={selected}
             onChange={setSelected}
             initialSelection={seed}

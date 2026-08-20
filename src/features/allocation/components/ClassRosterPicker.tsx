@@ -22,7 +22,14 @@ import type { ClassStudentCandidate } from "../types/allocation.types";
 
 interface Props {
   standardIds: string[];
+  /** One batch for the whole class (an existing class, or a single standard). */
   batchId?: string;
+  /**
+   * Per-standard batch narrowing. A combined class draws each standard from
+   * its own batch, which a single `batchId` cannot express — passing one there
+   * would empty out every standard it did not belong to.
+   */
+  batchByStandard?: Record<string, string | undefined>;
   /** Currently-selected student ids (controlled). */
   value: string[];
   onChange: (studentIds: string[]) => void;
@@ -41,11 +48,16 @@ const signatureOf = (rows: ClassStudentCandidate[]): string =>
 export const ClassRosterPicker: React.FC<Props> = ({
   standardIds,
   batchId,
+  batchByStandard,
   value,
   onChange,
   initialSelection,
 }) => {
-  const { data: candidates = [], isLoading } = useClassStudentCandidates(standardIds, batchId);
+  const { data: candidates = [], isLoading } = useClassStudentCandidates(
+    standardIds,
+    batchId,
+    batchByStandard,
+  );
   const [search, setSearch] = useState("");
   const lastSignature = useRef<string | null>(null);
   const seeded = useRef(false);
@@ -154,7 +166,10 @@ export const ClassRosterPicker: React.FC<Props> = ({
       ) : candidates.length === 0 ? (
         <p className="py-4 text-center text-xs text-muted-foreground">
           No active students found in the selected standard(s)
-          {batchId ? " for this batch" : ""}.
+          {batchId || Object.values(batchByStandard ?? {}).some(Boolean)
+            ? " for the chosen batch(es)"
+            : ""}
+          .
         </p>
       ) : (
         <div className="max-h-64 space-y-3 overflow-y-auto pr-1">

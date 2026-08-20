@@ -129,9 +129,9 @@ acceptable and nowhere else.
 
 ### Per-organization export
 
-`supabase/migrations/20261011_organization_export.sql` — **shipped unapplied**.
-Until it is applied, the console's export button returns a 501 that names the
-file.
+`supabase/migrations/20261011_organization_export.sql` — **applied live
+2026-08-19**, with `platform-admin` redeployed alongside it (v7). The 501 path
+remains in the edge function for any project where it has not been applied.
 
 - **Same predicate as the purge**: every BASE TABLE in `public` carrying
   `organization_id`. Not a curated list. Drift there would be asymmetric and
@@ -151,8 +151,21 @@ Two operational uses justify it: a departing customer owed their records before
 the tenant is archived, and a restore rehearsal — a PITR restore you cannot
 compare against a known snapshot has not been verified, only performed.
 
-Validated by executing the migration inside a transaction and rolling back:
-syntax and grants accepted, nothing persisted.
+Verified after applying:
+
+| Check | Result |
+|---|---|
+| Both functions | `STABLE` + `SECURITY DEFINER` |
+| ACL | `postgres \| service_role` — no PUBLIC, anon or authenticated |
+| Anon RPC call | `42501 permission denied for function` |
+| Edge function, no auth | `401` |
+| Edge function, tenant JWT | `403 Platform access denied` |
+| Manifest, live | abc-academi 793 rows / 83 tables; testing 180 / 53 |
+
+**Do not run `supabase db push` on this project.** `20261001`–`20261011` all
+report unapplied while their objects demonstrably exist live, so push would
+re-run eleven migrations, several of them not idempotent. Apply one file at a
+time with `db query --linked --file`.
 
 ---
 
