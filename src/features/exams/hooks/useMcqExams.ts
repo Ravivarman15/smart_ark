@@ -26,14 +26,21 @@ export const useMcqExamOverview = () =>
     queryFn: () => mcqExamService.overview(),
   });
 
-/** MCQ exams a student of `batchId` (and its standard) may attempt. */
+/**
+ * MCQ exams one student may attempt.
+ *
+ * Keyed on the STUDENT, not the batch: a test can now be assigned to a named
+ * student, so two children of the same batch no longer necessarily see the same
+ * list — and a batch-keyed cache would serve one of them the other's.
+ */
 export const useStudentMcqExams = (
-  batchId: string | null,
+  studentId: string | null,
+  batchId?: string,
   standardId?: string,
 ) =>
   useQuery({
-    queryKey: queryKeys.exams.mcqStudentExams(batchId ?? ""),
+    queryKey: queryKeys.exams.mcqStudentExams(studentId ?? ""),
     queryFn: () =>
-      mcqExamService.listForStudent(batchId as string, standardId),
-    enabled: !!batchId,
+      mcqExamService.listForStudent(studentId as string, batchId, standardId),
+    enabled: !!studentId,
   });

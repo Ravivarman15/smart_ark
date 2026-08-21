@@ -192,6 +192,7 @@ const StudentExamPage = () => {
       >
         <ExamPicker
           batch={stage.batch}
+          student={stage.student}
           focusedExamId={focusedExamId}
           onPick={(exam) =>
             setStage({
@@ -433,14 +434,19 @@ const StudentPicker = ({
 // ── Exam picker ───────────────────────────────────────────────────────────────
 const ExamPicker = ({
   batch,
+  student,
   focusedExamId,
   onPick,
 }: {
   batch: BatchOption;
+  student: StudentOption;
   focusedExamId: string | null;
   onPick: (exam: McqExam) => void;
 }) => {
+  // Resolved per STUDENT, because a test can be assigned to a named student —
+  // two children of the same batch no longer necessarily see the same list.
   const { data: exams = [], isLoading } = useStudentMcqExams(
+    student.id,
     batch.id,
     batch.standardId,
   );

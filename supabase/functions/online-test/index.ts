@@ -43,6 +43,8 @@ import {
   studentParticipantKey,
   submitAttempt,
   visibleResult,
+  evaluateAnswer,
+  markingQueue,
   type Db,
   type Taker,
 } from "../_shared/testEngine.ts";
@@ -248,6 +250,46 @@ Deno.serve(async (req) => {
       }
 
       const out = await startAttempt(db, resolved.taker, examId);
+      return isError(out)
+        ? jsonResponse(out.status, { error: out.error })
+        : jsonResponse(200, out);
+    }
+
+    // ── marking_queue / evaluate — subjective marking, STAFF ONLY ───────────
+    // The half that was missing. The grader has always refused to score an
+    // essay zero, flagging it `pending_review` and leaving `is_pass` NULL —
+    // and until now nothing in the product ever read either flag, so an
+    // attempt containing one essay stayed provisional forever.
+    if (action === "marking_queue" || action === "evaluate") {
+      const staff = await requireStaff(db, req);
+      if ("error" in staff) return jsonResponse(staff.status, { error: staff.error });
+
+      if (action === "marking_queue") {
+        const queue = await markingQueue(
+          db,
+          staff.organizationId,
+          body.examId ? String(body.examId) : null,
+          Number(body.limit ?? 50),
+        );
+        return jsonResponse(200, { queue });
+      }
+
+      const answerId = body.answerId ? String(body.answerId) : "";
+      if (!answerId) return jsonResponse(400, { error: "answerId is required." });
+      if (typeof body.awarded !== "number" || !Number.isFinite(body.awarded)) {
+        return jsonResponse(400, { error: "A mark is required." });
+      }
+
+      const out = await evaluateAnswer(
+        db,
+        answerId,
+        // The organization comes from the VERIFIED caller, never the body, so a
+        // marker cannot reach into another tenant's papers by id.
+        staff.organizationId,
+        staff.profileId,
+        body.awarded,
+        body.comment ? String(body.comment) : null,
+      );
       return isError(out)
         ? jsonResponse(out.status, { error: out.error })
         : jsonResponse(200, out);

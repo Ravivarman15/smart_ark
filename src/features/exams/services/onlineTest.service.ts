@@ -163,6 +163,32 @@ export interface TestLinkOptions {
 export const publicTestUrl = (token: string): string =>
   `${window.location.origin}/test/${token}`;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBJECTIVE MARKING
+// ─────────────────────────────────────────────────────────────────────────────
+/** One unmarked subjective answer, with everything needed to judge it. */
+export interface MarkingItem {
+  answerId: string;
+  attemptId: string;
+  examId: string;
+  examTitle: string;
+  studentName: string;
+  batchName: string | null;
+  submittedAt: string | null;
+  questionText: string;
+  questionType: McqQuestionType;
+  maxMarks: number;
+  answerText: string;
+}
+
+export interface EvaluationResult {
+  ok: boolean;
+  /** false once the attempt's last pending answer has been marked. */
+  awaitingEvaluation?: boolean;
+  percentage?: number;
+  totalScore?: number;
+}
+
 const FUNCTION = "online-test";
 
 /**
@@ -264,6 +290,32 @@ class OnlineTestService {
     } catch {
       /* intentionally swallowed */
     }
+  }
+
+  // ── Subjective marking ─────────────────────────────────────────────────────
+  /** Unmarked subjective answers, oldest first. Staff only, server-enforced. */
+  async markingQueue(examId?: string | null, limit = 50): Promise<MarkingItem[]> {
+    const { queue } = await call<{ queue: MarkingItem[] }>({
+      action: "marking_queue",
+      examId: examId ?? null,
+      limit,
+    });
+    return queue;
+  }
+
+  /**
+   * Record a mark on one subjective answer.
+   *
+   * The attempt is re-summed server-side from its stored per-answer marks —
+   * NOT re-graded, which would overwrite this decision with the zero the
+   * machine assigns to an essay it cannot read.
+   */
+  evaluate(
+    answerId: string,
+    awarded: number,
+    comment?: string,
+  ): Promise<EvaluationResult> {
+    return call({ action: "evaluate", answerId, awarded, comment });
   }
 
   // ── The share link ─────────────────────────────────────────────────────────

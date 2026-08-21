@@ -13,14 +13,14 @@ open, so only **SHIPPED** entries describe things a user can do today.
 
 | Status | Count | May be documented as existing? |
 |---|---|---|
-| SHIPPED | 193 | **Yes** |
+| SHIPPED | 198 | **Yes** |
 | LEGACY_ONLY | 0 | Only if the behaviour is reachable |
 | ROUTE_CLAIMED_NOT_MOUNTED | 0 | **No** — route declared but not mounted |
 | ASPIRATIONAL | 11 | **No** — permission-only |
-| **Total submodules** | **204** | |
+| **Total submodules** | **209** | |
 
 
-## SHIPPED (193)
+## SHIPPED (198)
 
 | Module | Submodule | Label | Route |
 |---|---|---|---|
@@ -35,6 +35,9 @@ open, so only **SHIPPED** entries describe things a user can do today.
 | settings | `settings.billing` | Billing & Subscription | `/settings/billing` |
 | settings | `settings.branding` | Branding & White Label | `/settings/branding` |
 | settings | `settings.checkin` | Check-in & Check-out | `/settings/check-in` |
+| settings | `settings.parent_portal` | Parent Portal | `/settings/parent-portal` |
+| setup | `setup.add_branch` | Add Branch | — |
+| setup | `setup.manage_branch` | Manage Branch | `/admin/setup/branches` |
 | setup | `setup.add_year` | Add Year | — |
 | setup | `setup.manage_year` | Manage Year | `/admin/setup/years` |
 | setup | `setup.assign_standard` | Assign Standard | `/admin/setup/standards` |
@@ -138,6 +141,8 @@ open, so only **SHIPPED** entries describe things a user can do today.
 | exam | `exam.registers` | Exam Reports & Registers | — |
 | exam | `exam.import_marks` | Import Marks | — |
 | exam | `exam.paper_import` | Question Paper Import | — |
+| exam | `exam.online_tests` | Online Tests | — |
+| exam | `exam.evaluate` | Mark Written Answers | — |
 | exam | `exam.create_mcq_paper` | Create MCQ Paper | — |
 | exam | `exam.manage_mcq_paper` | Manage MCQ Paper | — |
 | exam | `exam.create_mcq_exam` | Create MCQ Exam | — |
@@ -242,13 +247,14 @@ _none_
 | authentication | `authentication.credential_repair` | Credential Repair | — |
 | authentication | `authentication.login_audit` | Login Audit | — |
 
-## Feature directories (31)
+## Feature directories (32)
 
 Not every real surface is an RBAC submodule — the parent portal, the
 public enquiry form and the platform control plane are not. Listed so
 they are not missed.
 
 - `src/features/allocation`
+- `src/features/assistant`
 - `src/features/attendance`
 - `src/features/auth-accounts`
 - `src/features/billing`

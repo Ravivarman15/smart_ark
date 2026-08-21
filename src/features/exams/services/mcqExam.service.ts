@@ -1,5 +1,6 @@
 import { BaseService, AppError } from "@/shared/services";
 import { round2 } from "../utils/grading";
+import { isTargeted } from "../utils/assignmentTargeting";
 import type {
   AssignmentDraft,
   ExamAssignment,
@@ -385,30 +386,37 @@ class McqExamService extends BaseService {
     };
   }
 
-  /** Resolve the assigned student roster from the exam's scopes. */
+  /**
+   * Resolve the assigned student roster from the exam's scopes.
+   *
+   * Reads the WHOLE active roster and filters it with the shared targeting
+   * rules, rather than building a batch-id query per scope. Three reasons:
+   * `all` and `student` cannot be expressed as a batch filter at all; an exam
+   * with no assignments means "everyone", which a batch query returns as zero;
+   * and one filter shared with the server is one fewer place for the browser's
+   * preview and the server's decision to disagree.
+   *
+   * RLS scopes the read to the caller's own organization, so "the whole roster"
+   * is never another tenant's.
+   */
   async resolveRoster(exam: McqExam): Promise<RosterStudent[]> {
-    const batchIds = new Set<string>();
-    const standardIds = new Set<string>();
-    for (const a of exam.assignments) {
-      if (a.scopeType === "batch" && a.scopeId) batchIds.add(a.scopeId);
-      if (a.scopeType === "standard" && a.scopeId) standardIds.add(a.scopeId);
+    const drafts: AssignmentDraft[] = exam.assignments.map((a) => ({
+      scopeType: a.scopeType,
+      scopeId: a.scopeId ?? "",
+      scopeName: a.scopeName ?? "",
+    }));
+    // An exam pinned to one batch carries that as an implicit assignment.
+    if (exam.batchId) {
+      drafts.push({
+        scopeType: "batch",
+        scopeId: exam.batchId,
+        scopeName: exam.batchName ?? "",
+      });
     }
-    if (exam.batchId) batchIds.add(exam.batchId);
-
-    // Standards → their batches.
-    if (standardIds.size > 0) {
-      const { data } = await this.db
-        .from("batches")
-        .select("id")
-        .in("standard_id", Array.from(standardIds));
-      for (const b of (data as { id: string }[]) ?? []) batchIds.add(b.id);
-    }
-    if (batchIds.size === 0) return [];
 
     const { data, error } = await this.db
       .from("students")
-      .select("id, name, roll_number, batch_id")
-      .in("batch_id", Array.from(batchIds))
+      .select("id, name, roll_number, batch_id, standard_id, is_active")
       .eq("is_active", true)
       .order("name", { ascending: true });
     if (error) return [];
@@ -423,31 +431,52 @@ class McqExamService extends BaseService {
         name: string;
         roll_number: string | null;
         batch_id: string | null;
+        standard_id: string | null;
+        is_active: boolean | null;
       }[]) ?? []
-    ).map((s) => ({
-      id: s.id,
-      name: s.name,
-      rollNumber: s.roll_number ?? undefined,
-      batchId: s.batch_id ?? undefined,
-      batchName: s.batch_id ? batchNames.get(s.batch_id) : undefined,
-    }));
+    )
+      .filter((s) =>
+        isTargeted(drafts, {
+          id: s.id,
+          batchId: s.batch_id,
+          standardId: s.standard_id,
+          isActive: s.is_active !== false,
+        }),
+      )
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        rollNumber: s.roll_number ?? undefined,
+        batchId: s.batch_id ?? undefined,
+        batchName: s.batch_id ? batchNames.get(s.batch_id) : undefined,
+      }));
   }
 
-  /** MCQ exams visible to a student in `batchId` (and its standard). */
+  /**
+   * MCQ exams visible to one student.
+   *
+   * Filtered with the SAME rules the server enforces, so the list a student is
+   * shown and the list they can actually open cannot diverge. This is still a
+   * presentation filter: the decision that admits them is `isEligible()` in
+   * _shared/testEngine.ts, re-run on every attempt.
+   */
   async listForStudent(
-    batchId: string,
+    studentId: string,
+    batchId?: string,
     standardId?: string,
   ): Promise<McqExam[]> {
     const all = await this.list();
+    const student = { id: studentId, batchId, standardId, isActive: true };
     return all.filter((e) => {
       if (e.status === "draft") return false;
-      if (e.batchId === batchId) return true;
-      return e.assignments.some(
-        (a) =>
-          (a.scopeType === "batch" && a.scopeId === batchId) ||
-          (a.scopeType === "standard" &&
-            !!standardId &&
-            a.scopeId === standardId),
+      if (batchId && e.batchId === batchId) return true;
+      return isTargeted(
+        e.assignments.map((a) => ({
+          scopeType: a.scopeType,
+          scopeId: a.scopeId ?? "",
+          scopeName: a.scopeName ?? "",
+        })),
+        student,
       );
     });
   }

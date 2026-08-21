@@ -608,6 +608,216 @@ export async function startAttempt(
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MARKING WHAT A MACHINE CANNOT
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Record a teacher's mark on one subjective answer, then re-settle the attempt.
+ *
+ * ┌── WHY THIS DOES NOT CALL gradeAndPersist ──────────────────────────────┐
+ * │ Re-grading would be the tidy-looking choice and it would be wrong.     │
+ * │ `gradeAttempt()` recomputes EVERY answer from the answer key, so it    │
+ * │ would overwrite the mark a human just entered with the zero the        │
+ * │ machine assigns to an essay it cannot read. The teacher's decision     │
+ * │ would survive exactly until the next essay on the same paper was       │
+ * │ marked.                                                                │
+ * │                                                                        │
+ * │ So the totals are RE-SUMMED from the stored per-answer marks, which is │
+ * │ the only representation that holds both kinds of decision at once. The │
+ * │ auto-graded answers are already settled and are not touched.           │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * `awarded` is clamped to [0, max_marks]: negative marking belongs to the
+ * auto-grader's wrong-answer rule, not to a human deciding how good an essay
+ * was, and a mark above the maximum silently breaks every percentage that
+ * divides by it.
+ */
+export async function evaluateAnswer(
+  db: Db,
+  answerId: string,
+  organizationId: string,
+  evaluatorProfileId: string,
+  awarded: number,
+  comment: string | null,
+): Promise<EngineError | Record<string, unknown>> {
+  const { data: answer } = await db
+    .from("mcq_answers")
+    .select("id, attempt_id, max_marks, pending_review, organization_id")
+    .eq("id", answerId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (!answer) return { error: "That answer is not available to you.", status: 403 };
+  if (!answer.pending_review) {
+    // Auto-graded answers are settled by the answer key, and a teacher
+    // overriding one is a different feature with different rules — it would
+    // need to survive a re-grade, which this deliberately does not.
+    return {
+      error: "That answer was marked automatically and cannot be re-marked here.",
+      status: 409,
+    };
+  }
+
+  const max = Number(answer.max_marks ?? 0);
+  const mark = Math.min(Math.max(Number(awarded) || 0, 0), max);
+
+  const { error: upErr } = await db
+    .from("mcq_answers")
+    .update({
+      awarded: mark,
+      // The mark is now a fact, so the flag that made it provisional comes off.
+      pending_review: false,
+      // A subjective answer has no right/wrong: `is_correct` is left NULL so
+      // the correct/incorrect counters keep meaning "the machine judged this".
+      evaluated_by: evaluatorProfileId,
+      evaluated_at: new Date().toISOString(),
+      evaluator_comment: comment ? String(comment).slice(0, 2000) : null,
+    })
+    .eq("id", answerId)
+    .eq("organization_id", organizationId);
+  if (upErr) return { error: "Could not save that mark.", status: 500 };
+
+  return settleAttempt(db, answer.attempt_id, organizationId);
+}
+
+/**
+ * Re-sum an attempt from its stored per-answer marks.
+ *
+ * Called after every evaluation, and it is what finally lets `is_pass` stop
+ * being NULL: a pass cannot be decided while marks are missing, so it is
+ * settled at the moment the last one arrives — not before, and not by a
+ * scheduled job that might never run.
+ */
+export async function settleAttempt(
+  db: Db,
+  attemptId: string,
+  organizationId: string,
+): Promise<Record<string, unknown>> {
+  const { data: answers } = await db
+    .from("mcq_answers")
+    .select("awarded, max_marks, pending_review")
+    .eq("attempt_id", attemptId)
+    .eq("organization_id", organizationId);
+
+  const rows = answers ?? [];
+  const total = rows.reduce((sum: number, a: Db) => sum + Number(a.awarded ?? 0), 0);
+  const max = rows.reduce((sum: number, a: Db) => sum + Number(a.max_marks ?? 0), 0);
+  const stillPending = rows.filter((a: Db) => a.pending_review === true);
+  const pendingMarks = stillPending.reduce(
+    (sum: number, a: Db) => sum + Number(a.max_marks ?? 0),
+    0,
+  );
+
+  const { data: attempt } = await db
+    .from("mcq_attempts")
+    .select("id, exam_id, organization_id")
+    .eq("id", attemptId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (!attempt) return { ok: false };
+
+  const exam = await loadExam(db, attempt.exam_id, organizationId);
+  const passPct = Number(exam?.pass_percentage ?? 35);
+  const percentage = max > 0 ? Math.round(((total / max) * 100 + Number.EPSILON) * 100) / 100 : 0;
+  const awaiting = stillPending.length > 0;
+
+  await db
+    .from("mcq_attempts")
+    .update({
+      total_score: Math.round((total + Number.EPSILON) * 100) / 100,
+      max_score: Math.round((max + Number.EPSILON) * 100) / 100,
+      percentage,
+      pending_marks: Math.round((pendingMarks + Number.EPSILON) * 100) / 100,
+      awaiting_evaluation: awaiting,
+      // Still NULL while anything is unmarked. Declaring a fail on a paper
+      // nobody has finished reading is the specific wrong answer here.
+      is_pass: awaiting ? null : percentage >= passPct,
+    })
+    .eq("id", attemptId)
+    .eq("organization_id", organizationId);
+
+  return { ok: true, awaitingEvaluation: awaiting, percentage, totalScore: total };
+}
+
+/**
+ * The marking queue: unmarked subjective answers, oldest first.
+ *
+ * Oldest first because a student waiting three days for a mark should not be
+ * overtaken by one who submitted this morning, which is what any
+ * newest-first or grouped-by-exam ordering quietly does.
+ */
+export async function markingQueue(
+  db: Db,
+  organizationId: string,
+  examId: string | null,
+  limit = 50,
+): Promise<Record<string, unknown>[]> {
+  const { data: pending } = await db
+    .from("mcq_answers")
+    .select("id, attempt_id, question_id, text_value, max_marks, answered_at")
+    .eq("organization_id", organizationId)
+    .eq("pending_review", true)
+    .order("answered_at", { ascending: true })
+    .limit(Math.min(Math.max(limit, 1), 200));
+
+  const rows = pending ?? [];
+  if (rows.length === 0) return [];
+
+  const { data: attempts } = await db
+    .from("mcq_attempts")
+    .select("id, exam_id, student_name, guest_name, batch_name, submitted_at")
+    .in("id", Array.from(new Set(rows.map((r: Db) => r.attempt_id))))
+    .eq("organization_id", organizationId);
+  const attemptById = new Map((attempts ?? []).map((a: Db) => [a.id, a]));
+
+  const { data: questions } = await db
+    .from("mcq_questions")
+    .select("id, question_text, question_type, marks")
+    .in("id", Array.from(new Set(rows.map((r: Db) => r.question_id))))
+    .eq("organization_id", organizationId);
+  const questionById = new Map((questions ?? []).map((q: Db) => [q.id, q]));
+
+  const { data: exams } = await db
+    .from("exams")
+    .select("id, title")
+    .in(
+      "id",
+      Array.from(
+        new Set((attempts ?? []).map((a: Db) => a.exam_id).filter(Boolean)),
+      ),
+    )
+    .eq("organization_id", organizationId);
+  const examById = new Map((exams ?? []).map((e: Db) => [e.id, e]));
+
+  return rows
+    // An answer whose attempt is filtered out by the exam filter, or whose
+    // question has since been deleted, is dropped rather than rendered as a
+    // blank card a teacher cannot act on.
+    .filter((r: Db) => {
+      const a = attemptById.get(r.attempt_id);
+      if (!a) return false;
+      if (examId && a.exam_id !== examId) return false;
+      return questionById.has(r.question_id);
+    })
+    .map((r: Db) => {
+      const a = attemptById.get(r.attempt_id);
+      const q = questionById.get(r.question_id);
+      return {
+        answerId: r.id,
+        attemptId: r.attempt_id,
+        examId: a.exam_id,
+        examTitle: examById.get(a.exam_id)?.title ?? "",
+        studentName: a.student_name ?? a.guest_name ?? "Unnamed",
+        batchName: a.batch_name ?? null,
+        submittedAt: a.submitted_at,
+        questionText: q.question_text ?? "",
+        questionType: q.question_type ?? "long_answer",
+        maxMarks: Number(r.max_marks ?? q.marks ?? 0),
+        answerText: r.text_value ?? "",
+      };
+    });
+}
+
 /** Persist answer drafts. Never scores. Enforces the deadline. */
 export async function saveAnswers(
   db: Db,

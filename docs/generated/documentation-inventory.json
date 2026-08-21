@@ -7,14 +7,14 @@
   ],
   "counts": {
     "modules": 19,
-    "submodules": 204,
-    "shipped": 193,
+    "submodules": 209,
+    "shipped": 198,
     "routeClaimedNotMounted": 0,
     "legacyOnly": 0,
     "aspirational": 11,
-    "menuItems": 119,
-    "featureDirs": 31,
-    "existingDocs": 40
+    "menuItems": 122,
+    "featureDirs": 32,
+    "existingDocs": 62
   },
   "modules": [
     {
@@ -223,6 +223,42 @@
       "module": "settings",
       "mountedVia": "catalog",
       "mountedPath": "/settings/check-in",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "settings.parent_portal",
+      "label": "Parent Portal",
+      "route": "/settings/parent-portal",
+      "legacyAction": null,
+      "module": "settings",
+      "mountedVia": "catalog",
+      "mountedPath": "/settings/parent-portal",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.add_branch",
+      "label": "Add Branch",
+      "route": null,
+      "legacyAction": null,
+      "module": "setup",
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "setup/branches",
+      "inMenu": true,
+      "backing": "service",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "setup.manage_branch",
+      "label": "Manage Branch",
+      "route": "/admin/setup/branches",
+      "legacyAction": null,
+      "module": "setup",
+      "mountedVia": "catalog",
+      "mountedPath": "/admin/setup/branches",
       "inMenu": true,
       "backing": "service",
       "status": "SHIPPED"
@@ -1560,6 +1596,30 @@
       "status": "SHIPPED"
     },
     {
+      "id": "exam.online_tests",
+      "label": "Online Tests",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/online-tests",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
+    },
+    {
+      "id": "exam.evaluate",
+      "label": "Mark Written Answers",
+      "route": null,
+      "legacyAction": null,
+      "module": "exam",
+      "mountedVia": "sharedRoutes",
+      "mountedPath": "exams/evaluate",
+      "inMenu": false,
+      "backing": "service",
+      "status": "SHIPPED"
+    },
+    {
       "id": "exam.create_mcq_paper",
       "label": "Create MCQ Paper",
       "route": null,
@@ -2546,6 +2606,22 @@
   ],
   "menuItems": [
     {
+      "submodule": "setup.add_branch",
+      "label": "Add Branch",
+      "paths": [
+        "/admin/setup/branches?new=1",
+        "/management/setup/branches?new=1"
+      ]
+    },
+    {
+      "submodule": "setup.manage_branch",
+      "label": "Manage Branch",
+      "paths": [
+        "/admin/setup/branches",
+        "/management/setup/branches"
+      ]
+    },
+    {
       "submodule": "setup.add_year",
       "label": "Add Year",
       "paths": [
@@ -3514,10 +3590,18 @@
       "paths": [
         "/settings/check-in"
       ]
+    },
+    {
+      "submodule": "settings.parent_portal",
+      "label": "Parent Portal",
+      "paths": [
+        "/settings/parent-portal"
+      ]
     }
   ],
   "featureDirs": [
     "allocation",
+    "assistant",
     "attendance",
     "auth-accounts",
     "billing",
@@ -3550,13 +3634,20 @@
     "tasks"
   ],
   "existingDocs": [
+    "AISENSY_CAMPAIGN_STATE.md",
+    "AISENSY_CREDENTIAL_TEMPLATE_REVIEW.md",
+    "AISENSY_FINAL_META_SUBMISSION.md",
+    "AISENSY_MULTITENANT_TEMPLATE_CATALOG.md",
     "AISENSY_MULTITENANT_TEMPLATE_SUBMISSION.md",
     "AISENSY_TEMPLATES.md",
     "ARK_CHECKIN_COORDINATE_RECONCILIATION.md",
     "ATTENDANCE_WHATSAPP_AUTOMATION.md",
+    "BRANCH_MANAGEMENT.md",
     "CHECKIN_GEOFENCE_MIGRATION.md",
     "COMMUNICATION_AUTOMATION.md",
+    "COMMUNICATION_AUTOMATION_FINAL_MATRIX.md",
     "COMMUNICATION_AUTOMATION_MATRIX.md",
+    "COMMUNICATION_AUTOMATION_PRODUCTION_READINESS.md",
     "COMMUNICATION_CENTER.md",
     "COMMUNICATION_CENTER_ENTERPRISE.md",
     "COMMUNICATION_DEPLOYMENT_MANAGER.md",
@@ -3564,8 +3655,17 @@
     "COMMUNICATION_VERIFICATION.md",
     "DOCUMENTATION_SCREENSHOT_SHOT_LIST.md",
     "DYNAMIC_DOCUMENT_BRANDING.md",
+    "EMAIL_DELIVERY.md",
+    "INVOICES_AND_RECOVERY.md",
     "MULTI_TENANT_ARCHITECTURE_REVIEW.md",
+    "ONLINE_TESTS.md",
+    "ONLINE_TESTS_PHASE_C.md",
+    "ONLINE_TESTS_PHASE_D.md",
+    "ONLINE_TESTS_PHASE_F.md",
+    "ORGANIZATION_ERASURE.md",
     "PARENT_PORTAL.md",
+    "PARENT_PORTAL_MODULES.md",
+    "PER_STANDARD_CLASS_PLAN.md",
     "PHASE0_SECURITY_HARDENING.md",
     "PHASE1E_COMPOSITE_UNIQUE_KEYS.md",
     "PHASE1_MULTI_TENANT_FOUNDATION.md",
@@ -3577,12 +3677,18 @@
     "PHASE8A_RUNTIME_VERIFICATION.md",
     "PHASE8_PRODUCTION_BASELINE.md",
     "PHASE8_PRODUCTION_VALIDATION.md",
+    "PHASE_PLATFORM_MODULE_GOVERNANCE.md",
     "PHASE_PLATFORM_SUPER_ADMIN.md",
+    "POSTGREST_AMBIGUOUS_EMBEDS.md",
     "PRODUCTION_DEPLOYMENT.md",
     "PRODUCT_TRANSFORMATION_BLUEPRINT.md",
     "PROJECT_IMPACT_REPORT.md",
+    "PUBLIC_AI_ASSISTANT.md",
+    "PUBLIC_FORM_NOTIFICATION_SYSTEM.md",
+    "PUBLIC_FORM_WHATSAPP_TEMPLATES.md",
     "SIGNUP_EMAIL_LIMIT.md",
     "SMART_ARK_DOCUMENTATION_ARCHITECTURE.md",
+    "STAFF_MULTI_ROLE.md",
     "STUDENT_360_REPORT.md",
     "STUDENT_IMPORT_ENTERPRISE.md",
     "STUDENT_IMPORT_FAMILY_DEDUP.md",

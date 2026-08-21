@@ -258,4 +258,389 @@ export const MODULE_ARTICLES: DocArticle[] = [
     ],
     lastVerified: "2026-08-11",
   },
+
+  // ── New coverage: the 8 modules that had no documentation ─────────────
+  //
+  // Written from the shipped code, in the same tone as the articles above.
+  // Every `permissions` id is SHIPPED (has a route in catalog.ts), every
+  // `sourceModules` path is a real file or directory, and every step
+  // describes a screen somebody can actually open.
+
+  {
+    slug: "exams-overview",
+    title: "Exams and results",
+    description: "Creating exams, entering marks, result sheets and report cards.",
+    category: "academics",
+    roles: ["admin", "management", "coordinator", "teacher"],
+    keywords: ["exam", "marks", "result", "report card", "analytics", "grade", "monthly", "sheet", "entry"],
+    intro: [
+      "Exams span three stages. You create the exam against a subject and class, enter marks for each student, and then publish results as monthly result sheets or individual report cards.",
+      "Smart Mark Entry is the fastest route through the second step: cascading selectors narrow the exam list by year, term, month, class, section and subject, then the batch roster loads automatically. Marks are entered in a grid that supports keyboard navigation, attendance status per student, Excel bulk-paste and debounced auto-save — so nothing is lost if the browser closes mid-entry.",
+      "Analytics and registers sit alongside the entry workflow: pass rates, grade distributions, faculty and subject comparisons, and exportable reports.",
+    ],
+    before: [
+      "An academic year is active.",
+      "Standards, subjects and batches exist for the classes being examined.",
+      "Students are placed in the class.",
+    ],
+    steps: [
+      { title: "Create an exam", body: "Exams → Create Exam. Choose the subject, class, exam type, month and term. Set the maximum marks and pass marks." },
+      { title: "Enter marks", body: "Exams → Smart Mark Entry. Use the cascading selectors to find the exam, then enter marks per student. Each student can be marked present, absent, medical or malpractice. Grades, percentages and live ranks are calculated by the central grading layer as you type." },
+      { title: "Import marks from a spreadsheet", body: "Exams → Import Marks. Upload a spreadsheet where the column mapping is confirmed before anything is written — the same pattern as student import." },
+      { title: "View result sheets", body: "Exams → Monthly Result Sheets. Pick the academic year and class to download each month's consolidated sheet as CSV, Excel or a printable PDF." },
+      { title: "Generate report cards", body: "From the monthly result sheets page, open a student's report card. It aggregates their performance across subjects for a chosen month." },
+      { title: "Review analytics", body: "Exams → Exam Analytics. Pass rates, averages, top and weak subjects, faculty comparisons and class rankings." },
+      { title: "Export registers", body: "Exams → Reports & Registers. Exam-level and student-level data, exportable for further work." },
+    ],
+    whatHappensNext: [
+      "Published results become visible to parents in the parent portal.",
+      "The examination dashboard updates with live KPIs: total exams, pending marks entry, pass and fail rates, top faculty, top and weakest subjects and classes.",
+      "Monthly result sheets and report cards carry your organization's branding.",
+    ],
+    callouts: [
+      { kind: "important", body: "Smart Mark Entry auto-saves as you type. The grid debounces input, so a brief pause after typing commits the marks without a manual save." },
+      { kind: "warning", body: "Publishing results makes them visible to parents immediately. Review the figures in the result sheet or analytics before publishing." },
+      { kind: "tip", body: "For a large batch, use Import Marks rather than entering row by row. The spreadsheet format matches what Export produces, so a downloaded sheet can be filled in offline and re-uploaded." },
+      { kind: "note", body: "Grades and ranks are computed centrally, not per page. The grading scheme configured for your organization applies everywhere — mark entry, result sheets, report cards and analytics all agree." },
+    ],
+    faq: [
+      { q: "Can a teacher enter marks for another teacher's class?", a: "Only if allocated to that class, or if Management has granted the broader exam module. Teachers normally see only their own classes." },
+      { q: "Why does a student show as 'absent' in the exam?", a: "Their attendance status was set to absent during mark entry. This can be changed from the same grid." },
+      { q: "Can I reprint a past month's result sheet?", a: "Yes. Result sheets are generated from stored marks, so any past period can be reproduced." },
+    ],
+    screenshots: ["exam-dashboard", "smart-mark-entry"],
+    related: ["class-allocation", "role-teacher", "document-branding"],
+    permissions: [
+      "exam.dashboard", "exam.smart_entry", "exam.monthly_sheets",
+      "exam.report_card", "exam.analytics", "exam.registers", "exam.import_marks",
+    ],
+    sourceModules: [
+      "src/features/exams/pages/ExamManagementDashboardPage.tsx",
+      "src/features/exams/pages/SmartMarkEntryPage.tsx",
+      "src/features/exams/pages/MonthlyResultSheetsPage.tsx",
+      "src/features/exams/services/examInsights.service.ts",
+    ],
+    lastVerified: "2026-08-21",
+  },
+
+  {
+    slug: "online-tests",
+    title: "Online tests and MCQ exams",
+    description: "Creating question papers, scheduling online exams and monitoring live attempts.",
+    category: "academics",
+    roles: ["admin", "management", "coordinator", "teacher"],
+    keywords: ["online test", "mcq", "quiz", "question paper", "multiple choice", "import", "live", "monitor", "attempt"],
+    intro: [
+      "Online tests are the MCQ side of the exam engine. A question paper is a bank of multiple-choice questions; an exam schedules that paper for a set of students with a start time, end time and attempt rules.",
+      "The flow runs in three parts: build the paper, schedule the exam, and monitor it while students take it. Students access the test through a shareable link — no app install required.",
+      "Question papers can be built by hand, imported from a spreadsheet, or extracted from a document with the question-paper import tool.",
+    ],
+    before: [
+      "Standards and subjects exist for the classes being tested.",
+      "Students have login accounts if they will take the test through the student portal.",
+    ],
+    steps: [
+      { title: "Create a question paper", body: "Exams → Create MCQ Paper. Add questions with options, mark the correct answer and assign marks per question. Alternatively, import from a spreadsheet or use Import Question Paper to extract questions from an uploaded document." },
+      { title: "Review the paper", body: "Exams → Manage MCQ Paper opens the paper for review and editing before it is attached to an exam." },
+      { title: "Schedule the exam", body: "Exams → Create MCQ Exam. Attach a paper, set the date, time window, duration and which classes or batches sit it." },
+      { title: "Share the test link", body: "From the Online Tests dashboard, share the link for a scheduled exam. Students open it in a browser — the test runs there." },
+      { title: "Monitor live", body: "Exams → MCQ Exam Monitor. See who has started, who has submitted and the real-time completion status while the window is open." },
+      { title: "Review results", body: "Manage MCQ Exam shows submissions, scores and question-level analytics once the window closes." },
+    ],
+    whatHappensNext: [
+      "Completed attempts are scored automatically against the answer key in the paper.",
+      "Results appear in the Online Tests dashboard with per-question analytics — which questions most students got wrong, and the spread of scores.",
+    ],
+    callouts: [
+      { kind: "important", body: "The Online Tests submodule is an additional front door onto the MCQ engine — not a replacement. Existing MCQ grants in Manage Staff Role continue to work; this page is where the flow now starts." },
+      { kind: "tip", body: "Import Question Paper reads questions from an uploaded document and pre-populates the paper. Review the extracted questions carefully — the parser is deterministic, not AI-powered." },
+      { kind: "note", body: "The test link works in any browser. Students do not need a separate app or a login if the test is shared as a public link." },
+    ],
+    faq: [
+      { q: "Can students retake the test?", a: "That depends on the attempt rules set when creating the exam. A single-attempt exam locks after submission." },
+      { q: "What happens if a student's browser closes mid-test?", a: "Their progress is saved. Reopening the link within the time window resumes where they left off." },
+      { q: "Can I reuse a question paper across multiple exams?", a: "Yes. A paper is created once and can be attached to any number of exams." },
+    ],
+    screenshots: ["online-tests-dashboard"],
+    related: ["exams-overview", "student-management"],
+    permissions: [
+      "exam.online_tests", "exam.paper_import",
+    ],
+    sourceModules: [
+      "src/features/exams/pages/OnlineTestsDashboardPage.tsx",
+      "src/features/exams/pages/CreateMcqPaperPage.tsx",
+      "src/features/exams/pages/CreateMcqExamPage.tsx",
+      "src/features/exams/pages/McqExamMonitorPage.tsx",
+      "src/features/exams/services/mcqExam.service.ts",
+    ],
+    lastVerified: "2026-08-21",
+  },
+
+  {
+    slug: "live-classes",
+    title: "Live classes",
+    description: "Schedule and manage online video classes for students.",
+    category: "academics",
+    roles: ["admin", "management", "coordinator", "teacher"],
+    keywords: ["live class", "video", "online", "zoom", "google meet", "schedule", "recording", "virtual"],
+    intro: [
+      "Live Classes let you schedule online sessions that students attend through a meeting link. Each class carries a subject, teacher, standard, time slot and a meeting platform — Google Meet, Zoom or any link-based service.",
+      "Teachers see their own classes in My Class; coordinators and management see and manage all scheduled classes across the institution.",
+    ],
+    before: [
+      "Standards, subjects and batches exist.",
+      "The teacher who will host the class is a staff member.",
+    ],
+    steps: [
+      { title: "Add a class", body: "Live Class → Add Class. Enter the title, select the teacher, subject, standard and batches, set the date and time window, choose the meeting platform and paste the meeting link." },
+      { title: "Set recurrence", body: "A class can repeat daily, weekly or on specific days, with an end date. Each recurrence creates a separate session, so attendance can be tracked per meeting." },
+      { title: "Attach materials", body: "Add links or files to the class for students to access before or after the session." },
+      { title: "Manage classes", body: "Live Class → Manage Class. View, edit or cancel scheduled classes. Filter by subject, teacher or date range." },
+      { title: "Join as a teacher", body: "Live Class → My Class. Teachers see their own sessions and open the meeting link directly from the card." },
+    ],
+    whatHappensNext: [
+      "Scheduled classes appear on teachers' My Class view and, where enabled, in the parent portal so families know when a session runs.",
+      "Notifications can be sent automatically before a class starts, if communication automation is enabled for this event.",
+    ],
+    callouts: [
+      { kind: "note", body: "Smart ARK does not host the video call. It schedules and organises the session; the call itself runs on the platform you choose — Google Meet, Zoom or another link." },
+      { kind: "tip", body: "For a recurring weekly class, set the repeat rule to the days it runs and an end date at the term boundary. Each session is tracked separately." },
+    ],
+    faq: [
+      { q: "Can students join without a login?", a: "The meeting link itself is external. Whether it requires a login depends on the meeting platform, not Smart ARK." },
+      { q: "Can I cancel one session in a recurring series?", a: "Yes. Each recurrence is a separate session that can be edited or cancelled individually." },
+    ],
+    related: ["class-allocation", "role-teacher", "communication-automation"],
+    permissions: [],
+    sourceModules: [
+      "src/features/live-classes/pages/AddClassPage.tsx",
+      "src/features/live-classes/pages/ManageClassPage.tsx",
+      "src/features/live-classes/pages/MyClassPage.tsx",
+      "src/features/live-classes/services/liveClasses.service.ts",
+    ],
+    lastVerified: "2026-08-21",
+  },
+
+  {
+    slug: "estudy-materials",
+    title: "eStudy — study materials",
+    description: "Upload and share study materials with students by subject and class.",
+    category: "academics",
+    roles: ["admin", "management", "coordinator", "teacher"],
+    keywords: ["estudy", "study material", "upload", "share", "document", "video", "link", "resource"],
+    intro: [
+      "eStudy is where study materials live: PDFs, documents, videos, images, audio files and external links. Each material is tagged to a subject and can be scoped to specific classes and batches.",
+      "Materials can be public (visible to all students in the assigned scope) or restricted to specific groups. Teachers upload and manage their own materials; management and admin see everything across the institution.",
+    ],
+    steps: [
+      { title: "Upload a file", body: "eStudy → Create. Choose the type (document, video, image, audio), select the subject and class scope, and upload the file. The file is stored in your organization's storage." },
+      { title: "Add a link", body: "Choose 'link' as the type and paste the URL. This is useful for external videos or websites without uploading a copy." },
+      { title: "Set visibility", body: "Toggle visibility to control whether students can see the material. Drafts can be prepared and made visible later." },
+      { title: "Manage materials", body: "eStudy → Manage. View, search, filter by subject or type, and edit or delete existing materials." },
+      { title: "View shared materials", body: "eStudy → Shared shows materials shared across the institution by other staff." },
+    ],
+    whatHappensNext: [
+      "Visible materials appear in the student and parent portals for the assigned classes.",
+      "Storage counts against the organization's plan quota, visible in Billing & Subscription.",
+    ],
+    callouts: [
+      { kind: "tip", body: "Use links for large videos hosted elsewhere rather than uploading them. This saves storage and avoids upload timeouts." },
+      { kind: "note", body: "Materials are scoped to your organization. No other institution can see them, and they carry your organization's branding when previewed." },
+    ],
+    faq: [
+      { q: "What file types are supported?", a: "PDFs, common document formats, images (PNG, JPG), video and audio files. The uploader validates the type before accepting it." },
+      { q: "Can a parent download materials?", a: "If the material is visible and the parent portal includes eStudy, parents can view and download the files shared for their child's class." },
+    ],
+    related: ["class-allocation", "role-teacher"],
+    permissions: [],
+    sourceModules: [
+      "src/features/estudy/pages/EStudyPages.tsx",
+      "src/features/estudy/hooks/useEstudy.ts",
+    ],
+    lastVerified: "2026-08-21",
+  },
+
+  {
+    slug: "billing-subscription",
+    title: "Billing and subscription",
+    description: "Your plan, usage, invoices and payments.",
+    category: "billing",
+    roles: ["management"],
+    keywords: ["billing", "subscription", "plan", "invoice", "payment", "razorpay", "coupon", "usage", "renew"],
+    intro: [
+      "Billing shows your organization's current plan, how much of each capacity you are using, your invoice history and the means to pay.",
+      "The page is deliberately reachable even when an organization is suspended — suspension hides business data, not the ability to settle the invoice that lifts it.",
+    ],
+    before: ["You are signed in with a Management role."],
+    steps: [
+      { title: "Review your plan", body: "Settings → Billing & Subscription. The overview tab shows your current plan, its price, the billing cycle and the renewal date." },
+      { title: "Check usage", body: "The usage tab shows how many students, staff, branches, storage and messages you are using against the plan's limits." },
+      { title: "View invoices", body: "The invoices tab lists every invoice with its status, amount and date. Each invoice can be downloaded as a GST tax invoice PDF — generated on the spot from the stored record." },
+      { title: "Apply a coupon", body: "Enter a coupon code to apply a discount. The discount is shown before you pay." },
+      { title: "Pay", body: "The payment window (Razorpay) opens from the billing page. Completing payment does not activate the subscription directly — that happens when the payment webhook confirms the transaction." },
+      { title: "Cancel auto-renew", body: "Cancel turns off automatic renewal. Access continues until the end of the paid period; nothing is revoked immediately." },
+    ],
+    whatHappensNext: [
+      "A successful payment activates or renews the subscription when the webhook confirms it — not when the browser closes the payment window.",
+      "Invoices are downloadable as GST tax invoice PDFs immediately after payment.",
+    ],
+    callouts: [
+      { kind: "important", body: "Payment confirmation comes from the payment provider's webhook, not from the browser. If the payment window closes unexpectedly, the subscription will still activate once the provider confirms." },
+      { kind: "note", body: "Invoice PDFs are built at click time from the stored invoice record. There is no stored copy that could drift from the actual figures." },
+      { kind: "tip", body: "Cancelling auto-renew does not end your access immediately. The current period runs to completion." },
+    ],
+    faq: [
+      { q: "Why is the subscription not active after I paid?", a: "Payment activation depends on the provider webhook. If the payment went through but the subscription has not updated, wait a few minutes and refresh. If it persists, contact support with the payment reference." },
+      { q: "Can I change my plan?", a: "Plan changes are handled by your platform provider. Contact them to upgrade or downgrade." },
+      { q: "Where is my GST invoice?", a: "Invoices tab → download. Each invoice generates a tax invoice PDF on the spot." },
+    ],
+    related: ["role-management", "document-branding"],
+    permissions: ["settings.billing"],
+    sourceModules: [
+      "src/features/billing/pages/BillingPage.tsx",
+      "src/features/billing/services/billing.service.ts",
+      "src/features/billing/documents/invoiceDownload.service.ts",
+    ],
+    lastVerified: "2026-08-21",
+  },
+
+  {
+    slug: "student-management",
+    title: "Managing students",
+    description: "The student list, the 360° profile, year transfer, leave management and chat.",
+    category: "students",
+    roles: ["admin", "management"],
+    keywords: ["student", "manage", "profile", "360", "transfer", "year", "leave", "chat", "feedback", "deactivate", "export"],
+    intro: [
+      "Manage Students is the central view of every student in the institution. It lists, filters, searches and exports students, and each row opens a 360° profile showing the student's attendance, documents, feedback and message history in one place.",
+      "Beyond the day-to-day view, the student module handles year transfer — moving a cohort from one academic year and class to the next — leave management, student feedback and direct chat.",
+    ],
+    before: ["Students exist — either added individually or through the import tool."],
+    steps: [
+      { title: "Find a student", body: "Students → Manage Student. Search by name, filter by class, batch, status or academic year. The list supports both table and card views." },
+      { title: "Open the profile", body: "Click a student to open their 360° profile. Tabs show personal details, attendance history, shared documents, feedback and chat messages." },
+      { title: "Edit a student", body: "From the profile or the list, open the registration form to update personal details, contact information, class placement or status." },
+      { title: "Transfer to the next year", body: "Students → Year Transfer. Select students from one class and transfer them to a target year, standard and batch. A transfer note records the reason." },
+      { title: "Reverse a transfer", body: "Students → Untransfer. A mistaken transfer can be reversed, returning the student to their previous class and year." },
+      { title: "Manage leave", body: "Students → Leave Request. Review and action leave requests submitted for students." },
+      { title: "Chat with a student", body: "Students → Chat. Direct messaging between staff and student, visible on the student's profile timeline." },
+      { title: "Record feedback", body: "Students → Feedback. Enter and review qualitative feedback for a student's record." },
+      { title: "Export", body: "From Manage Students, export the filtered list as Excel or CSV." },
+    ],
+    whatHappensNext: [
+      "Profile changes update everywhere that reads student data — attendance, fees, reports and the parent portal.",
+      "Year transfers move fee assignments and class placements in one action, so the new year starts without re-entering anything.",
+      "Deactivating a student hides them from active lists but retains all historical records.",
+    ],
+    callouts: [
+      { kind: "important", body: "Year transfer is for moving a class forward at the year boundary. It is not intended for correcting a class placement — use edit for that." },
+      { kind: "warning", body: "Deleting a student removes their record permanently. Deactivate instead if their history must be kept." },
+      { kind: "tip", body: "Use filter presets to save common views — for example, 'active students in Class 10' — rather than re-selecting the filters each time." },
+    ],
+    faq: [
+      { q: "Can I see a student's full attendance history?", a: "Yes. The 360° profile shows day-by-day attendance. For a broader view, use the Attendance History page under Students." },
+      { q: "What happens to fees when a student is transferred?", a: "The student's fee record follows them. If the new class has a different fee structure, reassign it after the transfer." },
+      { q: "Can I transfer only some students from a class?", a: "Yes. Select the students individually rather than using the header checkbox." },
+    ],
+    screenshots: ["student-management"],
+    related: ["student-import", "fee-collection", "attendance-overview"],
+    permissions: [
+      "student.add", "student.manage",
+    ],
+    sourceModules: [
+      "src/features/students/pages/ManageStudentsPage.tsx",
+      "src/features/students/pages/StudentProfilePage.tsx",
+      "src/features/students/pages/StudentYearTransferPage.tsx",
+      "src/features/students/pages/StudentLeavePage.tsx",
+      "src/features/students/pages/StudentChatPage.tsx",
+    ],
+    lastVerified: "2026-08-21",
+  },
+
+  {
+    slug: "help-and-support",
+    title: "Help and support",
+    description: "Raising support tickets, tracking them and managing the triage inbox.",
+    category: "organization",
+    roles: ["admin", "management", "coordinator", "teacher"],
+    keywords: ["help", "support", "ticket", "request", "feedback", "triage", "sla", "priority", "kanban"],
+    intro: [
+      "Help is the built-in support system. Any staff member can raise a support request with a category, priority and description. Tickets flow into a triage inbox where management assigns, prioritises and resolves them.",
+      "The feedback board is the other half: staff share suggestions and vote on each other's ideas, giving management a picture of what matters most to the team.",
+    ],
+    steps: [
+      { title: "Raise a request", body: "Help → Support Request. Choose a category (fees, exams, attendance, login, bug, feature request, etc.), set the priority and describe the issue. An SLA target is shown based on the priority." },
+      { title: "Track your tickets", body: "Help → Support History. Every ticket you have raised, with its current status and the conversation thread." },
+      { title: "Triage incoming tickets", body: "Help → Triage Inbox (Management and Admin). All open tickets across the organization in a kanban board or list view. Assign a ticket to a staff member, change its priority or status, add messages and attach files." },
+      { title: "Share feedback", body: "Help → Feedback. Post suggestions or ideas. Other staff can view and react to them." },
+      { title: "Review analytics", body: "Help → Ticket Analytics. Volume, resolution times, category breakdown and SLA adherence." },
+    ],
+    whatHappensNext: [
+      "A submitted ticket appears immediately in the triage inbox for management to assign.",
+      "Status changes and messages on a ticket are visible to both the requester and the assignee.",
+      "Ticket analytics track resolution performance over time.",
+    ],
+    callouts: [
+      { kind: "note", body: "SLA targets are based on priority. The triage inbox shows an SLA indicator per ticket so overdue items are visible at a glance." },
+      { kind: "tip", body: "Use the kanban view for daily triage — dragging tickets between columns updates their status. Switch to the list view for filtering and bulk review." },
+    ],
+    faq: [
+      { q: "Who sees my support ticket?", a: "You and whoever management assigns it to. The triage inbox is visible to Management and Admin roles." },
+      { q: "Can I attach a screenshot to a ticket?", a: "Yes. Attachments can be added when creating the ticket and in the conversation thread afterwards." },
+      { q: "What are the categories?", a: "General, Fees & payments, Exams, Attendance, Student, Staff, Login/access, App bug, Feature request, and Other." },
+    ],
+    related: ["role-management", "role-admin"],
+    permissions: [],
+    sourceModules: [
+      "src/features/help/pages/SupportRequestPage.tsx",
+      "src/features/help/pages/SupportHistoryPage.tsx",
+      "src/features/help/pages/ManagementTriagePage.tsx",
+      "src/features/help/pages/TicketAnalyticsPage.tsx",
+      "src/features/help/pages/FeedbackPage.tsx",
+    ],
+    lastVerified: "2026-08-21",
+  },
+
+  {
+    slug: "auth-and-accounts",
+    title: "Authentication and accounts",
+    description: "Student and parent login accounts, account health and credential repair.",
+    category: "security",
+    roles: ["admin", "management"],
+    keywords: ["authentication", "accounts", "login", "student accounts", "parent accounts", "health", "credential", "password", "reset"],
+    intro: [
+      "Authentication manages the login accounts that students and parents use to access their portals. Account Health is the dashboard that surfaces missing accounts, duplicates and structural issues across the student and parent population.",
+      "This is not where staff accounts live — staff logins are managed under Staff / User. This module covers student and parent credentials specifically, because those are the accounts that scale to hundreds or thousands per institution.",
+    ],
+    before: ["Students exist in the system.", "Parent contacts are recorded on student records."],
+    steps: [
+      { title: "Check account health", body: "Authentication → Account Health. The dashboard shows total students, how many have accounts, how many are missing, and flags duplicates, pending and locked accounts." },
+      { title: "Review student accounts", body: "The same page lists individual student accounts with their status — active, pending, disabled, locked or no login. Accounts that need attention are highlighted." },
+      { title: "Provision missing accounts", body: "Students without a login can have one created directly from the health page. The provisioned account is validated at creation time." },
+      { title: "Reset a password", body: "A student or parent password can be reset from the account list. The new credentials are delivered through the configured channel." },
+      { title: "Manage parent accounts", body: "Authentication → Parent Accounts. The full list of parent login accounts, linked children and account status." },
+    ],
+    whatHappensNext: [
+      "A provisioned student account lets the student log in to the student portal and take online tests.",
+      "A provisioned parent account gives the parent access to the parent portal — attendance, fees, results and reports for their linked children.",
+    ],
+    callouts: [
+      { kind: "important", body: "Duplicate usernames or emails are flagged because they will cause login failures. Resolve them before the affected accounts try to sign in." },
+      { kind: "note", body: "Account health is a snapshot — refresh it after making changes to see the updated counts." },
+      { kind: "tip", body: "Provision accounts in bulk after a student import. Students without accounts cannot access online tests or the student portal." },
+    ],
+    faq: [
+      { q: "Why does a student have no login?", a: "No account was provisioned for them. This is separate from creating the student record — a student exists before they have a login." },
+      { q: "A parent cannot log in.", a: "Check their account status on the Parent Accounts page. Common causes are a missing account, a locked account or a mismatched email." },
+      { q: "What is the difference between disabled and locked?", a: "Disabled is an administrative action — someone turned the account off. Locked is usually a security response — too many failed attempts." },
+    ],
+    related: ["student-management", "role-parent", "staff-management"],
+    permissions: [],
+    sourceModules: [
+      "src/features/auth-accounts/pages/AccountHealthPage.tsx",
+      "src/features/auth-accounts/pages/ParentAccountsPage.tsx",
+      "src/features/auth-accounts/hooks/useAuthAccounts.ts",
+    ],
+    lastVerified: "2026-08-21",
+  },
 ];

@@ -29,6 +29,7 @@ import {
   useMcqPapers,
   useUpdateMcqExam,
 } from "../hooks";
+import { AssignmentSelector } from "../components/AssignmentSelector";
 import { RESULT_RELEASE_OPTIONS } from "../types/mcqExam.types";
 import type {
   AssignmentDraft,
@@ -134,23 +135,6 @@ const CreateMcqExamPage = () => {
       </div>
     );
   }
-
-  const addAssignment = (scopeType: AssignmentScope) => {
-    setAssignments((prev) => [
-      ...prev,
-      { scopeType, scopeId: "", scopeName: "" },
-    ]);
-  };
-  const patchAssignment = (
-    idx: number,
-    patch: Partial<AssignmentDraft>,
-  ): void => {
-    setAssignments((prev) =>
-      prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)),
-    );
-  };
-  const removeAssignment = (idx: number) =>
-    setAssignments((prev) => prev.filter((_, i) => i !== idx));
 
   const buildInput = (values: McqExamFormValues): McqExamInput => {
     const standardName = standards.find((s) => s.id === values.standardId)?.name;
@@ -449,60 +433,18 @@ const CreateMcqExamPage = () => {
           </div>
         </Section>
 
-        {/* ── Assignment builder ──────────────────────────────────────────── */}
+        {/* ── Who gets this test ──────────────────────────────────────────── */}
         <Section
-          title="Student assignment"
-          subtitle="Add one or more scopes — students in those scopes will see this exam."
+          title="Who gets this test"
+          subtitle="Everyone, whole classes, batches, or named students — in any combination."
           icon={<Users className="w-4 h-4" />}
         >
-          <div className="space-y-2">
-            {assignments.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No scopes added yet. The exam will fall back to the primary
-                batch (if set).
-              </p>
-            )}
-            {assignments.map((a, idx) => (
-              <AssignmentRow
-                key={idx}
-                assignment={a}
-                standards={standards}
-                batches={batches}
-                subjects={subjects}
-                onChange={(patch) => patchAssignment(idx, patch)}
-                onRemove={() => removeAssignment(idx)}
-              />
-            ))}
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addAssignment("batch")}
-                className="gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add batch
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addAssignment("standard")}
-                className="gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add standard
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addAssignment("subject")}
-                className="gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add subject
-              </Button>
-            </div>
-          </div>
+          {/* Replaced a list of scope-type/scope-id dropdown pairs. That UI
+              could express the same selection, but it could not answer the one
+              question that matters before publishing — HOW MANY STUDENTS IS
+              THIS? — so a test assigned to an empty class looked identical to
+              one assigned to two hundred people. */}
+          <AssignmentSelector value={assignments} onChange={setAssignments} />
         </Section>
       </form>
     </div>
@@ -553,72 +495,5 @@ const ToggleRow = ({
     <Switch checked={checked} onCheckedChange={onCheckedChange} />
   </div>
 );
-
-const AssignmentRow = ({
-  assignment,
-  standards,
-  batches,
-  subjects,
-  onChange,
-  onRemove,
-}: {
-  assignment: AssignmentDraft;
-  standards: { id: string; name: string }[];
-  batches: { id: string; name: string }[];
-  subjects: { id: string; name: string }[];
-  onChange: (patch: Partial<AssignmentDraft>) => void;
-  onRemove: () => void;
-}) => {
-  const opts =
-    assignment.scopeType === "standard"
-      ? standards
-      : assignment.scopeType === "batch"
-        ? batches
-        : subjects;
-  return (
-    <div className="flex items-center gap-2">
-      <select
-        value={assignment.scopeType}
-        onChange={(e) =>
-          onChange({
-            scopeType: e.target.value as AssignmentScope,
-            scopeId: "",
-            scopeName: "",
-          })
-        }
-        className="bg-background border border-border rounded-md px-2 py-2 text-sm w-32"
-      >
-        <option value="batch">Batch</option>
-        <option value="standard">Standard</option>
-        <option value="subject">Subject</option>
-      </select>
-      <select
-        value={assignment.scopeId}
-        onChange={(e) => {
-          const id = e.target.value;
-          const name = opts.find((o) => o.id === id)?.name ?? "";
-          onChange({ scopeId: id, scopeName: name });
-        }}
-        className="flex-1 bg-background border border-border rounded-md px-2 py-2 text-sm"
-      >
-        <option value="">Select…</option>
-        {opts.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.name}
-          </option>
-        ))}
-      </select>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={onRemove}
-        className="h-9 w-9 text-rose-600"
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
-    </div>
-  );
-};
 
 export default CreateMcqExamPage;

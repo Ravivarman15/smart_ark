@@ -38,6 +38,7 @@ import {
   CreditCard,
   FileText,
   GraduationCap,
+  MonitorCheck,
   History,
   Home,
   MessageSquare,
@@ -53,6 +54,7 @@ export type ParentModuleId =
   | "attendance"
   | "academics"
   | "exams"
+  | "online_tests"
   | "classes"
   | "fees"
   | "messages"
@@ -140,6 +142,18 @@ export const PARENT_MODULES: ParentModuleDef[] = [
     group: "Learning",
     requires: "exam",
     description: "Upcoming exams and published results. Switch off while results are still being verified.",
+  },
+  {
+    id: "online_tests",
+    label: "Online Tests",
+    path: "/parent/online-tests",
+    icon: MonitorCheck,
+    group: "Learning",
+    requires: "exam",
+    // Distinct from Exams & Results on purpose: that page is a record of what
+    // has happened, this one is a thing to DO, and burying a test with a
+    // deadline inside a results archive is how it gets missed.
+    description: "Tests the child can take on their device, and the results of ones they have finished.",
   },
   {
     id: "classes",

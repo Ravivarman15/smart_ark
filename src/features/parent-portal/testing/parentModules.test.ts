@@ -319,6 +319,9 @@ describe("The sidebar renders the enabled set", () => {
       "Attendance",
       "Academics",
       "Exams & Results",
+      // Separate from "Exams & Results" on purpose: that page is a record of
+      // what happened, this one is a thing to DO, with a deadline.
+      "Online Tests",
       "Classes",
     ]);
   });
@@ -338,6 +341,7 @@ describe("The sidebar renders the enabled set", () => {
     expect(parentNavGroups(on)[1].items.map((i) => i.label)).toEqual([
       "Attendance",
       "Exams & Results",
+      "Online Tests",
       "Classes",
     ]);
   });

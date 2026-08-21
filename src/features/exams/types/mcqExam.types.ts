@@ -15,7 +15,26 @@ export type AttemptStatus =
   | "submitted"
   | "auto_submitted"
   | "abandoned";
-export type AssignmentScope = "standard" | "batch" | "subject";
+/**
+ * How an exam names its audience.
+ *
+ *   all      — the whole organization, said explicitly
+ *   standard — every student of a standard
+ *   batch    — every student of a batch
+ *   student  — one named student
+ *   subject  — NOT a target. It records which subject the exam belongs to, for
+ *              filtering. Treating it as one would assign the test to nobody.
+ *
+ * Scopes are a UNION. See utils/assignmentTargeting.ts for the rules, which
+ * `_shared/testEngine.ts` mirrors in SQL on every attempt — the browser's count
+ * is a preview, the server's check is the permission.
+ */
+export type AssignmentScope =
+  | "all"
+  | "standard"
+  | "batch"
+  | "student"
+  | "subject";
 
 export const RESULT_RELEASE_OPTIONS: { value: ResultRelease; label: string }[] =
   [

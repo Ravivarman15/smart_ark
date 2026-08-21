@@ -43,6 +43,15 @@ const ExamManagementDashboardPage = lazy(() => import("@/features/exams/pages/Ex
 const ExamAnalyticsDashboardPage = lazy(() => import("@/features/exams/pages/ExamAnalyticsDashboardPage"));
 const ExamRegistersPage = lazy(() => import("@/features/exams/pages/ExamRegistersPage"));
 const ImportMarksPage = lazy(() => import("@/features/exams/pages/ImportMarksPage"));
+const CreateOnlineTestPage = lazy(
+  () => import("@/features/exams/pages/CreateOnlineTestPage"),
+);
+const EvaluateAnswersPage = lazy(
+  () => import("@/features/exams/pages/EvaluateAnswersPage"),
+);
+const OnlineTestsDashboardPage = lazy(
+  () => import("@/features/exams/pages/OnlineTestsDashboardPage"),
+);
 const ManageMcqPaperPage = lazy(() => import("@/features/exams/pages/ManageMcqPaperPage"));
 const CreateMcqPaperPage = lazy(() => import("@/features/exams/pages/CreateMcqPaperPage"));
 const ImportQuestionPaperPage = lazy(() => import("@/features/exams/pages/ImportQuestionPaperPage"));
@@ -470,6 +479,32 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     submodule: "exam.paper_import",
     label: "Review Extracted Questions",
     layouts: ["coordinator", "teacher"],
+  },
+  {
+    path: "exams/online-tests",
+    element: <OnlineTestsDashboardPage />,
+    submodule: "exam.online_tests",
+    label: "Online Tests",
+    // No `layouts` restriction: coordinator and teacher mount from this
+    // registry, and admin/management get an explicit <Route> in App.tsx —
+    // renderSharedRoutes only runs for the first two, so a registry row alone
+    // would leave the page 404ing for admins while every RBAC check said yes.
+  },
+  {
+    path: "exams/online-tests/create",
+    element: <CreateOnlineTestPage />,
+    // Same submodule as the dashboard on purpose: this is that feature's own
+    // create screen, not a separate thing to grant. A second submodule would
+    // let an admin grant the list and withhold the button on it.
+    submodule: "exam.online_tests",
+    action: "exam.mcq.create",
+    label: "Create Online Test",
+  },
+  {
+    path: "exams/evaluate",
+    element: <EvaluateAnswersPage />,
+    submodule: "exam.evaluate",
+    label: "Mark Written Answers",
   },
   {
     path: "exams/mcq-papers",

@@ -423,6 +423,14 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     collapsible: true,
     roles: all,
     items: [
+      // First in the Exam module: this is where the online-test flow starts,
+      // and burying the entry point below eight offline-exam pages is how a
+      // feature ships and nobody finds it.
+      ...sub("exam.online_tests",     "Online Tests",        examPaths("/online-tests"),        all),
+      // Next to Online Tests because that is what fills it: every essay in
+      // an online test lands here, and an attempt stays provisional until
+      // somebody clears it.
+      ...sub("exam.evaluate",         "Mark Written Answers", examPaths("/evaluate"),           adminMgmtTeacher, { action: "exam.marks_entry" }),
       ...sub("exam.create_manual",    "Create Manual Exam",  examPaths("/manual/create"),       adminMgmtTeacher, { action: "exam.create" }),
       ...sub("exam.manage_manual",    "Manage Manual Exam",  examPaths("/manual"),              all),
       ...sub("exam.smart_entry",      "Smart Mark Entry",    examPaths("/smart-entry"),         adminMgmtTeacher, { action: "exam.marks_entry" }),

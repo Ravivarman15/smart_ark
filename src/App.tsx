@@ -248,6 +248,15 @@ const ExamManagementDashboardPage = lazy(() => import("./features/exams/pages/Ex
 const ExamAnalyticsDashboardPage = lazy(() => import("./features/exams/pages/ExamAnalyticsDashboardPage"));
 const ExamRegistersPage = lazy(() => import("./features/exams/pages/ExamRegistersPage"));
 const ImportMarksPage = lazy(() => import("./features/exams/pages/ImportMarksPage"));
+const CreateOnlineTestPage = lazy(
+  () => import("./features/exams/pages/CreateOnlineTestPage"),
+);
+const EvaluateAnswersPage = lazy(
+  () => import("./features/exams/pages/EvaluateAnswersPage"),
+);
+const OnlineTestsDashboardPage = lazy(
+  () => import("./features/exams/pages/OnlineTestsDashboardPage"),
+);
 const ManageMcqPaperPage = lazy(() => import("./features/exams/pages/ManageMcqPaperPage"));
 const CreateMcqPaperPage = lazy(() => import("./features/exams/pages/CreateMcqPaperPage"));
 const ImportQuestionPaperPage = lazy(() => import("./features/exams/pages/ImportQuestionPaperPage"));
@@ -342,6 +351,9 @@ const ParentAttendancePage = lazy(
 );
 const ParentClassesPage = lazy(() => import("./features/parent-portal/pages/ParentClassesPage"));
 const ParentExamsPage = lazy(() => import("./features/parent-portal/pages/ParentExamsPage"));
+const ParentOnlineTestsPage = lazy(
+  () => import("./features/parent-portal/pages/ParentOnlineTestsPage"),
+);
 const ParentFeesPage = lazy(() => import("./features/parent-portal/pages/ParentFeesPage"));
 const ParentMessagesPage = lazy(() => import("./features/parent-portal/pages/ParentMessagesPage"));
 const ParentDocumentsPage = lazy(
@@ -649,6 +661,12 @@ const AppRoutes: React.FC = () => (
         <Route path="setup/expense-categories" element={<ExpenseCategories />} />
         <Route path="setup/fee-structures" element={<FeeStructurePage />} />
         {/* Exam module routes — feature-based */}
+        {/* renderSharedRoutes covers coordinator + teacher only, so admin and
+            management need this explicit mount or the page 404s for them while
+            every RBAC check stays green. */}
+        <Route path="exams/online-tests" element={<OnlineTestsDashboardPage />} />
+        <Route path="exams/online-tests/create" element={<CreateOnlineTestPage />} />
+        <Route path="exams/evaluate" element={<EvaluateAnswersPage />} />
         <Route path="exams/manual" element={<ManageManualExamPage />} />
         <Route path="exams/manual/create" element={<CreateManualExamPage />} />
         <Route path="exams/manual/:id/edit" element={<CreateManualExamPage />} />
@@ -797,6 +815,12 @@ const AppRoutes: React.FC = () => (
         <Route path="setup/expense-categories" element={<ExpenseCategories />} />
         <Route path="setup/fee-structures" element={<FeeStructurePage />} />
         {/* Exam module routes — feature-based, management-owned */}
+        {/* renderSharedRoutes covers coordinator + teacher only, so admin and
+            management need this explicit mount or the page 404s for them while
+            every RBAC check stays green. */}
+        <Route path="exams/online-tests" element={<OnlineTestsDashboardPage />} />
+        <Route path="exams/online-tests/create" element={<CreateOnlineTestPage />} />
+        <Route path="exams/evaluate" element={<EvaluateAnswersPage />} />
         <Route path="exams/manual" element={<ManageManualExamPage />} />
         <Route path="exams/manual/create" element={<CreateManualExamPage />} />
         <Route path="exams/manual/:id/edit" element={<CreateManualExamPage />} />
@@ -950,6 +974,9 @@ const AppRoutes: React.FC = () => (
         <Route path="attendance" element={<ParentAttendancePage />} />
         <Route path="classes" element={<ParentClassesPage />} />
         <Route path="exams" element={<ParentExamsPage />} />
+        {/* Separate from Exams & Results on purpose: that page is a record of
+            what happened, this one is a thing to do, with a deadline. */}
+        <Route path="online-tests" element={<ParentOnlineTestsPage />} />
         <Route path="fees" element={<ParentFeesPage />} />
         <Route path="messages" element={<ParentMessagesPage />} />
         <Route path="documents" element={<ParentDocumentsPage />} />

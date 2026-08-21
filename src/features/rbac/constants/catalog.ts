@@ -316,6 +316,12 @@ export const MODULE_CATALOG: ModuleDef[] = [
       { id: "exam.registers",       label: "Exam Reports & Registers" },
       { id: "exam.import_marks",    label: "Import Marks" },
       { id: "exam.paper_import",    label: "Question Paper Import" },
+      // The front door for the whole online-test flow. Added ALONGSIDE the
+      // four MCQ entries rather than replacing them: submodule ids are what
+      // a tenant's role grants are stored against, so renaming them would
+      // silently revoke every grant an administrator had already made.
+      { id: "exam.online_tests",    label: "Online Tests" },
+      { id: "exam.evaluate",        label: "Mark Written Answers" },
       { id: "exam.create_mcq_paper", label: "Create MCQ Paper" },
       { id: "exam.manage_mcq_paper", label: "Manage MCQ Paper" },
       { id: "exam.create_mcq_exam", label: "Create MCQ Exam" },
