@@ -88,6 +88,30 @@ const files = [];
 })(FUNCTIONS);
 
 /** Slice the balanced argument expression starting at the `(` index. */
+/**
+ * The first argument of a call, given its full argument text.
+ *
+ * Splits on the first top-level comma — one inside `{...}`, `[...]`, `(...)` or
+ * a string belongs to the argument, not between arguments.
+ */
+function firstArg(args) {
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < args.length; i++) {
+    const c = args[i];
+    if (quote) {
+      if (c === "\\") i++;
+      else if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") quote = c;
+    else if ("{[(".includes(c)) depth++;
+    else if ("}])".includes(c)) depth--;
+    else if (c === "," && depth === 0) return args.slice(0, i);
+  }
+  return args;
+}
+
 function argAt(src, open) {
   let depth = 0;
   for (let i = open; i < src.length; i++) {
@@ -129,11 +153,31 @@ for (const file of files) {
     if (!TENANT_TABLES.has(table)) continue;
 
     const open = m.index + m[0].length - 1;
-    let payload = argAt(src, open);
+    // Only the FIRST argument is the payload. upsert() takes options as a
+    // second argument — `upsert(rows, { onConflict: "..." })` — and reading the
+    // whole argument list meant the payload could never be resolved back to its
+    // declaration, because `rows, { onConflict }` is not a bare identifier.
+    // Such a write was reported as unstamped even when it was stamped, and the
+    // fix people would reach for is an allowlist entry.
+    let payload = firstArg(argAt(src, open));
 
     // A bare identifier: resolve its declaration and any `.push({...})` into it.
     if (!STAMPED.test(payload) && /^\s*[A-Za-z_$][\w$]*\s*[,)]?\s*$/.test(payload)) {
       const name = payload.trim().replace(/[,)]$/, "");
+      // A declaration whose right-hand side IS a stampOrg call is stamped, and
+      // it does not matter what the call wraps. The pattern below additionally
+      // demands a `{` or `[` right after it, which misses stamping applied to a
+      // chained expression — stampOrgAll(rows.filter(...).map(...), org) — and
+      // reports a correctly-stamped write as a violation. The fix someone
+      // reaches for when a gate accuses them wrongly is an allowlist entry,
+      // which is how a gate stops meaning anything.
+      if (
+        new RegExp(
+          `(?:const|let|var)\\s+${name}\\s*(?::[^=]+)?=\\s*stampOrg(?:All)?\\s*\\(`,
+        ).test(src)
+      ) {
+        continue;
+      }
       const decl = new RegExp(
         `(?:const|let|var)\\s+${name}\\s*(?::[^=]+)?=\\s*(stampOrg(?:All)?\\s*\\()?\\s*([{[])`,
       ).exec(src);

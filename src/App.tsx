@@ -491,6 +491,9 @@ const leadRoutes = (opts: { management?: boolean } = {}) => (
 );
 
 const ChoosePortal = lazy(() => import("./pages/ChoosePortal"));
+// Public online test — /test/:token. Outside every guard by design: the token
+// IS the credential, and the page must render for someone with no account.
+const PublicTestPage = lazy(() => import("./pages/PublicTestPage"));
 
 const AppRoutes: React.FC = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-4 border-accent border-t-transparent animate-spin"></div></div>}>
@@ -524,9 +527,30 @@ const AppRoutes: React.FC = () => (
 
       <Route path="/leads/apply" element={<PublicLeadFormPage />} />
       <Route path="/leads/apply/:orgSlug" element={<PublicLeadFormPage />} />
-      {/* Public, unauthenticated student exam kiosk — proctored entry point
-          used by lab devices. Roster + identity selection happen in-page. */}
-      <Route path="/exam" element={<StudentExamPage />} />
+      {/* Shareable online test. Unauthenticated ON PURPOSE, and safe for the
+          same reason the enquiry form is: the browser never names an
+          organization. The token resolves the tenant server-side, the page
+          renders THAT institution's branding, and the token grants exactly one
+          published test — no roster, no question bank, no other attempt. */}
+      <Route path="/test/:token" element={<PublicTestPage />} />
+      {/* Proctored exam kiosk. NO LONGER PUBLIC.
+          It used to sit out here with the docs and the lead form, listing every
+          batch and every student and letting the visitor pick one and sit the
+          test as them — identity was a dropdown. It was inert only because
+          current_org_id() is NULL for anon once a second tenant exists, so the
+          roster came back empty; a single-tenant deployment would have served
+          the whole roster, and the answer keys with it.
+          The invigilator now signs in and hands the device to each student in
+          turn, which is what "proctored" was always supposed to mean. The
+          server re-checks staff membership on every call regardless. */}
+      <Route
+        path="/exam"
+        element={
+          <ProtectedRoute allowedRoles={roles("admin", "management", "coordinator", "teacher")}>
+            <StudentExamPage />
+          </ProtectedRoute>
+        }
+      />
       {/* Impersonation landing — opened in a NEW TAB by the control plane. It
           exchanges a single-use token for a session AS the target tenant user.
           Holds no privilege of its own: the token is minted server-side only

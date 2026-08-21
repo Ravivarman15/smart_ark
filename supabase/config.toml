@@ -161,3 +161,36 @@ verify_jwt = true
 # without calling anything, which is this repository's default state.
 [functions.assistant]
 verify_jwt = false
+
+# ─── online-test: the server side of taking an online test ───────────────────
+# verify_jwt = true. This function holds the SERVICE ROLE and is the ONLY
+# writer of mcq_attempts / mcq_answers since 20261014 removed every client
+# write policy from them. Having the platform verify the signature at the edge
+# is defence in depth on top of resolveCaller(), which verifies it again
+# against GoTrue and derives the organization from membership.
+#
+# Nothing here takes an organization, a student or a mark from the request
+# body: the taker is resolved server-side, the paper is read server-side, and
+# the score is computed server-side by _shared/grading.ts — the same module the
+# app imports, so the browser and the server cannot disagree about a mark.
+[functions.online-test]
+verify_jwt = true
+
+# ─── public-test: taking a shared online test with NO session ────────────────
+# verify_jwt = false because the callers are anonymous visitors holding a test
+# link — there is no session to verify, and requiring one would defeat the
+# purpose of a shareable link.
+#
+# It is a SEPARATE function from online-test precisely so that this line
+# applies only to the anonymous surface. Setting verify_jwt = false on
+# online-test would silently remove the platform's signature check from the
+# staff and parent paths too.
+#
+# The token is the only credential, and it does the minimum: it proves the
+# bearer may attempt ONE published test. resolve_public_test() returns metadata
+# only — never a question, never an answer key — and the organization it
+# returns is the only tenant the request may touch. Minting a token is NOT
+# possible here: that lives in online-test, behind a verified staff session, so
+# this function can never create the credential it also accepts.
+[functions.public-test]
+verify_jwt = false

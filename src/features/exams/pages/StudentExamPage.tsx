@@ -21,7 +21,8 @@ import {
   StudentResultView,
 } from "../components";
 import { useStartAttempt, useStudentMcqExams } from "../hooks";
-import type { AttemptSession, McqExam } from "../types/mcqExam.types";
+import type { McqExam } from "../types/mcqExam.types";
+import type { OnlineTestSession } from "../services/onlineTest.service";
 import type { BatchOption, StudentOption } from "../services/examLookups.service";
 
 type Stage =
@@ -38,7 +39,7 @@ type Stage =
       student: StudentOption;
       exam: McqExam;
     }
-  | { kind: "running"; session: AttemptSession }
+  | { kind: "running"; session: OnlineTestSession }
   | {
       kind: "finished";
       attemptId: string;
@@ -47,17 +48,32 @@ type Stage =
     };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// StudentExamPage — public, standalone `/exam` kiosk route.
+// StudentExamPage — the proctored `/exam` kiosk.
 //
-// The Smart-Ark app has no student auth role; this page is the proctored entry
-// point used by the lab device. Flow: pick batch → pick student → list the
-// student's assigned exams → instructions screen → ExamRunner (full-screen) →
-// StudentResultView. The page itself is intentionally simple — every guard
-// (live status, attempt limit, paper attached) is enforced by the service.
+// ┌── THIS ROUTE USED TO BE UNAUTHENTICATED ───────────────────────────────┐
+// │ It listed every batch, then every student in the chosen batch, and let │
+// │ the visitor click one and sit the test AS THAT PERSON. No password, no │
+// │ session, no proof of anything. Identity was a dropdown.                │
+// │                                                                        │
+// │ It was inert only by accident: current_org_id() is NULL for anon since │
+// │ the second organization was created, so every roster query returned    │
+// │ zero rows and the first screen was permanently empty. A deployment     │
+// │ with a single tenant would have served the whole roster — and, through │
+// │ the anon policies on mcq_questions, the answer keys with it.           │
+// │                                                                        │
+// │ It is now behind a STAFF SESSION: the invigilator signs in on the lab  │
+// │ device and hands it to each student in turn, which is what "proctored" │
+// │ meant all along. The server checks that the caller is staff of the     │
+// │ student's own organization on every single call.                       │
+// └────────────────────────────────────────────────────────────────────────┘
+//
+// Flow: pick batch → pick student → list the student's assigned exams →
+// instructions → ExamRunner (full-screen) → StudentResultView. Every guard
+// (eligibility, window, live status, attempt limit, paper attached) is decided
+// by the `online-test` edge function, never here.
 // ─────────────────────────────────────────────────────────────────────────────
 const StudentExamPage = () => {
   const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
   const examIdParam = params.get("exam");
 
   const [stage, setStage] = useState<Stage>({ kind: "pick-batch" });
@@ -88,14 +104,12 @@ const StudentExamPage = () => {
     student: StudentOption,
   ) => {
     try {
+      // Only the two ids travel. Name, batch and organization are resolved
+      // server-side from the student row — a client that could send its own
+      // batch_name could also send its own organization_id.
       const session = await startAttempt.mutateAsync({
         examId: exam.id,
-        student: {
-          id: student.id,
-          name: student.name,
-          batchId: batch.id,
-          batchName: batch.name,
-        },
+        studentId: student.id,
       });
       setStage({ kind: "running", session });
     } catch (err) {
@@ -117,7 +131,7 @@ const StudentExamPage = () => {
             kind: "finished",
             attemptId,
             batch: {
-              id: stage.session.attempt.batchId ?? "",
+              id: "",
               name: stage.session.attempt.batchName ?? "",
             },
             student: {

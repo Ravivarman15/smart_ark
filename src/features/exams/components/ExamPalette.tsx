@@ -1,8 +1,8 @@
-import type { PaperQuestionView } from "../types/mcq.types";
+import type { PublicQuestion } from "../services/onlineTest.service";
 import type { AnswerDraft } from "../types/mcqExam.types";
 
 interface Props {
-  questions: PaperQuestionView[];
+  questions: PublicQuestion[];
   answers: Record<string, AnswerDraft>;
   currentIndex: number;
   onJump: (index: number) => void;

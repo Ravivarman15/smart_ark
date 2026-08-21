@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ExternalLink,
   Eye,
+  Link2,
   MoreVertical,
   Pause,
   Pencil,
@@ -26,6 +27,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ShareTestLinkPanel } from "../components/ShareTestLinkPanel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +81,7 @@ const ManageMcqExamPage = () => {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<LiveStatus | "all">("all");
+  const [shareTarget, setShareTarget] = useState<McqExam | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<McqExam | null>(null);
   const [releaseTarget, setReleaseTarget] = useState<McqExam | null>(null);
 
@@ -295,6 +305,7 @@ const ManageMcqExamPage = () => {
                     onPublishToggle={() => togglePublish(e)}
                     onLive={(s, l) => setLive(e, s, l)}
                     onRelease={() => setReleaseTarget(e)}
+                    onShare={() => setShareTarget(e)}
                     onDelete={() => setDeleteTarget(e)}
                   />
                 </td>
@@ -303,6 +314,28 @@ const ManageMcqExamPage = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Share link */}
+      <Dialog
+        open={!!shareTarget}
+        onOpenChange={(o) => !o && setShareTarget(null)}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Share “{shareTarget?.title}”</DialogTitle>
+            <DialogDescription>
+              Anyone with the link can take this test without an account. They
+              will see your institution&rsquo;s name and logo.
+            </DialogDescription>
+          </DialogHeader>
+          {shareTarget && (
+            <ShareTestLinkPanel
+              examId={shareTarget.id}
+              examTitle={shareTarget.title}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmations */}
       <AlertDialog
@@ -360,6 +393,7 @@ const RowMenu = ({
   onPublishToggle,
   onLive,
   onRelease,
+  onShare,
   onDelete,
 }: {
   exam: McqExam;
@@ -368,6 +402,7 @@ const RowMenu = ({
   onPublishToggle: () => void;
   onLive: (s: LiveStatus, label: string) => void;
   onRelease: () => void;
+  onShare: () => void;
   onDelete: () => void;
 }) => (
   <DropdownMenu>
@@ -386,6 +421,14 @@ const RowMenu = ({
       <DropdownMenuItem onClick={onMonitor}>
         <Eye className="w-3.5 h-3.5 mr-2" /> Monitor / Analytics
       </DropdownMenuItem>
+      {/* Sharing is gated on the SAME action as publishing, not on `edit`.
+          Handing out a link anyone on the internet can open is a publishing
+          decision, and a teacher who may edit a draft is not automatically a
+          person who may put it in front of the public. The server enforces
+          this again; the menu only decides what is worth showing. */}
+      <ProtectedMenuItem action="exam.mcq.exam_publish" onClick={onShare}>
+        <Link2 className="w-3.5 h-3.5 mr-2" /> Share link
+      </ProtectedMenuItem>
 
       <DropdownMenuSeparator />
       <DropdownMenuLabel className="text-[11px] uppercase tracking-wider">

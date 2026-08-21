@@ -4,6 +4,7 @@ import {
   mcqAttemptService,
   mcqExamAnalyticsService,
 } from "../services";
+import { onlineTestService } from "../services/onlineTest.service";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Live monitoring hooks. The monitor snapshot + attempt event log poll on an
@@ -33,7 +34,7 @@ export const useForceSubmitAttempt = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (attemptId: string) =>
-      mcqAttemptService.submit(attemptId, "force_submit"),
+      onlineTestService.forceSubmit(attemptId),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.exams.all }),
   });

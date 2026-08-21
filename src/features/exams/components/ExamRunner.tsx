@@ -20,13 +20,38 @@ import { ExamTimer } from "./ExamTimer";
 import { ExamQuestionView } from "./ExamQuestionView";
 import { ExamPalette } from "./ExamPalette";
 import { useAntiCheat, useAutosaveAttempt, useSubmitAttempt } from "../hooks";
-import { mcqAttemptService } from "../services";
-import { seededShuffle } from "../utils";
-import type { AnswerDraft, AttemptSession } from "../types/mcqExam.types";
+import { onlineTestService } from "../services/onlineTest.service";
+import type { OnlineTestSession } from "../services/onlineTest.service";
+import type { AnswerDraft } from "../types/mcqExam.types";
+
+/**
+ * How this runner talks to the server.
+ *
+ * There are two ways to sit the same test — signed in, or holding a public
+ * link — and they differ ONLY in which endpoint carries the answers. Passing
+ * that in as a transport is what lets the public page reuse this component
+ * exactly, rather than growing a second exam screen that would drift in its
+ * timer handling, its palette, its anti-cheat and its submit guard.
+ */
+export interface TestTransport {
+  save(
+    attemptId: string,
+    drafts: AnswerDraft[],
+  ): Promise<{ remainingSeconds: number; autoSubmitted?: boolean }>;
+  submit(attemptId: string): Promise<unknown>;
+  event(
+    attemptId: string,
+    eventType: string,
+    detail?: string,
+    severity?: "info" | "warning" | "critical",
+  ): void;
+}
 
 interface Props {
-  session: AttemptSession;
+  session: OnlineTestSession;
   onFinished: (attemptId: string) => void;
+  /** Omitted for a signed-in taker, who uses the authenticated endpoint. */
+  transport?: TestTransport;
 }
 
 // A typed answer counts. Without the textValue arm, every fill-in-the-blank,
@@ -43,22 +68,26 @@ const isAnswered = (d?: AnswerDraft): boolean =>
 //
 // Owns the live attempt: timer + auto-submit, periodic autosave (answer
 // persistence + heartbeat), question navigation, mark-for-review, keyboard
-// shortcuts, anti-cheat surveillance and the pre-submit review. Scoring is NOT
-// done here — submit hands off to the centralised scoring layer via the
-// attempt service. Resilient to reload: the timer is anchored to the attempt's
-// started_at, so a refresh resumes with the correct remaining time.
+// shortcuts, anti-cheat surveillance and the pre-submit review.
+//
+// NOTHING HERE KNOWS AN ANSWER. Questions arrive from the `online-test` edge
+// function in a shape that cannot carry a key — no isCorrect, no explanation,
+// no numeric answer — and submission returns a result the server computed. This
+// component used to grade the paper itself and then write the mark.
+//
+// The clock is the same story. It ticks locally so it feels alive, but it
+// starts from the server's remaining seconds and every autosave re-anchors it.
+// A laptop that slept for an hour wakes with a countdown that is simply wrong,
+// and the tab is the last thing that should be trusted to notice.
 // ─────────────────────────────────────────────────────────────────────────────
-export const ExamRunner = ({ session, onFinished }: Props) => {
+export const ExamRunner = ({ session, onFinished, transport }: Props) => {
   const { exam, attempt, questions } = session;
 
-  // Freeze the (optionally option-shuffled) question set for this attempt.
-  const displayQuestions = useMemo(() => {
-    if (!exam.shuffleOptions) return questions;
-    return questions.map((q, i) => ({
-      ...q,
-      options: seededShuffle(q.options, attempt.shuffleSeed + i + 1),
-    }));
-  }, [questions, exam.shuffleOptions, attempt.shuffleSeed]);
+  // The server has already applied both the question order and the option
+  // shuffle, using the seed frozen on the attempt. Shuffling again here would
+  // re-arrange what was already arranged, so a refresh mid-test would present
+  // the same paper in a different order.
+  const displayQuestions = questions;
 
   // Answer drafts keyed by question id, seeded from any saved answers.
   const [answers, setAnswers] = useState<Record<string, AnswerDraft>>(() => {
@@ -70,7 +99,7 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
         numericValue: a.numericValue ?? null,
         textValue: a.textValue ?? null,
         markedForReview: a.markedForReview,
-        timeSpentSeconds: a.timeSpentSeconds ?? 0,
+        timeSpentSeconds: 0,
       };
     }
     return seed;
@@ -84,16 +113,28 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
   const autosave = useAutosaveAttempt();
   const submitMut = useSubmitAttempt();
 
-  const startedMs = useMemo(
-    () => new Date(attempt.startedAt).getTime(),
-    [attempt.startedAt],
+  // The hooks are always created — they are plain mutations and calling them
+  // conditionally would break the rules of hooks — but the transport decides
+  // which one actually carries the request.
+  const wire: TestTransport = useMemo(
+    () =>
+      transport ?? {
+        save: (attemptId, drafts) => autosave.mutateAsync({ attemptId, drafts }),
+        submit: (attemptId) => submitMut.mutateAsync({ attemptId }),
+        event: (attemptId, eventType, detail, severity) =>
+          onlineTestService.event(attemptId, eventType, detail, severity),
+      },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transport],
   );
-  const deadlineMs = startedMs + exam.durationMinutes * 60_000;
+
+  // Anchored to the server's remaining seconds at the moment the session was
+  // issued, NOT to started_at + duration computed on this device. A device
+  // clock running a few minutes slow would otherwise award its owner a few
+  // extra minutes of exam time.
+  const deadlineRef = useRef(Date.now() + session.remainingSeconds * 1000);
   const enteredAt = useRef(Date.now());
   const submittedRef = useRef(false);
-
-  const elapsedSeconds = () =>
-    Math.max(0, Math.floor((Date.now() - startedMs) / 1000));
 
   // ── Per-question time accounting ────────────────────────────────────────────
   const flushQuestionTime = useCallback(() => {
@@ -149,38 +190,36 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
     flushQuestionTime();
     const drafts = Object.values(answers);
     try {
-      await autosave.mutateAsync({
-        attemptId: attempt.id,
-        drafts,
-        timeSpentSeconds: elapsedSeconds(),
-      });
+      const res = await wire.save(attempt.id, drafts);
+      // Re-anchor to the server every time it answers.
+      deadlineRef.current = Date.now() + res.remainingSeconds * 1000;
+      if (res.autoSubmitted && !submittedRef.current) {
+        submittedRef.current = true;
+        toast.warning("Your time expired — the test was submitted");
+        onFinished(attempt.id);
+      }
     } catch {
       /* offline — the next tick retries */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers, attempt.id, flushQuestionTime]);
+  }, [answers, attempt.id, flushQuestionTime, wire]);
 
   // ── Submit ──────────────────────────────────────────────────────────────────
   const doSubmit = useCallback(
-    async (kind: "submit" | "auto_submit") => {
+    async () => {
       if (submittedRef.current) return;
       submittedRef.current = true;
       flushQuestionTime();
       try {
-        await autosave.mutateAsync({
-          attemptId: attempt.id,
-          drafts: Object.values(answers),
-          timeSpentSeconds: elapsedSeconds(),
-        });
-        const result = await submitMut.mutateAsync({
-          attemptId: attempt.id,
-          kind,
-          timeSpentSeconds: elapsedSeconds(),
-        });
+        // Save, THEN close. If the save fails the submit is abandoned and the
+        // guard released: grading a paper whose last answers never arrived
+        // would score work the student actually did as unattempted.
+        await wire.save(attempt.id, Object.values(answers));
+        await wire.submit(attempt.id);
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => undefined);
         }
-        onFinished(result.id);
+        onFinished(attempt.id);
       } catch (err) {
         submittedRef.current = false;
         toast.error(
@@ -189,23 +228,23 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [answers, attempt.id, flushQuestionTime],
+    [answers, attempt.id, flushQuestionTime, wire],
   );
 
   // ── Timer + auto-submit ─────────────────────────────────────────────────────
   useEffect(() => {
     const tick = () => {
-      const left = Math.round((deadlineMs - Date.now()) / 1000);
+      const left = Math.round((deadlineRef.current - Date.now()) / 1000);
       setRemaining(left);
       if (left <= 0 && !submittedRef.current) {
         toast.warning("Time is up — submitting your exam");
-        doSubmit("auto_submit");
+        doSubmit();
       }
     };
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [deadlineMs, doSubmit]);
+  }, [doSubmit]);
 
   // ── Periodic autosave ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -217,7 +256,7 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
   useAntiCheat({
     active: !submittedRef.current,
     onEvent: (type, detail, severity) => {
-      mcqAttemptService.logEvent(attempt.id, type, detail, severity);
+      wire.event(attempt.id, type, detail, severity);
       if (severity === "critical") {
         toast.error("Suspicious activity logged — stay on the exam tab.");
       }
@@ -265,7 +304,8 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // No suppression needed any more: displayQuestions is a plain value now
+    // that the server owns the shuffle, so this dependency list is complete.
   }, [currentIndex, displayQuestions, answers, goTo]);
 
   const current = displayQuestions[currentIndex];
@@ -435,7 +475,7 @@ export const ExamRunner = ({ session, onFinished }: Props) => {
               <Button
                 className="flex-1"
                 disabled={submitting}
-                onClick={() => doSubmit("submit")}
+                onClick={() => doSubmit()}
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

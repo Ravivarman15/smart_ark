@@ -1,11 +1,12 @@
 import { Bookmark, Sigma } from "lucide-react";
 import { DifficultyBadge, QuestionTypeBadge } from "./McqBadges";
 import { isAutoEvaluable } from "../types/mcq.types";
-import type { McqQuestionType, PaperQuestionView } from "../types/mcq.types";
+import type { PublicQuestion } from "../services/onlineTest.service";
+import type { McqQuestionType } from "../types/mcq.types";
 import type { AnswerDraft } from "../types/mcqExam.types";
 
 interface Props {
-  question: PaperQuestionView;
+  question: PublicQuestion;
   index: number;
   total: number;
   draft: AnswerDraft;
@@ -70,7 +71,11 @@ export const ExamQuestionView = ({
   const teacherGraded = !isAutoEvaluable(type);
 
   const selected = draft.selectedOptionIds ?? [];
-  const pairs = question.matchPairs ?? [];
+  // Prompts and choices arrive as two INDEPENDENT arrays. They used to be one
+  // array of {left, right} pairs — which is the answer key, and it was being
+  // handed to the student to render the question with.
+  const prompts = question.matchPrompts ?? [];
+  const choices = question.matchChoices ?? [];
 
   const pick = (optionId: string) => {
     if (isMultiple) {
@@ -89,16 +94,10 @@ export const ExamQuestionView = ({
   // through the same `textValue` column as every other typed answer.
   const matchAnswers = (draft.textValue ?? "").split("|");
   const setMatch = (rowIndex: number, value: string) => {
-    const next = pairs.map((_, i) => matchAnswers[i] ?? "");
+    const next = prompts.map((_, i) => matchAnswers[i] ?? "");
     next[rowIndex] = value;
     onChange({ textValue: next.join("|") });
   };
-
-  // The right-hand column, shuffled deterministically by question id so every
-  // student sees the same set but not in the answer order.
-  const choices = [...pairs.map((p) => p.right)].sort((a, b) =>
-    (a + question.id).localeCompare(b + question.id),
-  );
 
   return (
     <div className="space-y-5">
@@ -114,7 +113,7 @@ export const ExamQuestionView = ({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            +{question.effectiveMarks}
+            +{question.marks}
             {question.negativeMarks > 0 ? ` / −${question.negativeMarks}` : ""}
           </span>
           <button
@@ -197,12 +196,12 @@ export const ExamQuestionView = ({
         </div>
       ) : isMatch ? (
         <div className="space-y-2">
-          {pairs.map((p, i) => (
+          {prompts.map((prompt, i) => (
             <div key={i} className="flex items-center gap-3">
               <span className="shrink-0 w-6 h-6 rounded-md border border-border flex items-center justify-center text-xs font-semibold text-muted-foreground">
                 {letter(i)}
               </span>
-              <span className="flex-1 text-sm text-foreground">{p.left}</span>
+              <span className="flex-1 text-sm text-foreground">{prompt}</span>
               <select
                 value={matchAnswers[i] ?? ""}
                 onChange={(e) => setMatch(i, e.target.value)}
@@ -215,7 +214,7 @@ export const ExamQuestionView = ({
               </select>
             </div>
           ))}
-          {pairs.length === 0 && (
+          {prompts.length === 0 && (
             <p className="text-sm text-muted-foreground">
               This question has no match pairs configured — tell your invigilator.
             </p>

@@ -18,6 +18,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { round2 } from "./grading";
+import {
+  correctOptionIdsOf,
+  normalizeText,
+} from "../../../../supabase/functions/_shared/grading.ts";
 import { isAutoEvaluable } from "../types/mcq.types";
 import type {
   AttemptScore,
@@ -212,9 +216,8 @@ export const paperInsights = (
 
 // ── Answer key validation ────────────────────────────────────────────────────
 /** Correct option ids of a choice-type question. */
-export const correctOptionIds = (
-  options: McqOption[],
-): string[] => options.filter((o) => o.isCorrect).map((o) => o.id);
+export const correctOptionIds = (options: McqOption[]): string[] =>
+  correctOptionIdsOf(options);
 
 /**
  * Does this question carry a usable answer key? Used by the editor and by bulk
@@ -242,121 +245,23 @@ export const answerKeyError = (q: {
   return null;
 };
 
-// ── Per-answer scoring — THE reusable scoring primitive ──────────────────────
-/**
- * Score one response against its question. Single source of truth for marks
- * awarded — the bulk-import validator and (next phase) the live exam engine
- * both call this, so a student's score can never diverge from the answer key.
- */
-export const scoreAnswer = (
-  q: McqQuestion,
-  response: McqResponse | undefined,
-  negativeMarking: boolean,
-  marksOverride?: number | null,
-): ScoredAnswer => {
-  const maxMarks = effectiveMarks(q.marks, marksOverride);
-  const base: ScoredAnswer = {
-    questionId: q.id,
-    awarded: 0,
-    maxMarks,
-    correct: false,
-    attempted: false,
-  };
-
-  // Subjective types (essay, long answer, diagram, programming…) cannot be
-  // machine-graded. They are NOT worth zero — they are worth nothing YET.
-  // Flag them for Smart Mark Entry instead of silently scoring 0, which would
-  // otherwise drag the student's percentage down for questions they answered.
-  if (!isAutoEvaluable(q.questionType)) {
-    base.attempted = !!response?.textValue?.trim();
-    base.pendingReview = true;
-    return base;
-  }
-
-  if (q.questionType === "numerical") {
-    const v = response?.numericValue;
-    if (v == null || !Number.isFinite(v)) return base;
-    base.attempted = true;
-    const key = q.numericalAnswer;
-    base.correct =
-      !!key && Math.abs(v - key.value) <= Math.max(0, key.tolerance);
-  } else if (q.questionType === "fill_ups" || q.questionType === "one_word") {
-    // Text answers are matched against the key after the SAME normalisation
-    // used for duplicate detection — case, spacing and punctuation insensitive,
-    // so "New Delhi" and "new delhi." both match.
-    const typed = response?.textValue?.trim();
-    if (!typed) return base;
-    base.attempted = true;
-    const key = q.answerText?.trim();
-    base.correct =
-      !!key && normalizeQuestionText(typed) === normalizeQuestionText(key);
-  } else if (q.questionType === "match_following") {
-    // Scored all-or-nothing on the ordered right-hand column the student built.
-    const typed = response?.textValue?.trim();
-    const pairs = q.matchPairs ?? [];
-    if (!typed || pairs.length === 0) return base;
-    base.attempted = true;
-    const expected = pairs.map((p) => normalizeQuestionText(p.right)).join("|");
-    const given = typed.split("|").map((s) => normalizeQuestionText(s)).join("|");
-    base.correct = expected === given;
-  } else {
-    const picked = response?.selectedOptionIds ?? [];
-    if (picked.length === 0) return base;
-    base.attempted = true;
-    const correct = new Set(correctOptionIds(q.options));
-    const chosen = new Set(picked);
-    // All-or-nothing: the chosen set must equal the correct set exactly.
-    base.correct =
-      correct.size === chosen.size &&
-      [...correct].every((id) => chosen.has(id));
-  }
-
-  if (base.correct) {
-    base.awarded = maxMarks;
-  } else if (base.attempted && negativeMarking) {
-    base.awarded = -Math.abs(q.negativeMarks || 0);
-  }
-  return base;
-};
-
-/** Score a full attempt — aggregate of scoreAnswer over every paper question. */
-export const scoreAttempt = (
-  questions: McqQuestion[],
-  responses: McqResponse[],
-  negativeMarking: boolean,
-  overrides: Record<string, number | null | undefined> = {},
-): AttemptScore => {
-  const byId = new Map(responses.map((r) => [r.questionId, r]));
-  const answers = questions.map((q) =>
-    scoreAnswer(q, byId.get(q.id), negativeMarking, overrides[q.id]),
-  );
-  const totalAwarded = round2(answers.reduce((s, a) => s + a.awarded, 0));
-  const totalMax = round2(answers.reduce((s, a) => s + a.maxMarks, 0));
-  const pending = answers.filter((a) => a.pendingReview);
-  const pendingMarks = round2(pending.reduce((s, a) => s + a.maxMarks, 0));
-
-  return {
-    totalAwarded,
-    totalMax,
-    percentage: totalMax > 0 ? round2((totalAwarded / totalMax) * 100) : 0,
-    correctCount: answers.filter((a) => a.correct).length,
-    // A question waiting for a teacher is not a wrong answer.
-    wrongCount: answers.filter((a) => a.attempted && !a.correct && !a.pendingReview).length,
-    unattemptedCount: answers.filter((a) => !a.attempted).length,
-    pendingMarks,
-    awaitingEvaluation: pending.length > 0,
-    answers,
-  };
-};
+// ── Per-answer scoring — RE-EXPORTED, NOT REIMPLEMENTED ─────────────────────
+// The grader itself lives in supabase/functions/_shared/grading.ts, because the
+// server has to be the one that decides a mark and the server is Deno. Keeping
+// a second copy here for the app is exactly how the two would drift, so the app
+// imports the same file. See that file's header for the full reasoning.
+//
+// The names stay `scoreAnswer` / `scoreAttempt` so every existing call site,
+// test and barrel export continues to mean the same thing.
+export {
+  gradeAnswer as scoreAnswer,
+  gradeAttempt as scoreAttempt,
+} from "../../../../supabase/functions/_shared/grading.ts";
 
 // ── Duplicate detection ──────────────────────────────────────────────────────
 /** Normalise question text for duplicate comparison — case/space/punctuation-insensitive. */
 export const normalizeQuestionText = (text: string): string =>
-  text
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[^\w\s]/g, "")
-    .trim();
+  normalizeText(text);
 
 // ── Auto paper generation ────────────────────────────────────────────────────
 /** Fisher–Yates shuffle — returns a new array (used for randomisation). */
