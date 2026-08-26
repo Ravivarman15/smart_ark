@@ -87,13 +87,13 @@ function loadRouteSeo() {
 
   const routes = {};
   // Each entry is `"/path": { title: "...", description: "...", ... }`.
-  const entryRe = /"(\/[^"]*)":\s*\{([\s\S]*?)\},?\n/g;
+  const entryRe = /"(\/[^"]*)":\s*\{([\s\S]*?)\},?\r?\n/g;
   const body = src.slice(start);
   let m;
   while ((m = entryRe.exec(body))) {
     const [, path, fields] = m;
     const pick = (key) => {
-      const f = new RegExp(`${key}:\\s*\n?\\s*"((?:[^"\\\\]|\\\\.)*)"`).exec(fields);
+      const f = new RegExp(`${key}:\\s*\r?\n?\\s*"((?:[^"\\\\]|\\\\.)*)"`).exec(fields);
       return f ? f[1].replace(/\\"/g, '"') : null;
     };
     const title = pick("title");

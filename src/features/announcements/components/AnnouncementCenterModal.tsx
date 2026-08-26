@@ -353,6 +353,7 @@ export const AnnouncementCenterModal: React.FC<Props> = ({ open, onClose }) => {
                 )}
               </div>
             </div>
+          )}
         </div>
       </div>
     </div>
