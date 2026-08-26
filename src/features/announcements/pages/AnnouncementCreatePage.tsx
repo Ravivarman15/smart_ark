@@ -2,7 +2,7 @@
 // SMART ARK ANNOUNCEMENTS — Announcement Creation Page
 // ──────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Megaphone,
@@ -15,6 +15,7 @@ import {
   Send,
   Save,
   Users,
+  Shield,
   Plus,
   X,
   AlertTriangle,
@@ -25,6 +26,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStandards } from "@/features/setup/hooks/useStandards";
 import { useBatches } from "@/features/setup/hooks/useBatches";
+import { useRoles } from "@/features/staff/hooks/useRoles";
+import { useRolesCatalog } from "@/features/rbac/hooks/useRolesCatalog";
 import { useAnnouncements } from "../hooks/useAnnouncements";
 import { announcementsService } from "../services/announcements.service";
 import { announcementAudienceService } from "../services/announcementAudience.service";
@@ -68,6 +71,32 @@ export const AnnouncementCreatePage: React.FC = () => {
   // Setup lookups
   const { data: standards = [] } = useStandards();
   const { data: batches = [] } = useBatches();
+  const { data: catalogRoles = [] } = useRolesCatalog();
+  const baseRoles = useRoles();
+
+  // Combine and deduplicate roles list (built-in + any custom/future roles created in RBAC)
+  const allRoles = useMemo(() => {
+    const map = new Map<string, { id: string; label: string }>();
+    // Default core roles
+    map.set("admin", { id: "admin", label: "Admin / Administrators" });
+    map.set("management", { id: "management", label: "Management / Executive" });
+    map.set("coordinator", { id: "coordinator", label: "Academic Coordinators" });
+    map.set("teacher", { id: "teacher", label: "Teachers / Faculty" });
+    map.set("parents", { id: "parents", label: "Parents / Guardians" });
+    map.set("staff", { id: "staff", label: "All Staff Members" });
+
+    // Overlay base roles
+    baseRoles.forEach((r) => {
+      if (!map.has(r.id)) map.set(r.id, { id: r.id, label: r.label });
+    });
+
+    // Overlay dynamic custom/future roles from tenant catalog
+    catalogRoles.forEach((r) => {
+      map.set(r.slug, { id: r.slug, label: r.name });
+    });
+
+    return Array.from(map.values());
+  }, [baseRoles, catalogRoles]);
 
   // Form State
   const [title, setTitle] = useState("");
@@ -512,43 +541,93 @@ export const AnnouncementCreatePage: React.FC = () => {
 
             <div className="space-y-3">
               {/* Scope Quick Selectors */}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => addAudienceRule("all")}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors ${
-                    targetScope === "all"
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  🌐 Entire Organization
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addAudienceRule("role", "parents", "Parents")}
-                  className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-                >
-                  👨‍👩‍👧 All Parents
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addAudienceRule("role", "teacher", "Teachers")}
-                  className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-                >
-                  🎓 All Teachers
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addAudienceRule("role", "management", "Management")}
-                  className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-                >
-                  🏛️ Management
-                </button>
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold uppercase text-muted-foreground">
+                  Quick Role & Group Selectors:
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addAudienceRule("all")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors ${
+                      targetScope === "all"
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    🌐 Entire Organization
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addAudienceRule("role", "parents", "Parents")}
+                    className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  >
+                    👨‍👩‍👧 All Parents
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addAudienceRule("staff", "staff", "All Staff & Faculty")}
+                    className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  >
+                    👥 All Staff
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addAudienceRule("role", "admin", "Admin")}
+                    className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  >
+                    🛠️ Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addAudienceRule("role", "coordinator", "Coordinator")}
+                    className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  >
+                    🧭 Coordinator
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addAudienceRule("role", "teacher", "Teachers")}
+                    className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  >
+                    🎓 Teachers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addAudienceRule("role", "management", "Management")}
+                    className="px-3 py-1.5 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  >
+                    🏛️ Management
+                  </button>
+                </div>
               </div>
 
-              {/* Specific Standard / Batch dropdown adders */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              {/* Dynamic Role, Standard & Batch Dropdowns */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Target by Role (Built-in or Custom):
+                  </label>
+                  <select
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const selectedRole = allRoles.find((r) => r.id === e.target.value);
+                      if (selectedRole) {
+                        addAudienceRule("role", selectedRole.id, `Role: ${selectedRole.label}`);
+                      }
+                      e.target.value = "";
+                    }}
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                  >
+                    <option value="">+ Select Any Role...</option>
+                    {allRoles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">
                     Target by Standard / Grade:

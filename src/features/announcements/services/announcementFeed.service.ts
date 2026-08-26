@@ -112,14 +112,15 @@ export class AnnouncementFeedService extends BaseService {
           return false;
         });
       } else {
-        // Staff audience matching:
+        // Staff audience matching (matches admin, coordinator, teacher, management, or any future custom role):
         return auds.some((a) => {
-          if (a.target_type === "staff") return true;
+          if (a.target_type === "all" || a.target_type === "staff") return true;
           if (
             a.target_type === "role" &&
             (a.target_id === ctx.role ||
+              a.target_id?.toLowerCase() === ctx.role?.toLowerCase() ||
               a.target_name?.toLowerCase() === ctx.role?.toLowerCase() ||
-              (ctx.role === "admin" || ctx.role === "management"))
+              (a.target_name && ctx.role && a.target_name.toLowerCase().includes(ctx.role.toLowerCase())))
           )
             return true;
           return false;

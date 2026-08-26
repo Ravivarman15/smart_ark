@@ -65,4 +65,19 @@ describe("Recipient Deduplication Engine", () => {
     const deduplicated = AnnouncementAudienceService.deduplicateRecipients(recipients);
     expect(deduplicated).toHaveLength(3);
   });
+
+  it("formats audience summary for admin, coordinator, staff, and custom/future roles", () => {
+    const audiences: AnnouncementAudience[] = [
+      { target_type: "role", target_id: "admin", target_name: "Admin" },
+      { target_type: "role", target_id: "coordinator", target_name: "Coordinator" },
+      { target_type: "staff", target_id: "staff", target_name: "All Staff" },
+      { target_type: "role", target_id: "hostel_warden", target_name: "Hostel Warden" },
+    ];
+
+    const summary = AnnouncementAudienceService.formatAudienceSummary(audiences, "custom");
+    expect(summary).toContain("Admin");
+    expect(summary).toContain("Coordinator");
+    expect(summary).toContain("All Staff");
+    expect(summary).toContain("Hostel Warden");
+  });
 });
