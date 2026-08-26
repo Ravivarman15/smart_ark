@@ -17,20 +17,16 @@ export interface FeedContext {
 }
 
 export class AnnouncementFeedService extends BaseService {
+  private get db() {
+    return supabase;
+  }
+
   /**
-   * Fetch active announcements for the current user feed.
-   * Enforces:
-   * - Must belong to current organization.
-   * - Must be currently live (`now >= publish_at` and `now < expires_at`).
-   * - Must match user audience (staff role or parent child's standard/batch/student).
-   * - Automatically attaches `is_read` and `is_acknowledged` for the caller.
+   * Fetch announcements visible to the current authenticated principal.
    */
   async getFeed(ctx: FeedContext, filter: AnnouncementFilter = {}): Promise<Announcement[]> {
     const orgId = requireOrganization();
-    const now = new Date().toISOString();
-    const nowMs = Date.now();
 
-    // Query live announcements (and scheduled whose publish_at has passed)
     let query = this.db
       .from("announcements" as never)
       .select(
@@ -55,44 +51,76 @@ export class AnnouncementFeedService extends BaseService {
 
     const { data, error } = await query;
     if (error) {
-      throw AppError.fromSupabase(error, "announcements.getFeed");
+      console.error("Feed query error:", error);
+      throw new AppError(error.message, "500");
     }
 
-    const allItems = (data as unknown as Announcement[]) ?? [];
-
-    // Filter by lifecycle timestamps: must be live right now
-    const liveItems = allItems.filter((item) => {
+    // Filter by lifecycle: only 'live' announcements are shown to end users
+    const liveItems = (data || []).filter((item: any) => {
       const effective = deriveAnnouncementStatus(
         item.status,
         item.publish_at,
         item.expires_at,
-        nowMs
+        Date.now()
       );
       return effective === "live";
     });
 
     // Filter by audience visibility for the caller
-    const visibleItems = liveItems.filter((item) => {
+    const visibleItems = liveItems.filter((item: any) => {
       // If target scope is 'all', everyone in the organization sees it
       if (item.target_scope === "all") return true;
 
-      const auds = item.audiences || [];
+      const auds: any[] = item.audiences || [];
       if (auds.length === 0 || auds.some((a) => a.target_type === "all")) return true;
 
       if (ctx.isParent) {
+        if (item.target_scope === "parents") return true;
         // Parent audience matching:
         return auds.some((a) => {
-          if (a.target_type === "parent") return true;
-          if (a.target_type === "student" && a.target_id === ctx.activeChildStudentId) return true;
-          if (a.target_type === "standard" && a.target_id === ctx.activeChildStandardId) return true;
-          if (a.target_type === "batch" && a.target_id === ctx.activeChildBatchId) return true;
+          if (a.target_type === "all" || a.target_type === "parent") return true;
+          if (
+            a.target_type === "role" &&
+            (a.target_id === "parents" ||
+              a.target_id === "parent" ||
+              a.target_name?.toLowerCase().includes("parent"))
+          )
+            return true;
+
+          // Match by active child or any child in the family
+          const studentIds = [
+            ctx.activeChildStudentId,
+            ...(ctx.allChildStudentIds || []),
+          ].filter(Boolean);
+          if (a.target_type === "student" && a.target_id && studentIds.includes(a.target_id))
+            return true;
+
+          const standardIds = [
+            ctx.activeChildStandardId,
+            ...(ctx.allChildStandardIds || []),
+          ].filter(Boolean);
+          if (a.target_type === "standard" && a.target_id && standardIds.includes(a.target_id))
+            return true;
+
+          const batchIds = [
+            ctx.activeChildBatchId,
+            ...(ctx.allChildBatchIds || []),
+          ].filter(Boolean);
+          if (a.target_type === "batch" && a.target_id && batchIds.includes(a.target_id))
+            return true;
+
           return false;
         });
       } else {
         // Staff audience matching:
         return auds.some((a) => {
           if (a.target_type === "staff") return true;
-          if (a.target_type === "role" && (a.target_id === ctx.role || a.target_name?.toLowerCase() === ctx.role?.toLowerCase()))
+          if (
+            a.target_type === "role" &&
+            (a.target_id === ctx.role ||
+              a.target_name?.toLowerCase() === ctx.role?.toLowerCase() ||
+              (ctx.role === "admin" || ctx.role === "management"))
+          )
             return true;
           return false;
         });
@@ -103,8 +131,8 @@ export class AnnouncementFeedService extends BaseService {
     const callerUserId = ctx.userId;
     const callerStudentId = ctx.activeChildStudentId;
 
-    const result: Announcement[] = visibleItems.map((item) => {
-      const userRead = item.reads?.find((r) => {
+    const result: Announcement[] = visibleItems.map((item: any) => {
+      const userRead = item.reads?.find((r: any) => {
         if (r.user_id !== callerUserId) return false;
         if (ctx.isParent && callerStudentId) {
           return r.student_id === callerStudentId;

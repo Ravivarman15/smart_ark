@@ -4,6 +4,7 @@
 
 import React, { useState } from "react";
 import { Megaphone } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/core/permissions";
 import { useAnnouncementFeed } from "../hooks/useAnnouncementFeed";
 import { AnnouncementCenterModal } from "./AnnouncementCenterModal";
@@ -14,11 +15,12 @@ interface Props {
 
 export const AnnouncementNavbarIcon: React.FC<Props> = ({ className = "" }) => {
   const [open, setOpen] = useState(false);
+  const { user, parent } = useAuth();
   const { canViewModule } = usePermissions();
   const { unreadCount } = useAnnouncementFeed();
 
-  // If module is not entitled or user has no permission, don't show the icon
-  if (!canViewModule("announcements")) {
+  // If user is staff and module is not entitled or user has no permission, don't show the icon.
+  if (!parent && user && !canViewModule("announcements")) {
     return null;
   }
 

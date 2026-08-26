@@ -28,21 +28,35 @@ export const useFeedContext = (): FeedContext => {
   let activeChildStudentId: string | undefined;
   let activeChildStandardId: string | undefined;
   let activeChildBatchId: string | undefined;
+  let allChildStudentIds: string[] = [];
+  let allChildStandardIds: string[] = [];
+  let allChildBatchIds: string[] = [];
 
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const childContext = useActiveChild();
-    if (childContext?.activeChild) {
-      activeChildStudentId = childContext.activeChild.student.id;
-      activeChildStandardId = childContext.activeChild.student.standard_id || undefined;
-      activeChildBatchId = childContext.activeChild.student.batch_id || undefined;
+    if (childContext) {
+      if (childContext.activeChild) {
+        activeChildStudentId = childContext.activeChild.student.id;
+        activeChildStandardId = childContext.activeChild.student.standard_id || undefined;
+        activeChildBatchId = childContext.activeChild.student.batch_id || undefined;
+      }
+      if (childContext.children && childContext.children.length > 0) {
+        allChildStudentIds = childContext.children.map((k) => k.student.id);
+        allChildStandardIds = childContext.children
+          .map((k) => k.student.standard_id)
+          .filter(Boolean) as string[];
+        allChildBatchIds = childContext.children
+          .map((k) => k.student.batch_id)
+          .filter(Boolean) as string[];
+      }
     }
   } catch {
     // ActiveChildProvider not mounted (e.g. in staff layout)
   }
 
   const isParent = !!parent;
-  const userId = user?.id || parent?.accountId;
+  const userId = user?.id || parent?.userId || parent?.accountId;
   const role = user?.role;
 
   return {
@@ -52,6 +66,9 @@ export const useFeedContext = (): FeedContext => {
     activeChildStudentId,
     activeChildStandardId,
     activeChildBatchId,
+    allChildStudentIds,
+    allChildStandardIds,
+    allChildBatchIds,
   };
 };
 

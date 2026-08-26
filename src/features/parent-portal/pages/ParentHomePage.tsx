@@ -11,7 +11,7 @@
 // duplicating its queries.
 
 import { Link } from "react-router-dom";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Award,
   BookOpen,
@@ -21,6 +21,7 @@ import {
   FileText,
   GraduationCap,
   Heart,
+  Megaphone,
   MessageSquare,
   Minus,
   Radio,
@@ -32,6 +33,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAnnouncementFeed, AnnouncementCenterModal, PriorityBadge } from "@/features/announcements";
 import { useActiveChild } from "../providers/ActiveChildProvider";
 import { useParentPathVisible } from "../hooks/useParentModules";
 import {
@@ -218,6 +220,9 @@ export const ParentHomePage = () => {
   const messages = useChildMessages(student);
   const classes = useChildClasses(student, today);
   const visits = useParentVisitCount(parent?.accountId);
+  const { announcements: feedAnnouncements } = useAnnouncementFeed();
+  const [announcementsOpen, setAnnouncementsOpen] = useState(false);
+  const latestAnnouncement = feedAnnouncements && feedAnnouncements.length > 0 ? feedAnnouncements[0] : null;
 
   // ── Derivations (all pure, all unit-tested) ────────────────────────────────
   const monthly = useMemo(
@@ -268,6 +273,52 @@ export const ParentHomePage = () => {
           {kids.length > 1 && ` · viewing ${student.name}`}
         </p>
       </div>
+
+      {/* ── Latest Announcement Alert Banner ──────────────────────────────── */}
+      {latestAnnouncement && (
+        <div
+          onClick={() => setAnnouncementsOpen(true)}
+          className="mb-6 p-4 rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-between gap-3 shadow-xs"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-xs">
+              <Megaphone className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                  Announcement
+                </span>
+                {!latestAnnouncement.is_read && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground">
+                    New
+                  </span>
+                )}
+                <PriorityBadge priority={latestAnnouncement.priority} />
+              </div>
+              <p className="text-sm font-semibold text-foreground truncate mt-0.5">
+                {latestAnnouncement.title}
+              </p>
+              <p className="text-xs text-muted-foreground line-clamp-1">
+                {latestAnnouncement.summary || latestAnnouncement.content}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAnnouncementsOpen(true);
+            }}
+            className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 shadow-xs"
+          >
+            View
+          </button>
+        </div>
+      )}
+
+      <AnnouncementCenterModal open={announcementsOpen} onClose={() => setAnnouncementsOpen(false)} />
 
       {/* ── Today's summary ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-2 mb-2.5">

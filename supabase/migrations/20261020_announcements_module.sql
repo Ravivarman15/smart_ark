@@ -53,10 +53,26 @@ CREATE TABLE IF NOT EXISTS public.announcement_audiences (
   organization_id          UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   announcement_id          UUID NOT NULL REFERENCES public.announcements(id) ON DELETE CASCADE,
   target_type              TEXT NOT NULL, -- 'all' | 'role' | 'standard' | 'batch' | 'student' | 'parent' | 'staff'
-  target_id                UUID,
+  target_id                TEXT,          -- supports standard/batch/student UUIDs or role names like 'parents', 'teacher'
   target_name              TEXT,
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Ensure target_id is TEXT if table was previously created with UUID
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'announcement_audiences'
+      AND column_name = 'target_id'
+      AND data_type = 'uuid'
+  ) THEN
+    -- Drop policy that references target_id before altering column type
+    DROP POLICY IF EXISTS announcements_parent_select ON public.announcements;
+    ALTER TABLE public.announcement_audiences ALTER COLUMN target_id TYPE TEXT USING target_id::text;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_announcement_audiences_announcement ON public.announcement_audiences(announcement_id);
 CREATE INDEX IF NOT EXISTS idx_announcement_audiences_org          ON public.announcement_audiences(organization_id);
@@ -181,21 +197,25 @@ CREATE POLICY announcements_parent_select ON public.announcements
             aa.target_type = 'all'
             OR aa.target_type = 'parent'
             OR (
+              aa.target_type = 'role'
+              AND (aa.target_id IN ('parents', 'parent') OR aa.target_name ILIKE '%parent%')
+            )
+            OR (
               aa.target_type = 'student'
-              AND aa.target_id IN (SELECT public.parent_child_ids())
+              AND aa.target_id IN (SELECT child_id::text FROM public.parent_child_ids() child_id)
             )
             OR (
               aa.target_type = 'standard'
               AND aa.target_id IN (
-                SELECT s.standard_id FROM public.students s
-                WHERE s.id IN (SELECT public.parent_child_ids())
+                SELECT s.standard_id::text FROM public.students s
+                WHERE s.id::text IN (SELECT child_id::text FROM public.parent_child_ids() child_id)
               )
             )
             OR (
               aa.target_type = 'batch'
               AND aa.target_id IN (
-                SELECT s.batch_id FROM public.students s
-                WHERE s.id IN (SELECT public.parent_child_ids())
+                SELECT s.batch_id::text FROM public.students s
+                WHERE s.id::text IN (SELECT child_id::text FROM public.parent_child_ids() child_id)
               )
             )
           )

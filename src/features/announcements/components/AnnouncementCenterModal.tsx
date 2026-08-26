@@ -2,7 +2,8 @@
 // SMART ARK ANNOUNCEMENTS — Announcement Center Drawer / Modal
 // ──────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Megaphone,
@@ -41,6 +42,20 @@ export const AnnouncementCenterModal: React.FC<Props> = ({ open, onClose }) => {
     acknowledge,
     markAllAsRead,
   } = useAnnouncementFeed();
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -91,8 +106,8 @@ export const AnnouncementCenterModal: React.FC<Props> = ({ open, onClose }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end">
       {/* Backdrop click to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
@@ -338,9 +353,10 @@ export const AnnouncementCenterModal: React.FC<Props> = ({ open, onClose }) => {
                 )}
               </div>
             </div>
-          )}
         </div>
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
