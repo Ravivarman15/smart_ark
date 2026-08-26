@@ -133,7 +133,15 @@ const examPaths = (suffix = ""): Partial<Record<Role, string>> => ({
   teacher: `/teacher/exams${suffix}`,
 });
 
-// ── The 15-module navigation tree ───────────────────────────────────────────
+// ── announcementPaths() — same Announcement route under every role layout ────
+const announcementPaths = (suffix = ""): Partial<Record<Role, string>> => ({
+  admin: `/admin/announcements${suffix}`,
+  coordinator: `/coordinator/announcements${suffix}`,
+  management: `/management/announcements${suffix}`,
+  teacher: `/teacher/announcements${suffix}`,
+});
+
+// ── The navigation tree ─────────────────────────────────────────────────────
 export const NAV_CONFIG: NavGroupConfig[] = [
   // 1. Dashboard — direct link to each role's home (NOT collapsible)
   {
@@ -666,6 +674,20 @@ export const NAV_CONFIG: NavGroupConfig[] = [
         admin: "/admin/help/analytics",
         management: "/management/help/analytics",
       }, adminMgmt, { action: "help.analytics.view" }),
+    ],
+  },
+
+  // 16. Announcements
+  {
+    key: "announcements",
+    label: "Announcements",
+    icon: "Megaphone",
+    module: "announcements",
+    collapsible: true,
+    roles: all,
+    items: [
+      ...sub("announcements.manage", "Announcement Center", announcementPaths(""), all, { action: "announcement.view" }),
+      ...sub("announcements.create", "Create Announcement", announcementPaths("/new"), adminCoordMgmt, { action: "announcement.create" }),
     ],
   },
 ];

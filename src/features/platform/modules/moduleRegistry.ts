@@ -159,6 +159,11 @@ export const MODULE_METADATA: Record<ModuleId, ModuleMetadata> = {
     description:
       "The parent-facing portal: a login for every family, with attendance, results, fees, documents and a two-way message thread for their own child. The institution chooses which of those sections its parents see.",
   },
+  announcements: {
+    category: "communication", audience: "customer", dependsOn: [],
+    description:
+      "Organization-wide, targeted and scheduled announcements with rich media attachments, multi-portal visibility and read tracking.",
+  },
 };
 
 export const AUDIENCE_LABELS: Record<ModuleAudience, string> = {

@@ -336,6 +336,16 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("academics.view_analytics",   "View faculty analytics",      "export",   "academics.analytics"),
   A("academics.export_reports",   "Export faculty reports",      "export",   "academics.reports"),
   A("academics.view_audit",       "View the class audit trail",  "export",   "academics.audit"),
+
+  // ── Announcements ─────────────────────────────────────────────────────────
+  A("announcement.view",           "View announcements",           "edit",     "announcements.manage"),
+  A("announcement.create",         "Create announcement",         "create",   "announcements.create"),
+  A("announcement.edit",           "Edit announcement",           "edit",     "announcements.manage"),
+  A("announcement.publish",        "Publish announcement",        "approve",  "announcements.manage"),
+  A("announcement.schedule",       "Schedule announcement",       "create",   "announcements.manage"),
+  A("announcement.delete",         "Delete announcement",         "delete",   "announcements.manage"),
+  A("announcement.manage",         "Manage announcements",        "edit",     "announcements.manage"),
+  A("announcement.view_analytics", "View announcement analytics", "export",   "announcements.manage"),
 ];
 
 // ── Convenience lookups ─────────────────────────────────────────────────────

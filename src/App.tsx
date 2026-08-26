@@ -57,6 +57,11 @@ const TasksMyPage = lazy(() => import("./features/tasks/pages/MyTasksPage"));
 const TasksTeamPage = lazy(() => import("./features/tasks/pages/TeamTasksPage"));
 const TasksBoardPage = lazy(() => import("./features/tasks/pages/TaskBoardPage"));
 const TasksWorkloadPage = lazy(() => import("./features/tasks/pages/WorkloadPage"));
+
+// Announcements module
+const AnnouncementsManagementPage = lazy(() => import("@/features/announcements/pages/AnnouncementsManagementPage"));
+const AnnouncementCreatePage = lazy(() => import("@/features/announcements/pages/AnnouncementCreatePage"));
+
 const TeacherOverview = lazy(() => import("./pages/coordinator/TeacherOverview"));
 // Academic Allocation module
 const StaffAllocation = lazy(() => import("./pages/management/StaffAllocation"));
@@ -646,6 +651,8 @@ const AppRoutes: React.FC = () => (
         <Route path="analysis" element={<AnalysisReports />} />
         <Route path="expenses" element={<ExpenseManagement />} />
         <Route path="notifications" element={<NotificationCenter />} />
+        <Route path="announcements" element={<AnnouncementsManagementPage />} />
+        <Route path="announcements/new" element={<AnnouncementCreatePage />} />
         <Route path="timetable" element={<TimetableView />} />
         <Route path="leave-management" element={<LeaveManagement />} />
         <Route path="teacher-checkins" element={<TeacherCheckins />} />
@@ -801,6 +808,8 @@ const AppRoutes: React.FC = () => (
         <Route path="analysis" element={<AnalysisReports />} />
         <Route path="expenses" element={<ExpenseManagement />} />
         <Route path="notifications" element={<NotificationCenter />} />
+        <Route path="announcements" element={<AnnouncementsManagementPage />} />
+        <Route path="announcements/new" element={<AnnouncementCreatePage />} />
         <Route path="leave-management" element={<LeaveManagement />} />
         <Route path="timetable" element={<TimetableView />} />
         {/* Setup module routes — feature-based, management-owned */}

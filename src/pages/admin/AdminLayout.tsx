@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useStrictModeEnforcement } from "@/hooks/useStrictModeEnforcement";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutAccessGate } from "@/features/rbac";
+import { AnnouncementNavbarIcon } from "@/features/announcements";
 
 const AdminLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -77,7 +78,10 @@ const AdminLayout: React.FC = () => {
             <span className="font-display font-bold text-foreground text-sm">ARK Admin</span>
             <span className="text-[9px] text-accent uppercase tracking-widest">Control Panel</span>
           </div>
-          <ThemeToggle variant="icon" />
+          <div className="flex items-center gap-1.5">
+            <AnnouncementNavbarIcon />
+            <ThemeToggle variant="icon" />
+          </div>
         </div>
 
         {/* Scrollable content. LayoutAccessGate maps the current pathname to

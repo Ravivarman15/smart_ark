@@ -4,6 +4,7 @@ import { Menu, X } from "lucide-react";
 import { RoleSidebar } from "@/shared/layouts";
 import { ThemeToggle } from "@/core/theme";
 import { LayoutAccessGate } from "@/features/rbac";
+import { AnnouncementNavbarIcon } from "@/features/announcements";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TeacherShellLayout — wraps every /teacher/* route.
@@ -76,7 +77,10 @@ export const TeacherShellLayout: React.FC = () => {
               Daily Workflow
             </span>
           </div>
-          <ThemeToggle variant="icon" />
+          <div className="flex items-center gap-1.5">
+            <AnnouncementNavbarIcon />
+            <ThemeToggle variant="icon" />
+          </div>
         </div>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">

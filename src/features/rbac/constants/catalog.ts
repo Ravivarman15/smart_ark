@@ -44,7 +44,8 @@ export type ModuleId =
   | "payroll"
   | "reports"
   | "help"
-  | "parent_portal";
+  | "parent_portal"
+  | "announcements";
 
 export interface SubmoduleDef {
   /** Stable id, namespaced under the module. e.g. "settings.change_password". */
@@ -490,6 +491,16 @@ export const MODULE_CATALOG: ModuleDef[] = [
     defaultRoles: all,
     staffGrantable: false,
     submodules: [],
+  },
+  {
+    id: "announcements",
+    label: "Announcements",
+    icon: "Megaphone",
+    defaultRoles: all,
+    submodules: [
+      { id: "announcements.manage", label: "Announcement Center", route: "/admin/announcements" },
+      { id: "announcements.create", label: "Create Announcement", route: "/admin/announcements/new" },
+    ],
   },
 ];
 

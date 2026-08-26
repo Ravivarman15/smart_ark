@@ -36,6 +36,7 @@ import { useParentModules } from "../hooks/useParentModules";
 import { parentModuleForPath } from "../constants/parentModules";
 import { parentAuditService } from "../services/parentAudit.service";
 import { EmptyState } from "../components/primitives";
+import { AnnouncementNavbarIcon } from "@/features/announcements";
 
 /**
  * Page title for the mobile header — parents lose their place without it.
@@ -157,7 +158,10 @@ const Shell = () => {
               </div>
             </div>
 
-            <ThemeToggle variant="icon" />
+            <div className="flex items-center gap-1.5">
+              <AnnouncementNavbarIcon />
+              <ThemeToggle variant="icon" />
+            </div>
           </div>
 
           {/* Child switcher gets its own full-width row on mobile. */}

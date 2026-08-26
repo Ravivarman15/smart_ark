@@ -4,6 +4,7 @@ import { RoleSidebar } from "@/shared/layouts";
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/core/theme";
 import { LayoutAccessGate } from "@/features/rbac";
+import { AnnouncementNavbarIcon } from "@/features/announcements";
 
 const CoordinatorLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -26,7 +27,10 @@ const CoordinatorLayout: React.FC = () => {
             <span className="font-display font-bold text-foreground text-sm">ARK Coordinator</span>
             <span className="text-[9px] text-accent uppercase tracking-widest">Coordinator Portal</span>
           </div>
-          <ThemeToggle variant="icon" />
+          <div className="flex items-center gap-1.5">
+            <AnnouncementNavbarIcon />
+            <ThemeToggle variant="icon" />
+          </div>
         </div>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <LayoutAccessGate>

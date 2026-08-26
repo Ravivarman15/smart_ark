@@ -17,6 +17,7 @@ import { AccessSyncIndicator } from "@/features/rbac";
 import { PortalSwitcher } from "./PortalSwitcher";
 import { resolveIcon } from "@/shared/icons";
 import { OrgLogo } from "@/features/branding/components/OrgLogo";
+import { AnnouncementNavbarIcon } from "@/features/announcements";
 
 interface Props {
   collapsed: boolean;
@@ -128,18 +129,21 @@ export const RoleSidebar = ({ collapsed, onToggle, onNavigate }: Props) => {
       aria-label="Primary navigation"
     >
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-sidebar-border min-h-[60px]">
-        <OrgLogo className="w-8 h-8 rounded-lg flex-shrink-0" />
-        {!collapsed && brand && (
-          <div className="min-w-0">
-            <span className="font-display font-bold text-foreground text-sm block truncate">
-              {orgTitle}
-            </span>
-            <span className="text-[10px] text-accent uppercase tracking-widest">
-              {brand.subtitle}
-            </span>
-          </div>
-        )}
+      <div className="flex items-center justify-between p-4 border-b border-sidebar-border min-h-[60px]">
+        <div className="flex items-center gap-3 min-w-0">
+          <OrgLogo className="w-8 h-8 rounded-lg flex-shrink-0" />
+          {!collapsed && brand && (
+            <div className="min-w-0">
+              <span className="font-display font-bold text-foreground text-sm block truncate">
+                {orgTitle}
+              </span>
+              <span className="text-[10px] text-accent uppercase tracking-widest">
+                {brand.subtitle}
+              </span>
+            </div>
+          )}
+        </div>
+        {!collapsed && <AnnouncementNavbarIcon className="shrink-0 -mr-1.5" />}
       </div>
 
       {/* Navigation tree */}

@@ -93,6 +93,10 @@ const TeamTasksPage = lazy(() => import("@/features/tasks/pages/TeamTasksPage"))
 const TaskBoardPage = lazy(() => import("@/features/tasks/pages/TaskBoardPage"));
 const TaskWorkloadPage = lazy(() => import("@/features/tasks/pages/WorkloadPage"));
 
+// Announcements module
+const AnnouncementsManagementPage = lazy(() => import("@/features/announcements/pages/AnnouncementsManagementPage"));
+const AnnouncementCreatePage = lazy(() => import("@/features/announcements/pages/AnnouncementCreatePage"));
+
 const ComingSoon = lazy(() => import("@/pages/shared/ComingSoon"));
 const LeaveManagement = lazy(() => import("@/pages/shared/LeaveManagement"));
 
@@ -1296,6 +1300,22 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     action: "tasks.view_all",
     label: "Team Workload",
     layouts: ["coordinator", "teacher"],
+  },
+
+  // ── Announcements ───────────────────────────────────────────────────
+  {
+    path: "announcements",
+    element: <AnnouncementsManagementPage />,
+    submodule: "announcements.manage",
+    action: "announcement.view",
+    label: "Announcement Center",
+  },
+  {
+    path: "announcements/new",
+    element: <AnnouncementCreatePage />,
+    submodule: "announcements.create",
+    action: "announcement.create",
+    label: "Create Announcement",
   },
 
   // ── Catch-alls ───────────────────────────────────────────────────────
