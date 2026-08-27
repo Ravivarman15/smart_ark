@@ -1,7 +1,4 @@
-// ──────────────────────────────────────────────────────────────────────────────
-// SMART ARK ACADEMIC CALENDAR — Calendar Header & Controls
-// ──────────────────────────────────────────────────────────────────────────────
-
+import React, { useState, useMemo } from "react";
 import {
   ChevronLeft,
   ChevronRight,
