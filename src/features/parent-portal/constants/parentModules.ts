@@ -64,7 +64,8 @@ export type ParentModuleId =
   | "profile"
   | "services"
   | "reports"
-  | "settings";
+  | "settings"
+  | "calendar";
 
 /** Sidebar section headings, in render order. */
 export const PARENT_GROUP_ORDER = ["", "Learning", "Fees", "Updates", "More"] as const;
@@ -199,6 +200,15 @@ export const PARENT_MODULES: ParentModuleDef[] = [
     icon: History,
     group: "Updates",
     description: "A dated feed of the child's attendance, fee and exam events in one column.",
+  },
+  {
+    id: "calendar",
+    label: "Academic Calendar",
+    path: "/parent/calendar",
+    icon: CalendarCheck,
+    group: "Updates",
+    requires: "academic_calendar",
+    description: "The institution's academic calendar: holidays, exams, PTMs, assignment due dates and school events for the child.",
   },
   {
     id: "assistant",

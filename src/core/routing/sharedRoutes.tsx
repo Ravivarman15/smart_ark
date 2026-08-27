@@ -97,6 +97,9 @@ const TaskWorkloadPage = lazy(() => import("@/features/tasks/pages/WorkloadPage"
 const AnnouncementsManagementPage = lazy(() => import("@/features/announcements/pages/AnnouncementsManagementPage"));
 const AnnouncementCreatePage = lazy(() => import("@/features/announcements/pages/AnnouncementCreatePage"));
 
+// Academic Calendar module
+const AcademicCalendarPage = lazy(() => import("@/features/calendar/pages/AcademicCalendarPage"));
+
 const ComingSoon = lazy(() => import("@/pages/shared/ComingSoon"));
 const LeaveManagement = lazy(() => import("@/pages/shared/LeaveManagement"));
 
@@ -1316,6 +1319,22 @@ export const SHARED_ROUTES: SharedRouteDef[] = [
     submodule: "announcements.create",
     action: "announcement.create",
     label: "Create Announcement",
+  },
+
+  // ── Academic Calendar ────────────────────────────────────────────────
+  {
+    path: "calendar",
+    element: <AcademicCalendarPage />,
+    submodule: "academic_calendar.view",
+    action: "calendar.view",
+    label: "Academic Calendar",
+  },
+  {
+    path: "calendar/manage",
+    element: <AcademicCalendarPage />,
+    submodule: "academic_calendar.manage",
+    action: "calendar.manage",
+    label: "Manage Calendar Events",
   },
 
   // ── Catch-alls ───────────────────────────────────────────────────────

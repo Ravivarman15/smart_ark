@@ -141,6 +141,14 @@ const announcementPaths = (suffix = ""): Partial<Record<Role, string>> => ({
   teacher: `/teacher/announcements${suffix}`,
 });
 
+// ── calendarPaths() — same Calendar route under every role layout ────────────
+const calendarPaths = (suffix = ""): Partial<Record<Role, string>> => ({
+  admin: `/admin/calendar${suffix}`,
+  coordinator: `/coordinator/calendar${suffix}`,
+  management: `/management/calendar${suffix}`,
+  teacher: `/teacher/calendar${suffix}`,
+});
+
 // ── The navigation tree ─────────────────────────────────────────────────────
 export const NAV_CONFIG: NavGroupConfig[] = [
   // 1. Dashboard — direct link to each role's home (NOT collapsible)
@@ -688,6 +696,20 @@ export const NAV_CONFIG: NavGroupConfig[] = [
     items: [
       ...sub("announcements.manage", "Announcement Center", announcementPaths(""), all, { action: "announcement.view" }),
       ...sub("announcements.create", "Create Announcement", announcementPaths("/new"), adminCoordMgmt, { action: "announcement.create" }),
+    ],
+  },
+
+  // 17. Academic Calendar
+  {
+    key: "academic_calendar",
+    label: "Academic Calendar",
+    icon: "Calendar",
+    module: "academic_calendar",
+    collapsible: true,
+    roles: all,
+    items: [
+      ...sub("academic_calendar.view", "Academic Calendar", calendarPaths(""), all, { action: "calendar.view" }),
+      ...sub("academic_calendar.manage", "Manage Events", calendarPaths("/manage"), adminCoordMgmt, { action: "calendar.manage" }),
     ],
   },
 ];

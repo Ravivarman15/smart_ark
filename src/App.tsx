@@ -62,6 +62,10 @@ const TasksWorkloadPage = lazy(() => import("./features/tasks/pages/WorkloadPage
 const AnnouncementsManagementPage = lazy(() => import("@/features/announcements/pages/AnnouncementsManagementPage"));
 const AnnouncementCreatePage = lazy(() => import("@/features/announcements/pages/AnnouncementCreatePage"));
 
+// Academic Calendar module
+const AcademicCalendarPage = lazy(() => import("@/features/calendar/pages/AcademicCalendarPage"));
+const ParentCalendarPage = lazy(() => import("@/features/parent-portal/pages/ParentCalendarPage"));
+
 const TeacherOverview = lazy(() => import("./pages/coordinator/TeacherOverview"));
 // Academic Allocation module
 const StaffAllocation = lazy(() => import("./pages/management/StaffAllocation"));
@@ -653,6 +657,8 @@ const AppRoutes: React.FC = () => (
         <Route path="notifications" element={<NotificationCenter />} />
         <Route path="announcements" element={<AnnouncementsManagementPage />} />
         <Route path="announcements/new" element={<AnnouncementCreatePage />} />
+        <Route path="calendar" element={<AcademicCalendarPage />} />
+        <Route path="calendar/manage" element={<AcademicCalendarPage />} />
         <Route path="timetable" element={<TimetableView />} />
         <Route path="leave-management" element={<LeaveManagement />} />
         <Route path="teacher-checkins" element={<TeacherCheckins />} />
@@ -810,6 +816,8 @@ const AppRoutes: React.FC = () => (
         <Route path="notifications" element={<NotificationCenter />} />
         <Route path="announcements" element={<AnnouncementsManagementPage />} />
         <Route path="announcements/new" element={<AnnouncementCreatePage />} />
+        <Route path="calendar" element={<AcademicCalendarPage />} />
+        <Route path="calendar/manage" element={<AcademicCalendarPage />} />
         <Route path="leave-management" element={<LeaveManagement />} />
         <Route path="timetable" element={<TimetableView />} />
         {/* Setup module routes — feature-based, management-owned */}
@@ -993,6 +1001,7 @@ const AppRoutes: React.FC = () => (
         <Route path="assistant" element={<ParentAssistantPage />} />
         <Route path="services" element={<ParentServicesPage />} />
         <Route path="reports" element={<ParentReportsPage />} />
+        <Route path="calendar" element={<ParentCalendarPage />} />
         <Route path="settings" element={<ParentSettingsPage />} />
         {/* Unknown /parent/* paths return to the dashboard rather than the
             staff 404, which would look like a broken app to a parent. */}

@@ -45,7 +45,8 @@ export type ModuleId =
   | "reports"
   | "help"
   | "parent_portal"
-  | "announcements";
+  | "announcements"
+  | "academic_calendar";
 
 export interface SubmoduleDef {
   /** Stable id, namespaced under the module. e.g. "settings.change_password". */
@@ -500,6 +501,16 @@ export const MODULE_CATALOG: ModuleDef[] = [
     submodules: [
       { id: "announcements.manage", label: "Announcement Center", route: "/admin/announcements" },
       { id: "announcements.create", label: "Create Announcement", route: "/admin/announcements/new" },
+    ],
+  },
+  {
+    id: "academic_calendar",
+    label: "Academic Calendar",
+    icon: "Calendar",
+    defaultRoles: all,
+    submodules: [
+      { id: "academic_calendar.view", label: "Academic Calendar", route: "/admin/calendar" },
+      { id: "academic_calendar.manage", label: "Manage Events", route: "/admin/calendar/manage" },
     ],
   },
 ];

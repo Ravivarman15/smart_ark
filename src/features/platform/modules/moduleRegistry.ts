@@ -164,6 +164,11 @@ export const MODULE_METADATA: Record<ModuleId, ModuleMetadata> = {
     description:
       "Organization-wide, targeted and scheduled announcements with rich media attachments, multi-portal visibility and read tracking.",
   },
+  academic_calendar: {
+    category: "academics", audience: "customer", dependsOn: [],
+    description:
+      "Centralized academic calendar managing holidays, exams, parent meetings, PTMs, deadlines, special classes, smart reminders, and timeline views.",
+  },
 };
 
 export const AUDIENCE_LABELS: Record<ModuleAudience, string> = {

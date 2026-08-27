@@ -346,6 +346,15 @@ export const ACTION_CATALOG: ActionDef[] = [
   A("announcement.delete",         "Delete announcement",         "delete",   "announcements.manage"),
   A("announcement.manage",         "Manage announcements",        "edit",     "announcements.manage"),
   A("announcement.view_analytics", "View announcement analytics", "export",   "announcements.manage"),
+
+  // ── Academic Calendar ─────────────────────────────────────────────────────
+  A("calendar.view",               "View academic calendar",       "edit",     "academic_calendar.view"),
+  A("calendar.create",             "Create calendar event",        "create",   "academic_calendar.manage"),
+  A("calendar.edit",               "Edit calendar event",          "edit",     "academic_calendar.manage"),
+  A("calendar.delete",             "Delete / cancel event",        "delete",   "academic_calendar.manage"),
+  A("calendar.manage",             "Manage calendar and holidays", "edit",     "academic_calendar.manage"),
+  A("calendar.publish",            "Publish & notify event",       "approve",  "academic_calendar.manage"),
+  A("calendar.export",             "Export calendar / ICS",        "export",   "academic_calendar.view"),
 ];
 
 // ── Convenience lookups ─────────────────────────────────────────────────────
