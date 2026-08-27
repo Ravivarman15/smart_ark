@@ -38,7 +38,7 @@ export class CalendarService extends BaseService {
       .select(`
         *,
         audiences:academic_calendar_audiences(*),
-        creator:created_by(id, full_name, email)
+        creator:created_by(id, name, role)
       `)
       .eq("organization_id", orgId)
       .order("start_at", { ascending: true });
@@ -105,7 +105,7 @@ export class CalendarService extends BaseService {
       .select(`
         *,
         audiences:academic_calendar_audiences(*),
-        creator:created_by(id, full_name, email)
+        creator:created_by(id, name, role)
       `)
       .eq("organization_id", orgId)
       .eq("id", id)

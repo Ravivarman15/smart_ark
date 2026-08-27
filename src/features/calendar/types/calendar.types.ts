@@ -112,8 +112,8 @@ export interface CalendarEvent {
   audiences?: EventAudience[];
   creator?: {
     id?: string;
-    full_name?: string;
-    email?: string;
+    name?: string;
+    role?: string;
   };
 }
 
