@@ -126,6 +126,20 @@ export class CalendarService extends BaseService {
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData?.user?.id;
 
+    // Resolve profileId to satisfy public.profiles(id) FK constraint
+    let profileId: string | null = null;
+    if (userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("organization_id", orgId)
+        .maybeSingle();
+      if (profile?.id) {
+        profileId = profile.id;
+      }
+    }
+
     let startIso: string;
     let endIso: string;
     try {
@@ -159,8 +173,8 @@ export class CalendarService extends BaseService {
       linked_entity_type: input.linked_entity_type || null,
       linked_entity_id: input.linked_entity_id || null,
       linked_metadata: input.linked_metadata || {},
-      created_by: userId,
-      updated_by: userId,
+      created_by: profileId,
+      updated_by: profileId,
     };
 
     const { data: event, error: eventErr } = await supabase
@@ -256,16 +270,41 @@ export class CalendarService extends BaseService {
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData?.user?.id;
 
+    let profileId: string | null = null;
+    if (userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("organization_id", orgId)
+        .maybeSingle();
+      if (profile?.id) {
+        profileId = profile.id;
+      }
+    }
+
     const eventPayload: Record<string, any> = {
       updated_at: new Date().toISOString(),
-      updated_by: userId,
+      updated_by: profileId,
     };
 
     if (input.title !== undefined) eventPayload.title = input.title.trim();
     if (input.description !== undefined) eventPayload.description = input.description?.trim() || null;
     if (input.event_type !== undefined) eventPayload.event_type = input.event_type;
-    if (input.start_at !== undefined) eventPayload.start_at = input.start_at;
-    if (input.end_at !== undefined) eventPayload.end_at = input.end_at;
+    if (input.start_at !== undefined) {
+      try {
+        eventPayload.start_at = new Date(input.start_at).toISOString();
+      } catch {
+        eventPayload.start_at = input.start_at;
+      }
+    }
+    if (input.end_at !== undefined) {
+      try {
+        eventPayload.end_at = new Date(input.end_at).toISOString();
+      } catch {
+        eventPayload.end_at = input.end_at;
+      }
+    }
     if (input.all_day !== undefined) eventPayload.all_day = Boolean(input.all_day);
     if (input.timezone !== undefined) eventPayload.timezone = input.timezone;
     if (input.status !== undefined) eventPayload.status = input.status;
