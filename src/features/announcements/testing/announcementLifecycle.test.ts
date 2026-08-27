@@ -114,4 +114,33 @@ describe("Organization Timezone Behavior (Onam Scenario)", () => {
     expect(orgAStatus).toBe("expired");
     expect(orgBStatus).toBe("live");
   });
+
+  it("handles exact 3:00 PM and 7:00 AM expiry accurately", () => {
+    // Announcement set to expire at 3:00 PM (15:00) on 2026-10-15
+    const publishAt = "2026-10-15T09:00:00.000";
+    const expire3pm = "2026-10-15T15:00:00.000";
+
+    // 2:59 PM (14:59) -> Still LIVE
+    const at259pm = new Date("2026-10-15T14:59:59.000").getTime();
+    expect(deriveAnnouncementStatus("live", publishAt, expire3pm, at259pm)).toBe("live");
+
+    // 3:00 PM (15:00) -> EXPIRED
+    const at300pm = new Date("2026-10-15T15:00:00.000").getTime();
+    expect(deriveAnnouncementStatus("live", publishAt, expire3pm, at300pm)).toBe("expired");
+
+    // 3:01 PM (15:01) -> EXPIRED
+    const at301pm = new Date("2026-10-15T15:01:00.000").getTime();
+    expect(deriveAnnouncementStatus("live", publishAt, expire3pm, at301pm)).toBe("expired");
+
+    // Announcement set to expire at 7:00 AM (07:00) on 2026-10-16
+    const expire7am = "2026-10-16T07:00:00.000";
+
+    // 6:59 AM -> LIVE
+    const at659am = new Date("2026-10-16T06:59:59.000").getTime();
+    expect(deriveAnnouncementStatus("live", publishAt, expire7am, at659am)).toBe("live");
+
+    // 7:00 AM -> EXPIRED
+    const at700am = new Date("2026-10-16T07:00:00.000").getTime();
+    expect(deriveAnnouncementStatus("live", publishAt, expire7am, at700am)).toBe("expired");
+  });
 });

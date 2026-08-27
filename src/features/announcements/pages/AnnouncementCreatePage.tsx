@@ -33,12 +33,17 @@ import { announcementsService } from "../services/announcements.service";
 import { announcementAudienceService } from "../services/announcementAudience.service";
 import type {
   AnnouncementCategory,
+  AnnouncementContentType,
   AnnouncementPriority,
+  AnnouncementTimetableData,
   AudienceTargetType,
   CreateAnnouncementInput,
   TargetScope,
 } from "../types/announcements.types";
 import { AnnouncementPreview } from "../components/AnnouncementPreview";
+import { TimetableBuilder } from "../components/timetable/TimetableBuilder";
+import { DateTime12hPicker } from "../components/DateTime12hPicker";
+import { getTemplateDefaults } from "../utils/timetableParser";
 
 const CATEGORIES: { value: AnnouncementCategory; label: string; icon: string }[] = [
   { value: "general", label: "General Notice", icon: "📢" },
@@ -104,6 +109,8 @@ export const AnnouncementCreatePage: React.FC = () => {
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<AnnouncementCategory>("general");
   const [priority, setPriority] = useState<AnnouncementPriority>("normal");
+  const [contentType, setContentType] = useState<AnnouncementContentType>("text");
+  const [timetableData, setTimetableData] = useState<AnnouncementTimetableData | null>(null);
 
   // Acknowledgement
   const [requiresAck, setRequiresAck] = useState(false);
@@ -130,6 +137,19 @@ export const AnnouncementCreatePage: React.FC = () => {
   // Active Tab
   const [activeStep, setActiveStep] = useState<"edit" | "preview">("edit");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // When switching to timetable content type, initialize template defaults if not set
+  const handleContentTypeChange = (type: AnnouncementContentType) => {
+    setContentType(type);
+    if (type === "timetable" || type === "mixed") {
+      if (!timetableData) {
+        setTimetableData(getTemplateDefaults("exam"));
+      }
+      if (category === "general") {
+        setCategory("exam");
+      }
+    }
+  };
 
   // Handle File Upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,28 +185,26 @@ export const AnnouncementCreatePage: React.FC = () => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Audience Helpers
-  const addAudienceRule = (target_type: AudienceTargetType, target_id?: string, target_name?: string) => {
-    if (target_type === "all") {
-      setAudiences([{ target_type: "all", target_name: "Entire Organization" }]);
-      setTargetScope("all");
-      return;
-    }
-
-    setTargetScope("custom");
+  // Toggle Audience Selection
+  const handleToggleAudience = (type: AudienceTargetType, id: string | null, name: string) => {
     setAudiences((prev) => {
-      const filtered = prev.filter((a) => a.target_type !== "all");
-      if (filtered.some((a) => a.target_type === target_type && a.target_id === target_id)) {
-        return filtered;
+      const exists = prev.some((a) => a.target_type === type && a.target_id === id);
+      let next: typeof prev;
+      if (exists) {
+        next = prev.filter((a) => !(a.target_type === type && a.target_id === id));
+      } else {
+        next = [...prev, { target_type: type, target_id: id, target_name: name }];
       }
-      return [...filtered, { target_type, target_id: target_id || null, target_name: target_name || null }];
-    });
-  };
 
-  const removeAudienceRule = (index: number) => {
-    setAudiences((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      if (next.length === 0) {
+      // Update targetScope based on selection
+      if (next.length > 0) {
+        if (targetScope === "all") {
+          if (type === "standard") setTargetScope("standards");
+          else if (type === "batch") setTargetScope("batches");
+          else if (type === "role") setTargetScope("roles");
+          else setTargetScope("custom");
+        }
+      } else {
         setTargetScope("all");
       }
       return next;
@@ -195,12 +213,16 @@ export const AnnouncementCreatePage: React.FC = () => {
 
   // Prepare Payload
   const getPayload = (saveAsDraft: boolean): CreateAnnouncementInput => {
+    const finalContent = content.trim() || (timetableData ? "Please review the schedule and timetable details below." : "");
+
     return {
       title: title.trim(),
       summary: summary.trim() || undefined,
-      content: content.trim(),
+      content: finalContent,
       category,
       priority,
+      content_type: contentType,
+      timetable_data: (contentType === "timetable" || contentType === "mixed") ? timetableData : null,
       publish_now: !saveAsDraft && publishMode === "now",
       publish_at: !saveAsDraft && publishMode === "schedule" ? publishAt : undefined,
       expires_at: expiresAt || undefined,
@@ -220,8 +242,9 @@ export const AnnouncementCreatePage: React.FC = () => {
       toast.error("Please provide an announcement title");
       return;
     }
-    if (!content.trim()) {
-      toast.error("Please enter the announcement content");
+    const finalContent = content.trim() || (timetableData ? "Please review the schedule and timetable details below." : "");
+    if (!finalContent) {
+      toast.error("Please enter the announcement content or add timetable entries");
       return;
     }
 
@@ -309,16 +332,70 @@ export const AnnouncementCreatePage: React.FC = () => {
         <AnnouncementPreview data={getPayload(false)} />
       ) : (
         <div className="space-y-6">
-          {/* Section 1: Basic Information */}
+          {/* Section 1: Basic Information & Content Type */}
           <div className="p-5 rounded-2xl border border-border bg-card space-y-4 shadow-xs">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
                 1
               </span>
-              <span>Basic Information & Content</span>
+              <span>Content Format & Basic Details</span>
             </h3>
 
-            <div className="space-y-3">
+            {/* Content Type Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Select Announcement Experience
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {(
+                  [
+                    {
+                      id: "text",
+                      title: "Standard Notice",
+                      desc: "Plain or formatted announcement text",
+                      icon: "📢",
+                    },
+                    {
+                      id: "timetable",
+                      title: "Timetable / Exam",
+                      desc: "Structured exam, class, or event schedule",
+                      icon: "📅",
+                    },
+                    {
+                      id: "mixed",
+                      title: "Timetable + Notice",
+                      desc: "Notice text with embedded timetable",
+                      icon: "✨",
+                    },
+                    {
+                      id: "document",
+                      title: "Official Circular",
+                      desc: "Notice with downloadable circulars/PDFs",
+                      icon: "📄",
+                    },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => handleContentTypeChange(t.id as AnnouncementContentType)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      contentType === t.id
+                        ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                        : "border-border bg-background hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="text-xl mb-1">{t.icon}</div>
+                    <div className="text-xs font-bold text-foreground">{t.title}</div>
+                    <div className="text-[10px] text-muted-foreground leading-tight mt-0.5 line-clamp-2">
+                      {t.desc}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1">
                   Announcement Title <span className="text-destructive">*</span>
@@ -407,13 +484,18 @@ export const AnnouncementCreatePage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1">
-                  Full Announcement Content <span className="text-destructive">*</span>
+                  Full Announcement Text / Instructions{" "}
+                  {contentType === "text" && <span className="text-destructive">*</span>}
                 </label>
                 <textarea
-                  rows={6}
+                  rows={4}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Write the complete announcement text here..."
+                  placeholder={
+                    contentType === "timetable"
+                      ? "Optional instructions or notes accompanying the timetable..."
+                      : "Write the complete announcement text here..."
+                  }
                   className="w-full px-3.5 py-2.5 text-xs md:text-sm rounded-xl bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground leading-relaxed resize-y"
                 />
               </div>
@@ -447,12 +529,29 @@ export const AnnouncementCreatePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 2: Media & Attachments */}
+          {/* Section 2: Structured Timetable Builder (when timetable or mixed selected) */}
+          {(contentType === "timetable" || contentType === "mixed") && (
+            <div className="p-5 rounded-2xl border border-border bg-card space-y-4 shadow-xs">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
+                  2
+                </span>
+                <span>Structured Timetable & Schedule</span>
+              </h3>
+
+              <TimetableBuilder
+                value={timetableData}
+                onChange={(updated) => setTimetableData(updated)}
+              />
+            </div>
+          )}
+
+          {/* Section 3: Media & Attachments */}
           <div className="p-5 rounded-2xl border border-border bg-card space-y-4 shadow-xs">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
-                  2
+                  {(contentType === "timetable" || contentType === "mixed") ? 3 : 2}
                 </span>
                 <span>Media & Document Attachments</span>
               </h3>
@@ -744,36 +843,26 @@ export const AnnouncementCreatePage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Schedule & Expiry Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Schedule & Expiry Inputs with Date and 12-Hour Time */}
+              <div className="space-y-4 pt-1">
                 {publishMode === "schedule" && (
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
-                      Publish Date & Time <span className="text-destructive">*</span>
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={publishAt}
-                      onChange={(e) => setPublishAt(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
-                    />
-                  </div>
+                  <DateTime12hPicker
+                    label="Publish Date & Time"
+                    value={publishAt}
+                    onChange={(val) => setPublishAt(val)}
+                    required
+                    helperText="Specify the exact date and time (e.g. 7:00 AM or 3:00 PM) when the announcement becomes active."
+                  />
                 )}
 
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
-                    Expiration Date & Time (Optional)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={expiresAt}
-                    onChange={(e) => setExpiresAt(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Automatically hides from active portal feeds when reached
-                  </p>
-                </div>
+                <DateTime12hPicker
+                  label="Expiration Date & Time"
+                  value={expiresAt}
+                  onChange={(val) => setExpiresAt(val)}
+                  isExpiry
+                  minDate={publishAt ? publishAt.split("T")[0] : undefined}
+                  helperText="Choose exact date and time (e.g. Today at 3:00 PM, Tomorrow at 7:00 AM, or 11:59 PM). The announcement will automatically stop appearing as active on that exact moment."
+                />
               </div>
 
               {/* Timezone */}

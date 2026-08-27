@@ -346,6 +346,12 @@ export const AnnouncementsManagementPage: React.FC = () => {
                           <span>Expires: {expiryDate}</span>
                         </span>
                       )}
+                      {item.timetable_data?.rows && item.timetable_data.rows.length > 0 && (
+                        <span className="flex items-center gap-1 text-primary font-medium bg-primary/10 px-2 py-0.5 rounded">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>{item.timetable_data.rows.length} Timetable Slots</span>
+                        </span>
+                      )}
                       {hasDocs && (
                         <span className="flex items-center gap-1 text-primary font-medium">
                           <FileText className="w-3.5 h-3.5" />

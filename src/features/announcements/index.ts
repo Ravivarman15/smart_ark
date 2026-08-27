@@ -13,5 +13,8 @@ export * from "./components/AnnouncementNavbarIcon";
 export * from "./components/AnnouncementCenterModal";
 export * from "./components/AnnouncementDetailView";
 export * from "./components/AnnouncementPreview";
+export * from "./components/timetable/TimetableBuilder";
+export * from "./components/timetable/TimetableViewer";
+export * from "./utils/timetableParser";
 export * from "./pages/AnnouncementsManagementPage";
 export * from "./pages/AnnouncementCreatePage";

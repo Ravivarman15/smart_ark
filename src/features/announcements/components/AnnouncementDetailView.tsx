@@ -21,6 +21,7 @@ import type { Announcement, AnnouncementAttachment } from "../types/announcement
 import { CategoryBadge, PriorityBadge } from "./AnnouncementBadge";
 import { announcementsService } from "../services/announcements.service";
 import { AnnouncementAudienceService } from "../services/announcementAudience.service";
+import { TimetableViewer } from "./timetable/TimetableViewer";
 
 interface Props {
   announcement: Announcement;
@@ -121,9 +122,21 @@ export const AnnouncementDetailView: React.FC<Props> = ({
       </div>
 
       {/* Main Content Body */}
-      <div className="prose dark:prose-invert max-w-none text-foreground text-sm md:text-base whitespace-pre-wrap leading-relaxed">
-        {announcement.content}
-      </div>
+      {announcement.content && (
+        <div className="prose dark:prose-invert max-w-none text-foreground text-sm md:text-base whitespace-pre-wrap leading-relaxed">
+          {announcement.content}
+        </div>
+      )}
+
+      {/* Embedded Structured Timetable */}
+      {announcement.timetable_data && announcement.timetable_data.rows && announcement.timetable_data.rows.length > 0 && (
+        <div className="pt-2">
+          <TimetableViewer
+            timetable={announcement.timetable_data}
+            announcementTitle={announcement.title}
+          />
+        </div>
+      )}
 
       {/* Image Gallery */}
       {images.length > 0 && (

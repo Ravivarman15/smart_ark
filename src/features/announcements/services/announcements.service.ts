@@ -100,6 +100,9 @@ export class AnnouncementsService extends BaseService {
     if (filter.priority && filter.priority !== "all") {
       query = query.eq("priority", filter.priority);
     }
+    if (filter.content_type && filter.content_type !== "all") {
+      query = query.eq("content_type", filter.content_type);
+    }
 
     const { data, error } = await query;
     if (error) {
@@ -229,6 +232,8 @@ export class AnnouncementsService extends BaseService {
         content: input.content.trim(),
         category: input.category,
         priority: input.priority || "normal",
+        content_type: input.content_type || (input.timetable_data ? "timetable" : "text"),
+        timetable_data: input.timetable_data || null,
         status: initialStatus,
         publish_at: publishAt,
         expires_at: input.expires_at || null,
@@ -296,7 +301,7 @@ export class AnnouncementsService extends BaseService {
         : initialStatus === "live"
         ? "ANNOUNCEMENT_PUBLISHED"
         : "ANNOUNCEMENT_CREATED",
-      { title: created.title, status: initialStatus }
+      { title: created.title, status: initialStatus, content_type: created.content_type }
     );
 
     return (await this.getById(created.id)) || created;
@@ -317,6 +322,8 @@ export class AnnouncementsService extends BaseService {
     if (input.content !== undefined) updatePayload.content = input.content.trim();
     if (input.category !== undefined) updatePayload.category = input.category;
     if (input.priority !== undefined) updatePayload.priority = input.priority;
+    if (input.content_type !== undefined) updatePayload.content_type = input.content_type;
+    if (input.timetable_data !== undefined) updatePayload.timetable_data = input.timetable_data;
     if (input.status !== undefined) updatePayload.status = input.status;
     if (input.publish_at !== undefined) updatePayload.publish_at = input.publish_at;
     if (input.expires_at !== undefined) updatePayload.expires_at = input.expires_at;

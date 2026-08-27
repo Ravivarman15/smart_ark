@@ -41,6 +41,7 @@ export const MODULE_DEPENDS_ON: Record<string, string[]> = {
   // The parent-facing portal. Sold per plan; depends on Students because every
   // page in it is a view of one child's record.
   parent_portal: ["student"],
+  announcements: [],
 };
 
 /** Core modules — never revocable, at any layer. */

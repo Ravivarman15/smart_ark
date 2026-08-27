@@ -46,6 +46,45 @@ export type AudienceTargetType =
 
 export type DeliveryChannel = "in_app" | "email" | "whatsapp";
 
+export type AnnouncementContentType =
+  | "text"
+  | "rich_content"
+  | "timetable"
+  | "document"
+  | "media"
+  | "mixed";
+
+export interface TimetableColumn {
+  key: string;
+  label: string;
+  type?: "date" | "time" | "text" | "number";
+  required?: boolean;
+  width?: string;
+}
+
+export interface TimetableRow {
+  id: string;
+  date?: string;         // YYYY-MM-DD
+  day?: string;          // Monday, Tuesday, etc.
+  start_time?: string;   // e.g. "09:00 AM" or "09:00"
+  end_time?: string;     // e.g. "12:00 PM" or "12:00"
+  subject?: string;      // e.g. "Mathematics", "Science"
+  teacher?: string;      // e.g. "Dr. Sarah"
+  room?: string;         // e.g. "Exam Hall A", "Room 101"
+  description?: string;  // e.g. "Mid-term Paper I"
+  notes?: string;        // e.g. "Calculators allowed"
+  [key: string]: any;    // Custom column support
+}
+
+export type TimetableTemplateType = "exam" | "weekly" | "event" | "custom";
+
+export interface AnnouncementTimetableData {
+  title?: string;
+  template?: TimetableTemplateType;
+  columns: TimetableColumn[];
+  rows: TimetableRow[];
+}
+
 export interface AnnouncementAttachment {
   id?: string;
   organization_id?: string;
@@ -93,6 +132,8 @@ export interface Announcement {
   timezone: string;
   target_scope: TargetScope;
   channels: DeliveryChannel[];
+  content_type?: AnnouncementContentType;
+  timetable_data?: AnnouncementTimetableData | null;
   requires_acknowledgement: boolean;
   acknowledgement_prompt?: string | null;
   created_by?: string | null;
@@ -117,6 +158,8 @@ export interface CreateAnnouncementInput {
   content: string;
   category: AnnouncementCategory;
   priority: AnnouncementPriority;
+  content_type?: AnnouncementContentType;
+  timetable_data?: AnnouncementTimetableData | null;
   publish_now?: boolean;
   publish_at?: string;
   expires_at?: string;
@@ -149,6 +192,7 @@ export interface AnnouncementFilter {
   status?: AnnouncementStatus | "all";
   category?: AnnouncementCategory | "all";
   priority?: AnnouncementPriority | "all";
+  content_type?: AnnouncementContentType | "all";
   search?: string;
   onlyUnread?: boolean;
 }
