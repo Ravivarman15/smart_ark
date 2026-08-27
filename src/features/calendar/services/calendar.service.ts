@@ -18,6 +18,15 @@ import type {
 import { announcementsService } from "@/features/announcements/services/announcements.service";
 
 export class CalendarService extends BaseService {
+  private handleError(message: string, error: any): never {
+    console.error(`[CalendarService] ${message}:`, error);
+    const detail =
+      error?.message ||
+      error?.error_description ||
+      (typeof error === "string" ? error : JSON.stringify(error));
+    throw new Error(`${message}: ${detail}`);
+  }
+
   /**
    * List calendar events scoped strictly to the current organization.
    */
@@ -117,14 +126,27 @@ export class CalendarService extends BaseService {
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData?.user?.id;
 
+    let startIso: string;
+    let endIso: string;
+    try {
+      startIso = new Date(input.start_at).toISOString();
+    } catch {
+      startIso = input.start_at;
+    }
+    try {
+      endIso = new Date(input.end_at).toISOString();
+    } catch {
+      endIso = input.end_at;
+    }
+
     // 1. Insert main event row
     const eventPayload = {
       organization_id: orgId,
       title: input.title.trim(),
       description: input.description?.trim() || null,
       event_type: input.event_type,
-      start_at: input.start_at,
-      end_at: input.end_at,
+      start_at: startIso,
+      end_at: endIso,
       all_day: Boolean(input.all_day),
       timezone: input.timezone || "Asia/Kolkata",
       status: input.status || "scheduled",

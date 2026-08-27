@@ -198,14 +198,33 @@ export function validateMappedCalendarRows(
       eventType = CATEGORY_MAP[normType] || "school_event";
     }
 
-    const startDateStr = mapped["start_date"] || format(new Date(), "yyyy-MM-dd");
-    const startTimeStr = mapped["start_time"] || (eventType === "holiday" ? "00:00:00" : "09:00:00");
-    const endDateStr = mapped["end_date"] || startDateStr;
-    const endTimeStr = mapped["end_time"] || (eventType === "holiday" ? "23:59:59" : "10:30:00");
+    const normalizeTimeStr = (rawTime: string, defaultTime: string) => {
+      if (!rawTime) return defaultTime;
+      const clean = rawTime.trim();
+      const parts = clean.split(":");
+      if (parts.length === 1) {
+        return `${parts[0].padStart(2, "0")}:00:00`;
+      }
+      if (parts.length === 2) {
+        return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}:00`;
+      }
+      return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}:${parts[2].padStart(2, "0")}`;
+    };
 
-    let allDay = eventType === "holiday" || eventType === "school_closure";
-    let startAt = `${startDateStr}T${startTimeStr.includes(":") ? startTimeStr : startTimeStr + ":00"}`;
-    let endAt = `${endDateStr}T${endTimeStr.includes(":") ? endTimeStr : endTimeStr + ":00"}`;
+    const startDateStr = mapped["start_date"] || format(new Date(), "yyyy-MM-dd");
+    const startTimeStr = normalizeTimeStr(
+      mapped["start_time"] || "",
+      eventType === "holiday" ? "00:00:00" : "09:00:00"
+    );
+    const endDateStr = mapped["end_date"] || startDateStr;
+    const endTimeStr = normalizeTimeStr(
+      mapped["end_time"] || "",
+      eventType === "holiday" ? "23:59:59" : "10:30:00"
+    );
+
+    const allDay = eventType === "holiday" || eventType === "school_closure";
+    const startAt = `${startDateStr}T${startTimeStr}`;
+    const endAt = `${endDateStr}T${endTimeStr}`;
 
     results.push({
       title,
