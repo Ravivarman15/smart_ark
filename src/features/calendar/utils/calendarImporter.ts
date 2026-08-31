@@ -211,20 +211,90 @@ export function validateMappedCalendarRows(
       return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}:${parts[2].padStart(2, "0")}`;
     };
 
-    const startDateStr = mapped["start_date"] || format(new Date(), "yyyy-MM-dd");
-    const startTimeStr = normalizeTimeStr(
-      mapped["start_time"] || "",
-      eventType === "holiday" ? "00:00:00" : "09:00:00"
-    );
-    const endDateStr = mapped["end_date"] || startDateStr;
-    const endTimeStr = normalizeTimeStr(
-      mapped["end_time"] || "",
-      eventType === "holiday" ? "23:59:59" : "10:30:00"
+    // Robust date & time resolver
+    const resolveDateTime = (
+      rawDate: string | undefined,
+      rawTime: string | undefined,
+      fallbackDate: string,
+      defaultTime: string
+    ): { isoString: string; dateOnly: string } => {
+      let datePart = "";
+      let timePart = "";
+
+      const cleanDate = (rawDate || "").trim();
+      const cleanTime = (rawTime || "").trim();
+
+      // Check if cleanDate is already a full ISO / DateTime string (e.g. "2026-09-01T15:30:00" or "2026-09-01 15:30")
+      if (cleanDate.includes("T")) {
+        const [d, t] = cleanDate.split("T");
+        datePart = d;
+        timePart = t ? t.split("+")[0].split("Z")[0] : "";
+      } else if (cleanDate.includes(" ") && !cleanDate.includes(",")) {
+        const [d, ...rest] = cleanDate.split(/\s+/);
+        datePart = d;
+        timePart = rest.join(" ");
+      } else {
+        datePart = cleanDate;
+      }
+
+      // If datePart is missing or empty, use fallback
+      if (!datePart) {
+        datePart = fallbackDate;
+      }
+
+      // Normalize date format if possible
+      let parsedDate: Date | null = null;
+      try {
+        const testD = new Date(datePart);
+        if (isValid(testD)) {
+          parsedDate = testD;
+          datePart = format(testD, "yyyy-MM-dd");
+        }
+      } catch {
+        // keep datePart as is
+      }
+
+      // If user supplied explicit rawTime, it takes precedence
+      if (cleanTime) {
+        timePart = cleanTime;
+      }
+
+      if (!timePart) {
+        timePart = defaultTime;
+      }
+
+      const finalTime = normalizeTimeStr(timePart, defaultTime);
+      const isoCombined = `${datePart}T${finalTime}`;
+
+      return { isoString: isoCombined, dateOnly: datePart };
+    };
+
+    const fallbackToday = format(new Date(), "yyyy-MM-dd");
+    const defaultStartTime = eventType === "holiday" ? "00:00:00" : "09:00:00";
+    const defaultEndTime = eventType === "holiday" ? "23:59:59" : "10:30:00";
+
+    const startResolved = resolveDateTime(
+      mapped["start_date"],
+      mapped["start_time"],
+      fallbackToday,
+      defaultStartTime
     );
 
-    const allDay = eventType === "holiday" || eventType === "school_closure";
-    const startAt = `${startDateStr}T${startTimeStr}`;
-    const endAt = `${endDateStr}T${endTimeStr}`;
+    const endResolved = resolveDateTime(
+      mapped["end_date"] || startResolved.dateOnly,
+      mapped["end_time"],
+      startResolved.dateOnly,
+      defaultEndTime
+    );
+
+    const allDay =
+      eventType === "holiday" ||
+      eventType === "school_closure" ||
+      mapped["all_day"] === "true" ||
+      mapped["all_day"] === "1";
+
+    const startAt = startResolved.isoString;
+    const endAt = endResolved.isoString;
 
     results.push({
       title,
