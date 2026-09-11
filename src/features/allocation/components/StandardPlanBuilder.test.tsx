@@ -223,3 +223,52 @@ describe("optional fields", () => {
     expect(screen.queryByText(/Choose .* first/)).toBeNull();
   });
 });
+
+describe("multi-subject selection and test mode", () => {
+  it("allows selecting multiple subjects for a single standard", () => {
+    render(<Harness />);
+    addStandard("8th STD");
+    const card = cardFor("8th STD");
+
+    const maths = within(card).getByText("Mathematics - 8th STD");
+    const science = within(card).getByText("Science - 8th STD");
+
+    // Select Mathematics
+    fireEvent.click(maths);
+    expect(maths.closest("button")?.className).toContain("bg-primary");
+
+    // Select Science in addition (multi-select)
+    fireEvent.click(science);
+    expect(maths.closest("button")?.className).toContain("bg-primary");
+    expect(science.closest("button")?.className).toContain("bg-primary");
+    expect(within(card).getByText("2 subjects")).toBeTruthy();
+
+    // Deselect Mathematics
+    fireEvent.click(maths);
+    expect(maths.closest("button")?.className).not.toContain("bg-primary");
+    expect(science.closest("button")?.className).toContain("bg-primary");
+    expect(within(card).queryByText("2 subjects")).toBeNull();
+  });
+
+  it("switches to Test mode, asks for test name and hides subjects", () => {
+    render(<Harness />);
+    addStandard("8th STD");
+    const card = cardFor("8th STD");
+
+    // Click 📝 Test
+    const testButton = within(card).getByText(/Test/);
+    fireEvent.click(testButton);
+
+    // Test badge and input should appear
+    expect(within(card).getByPlaceholderText("e.g. Unit Test 2 — Maths")).toBeTruthy();
+    expect(within(card).getByText(/Enter a test name/)).toBeTruthy();
+
+    // Subject chips should be hidden in test mode
+    expect(within(card).queryByText("Mathematics - 8th STD")).toBeNull();
+
+    // Type a test name
+    const input = within(card).getByPlaceholderText("e.g. Unit Test 2 — Maths");
+    fireEvent.change(input, { target: { value: "Midterm Physics Test" } });
+    expect(within(card).queryByText(/Enter a test name/)).toBeNull();
+  });
+});

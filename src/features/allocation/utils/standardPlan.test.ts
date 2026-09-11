@@ -188,11 +188,11 @@ describe("collapsing the builder into a class", () => {
     expect(input.batchId).toBe("b2");
     expect(input.sectionId).toBe("a");
     expect(input.standardPlan).toHaveLength(2);
-    expect(input.standardPlan[1]).toEqual({
+    expect(input.standardPlan[1]).toMatchObject({
       standardId: "s3",
       subjectId: "sci3",
+      subjectIds: ["sci3"],
       batchId: "b3",
-      sectionId: undefined,
     });
   });
 

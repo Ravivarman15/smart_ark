@@ -10,6 +10,7 @@ import {
   ALL_BATCHES,
   batchesForStandard,
   draftMissingLabel,
+  draftSubjectIds,
   firstIncompleteDraft,
   isDraftComplete,
   newDraft,
@@ -192,11 +193,16 @@ const PlanCard: React.FC<CardProps> = ({
   onPatch,
   onRemove,
 }) => {
+  const selectedSubjectIds = useMemo(
+    () => draftSubjectIds(draft),
+    [draft.subjectIds, draft.subjectId],
+  );
+
   /** Toggle a subject in/out of the multi-select. */
   const toggleSubject = (id: string) => {
-    const next = draft.subjectIds.includes(id)
-      ? draft.subjectIds.filter((x) => x !== id)
-      : [...draft.subjectIds, id];
+    const next = selectedSubjectIds.includes(id)
+      ? selectedSubjectIds.filter((x) => x !== id)
+      : [...selectedSubjectIds, id];
     onPatch({
       subjectIds: next,
       // Keep the deprecated scalar in sync for anything that still reads it.
@@ -239,9 +245,9 @@ const PlanCard: React.FC<CardProps> = ({
               test
             </Badge>
           )}
-          {draft.subjectIds.length > 1 && !draft.isTest && (
+          {selectedSubjectIds.length > 1 && !draft.isTest && (
             <Badge variant="secondary" className="text-[9px]">
-              {draft.subjectIds.length} subjects
+              {selectedSubjectIds.length} subjects
             </Badge>
           )}
         </div>
@@ -258,18 +264,21 @@ const PlanCard: React.FC<CardProps> = ({
       </div>
 
       <div className="mt-2 space-y-2.5">
-        {/* ── Test toggle ──────────────────────────────────────────────────
-            Always shown at the top. Mutually exclusive with subjects. */}
-        <ChipField label="Type">
-          <Chip on={draft.isTest} onClick={toggleTest}>
+        {/* ── Mode Selection: Subjects vs Test ────────────────────────── */}
+        <ChipField label="Class type">
+          <Chip
+            on={!draft.isTest}
+            onClick={() => draft.isTest && onPatch({ isTest: false, testName: "" })}
+          >
+            Subjects
+          </Chip>
+          <Chip
+            on={!!draft.isTest}
+            onClick={toggleTest}
+          >
             <ClipboardEdit className="h-3 w-3 mr-1" />
             📝 Test
           </Chip>
-          {!draft.isTest && (
-            <span className="text-[10px] text-muted-foreground ml-1">
-              or select subjects below
-            </span>
-          )}
         </ChipField>
 
         {/* ── Test name input (only when test mode is active) ─────────── */}
@@ -277,13 +286,13 @@ const PlanCard: React.FC<CardProps> = ({
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Test name</Label>
             <Input
-              value={draft.testName}
+              value={draft.testName ?? ""}
               onChange={(e) => onPatch({ testName: e.target.value })}
               placeholder="e.g. Unit Test 2 — Maths"
               className="h-8 text-sm"
               autoFocus
             />
-            {!draft.testName && (
+            {!draft.testName?.trim() && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
                 Enter a test name to continue.
               </p>
@@ -293,7 +302,7 @@ const PlanCard: React.FC<CardProps> = ({
 
         {/* ── Subject chips (hidden when in test mode) ────────────────── */}
         {!draft.isTest && (
-          <ChipField label="Subject" hint={`for ${label} — select one or more`}>
+          <ChipField label="Subject" hint={`for ${label} (select one or more)`}>
             {subjects.length === 0 ? (
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
                 No subjects for {label}. Add them in Setup → Manage Subjects.
@@ -302,7 +311,7 @@ const PlanCard: React.FC<CardProps> = ({
               subjects.map((s) => (
                 <Chip
                   key={s.id}
-                  on={draft.subjectIds.includes(s.id)}
+                  on={selectedSubjectIds.includes(s.id)}
                   onClick={() => toggleSubject(s.id)}
                 >
                   {s.name}
@@ -363,7 +372,7 @@ const PlanCard: React.FC<CardProps> = ({
       {missingLabel && (
         <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" />
-          Choose {missingLabel} to continue
+          Select {missingLabel} to continue
         </p>
       )}
     </div>

@@ -93,6 +93,18 @@ export interface DraftOptions {
   hasBatches: boolean;
 }
 
+/** Safely extract subject IDs from a draft, falling back to scalar subjectId for backward compat. */
+export const draftSubjectIds = (d: Partial<PlanDraft> | null | undefined): string[] => {
+  if (!d) return [];
+  if (Array.isArray(d.subjectIds) && d.subjectIds.length > 0) {
+    return d.subjectIds.filter(Boolean);
+  }
+  if (d.subjectId) {
+    return [d.subjectId];
+  }
+  return [];
+};
+
 /**
  * Is this standard fully specified?
  *
@@ -111,11 +123,12 @@ export interface DraftOptions {
  */
 export const isDraftComplete = (d: PlanDraft, o: DraftOptions): boolean => {
   // Test mode: only needs a name.
-  if (d.isTest) return !!d.testName;
+  if (d.isTest) return !!d.testName?.trim();
   // No subjects in Setup → nothing to ask.
   if (!o.hasSubjects) return true;
   // Need at least one subject selected.
-  if (d.subjectIds.length === 0) return false;
+  const ids = draftSubjectIds(d);
+  if (ids.length === 0) return false;
   return !o.hasBatches || !!d.batchId;
 };
 
@@ -141,9 +154,10 @@ export const isPlanComplete = (
  * What is the draft missing? Used for actionable error messages.
  */
 export const draftMissingLabel = (d: PlanDraft, o: DraftOptions): string | null => {
-  if (d.isTest && !d.testName) return "a test name";
-  if (!d.isTest && o.hasSubjects && d.subjectIds.length === 0) return "a subject";
-  if (!d.isTest && d.subjectIds.length > 0 && o.hasBatches && !d.batchId) return "a batch";
+  if (d.isTest && !d.testName?.trim()) return "a test name";
+  const ids = draftSubjectIds(d);
+  if (!d.isTest && o.hasSubjects && ids.length === 0) return "a subject";
+  if (!d.isTest && ids.length > 0 && o.hasBatches && !d.batchId) return "a batch";
   return null;
 };
 
@@ -166,19 +180,22 @@ export const draftsToInput = (
   standardPlan: ClassStandardPlanEntry[];
 } => {
   const plan: ClassStandardPlanEntry[] = drafts
-    .filter((d) => d.standardId)
-    .map((d) => ({
-      standardId: d.standardId,
-      // Backward compat scalar: first subject, or undefined for tests.
-      subjectId: d.isTest ? undefined : d.subjectIds[0] || undefined,
-      subjectIds: d.isTest ? [] : d.subjectIds.filter(Boolean),
-      isTest: d.isTest || undefined,
-      testName: d.isTest ? d.testName || undefined : undefined,
-      // The sentinel never leaves the form. Downstream, "no batch" already
-      // means the whole standard, so the two agree.
-      batchId: d.batchId && d.batchId !== ALL_BATCHES ? d.batchId : undefined,
-      sectionId: d.sectionId || undefined,
-    }));
+    .filter((d) => d && d.standardId)
+    .map((d) => {
+      const subjectIds = draftSubjectIds(d);
+      return {
+        standardId: d.standardId,
+        // Backward compat scalar: first subject, or undefined for tests.
+        subjectId: d.isTest ? undefined : subjectIds[0] || undefined,
+        subjectIds: d.isTest ? [] : subjectIds,
+        isTest: d.isTest || undefined,
+        testName: d.isTest ? d.testName?.trim() || undefined : undefined,
+        // The sentinel never leaves the form. Downstream, "no batch" already
+        // means the whole standard, so the two agree.
+        batchId: d.batchId && d.batchId !== ALL_BATCHES ? d.batchId : undefined,
+        sectionId: d.sectionId || undefined,
+      };
+    });
   const primary = plan[0];
   return {
     standardIds: plan.map((e) => e.standardId),
@@ -211,9 +228,10 @@ export const batchByStandard = (
  */
 export const effectivePlan = (c: ClassSchedule): ClassStandardPlanEntry[] => {
   if (c.standardPlan?.length) return c.standardPlan;
-  return c.standardIds.map((id, i) => ({
+  const ids = c.standardIds?.length ? c.standardIds : c.standardId ? [c.standardId] : [];
+  return ids.map((id, i) => ({
     standardId: id,
-    standardName: c.standardNames[i] ?? (i === 0 ? c.standardName : undefined),
+    standardName: c.standardNames?.[i] ?? (i === 0 ? c.standardName : undefined),
     subjectId: c.subjectId,
     subjectName: c.subjectName,
     // Legacy rows had one subject; surface it as a single-element array too.
@@ -236,21 +254,23 @@ export const effectivePlan = (c: ClassSchedule): ClassStandardPlanEntry[] => {
  * Now also considers multi-subject entries and test entries as "split".
  */
 export const isSplitSubject = (c: ClassSchedule): boolean => {
-  const plan = c.standardPlan ?? [];
-  if (plan.length < 2) {
-    // Even a single standard can have multiple subjects or be a test.
-    if (plan.length === 1) {
-      const e = plan[0];
-      if (e.isTest) return true;
-      if (e.subjectIds && e.subjectIds.length > 1) return true;
-    }
-    return false;
+  const plan = effectivePlan(c);
+  if (plan.length === 0) return false;
+  if (
+    plan.some(
+      (e) =>
+        e.isTest ||
+        (e.subjectIds && e.subjectIds.length > 1) ||
+        (e.subjectNames && e.subjectNames.length > 1),
+    )
+  ) {
+    return true;
   }
-  // Multi-standard: different subjects across standards counts as split.
-  const keys = plan.map((e) =>
-    e.isTest ? `__test:${e.testName ?? ""}` : (e.subjectIds ?? [e.subjectId ?? ""]).sort().join(","),
-  );
-  return new Set(keys).size > 1;
+  if (plan.length >= 2) {
+    const keys = plan.map((e) => (e.subjectIds ?? [e.subjectId ?? ""]).sort().join(","));
+    return new Set(keys).size > 1;
+  }
+  return false;
 };
 
 /**
