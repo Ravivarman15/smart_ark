@@ -12,7 +12,7 @@ import type { PlanDraft } from "../utils/standardPlan";
 // the options simply never became reachable on screen. A unit test of
 // `subjectsForStandard` cannot fail that way, so the assertion has to be made
 // against the actual DOM: the subject options are PRESENT and CLICKABLE without
-// opening anything.
+// opening anything..
 // ─────────────────────────────────────────────────────────────────────────────
 
 const std = (id: string, name: string): Standard => ({ id, name, displayOrder: 0 });
