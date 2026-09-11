@@ -126,7 +126,10 @@ export const normalizeText = (text: string): string =>
     .trim();
 
 export const correctOptionIdsOf = (options: GradableOption[]): string[] =>
-  options.filter((o) => o.isCorrect).map((o) => o.id);
+  (options ?? [])
+    .map((o, idx) => ({ ...o, id: o?.id || `o${idx + 1}` }))
+    .filter((o) => o.isCorrect)
+    .map((o) => o.id);
 
 // ── Per-answer scoring ───────────────────────────────────────────────────────
 /**
@@ -182,10 +185,14 @@ export const gradeAnswer = (
     const given = typed.split("|").map((s) => normalizeText(s)).join("|");
     base.correct = expected === given;
   } else {
-    const picked = response?.selectedOptionIds ?? [];
+    const picked = (response?.selectedOptionIds ?? []).filter(Boolean);
     if (picked.length === 0) return base;
     base.attempted = true;
-    const correct = new Set(correctOptionIdsOf(q.options));
+    const normalizedOptions = (q.options ?? []).map((o, idx) => ({
+      ...o,
+      id: o?.id || `o${idx + 1}`,
+    }));
+    const correct = new Set(correctOptionIdsOf(normalizedOptions));
     const chosen = new Set(picked);
     // All-or-nothing: the chosen set must equal the correct set exactly.
     base.correct =

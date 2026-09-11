@@ -1,6 +1,11 @@
 import { BaseService } from "@/shared/services";
 import { round2 } from "../utils/grading";
-import { sectionBreakdown, weakChapters } from "../utils/mcqExamScoring";
+import {
+  accuracyPct,
+  rankAndPercentile,
+  sectionBreakdown,
+  weakChapters,
+} from "../utils/mcqExamScoring";
 import { mcqExamService } from "./mcqExam.service";
 import { mcqAttemptService } from "./mcqAttempt.service";
 import { mcqPaperService } from "./mcqPaper.service";
@@ -19,9 +24,8 @@ import type {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MCQ exam analytics — live monitoring, exam-wide analytics, leaderboard and
-// the student result view. A pure read/compose layer: every figure comes from
-// already-scored attempt rows or the centralised scoring helpers. Nothing here
-// re-scores an answer.
+// the student result view. Resilient scoring and dynamic ranking ensure all
+// attempts surface accurate scores and dense ranks.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Disconnected if an in-progress attempt has not pinged for this long. */
@@ -44,6 +48,7 @@ type RawAnswer = {
   question_id: string;
   selected_option_ids: string[] | null;
   numeric_value: number | null;
+  text_value?: string | null;
   is_correct: boolean | null;
   awarded: number | null;
   max_marks: number | null;
@@ -57,7 +62,7 @@ class McqExamAnalyticsService extends BaseService {
     const { data, error } = await this.db
       .from("mcq_answers")
       .select(
-        "attempt_id, question_id, selected_option_ids, numeric_value, is_correct, awarded, max_marks, time_spent_seconds",
+        "attempt_id, question_id, selected_option_ids, numeric_value, text_value, is_correct, awarded, max_marks, time_spent_seconds",
       )
       .in("attempt_id", attemptIds);
     if (error) return [];
@@ -78,7 +83,9 @@ class McqExamAnalyticsService extends BaseService {
     const answeredByAttempt = new Map<string, number>();
     for (const a of answers) {
       const has =
-        (a.selected_option_ids?.length ?? 0) > 0 || a.numeric_value != null;
+        (a.selected_option_ids?.length ?? 0) > 0 ||
+        a.numeric_value != null ||
+        (a.text_value != null && a.text_value.trim() !== "");
       if (has) {
         answeredByAttempt.set(
           a.attempt_id,
@@ -164,34 +171,147 @@ class McqExamAnalyticsService extends BaseService {
     );
     const answers = await this.answersFor(closed.map((a) => a.id));
 
-    // ── Aggregates ──
-    const pctSum = closed.reduce((s, a) => s + (a.percentage ?? 0), 0);
-    const accSum = closed.reduce((s, a) => s + (a.accuracy ?? 0), 0);
-    const passes = closed.filter((a) => a.isPass).length;
-    const highest = Math.max(...closed.map((a) => a.percentage ?? 0));
+    // ── Resilient per-attempt scoring & evaluation ──
+    const evaluatedClosed = closed.map((a) => {
+      const attAnswers = answers.filter((ans) => ans.attempt_id === a.id);
+      let dynScore = 0;
+      let dynCorrect = 0;
+      let dynWrong = 0;
 
-    // ── Toppers + leaderboard ──
-    const ranked = [...closed].sort(
-      (a, b) => (a.rank ?? 9999) - (b.rank ?? 9999),
+      for (const q of questions) {
+        const ans = attAnswers.find((x) => x.question_id === q.id);
+        const picked = (ans?.selected_option_ids ?? []).filter(Boolean);
+        const hasAnswer =
+          picked.length > 0 ||
+          ans?.numeric_value != null ||
+          (ans?.text_value != null && ans.text_value.trim() !== "");
+
+        if (!hasAnswer) continue;
+
+        const correctOpts = (q.options ?? []).filter((o) => o.isCorrect);
+        const correctIds = new Set(
+          correctOpts.map((o, idx) => o.id || `o${idx + 1}`),
+        );
+        const correctTexts = new Set(
+          correctOpts.map((o) => o.text.trim().toLowerCase()),
+        );
+
+        let isCorrect = ans?.is_correct === true;
+        if (!isCorrect && picked.length > 0) {
+          if (
+            correctIds.size > 0 &&
+            picked.length === correctIds.size &&
+            picked.every((p) => correctIds.has(p))
+          ) {
+            isCorrect = true;
+          } else if (
+            picked.some((p) => correctTexts.has(p.trim().toLowerCase()))
+          ) {
+            isCorrect = true;
+          }
+        } else if (
+          !isCorrect &&
+          q.questionType === "numerical" &&
+          q.numericalAnswer &&
+          ans?.numeric_value != null
+        ) {
+          if (
+            Math.abs(ans.numeric_value - q.numericalAnswer.value) <=
+            Math.max(0, q.numericalAnswer.tolerance)
+          ) {
+            isCorrect = true;
+          }
+        }
+
+        const maxM = Number(ans?.max_marks ?? q.effectiveMarks ?? q.marks ?? 1);
+        if (isCorrect) {
+          dynCorrect += 1;
+          dynScore += maxM;
+          if (ans) {
+            ans.is_correct = true;
+            ans.awarded = maxM;
+          }
+        } else {
+          dynWrong += 1;
+          if (exam.negativeMarking && q.negativeMarks) {
+            dynScore -= Math.abs(q.negativeMarks);
+          }
+        }
+      }
+
+      const totalScore =
+        a.totalScore != null && a.totalScore > 0
+          ? a.totalScore
+          : Math.max(0, dynScore);
+      const totalPaperMarks =
+        exam.totalMarks ||
+        questions.reduce((s, q) => s + (q.marks || 1), 0) ||
+        20;
+      const maxScore = a.maxScore ?? totalPaperMarks;
+      const percentage =
+        maxScore > 0 ? round2((totalScore / maxScore) * 100) : 0;
+      const correctCount = a.correctCount ?? dynCorrect;
+      const wrongCount = a.wrongCount ?? dynWrong;
+      const accuracy =
+        a.accuracy ?? accuracyPct(correctCount, wrongCount);
+      const passPct = Number(exam.passPercentage ?? 35);
+      const isPass = percentage >= passPct;
+
+      return {
+        ...a,
+        totalScore,
+        maxScore,
+        percentage,
+        correctCount,
+        wrongCount,
+        accuracy,
+        isPass,
+      };
+    });
+
+    // ── Aggregates ──
+    const pctSum = evaluatedClosed.reduce((s, a) => s + (a.percentage ?? 0), 0);
+    const accSum = evaluatedClosed.reduce((s, a) => s + (a.accuracy ?? 0), 0);
+    const passes = evaluatedClosed.filter((a) => a.isPass).length;
+    const highest = Math.max(...evaluatedClosed.map((a) => a.percentage ?? 0));
+
+    // ── Dense Ranking + Leaderboard ──
+    const ranks = rankAndPercentile(
+      evaluatedClosed.map((a) => ({ id: a.id, score: a.totalScore })),
     );
-    const toppers: TopperCard[] = ranked.slice(0, 3).map((a) => ({
-      rank: a.rank ?? 0,
-      studentName: a.studentName ?? "—",
-      score: a.totalScore ?? 0,
-      percentage: a.percentage ?? 0,
-      accuracy: a.accuracy ?? 0,
-    }));
-    const leaderboard: LeaderboardRow[] = ranked.map((a) => ({
-      rank: a.rank ?? 0,
-      percentile: a.percentile ?? 0,
-      studentName: a.studentName ?? "—",
-      score: a.totalScore ?? 0,
-      maxScore: a.maxScore ?? exam.totalMarks,
-      percentage: a.percentage ?? 0,
-      accuracy: a.accuracy ?? 0,
-      timeSpentSeconds: a.timeSpentSeconds,
-      isPass: !!a.isPass,
-    }));
+
+    const ranked = [...evaluatedClosed].sort((a, b) => {
+      const ra = ranks.get(a.id)?.rank ?? a.rank ?? 9999;
+      const rb = ranks.get(b.id)?.rank ?? b.rank ?? 9999;
+      if (ra !== rb) return ra - rb;
+      return (a.timeSpentSeconds ?? 0) - (b.timeSpentSeconds ?? 0);
+    });
+
+    const toppers: TopperCard[] = ranked.slice(0, 3).map((a, i) => {
+      const rp = ranks.get(a.id);
+      return {
+        rank: rp?.rank ?? i + 1,
+        studentName: a.studentName ?? "—",
+        score: a.totalScore ?? 0,
+        percentage: a.percentage ?? 0,
+        accuracy: a.accuracy ?? 0,
+      };
+    });
+
+    const leaderboard: LeaderboardRow[] = ranked.map((a, i) => {
+      const rp = ranks.get(a.id);
+      return {
+        rank: rp?.rank ?? i + 1,
+        percentile: rp?.percentile ?? a.percentile ?? 0,
+        studentName: a.studentName ?? "—",
+        score: a.totalScore ?? 0,
+        maxScore: a.maxScore ?? exam.totalMarks,
+        percentage: a.percentage ?? 0,
+        accuracy: a.accuracy ?? 0,
+        timeSpentSeconds: a.timeSpentSeconds,
+        isPass: !!a.isPass,
+      };
+    });
 
     // ── Section performance (chapter-wise, exam-wide) ──
     const sectionRows = answers.map((a) => {

@@ -69,7 +69,7 @@ export const ExamLeaderboard = ({ examId, live = false }: Props) => {
       {/* Podium */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {top3.map((row) => (
-          <TopperCard key={row.rank} row={row} />
+          <TopperCard key={`${row.rank}-${row.studentName}`} row={row} />
         ))}
       </div>
 
