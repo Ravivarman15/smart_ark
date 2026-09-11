@@ -8,7 +8,7 @@ import {
 
 /**
  * Hook to dynamically translate questions to Tamil or return original English.
- * Caches in memory for instant switching.
+ * Caches in memory for instant switching and pre-fetches surrounding questions.
  */
 export function useTranslatedQuestion(
   question: PublicQuestion | undefined,
@@ -50,11 +50,13 @@ export function useTranslatedQuestion(
         }
       });
 
-    // Pre-fetch next question translation in background if available
+    // Background pre-fetch next questions for silky-smooth navigation
     if (allQuestions && typeof currentIndex === "number") {
-      const nextQ = allQuestions[currentIndex + 1];
-      if (nextQ) {
-        translateQuestion(nextQ, "ta").catch(() => undefined);
+      for (let i = 1; i <= 3; i++) {
+        const nextQ = allQuestions[currentIndex + i];
+        if (nextQ) {
+          translateQuestion(nextQ, "ta").catch(() => undefined);
+        }
       }
     }
 

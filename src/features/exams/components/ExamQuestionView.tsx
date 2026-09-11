@@ -72,8 +72,8 @@ export const ExamQuestionView = ({
   // Prompts and choices arrive as two INDEPENDENT arrays. They used to be one
   // array of {left, right} pairs — which is the answer key, and it was being
   // handed to the student to render the question with.
-  const prompts = question.matchPrompts ?? [];
-  const choices = question.matchChoices ?? [];
+  const prompts = activeQ.matchPrompts ?? question.matchPrompts ?? [];
+  const choices = activeQ.matchChoices ?? question.matchChoices ?? [];
 
   const pick = (optionId: string) => {
     if (isMultiple) {

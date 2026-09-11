@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // EXAM TRANSLATION SERVICE — Multi-language dynamic support for online exams
 //
-// Supports instant switching between English (default) and Tamil (தமிழ்).
-// Provides UI dictionaries and real-time question / option translation caching.
+// Provides high-speed bilingual switching between English (default) and Tamil.
+// Uses Google Chrome Translate API + MyMemory fallbacks with in-memory caching
+// and scientific unit localization.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { PublicQuestion } from "./onlineTest.service";
@@ -17,6 +18,22 @@ export interface TranslatedQuestion extends PublicQuestion {
 
 // ── In-memory translation cache (preserves translated questions across toggles) ──
 const memoryCache = new Map<string, string>();
+
+/** Unit translations for physics / maths / chemistry */
+const UNIT_TRANSLATIONS: [RegExp, string][] = [
+  [/^(\d+(?:\.\d+)?)\s*J$/i, "$1 ஜூல் (J)"],
+  [/^(\d+(?:\.\d+)?)\s*m\/s$/i, "$1 மீ/வி (m/s)"],
+  [/^(\d+(?:\.\d+)?)\s*km\/h$/i, "$1 கிமீ/மணி (km/h)"],
+  [/^(\d+(?:\.\d+)?)\s*N$/i, "$1 நியூட்டன் (N)"],
+  [/^(\d+(?:\.\d+)?)\s*kg$/i, "$1 கிலோ (kg)"],
+  [/^(\d+(?:\.\d+)?)\s*g$/i, "$1 கிராம் (g)"],
+  [/^(\d+(?:\.\d+)?)\s*W$/i, "$1 வாட் (W)"],
+  [/^(\d+(?:\.\d+)?)\s*Pa$/i, "$1 பாஸ்கல் (Pa)"],
+  [/^(\d+(?:\.\d+)?)\s*Hz$/i, "$1 ஹெர்ட்ஸ் (Hz)"],
+  [/^(\d+(?:\.\d+)?)\s*V$/i, "$1 வோல்ட் (V)"],
+  [/^(\d+(?:\.\d+)?)\s*A$/i, "$1 ஆம்பியர் (A)"],
+  [/^(\d+(?:\.\d+)?)\s*Ω$/i, "$1 ஓம் (Ω)"],
+];
 
 /** UI String Dictionary for Exam Runner interface */
 export const EXAM_I18N = {
@@ -109,50 +126,78 @@ export const t = (key: I18nKey, lang: ExamLanguage = "en"): string => {
   return EXAM_I18N[lang]?.[key] ?? EXAM_I18N.en[key] ?? key;
 };
 
-/** Translate a single text string using free translation endpoint with local cache */
+/** Translate a single text string using Google clients API + MyMemory fallback with local cache */
 export async function translateTextToTamil(text: string): Promise<string> {
   const trimmed = text.trim();
   if (!trimmed) return text;
-  if (/^[\d\s+\-*/=().,;:!?%$#@&]+$/.test(trimmed)) return text; // Pure formula or numbers
+
+  // Check unit patterns like "25 J" -> "25 ஜூல் (J)"
+  for (const [pattern, replacement] of UNIT_TRANSLATIONS) {
+    if (pattern.test(trimmed)) {
+      return trimmed.replace(pattern, replacement);
+    }
+  }
+
+  // Pure numbers or mathematical expressions
+  if (/^[\d\s+\-*/=().,;:!?%$#@&^√]+$/.test(trimmed)) return text;
 
   const cacheKey = `ta:${trimmed}`;
   if (memoryCache.has(cacheKey)) {
     return memoryCache.get(cacheKey)!;
   }
 
+  // Provider 1: Google Clients Chrome Extension endpoint (Fast, high quality, accurate)
+  try {
+    const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=en&tl=ta&q=${encodeURIComponent(
+      trimmed,
+    )}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      const translated = Array.isArray(data) ? data[0] : typeof data === "string" ? data : null;
+      if (translated && typeof translated === "string" && translated.trim()) {
+        const clean = translated.trim();
+        memoryCache.set(cacheKey, clean);
+        return clean;
+      }
+    }
+  } catch {
+    // Continue to fallback
+  }
+
+  // Provider 2: MyMemory API with email parameter
   try {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
       trimmed,
-    )}&langpair=en|ta`;
+    )}&langpair=en|ta&de=arklearning_portal@gmail.com`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error("Translation request failed");
-    const data = await res.json();
-    const translated = data?.responseData?.translatedText;
-    if (translated && typeof translated === "string" && translated.trim()) {
-      const clean = translated.trim();
-      memoryCache.set(cacheKey, clean);
-      return clean;
-    }
-  } catch (err) {
-    // Fallback to Google GTX if available
-    try {
-      const gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ta&dt=t&q=${encodeURIComponent(
-        trimmed,
-      )}`;
-      const gRes = await fetch(gUrl);
-      if (gRes.ok) {
-        const gData = await gRes.json();
-        const gText = Array.isArray(gData?.[0])
-          ? gData[0].map((item: [string]) => item?.[0]).join("")
-          : "";
-        if (gText) {
-          memoryCache.set(cacheKey, gText);
-          return gText;
-        }
+    if (res.ok) {
+      const data = await res.json();
+      const translated = data?.responseData?.translatedText;
+      if (translated && typeof translated === "string" && translated.trim() && !translated.startsWith("MYMEMORY WARNING")) {
+        const clean = translated.trim();
+        memoryCache.set(cacheKey, clean);
+        return clean;
       }
-    } catch {
-      // Return original on offline/failure
     }
+  } catch {
+    // Continue to fallback
+  }
+
+  // Provider 3: Lingva translate instance
+  try {
+    const url = `https://lingva.ml/api/v1/en/ta/${encodeURIComponent(trimmed)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.translation && typeof data.translation === "string") {
+        const clean = data.translation.trim();
+        memoryCache.set(cacheKey, clean);
+        return clean;
+      }
+    }
+  } catch {
+    // Return original text if offline
   }
 
   return text;
@@ -173,6 +218,14 @@ export async function translateQuestion(
       ...q.options.map((o) => translateTextToTamil(o.text)),
     ]);
 
+    const translatedPrompts = q.matchPrompts
+      ? await Promise.all(q.matchPrompts.map((p) => translateTextToTamil(p)))
+      : [];
+
+    const translatedChoices = q.matchChoices
+      ? await Promise.all(q.matchChoices.map((c) => translateTextToTamil(c)))
+      : [];
+
     return {
       ...q,
       questionText: translatedQuestionText,
@@ -180,6 +233,8 @@ export async function translateQuestion(
         ...o,
         text: translatedOptions[i] || o.text,
       })),
+      matchPrompts: translatedPrompts.length > 0 ? translatedPrompts : q.matchPrompts,
+      matchChoices: translatedChoices.length > 0 ? translatedChoices : q.matchChoices,
       originalQuestionText: q.questionText,
       originalOptions: q.options.map((o) => ({ id: o.id, text: o.text })),
       isTranslated: true,
