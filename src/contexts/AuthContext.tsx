@@ -125,8 +125,22 @@ async function loadProfileByAuthId(authUserId: string): Promise<DbProfile | null
     .from("profiles")
     .select("id, name, role, campus_id, campuses(name)")
     .eq("user_id", authUserId)
-    .single();
-  if (error || !data) return null;
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) {
+    if (error) {
+      const { data: fallback } = await supabase
+        .from("profiles")
+        .select("id, name, role, campus_id")
+        .eq("user_id", authUserId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (fallback) return { ...fallback, campuses: null } as unknown as DbProfile;
+    }
+    return null;
+  }
   return data as unknown as DbProfile;
 }
 

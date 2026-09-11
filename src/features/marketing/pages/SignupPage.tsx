@@ -196,8 +196,8 @@ const SignupPage: React.FC = () => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    // Already provisioned — nothing to do here, send them to the app.
-    if (membership) { window.location.href = "/"; return true; }
+    // Already provisioned — send them to sign in to ensure clean session
+    if (membership) { navigate("/login", { replace: true }); return true; }
 
     setAccount((a) => ({ ...a, email: user.email ?? a.email }));
     if (user.email_confirmed_at) {

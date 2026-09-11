@@ -152,25 +152,45 @@ export const QuestionReviewWorkspace = ({
   return (
     <div className="space-y-4">
       {/* ── Counters ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border/70 p-3.5">
-        <Counter label="Total" value={summary.total} />
-        <Counter label="Ready" value={summary.ready} tone="text-accent" />
-        <Counter
-          label="Needs review"
-          value={summary.needsReview}
-          tone="text-amber-600 dark:text-amber-400"
-        />
-        <Counter
-          label="Answer missing"
-          value={summary.answerUnknown}
-          tone="text-destructive"
-        />
-        {summary.parseFailed > 0 && (
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 p-3.5">
+        <div className="flex flex-wrap items-center gap-4">
+          <Counter label="Total" value={summary.total} />
+          <Counter label="Ready" value={summary.ready} tone="text-accent" />
           <Counter
-            label="Unreadable"
-            value={summary.parseFailed}
+            label="Needs review"
+            value={summary.needsReview}
+            tone="text-amber-600 dark:text-amber-400"
+          />
+          <Counter
+            label="Answer missing"
+            value={summary.answerUnknown}
             tone="text-destructive"
           />
+          {summary.parseFailed > 0 && (
+            <Counter
+              label="Unreadable"
+              value={summary.parseFailed}
+              tone="text-destructive"
+            />
+          )}
+        </div>
+        {summary.needsReview > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs gap-1.5 border-accent/40 text-accent hover:bg-accent/10"
+            onClick={() => {
+              onChange(
+                questions.map((q) => ({
+                  ...q,
+                  confidence: 100,
+                  marks: q.marks && q.marks > 0 ? q.marks : 1,
+                })),
+              );
+            }}
+          >
+            <Check className="w-3.5 h-3.5" /> Confirm all as correct
+          </Button>
         )}
       </div>
 
@@ -254,17 +274,34 @@ export const QuestionReviewWorkspace = ({
           </div>
 
           {verdict.reasons.length > 0 && (
-            <ul className="space-y-1">
-              {verdict.reasons.map((r, i) => (
-                <li
-                  key={i}
-                  className={cn("text-[11px] flex items-start gap-1.5", STATUS_TONE[verdict.status])}
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 flex items-center justify-between gap-3">
+              <ul className="space-y-1">
+                {verdict.reasons.map((r, i) => (
+                  <li
+                    key={i}
+                    className={cn("text-[11px] flex items-start gap-1.5", STATUS_TONE[verdict.status])}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+              {verdict.status === "needs_review" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-amber-500/40 hover:bg-amber-500/10 text-amber-700 dark:text-amber-300 shrink-0 gap-1"
+                  onClick={() =>
+                    patch({
+                      confidence: 100,
+                      marks: current.marks && current.marks > 0 ? current.marks : 1,
+                    })
+                  }
                 >
-                  <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
-                  {r}
-                </li>
-              ))}
-            </ul>
+                  <Check className="w-3.5 h-3.5" /> Confirm
+                </Button>
+              )}
+            </div>
           )}
 
           <div>
