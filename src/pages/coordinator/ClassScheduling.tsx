@@ -75,6 +75,7 @@ import {
 } from "@/features/allocation/utils/scheduleView";
 import {
   batchByStandard,
+  draftMissingLabel,
   draftsToInput,
   firstIncompleteDraft,
   isPlanComplete,
@@ -309,8 +310,9 @@ const ClassScheduling: React.FC = () => {
     // schema cannot see. Naming the standard is the point — a generic "check
     // the form" makes the operator hunt through a list they just built.
     if (planBlocker) {
+      const missing = draftMissingLabel(planBlocker, planOptions(planBlocker.standardId));
       toast.error(
-        `Choose ${planBlocker.subjectId ? "a batch" : "a subject"} for ${standardName(
+        `Choose ${missing ?? "a subject"} for ${standardName(
           planBlocker.standardId,
         )} before scheduling`,
       );

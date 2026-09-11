@@ -23,6 +23,12 @@ export const scheduleSchema = z
         z.object({
           standardId: z.string().min(1),
           subjectId: z.string().optional(),
+          /** One or more subjects — the new multi-select model. */
+          subjectIds: z.array(z.string()).optional(),
+          /** When true, the entry is a test period with a name, not a subject. */
+          isTest: z.boolean().optional(),
+          /** Required when `isTest` is true. */
+          testName: z.string().optional(),
           batchId: z.string().optional(),
           sectionId: z.string().optional(),
         }),

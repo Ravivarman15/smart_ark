@@ -82,16 +82,34 @@ const toPlan = (v: unknown): ClassStandardPlanEntry[] => {
   if (!Array.isArray(v)) return [];
   return v
     .filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
-    .map((e) => ({
-      standardId: String(e.standard_id ?? ""),
-      standardName: (e.standard_name as string) ?? undefined,
-      subjectId: (e.subject_id as string) ?? undefined,
-      subjectName: (e.subject_name as string) ?? undefined,
-      batchId: (e.batch_id as string) ?? undefined,
-      batchName: (e.batch_name as string) ?? undefined,
-      sectionId: (e.section_id as string) ?? undefined,
-      sectionName: (e.section_name as string) ?? undefined,
-    }))
+    .map((e) => {
+      // Read multi-subject array; fall back to the scalar for old rows.
+      const subjectIds: string[] = Array.isArray(e.subject_ids)
+        ? (e.subject_ids as string[]).map(String).filter(Boolean)
+        : e.subject_id
+          ? [String(e.subject_id)]
+          : [];
+      const subjectNames: string[] = Array.isArray(e.subject_names)
+        ? (e.subject_names as string[]).map(String).filter(Boolean)
+        : e.subject_name
+          ? [String(e.subject_name)]
+          : [];
+      return {
+        standardId: String(e.standard_id ?? ""),
+        standardName: (e.standard_name as string) ?? undefined,
+        // Backward compat scalar: first subject.
+        subjectId: subjectIds[0] ?? ((e.subject_id as string) ?? undefined),
+        subjectName: subjectNames[0] ?? ((e.subject_name as string) ?? undefined),
+        subjectIds,
+        subjectNames,
+        isTest: e.is_test === true || undefined,
+        testName: (e.test_name as string) ?? undefined,
+        batchId: (e.batch_id as string) ?? undefined,
+        batchName: (e.batch_name as string) ?? undefined,
+        sectionId: (e.section_id as string) ?? undefined,
+        sectionName: (e.section_name as string) ?? undefined,
+      };
+    })
     .filter((e) => e.standardId);
 };
 
@@ -354,27 +372,41 @@ class ScheduleService extends BaseService {
       : normalizeStandards(input).ids.map((standardId) => ({
           standardId,
           subjectId: input.subjectId || undefined,
+          subjectIds: input.subjectId ? [input.subjectId] : [],
           batchId: input.batchId || undefined,
           sectionId: input.sectionId || undefined,
         }));
     if (source.length === 0) return [];
 
+    // Gather ALL subject IDs across all entries for a single name-map query.
+    const allSubjectIds = source.flatMap((e) =>
+      e.subjectIds?.length ? e.subjectIds : e.subjectId ? [e.subjectId] : [],
+    );
     const [standards, subjects, batches, sections] = await Promise.all([
       this.nameMap("standards", source.map((e) => e.standardId)),
-      this.nameMap("subjects", source.map((e) => e.subjectId)),
+      this.nameMap("subjects", allSubjectIds),
       this.nameMap("batches", source.map((e) => e.batchId)),
       this.nameMap("sections", source.map((e) => e.sectionId)),
     ]);
-    return source.map((e) => ({
-      standardId: e.standardId,
-      standardName: standards.get(e.standardId),
-      subjectId: e.subjectId,
-      subjectName: e.subjectId ? subjects.get(e.subjectId) : undefined,
-      batchId: e.batchId,
-      batchName: e.batchId ? batches.get(e.batchId) : undefined,
-      sectionId: e.sectionId,
-      sectionName: e.sectionId ? sections.get(e.sectionId) : undefined,
-    }));
+    return source.map((e) => {
+      const ids = e.subjectIds?.length ? e.subjectIds : e.subjectId ? [e.subjectId] : [];
+      const names = ids.map((id) => subjects.get(id)).filter((n): n is string => !!n);
+      return {
+        standardId: e.standardId,
+        standardName: standards.get(e.standardId),
+        // Backward compat scalar: first subject.
+        subjectId: ids[0] ?? undefined,
+        subjectName: names[0] ?? undefined,
+        subjectIds: ids,
+        subjectNames: names,
+        isTest: e.isTest || undefined,
+        testName: e.testName || undefined,
+        batchId: e.batchId,
+        batchName: e.batchId ? batches.get(e.batchId) : undefined,
+        sectionId: e.sectionId,
+        sectionName: e.sectionId ? sections.get(e.sectionId) : undefined,
+      };
+    });
   }
 
   /** id → name for a lookup table, in one round-trip. Labels are cosmetic, so
@@ -399,8 +431,15 @@ class ScheduleService extends BaseService {
     return plan.map((e) => ({
       standard_id: e.standardId,
       standard_name: e.standardName ?? null,
-      subject_id: e.subjectId ?? null,
-      subject_name: e.subjectName ?? null,
+      // Backward compat scalar: first subject.
+      subject_id: e.subjectId ?? (e.subjectIds?.[0] ?? null),
+      subject_name: e.subjectName ?? (e.subjectNames?.[0] ?? null),
+      // Multi-subject arrays.
+      subject_ids: e.subjectIds?.length ? e.subjectIds : null,
+      subject_names: e.subjectNames?.length ? e.subjectNames : null,
+      // Test mode.
+      is_test: e.isTest ?? null,
+      test_name: e.testName ?? null,
       batch_id: e.batchId ?? null,
       batch_name: e.batchName ?? null,
       section_id: e.sectionId ?? null,

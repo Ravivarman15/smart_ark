@@ -14,6 +14,10 @@
 // Everything here is pure. The interesting rules (when is an entry finished?
 // which standard is blocking? what should the class be called?) are decisions,
 // not rendering, and they are worth testing without a database.
+//
+// Phase 4: each standard may now have MULTIPLE subjects (e.g. a revision class
+// covering Maths + Science), and a "Test" mode that replaces subjects entirely
+// with a named test entry.
 // ──────────────────────────────────────────────────────────────────────────────
 
 import type { Batch, Subject } from "@/features/setup/types/setup.types";
@@ -33,7 +37,16 @@ export const ALL_BATCHES = "__all";
 /** One row of the builder while it is being filled in. */
 export interface PlanDraft {
   standardId: string;
+  /**
+   * @deprecated Kept only for reading old drafts. New code uses `subjectIds`.
+   */
   subjectId: string;
+  /** One or more subjects this standard is covering. */
+  subjectIds: string[];
+  /** When true, this entry is a test period — subjects are ignored. */
+  isTest: boolean;
+  /** Human-readable test name, required when `isTest` is true. */
+  testName: string;
   /** "" = not decided yet, {@link ALL_BATCHES}, or a batch id. */
   batchId: string;
   sectionId: string;
@@ -42,6 +55,9 @@ export interface PlanDraft {
 export const newDraft = (standardId: string): PlanDraft => ({
   standardId,
   subjectId: "",
+  subjectIds: [],
+  isTest: false,
+  testName: "",
   batchId: "",
   sectionId: "",
 });
@@ -80,7 +96,10 @@ export interface DraftOptions {
 /**
  * Is this standard fully specified?
  *
- * Subject is required — a class with no subject is the thing being fixed.
+ * A draft is complete when:
+ *   - **Test mode**: `isTest && testName` is truthy, OR
+ *   - **Subject mode**: at least one subject is selected.
+ *
  * Batch is required ONLY where batches exist, because an institute that has
  * never created one would otherwise be unable to schedule anything. Where they
  * do exist, {@link ALL_BATCHES} satisfies it: the requirement is a decision,
@@ -91,8 +110,12 @@ export interface DraftOptions {
  * escape, over a Setup problem the UI names explicitly instead.
  */
 export const isDraftComplete = (d: PlanDraft, o: DraftOptions): boolean => {
+  // Test mode: only needs a name.
+  if (d.isTest) return !!d.testName;
+  // No subjects in Setup → nothing to ask.
   if (!o.hasSubjects) return true;
-  if (!d.subjectId) return false;
+  // Need at least one subject selected.
+  if (d.subjectIds.length === 0) return false;
   return !o.hasBatches || !!d.batchId;
 };
 
@@ -113,6 +136,16 @@ export const isPlanComplete = (
   drafts: PlanDraft[],
   optionsFor: (standardId: string) => DraftOptions,
 ): boolean => firstIncompleteDraft(drafts, optionsFor) === null;
+
+/**
+ * What is the draft missing? Used for actionable error messages.
+ */
+export const draftMissingLabel = (d: PlanDraft, o: DraftOptions): string | null => {
+  if (d.isTest && !d.testName) return "a test name";
+  if (!d.isTest && o.hasSubjects && d.subjectIds.length === 0) return "a subject";
+  if (!d.isTest && d.subjectIds.length > 0 && o.hasBatches && !d.batchId) return "a batch";
+  return null;
+};
 
 // ── Draft → form values ─────────────────────────────────────────────────────
 
@@ -136,7 +169,11 @@ export const draftsToInput = (
     .filter((d) => d.standardId)
     .map((d) => ({
       standardId: d.standardId,
-      subjectId: d.subjectId || undefined,
+      // Backward compat scalar: first subject, or undefined for tests.
+      subjectId: d.isTest ? undefined : d.subjectIds[0] || undefined,
+      subjectIds: d.isTest ? [] : d.subjectIds.filter(Boolean),
+      isTest: d.isTest || undefined,
+      testName: d.isTest ? d.testName || undefined : undefined,
       // The sentinel never leaves the form. Downstream, "no batch" already
       // means the whole standard, so the two agree.
       batchId: d.batchId && d.batchId !== ALL_BATCHES ? d.batchId : undefined,
@@ -179,6 +216,9 @@ export const effectivePlan = (c: ClassSchedule): ClassStandardPlanEntry[] => {
     standardName: c.standardNames[i] ?? (i === 0 ? c.standardName : undefined),
     subjectId: c.subjectId,
     subjectName: c.subjectName,
+    // Legacy rows had one subject; surface it as a single-element array too.
+    subjectIds: c.subjectId ? [c.subjectId] : [],
+    subjectNames: c.subjectName ? [c.subjectName] : [],
     batchId: c.batchId,
     batchName: c.batchName,
     sectionId: c.sectionId,
@@ -192,16 +232,41 @@ export const effectivePlan = (c: ClassSchedule): ClassStandardPlanEntry[] => {
  * The distinction drives every label: "Std 2 + Std 4 · Maths" is the correct,
  * shorter rendering when the room really is doing one subject, and a lie when
  * it is not.
+ *
+ * Now also considers multi-subject entries and test entries as "split".
  */
 export const isSplitSubject = (c: ClassSchedule): boolean => {
   const plan = c.standardPlan ?? [];
-  if (plan.length < 2) return false;
-  return new Set(plan.map((e) => e.subjectId ?? "")).size > 1;
+  if (plan.length < 2) {
+    // Even a single standard can have multiple subjects or be a test.
+    if (plan.length === 1) {
+      const e = plan[0];
+      if (e.isTest) return true;
+      if (e.subjectIds && e.subjectIds.length > 1) return true;
+    }
+    return false;
+  }
+  // Multi-standard: different subjects across standards counts as split.
+  const keys = plan.map((e) =>
+    e.isTest ? `__test:${e.testName ?? ""}` : (e.subjectIds ?? [e.subjectId ?? ""]).sort().join(","),
+  );
+  return new Set(keys).size > 1;
 };
 
-/** "2nd STD · Maths + 3rd STD · Science" — one segment per standard. */
+/**
+ * Human-readable title for a plan entry's subjects.
+ * "Maths, Science" for multi-subject, or "📝 Unit Test" for tests.
+ */
+const entrySubjectLabel = (e: ClassStandardPlanEntry): string => {
+  if (e.isTest) return `📝 ${e.testName ?? "Test"}`;
+  const names = e.subjectNames?.filter(Boolean);
+  if (names && names.length > 0) return names.join(", ");
+  return e.subjectName ?? "";
+};
+
+/** "2nd STD · Maths, Science + 3rd STD · 📝 Unit Test" — one segment per standard. */
 export const splitSubjectTitle = (c: ClassSchedule): string =>
   effectivePlan(c)
-    .map((e) => [e.standardName, e.sectionName, e.subjectName].filter(Boolean).join(" · "))
+    .map((e) => [e.standardName, e.sectionName, entrySubjectLabel(e)].filter(Boolean).join(" · "))
     .filter(Boolean)
     .join("  +  ");

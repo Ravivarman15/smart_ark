@@ -1,13 +1,15 @@
 import React, { useMemo } from "react";
-import { GraduationCap, Plus, X, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { GraduationCap, Plus, X, AlertTriangle, CheckCircle2, ClipboardEdit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Batch, Standard, Subject } from "@/features/setup/types/setup.types";
 import type { Section } from "../types/allocation.types";
 import {
   ALL_BATCHES,
   batchesForStandard,
+  draftMissingLabel,
   firstIncompleteDraft,
   isDraftComplete,
   newDraft,
@@ -21,24 +23,9 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // STANDARDS & SUBJECTS — one standard at a time, finished before the next.
 //
-// The old control was a row of toggle chips plus ONE subject dropdown for the
-// whole class. Two things were wrong with it and they compounded:
-//
-//   • the subject list was the union across every selected standard, so after
-//     picking 2nd STD and 3rd STD you were offered 3rd STD's subjects while
-//     standing on 2nd STD, and
-//   • whichever one you picked was then saved as THE subject of the class — for
-//     every standard in the room.
-//
-// A teacher taking two standards in one period teaches each of them a different
-// subject. That is the normal case, not an edge case, and the form could not
-// express it at all.
-//
-// So: adding a standard opens a card for that standard, and the next standard
-// cannot be added until this one has its subject and batch. The gate is not
-// bureaucracy — it is what makes "which standard is this subject for?" have an
-// answer at the moment the question is asked, instead of at submit time when
-// the operator has forgotten the order they clicked things in.
+// Phase 4: each standard may now have MULTIPLE subjects selected (toggle chips),
+// plus a "📝 Test" mode that replaces subjects with a named test entry. Test and
+// subject modes are mutually exclusive per standard.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -110,7 +97,7 @@ export const StandardPlanBuilder: React.FC<Props> = ({
         </Label>
         {value.length > 1 && (
           <span className="text-[11px] text-muted-foreground">
-            Each standard keeps its own subject.
+            Each standard keeps its own subjects.
           </span>
         )}
       </div>
@@ -127,6 +114,7 @@ export const StandardPlanBuilder: React.FC<Props> = ({
           batches={batchesForStandard(batches, draft.standardId)}
           sections={sectionsForStandard(sections, draft.standardId)}
           complete={isDraftComplete(draft, optionsFor(draft.standardId))}
+          missingLabel={draftMissingLabel(draft, optionsFor(draft.standardId))}
           onPatch={(next) => patch(draft.standardId, next)}
           onRemove={() => drop(draft.standardId)}
         />
@@ -148,7 +136,7 @@ export const StandardPlanBuilder: React.FC<Props> = ({
               // entry" would make the operator hunt for which one.
               <span className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
                 <AlertTriangle className="h-3 w-3" />
-                Choose {blocking.subjectId ? "a batch" : "a subject"} for{" "}
+                Choose {draftMissingLabel(blocking, optionsFor(blocking.standardId)) ?? "a subject"} for{" "}
                 <strong>{nameOf(blocking.standardId)}</strong> first
               </span>
             )}
@@ -185,6 +173,7 @@ interface CardProps {
   batches: Batch[];
   sections: Section[];
   complete: boolean;
+  missingLabel: string | null;
   onPatch: (next: Partial<PlanDraft>) => void;
   onRemove: () => void;
 }
@@ -199,128 +188,187 @@ const PlanCard: React.FC<CardProps> = ({
   batches,
   sections,
   complete,
+  missingLabel,
   onPatch,
   onRemove,
-}) => (
-  <div
-    className={`rounded-md border px-3 py-2.5 transition-colors ${
-      complete ? "" : "border-amber-500/50 bg-amber-500/5"
-    }`}
-  >
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex min-w-0 items-center gap-1.5">
-        {complete ? (
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-        ) : (
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-        )}
-        <span className="truncate text-sm font-medium">{label}</span>
-        {multi && index === 0 && (
-          <Badge variant="secondary" className="text-[9px] uppercase">
-            primary
-          </Badge>
-        )}
+}) => {
+  /** Toggle a subject in/out of the multi-select. */
+  const toggleSubject = (id: string) => {
+    const next = draft.subjectIds.includes(id)
+      ? draft.subjectIds.filter((x) => x !== id)
+      : [...draft.subjectIds, id];
+    onPatch({
+      subjectIds: next,
+      // Keep the deprecated scalar in sync for anything that still reads it.
+      subjectId: next[0] ?? "",
+    });
+  };
+
+  /** Toggle test mode on/off. Clears subjects when entering test mode. */
+  const toggleTest = () => {
+    if (draft.isTest) {
+      // Exit test mode
+      onPatch({ isTest: false, testName: "" });
+    } else {
+      // Enter test mode — clear subjects
+      onPatch({ isTest: true, subjectIds: [], subjectId: "", testName: "" });
+    }
+  };
+
+  return (
+    <div
+      className={`rounded-md border px-3 py-2.5 transition-colors ${
+        complete ? "" : "border-amber-500/50 bg-amber-500/5"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {complete ? (
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+          ) : (
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          )}
+          <span className="truncate text-sm font-medium">{label}</span>
+          {multi && index === 0 && (
+            <Badge variant="secondary" className="text-[9px] uppercase">
+              primary
+            </Badge>
+          )}
+          {draft.isTest && (
+            <Badge className="bg-violet-500/15 text-violet-600 dark:text-violet-400 text-[9px] uppercase">
+              test
+            </Badge>
+          )}
+          {draft.subjectIds.length > 1 && !draft.isTest && (
+            <Badge variant="secondary" className="text-[9px]">
+              {draft.subjectIds.length} subjects
+            </Badge>
+          )}
+        </div>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 shrink-0"
+          onClick={onRemove}
+          aria-label={`Remove ${label}`}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
       </div>
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className="h-7 w-7 shrink-0"
-        onClick={onRemove}
-        aria-label={`Remove ${label}`}
-      >
-        <X className="h-3.5 w-3.5" />
-      </Button>
-    </div>
 
-    {/* ── Choices, shown rather than hidden ──────────────────────────────
-        These were dropdowns. A Radix Select portals its list over a dialog
-        that is itself scrollable, and the shadcn viewport is pinned to the
-        trigger's height — so an eleven-subject list opens as a one-row sliver
-        and reads as "there is no dropdown for selecting the subject".
+      <div className="mt-2 space-y-2.5">
+        {/* ── Test toggle ──────────────────────────────────────────────────
+            Always shown at the top. Mutually exclusive with subjects. */}
+        <ChipField label="Type">
+          <Chip on={draft.isTest} onClick={toggleTest}>
+            <ClipboardEdit className="h-3 w-3 mr-1" />
+            📝 Test
+          </Chip>
+          {!draft.isTest && (
+            <span className="text-[10px] text-muted-foreground ml-1">
+              or select subjects below
+            </span>
+          )}
+        </ChipField>
 
-        A handful of chips is the right control regardless: every option is
-        visible without a second interaction, the tap targets are finger-sized
-        on a phone instead of a 36px popup row, and it matches how standards
-        are already picked directly above. Nothing here has enough options to
-        justify hiding them. */}
-    <div className="mt-2 space-y-2.5">
-      <ChipField label="Subject" hint={`for ${label}`}>
-        {subjects.length === 0 ? (
-          // Name the standard that is unconfigured. "No subjects" alone sends a
-          // coordinator to Setup without telling them what to add there.
-          <p className="text-[11px] text-amber-600 dark:text-amber-400">
-            No subjects for {label}. Add them in Setup → Manage Subjects.
-          </p>
-        ) : (
-          subjects.map((s) => (
-            <Chip
-              key={s.id}
-              on={draft.subjectId === s.id}
-              onClick={() => onPatch({ subjectId: s.id })}
-            >
-              {s.name}
-              {/* An institute-wide subject appears under every standard, so say
-                  so — otherwise the same name under two standards looks like
-                  duplicate data. */}
-              {!s.standardId && ownSubjectCount > 0 && (
-                <span className="ml-1 opacity-60">· all</span>
-              )}
-            </Chip>
-          ))
+        {/* ── Test name input (only when test mode is active) ─────────── */}
+        {draft.isTest && (
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Test name</Label>
+            <Input
+              value={draft.testName}
+              onChange={(e) => onPatch({ testName: e.target.value })}
+              placeholder="e.g. Unit Test 2 — Maths"
+              className="h-8 text-sm"
+              autoFocus
+            />
+            {!draft.testName && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                Enter a test name to continue.
+              </p>
+            )}
+          </div>
         )}
-      </ChipField>
 
-      <ChipField label="Batch">
-        {batches.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground">
-            No batches for {label} — the whole standard is used.
-          </p>
-        ) : (
-          <>
-            {/* An explicit choice, not a blank. The operator has to DECIDE which
-                children this standard means, and "all of them" is a valid
-                decision that an empty control cannot express. */}
-            <Chip
-              on={draft.batchId === ALL_BATCHES}
-              onClick={() => onPatch({ batchId: ALL_BATCHES })}
-            >
-              All batches
-            </Chip>
-            {batches.map((b) => (
+        {/* ── Subject chips (hidden when in test mode) ────────────────── */}
+        {!draft.isTest && (
+          <ChipField label="Subject" hint={`for ${label} — select one or more`}>
+            {subjects.length === 0 ? (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                No subjects for {label}. Add them in Setup → Manage Subjects.
+              </p>
+            ) : (
+              subjects.map((s) => (
+                <Chip
+                  key={s.id}
+                  on={draft.subjectIds.includes(s.id)}
+                  onClick={() => toggleSubject(s.id)}
+                >
+                  {s.name}
+                  {!s.standardId && ownSubjectCount > 0 && (
+                    <span className="ml-1 opacity-60">· all</span>
+                  )}
+                </Chip>
+              ))
+            )}
+          </ChipField>
+        )}
+
+        {/* ── Batch (shown in both modes) ─────────────────────────────── */}
+        <ChipField label="Batch">
+          {batches.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">
+              No batches for {label} — the whole standard is used.
+            </p>
+          ) : (
+            <>
               <Chip
-                key={b.id}
-                on={draft.batchId === b.id}
-                onClick={() => onPatch({ batchId: b.id })}
+                on={draft.batchId === ALL_BATCHES}
+                onClick={() => onPatch({ batchId: ALL_BATCHES })}
               >
-                {b.name}
+                All batches
+              </Chip>
+              {batches.map((b) => (
+                <Chip
+                  key={b.id}
+                  on={draft.batchId === b.id}
+                  onClick={() => onPatch({ batchId: b.id })}
+                >
+                  {b.name}
+                </Chip>
+              ))}
+            </>
+          )}
+        </ChipField>
+
+        {sections.length > 0 && (
+          <ChipField label="Section" hint="optional">
+            {sections.map((sec) => (
+              <Chip
+                key={sec.id}
+                on={draft.sectionId === sec.id}
+                onClick={() =>
+                  onPatch({ sectionId: draft.sectionId === sec.id ? "" : sec.id })
+                }
+              >
+                {sec.name}
               </Chip>
             ))}
-          </>
+          </ChipField>
         )}
-      </ChipField>
+      </div>
 
-      {sections.length > 0 && (
-        <ChipField label="Section" hint="optional">
-          {sections.map((sec) => (
-            <Chip
-              key={sec.id}
-              on={draft.sectionId === sec.id}
-              // Re-tapping the chosen section clears it. A section is optional,
-              // and without this there is no way back to "no section" once one
-              // has been tapped.
-              onClick={() =>
-                onPatch({ sectionId: draft.sectionId === sec.id ? "" : sec.id })
-              }
-            >
-              {sec.name}
-            </Chip>
-          ))}
-        </ChipField>
+      {/* Actionable hint when incomplete */}
+      {missingLabel && (
+        <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          Choose {missingLabel} to continue
+        </p>
       )}
     </div>
-  </div>
-);
+  );
+};
 
 /** A labelled row of wrapping chips. Wraps at every width, so it needs no
  *  breakpoints of its own. */

@@ -61,8 +61,19 @@ export interface Section {
 export interface ClassStandardPlanEntry {
   standardId: string;
   standardName?: string;
+  /**
+   * @deprecated Use `subjectIds` for new code. Kept for backward compat: holds
+   * the first subject id so existing filters/reports continue to work.
+   */
   subjectId?: string;
   subjectName?: string;
+  /** Every subject this standard is doing in this class (e.g. revision covering Maths + Science). */
+  subjectIds?: string[];
+  subjectNames?: string[];
+  /** When true, this entry is a test period — `testName` describes it. */
+  isTest?: boolean;
+  /** Human-readable test name, e.g. "Unit Test 2 — Maths". */
+  testName?: string;
   /** Absent = every batch of this standard. */
   batchId?: string;
   batchName?: string;
