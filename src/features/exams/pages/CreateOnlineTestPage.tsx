@@ -179,7 +179,7 @@ const CreateOnlineTestPage = () => {
     setPublishing(true);
     try {
       const owner = {
-        ownerId: user?.id,
+        ownerId: user?.profileId ?? undefined,
         ownerName: user?.name,
         campusId: user?.campusId,
       };
@@ -253,7 +253,7 @@ const CreateOnlineTestPage = () => {
           allowResume,
           assignments,
         },
-        user?.id,
+        user?.profileId ?? undefined,
       );
 
       toast.success(`Online test "${finalTitle}" published successfully!`);
