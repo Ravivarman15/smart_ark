@@ -50,20 +50,27 @@ export function useTranslatedQuestion(
         }
       });
 
-    // Background pre-fetch next questions for silky-smooth navigation
+    // Staggered background pre-fetch next questions to avoid network congestion
+    const timers: number[] = [];
     if (allQuestions && typeof currentIndex === "number") {
       for (let i = 1; i <= 3; i++) {
         const nextQ = allQuestions[currentIndex + i];
         if (nextQ) {
-          translateQuestion(nextQ, "ta").catch(() => undefined);
+          const tId = window.setTimeout(() => {
+            if (active) {
+              translateQuestion(nextQ, "ta").catch(() => undefined);
+            }
+          }, i * 300);
+          timers.push(tId);
         }
       }
     }
 
     return () => {
       active = false;
+      timers.forEach((tId) => window.clearTimeout(tId));
     };
-  }, [question, lang, allQuestions, currentIndex]);
+  }, [question?.id, lang, allQuestions?.length, currentIndex]);
 
   return { displayQuestion: displayQuestion ?? question, isTranslating };
 }
