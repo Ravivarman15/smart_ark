@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readSource, readSql, readTs } from "./sourceGate";
+import { publicTestUrl } from "../services/onlineTest.service";
 
 const MIGRATION = readSql("supabase/migrations/20261016_online_test_public_access.sql");
 const PUBLIC_FN = readTs("supabase/functions/public-test/index.ts");
@@ -8,6 +9,8 @@ const ENGINE = readTs("supabase/functions/_shared/testEngine.ts");
 const CONFIG = readTs("supabase/config.toml").replace(/#.*$/gm, "");
 const PAGE = readTs("src/pages/PublicTestPage.tsx");
 const CLIENT = readTs("src/features/exams/services/publicTest.service.ts");
+const SHARE_PANEL = readTs("src/features/exams/components/ShareTestLinkPanel.tsx");
+const LINK_HOOKS = readTs("src/features/exams/hooks/useTestLink.ts");
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe("the token is not guessable and not permanent", () => {
@@ -273,3 +276,142 @@ describe("existing data is untouched", () => {
     expect(MIGRATION).toContain("create or replace function");
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe("edge function caller resolution passes db client to resolveCaller", () => {
+  it("passes db to resolveCaller in resolveTaker", () => {
+    const fn = AUTH_FN.slice(
+      AUTH_FN.indexOf("async function resolveTaker"),
+      AUTH_FN.indexOf("function channelAllowed"),
+    );
+    expect(fn).toContain("resolveCaller(req, db)");
+    expect(fn).not.toMatch(/resolveCaller\(\s*req\s*\)/);
+  });
+
+  it("passes db to resolveCaller in requireStaff", () => {
+    const fn = AUTH_FN.slice(
+      AUTH_FN.indexOf("async function requireStaff"),
+      AUTH_FN.indexOf("Deno.serve"),
+    );
+    expect(fn).toContain("resolveCaller(req, db)");
+    expect(fn).not.toMatch(/resolveCaller\(\s*req\s*\)/);
+  });
+
+  it("passes db to resolveCaller in attempt verification", () => {
+    const fn = AUTH_FN.slice(
+      AUTH_FN.indexOf("if (!attemptId)"),
+      AUTH_FN.indexOf("mcq_attempts"),
+    );
+    expect(fn).toContain("resolveCaller(req, db)");
+    expect(fn).not.toMatch(/resolveCaller\(\s*req\s*\)/);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe("publicTestUrl helper and URL construction", () => {
+  it("builds the correct /test/:token route", () => {
+    const sampleToken = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0";
+    const url = publicTestUrl(sampleToken);
+    expect(url).toContain(`/test/${sampleToken}`);
+    expect(url).toMatch(/^https?:\/\/[^/]+\/test\//);
+  });
+
+  it("returns empty string safely when token is empty or falsy", () => {
+    expect(publicTestUrl("")).toBe("");
+  });
+
+  it("never produces double slashes in the route path", () => {
+    const url = publicTestUrl("valid_token_32_bytes_long_12345");
+    expect(url).not.toContain("//test");
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe("share panel UI and mutation contracts", () => {
+  it("has a dedicated loading state for Create link button", () => {
+    expect(SHARE_PANEL).toContain("Creating secure link...");
+    expect(SHARE_PANEL).toContain("disabled={issue.isPending}");
+  });
+
+  it("updates React Query cache immediately on successful link issuance", () => {
+    expect(LINK_HOOKS).toContain("qc.setQueryData");
+  });
+
+  it("guards the copy action against copying empty/undefined", () => {
+    expect(SHARE_PANEL).toContain("if (!url) return");
+  });
+
+  it("provides fallback for clipboard copy", () => {
+    expect(SHARE_PANEL).toContain("document.execCommand");
+    expect(SHARE_PANEL).toContain("navigator.clipboard");
+  });
+
+  it("has actionable error notifications in useIssueTestLink and useRevokeTestLink", () => {
+    expect(LINK_HOOKS).toContain("toast.error");
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe("token reuse and idempotent behavior", () => {
+  it("reuses the active token by default when not explicitly rotating", () => {
+    const issueBlock = AUTH_FN.slice(
+      AUTH_FN.indexOf('if (action === "issue_link"'),
+      AUTH_FN.indexOf("if (!attemptId)"),
+    );
+    expect(issueBlock).toContain("const rotate = body.rotate === true");
+    expect(issueBlock).toContain("const reuse = !rotate && cfg.public_token && !cfg.public_token_revoked_at");
+  });
+
+  it("only generates a new token when rotating or minting for the first time", () => {
+    const issueBlock = AUTH_FN.slice(
+      AUTH_FN.indexOf('if (action === "issue_link"'),
+      AUTH_FN.indexOf("if (!attemptId)"),
+    );
+    expect(issueBlock).toContain("if (!reuse)");
+    expect(issueBlock).toContain("patch.public_token = mintToken()");
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe("security mutation tests", () => {
+  it("mutation test: fails if requireStaff does not verify caller organization", () => {
+    const staffCheck = AUTH_FN.slice(
+      AUTH_FN.indexOf("async function requireStaff"),
+      AUTH_FN.indexOf("Deno.serve"),
+    );
+    expect(staffCheck).toContain("caller.organizationId");
+    expect(staffCheck).toContain("organizationId: caller.organizationId");
+  });
+
+  it("mutation test: fails if anonymous users could mint tokens", () => {
+    expect(PUBLIC_FN).not.toContain("issue_link");
+    expect(PUBLIC_FN).not.toContain("mintToken");
+  });
+
+  it("mutation test: fails if resolve_public_test exposes answer keys or question tables", () => {
+    const resolver = MIGRATION.slice(
+      MIGRATION.indexOf("function public.resolve_public_test"),
+      MIGRATION.indexOf("function public.public_test_branding"),
+    );
+    expect(resolver).not.toContain("mcq_questions");
+    expect(resolver).not.toContain("is_correct");
+    expect(resolver).not.toContain("explanation");
+    expect(resolver).not.toContain("answer_text");
+  });
+
+  it("mutation test: fails if cross-tenant exam lookup is possible in resolve_public_test", () => {
+    const resolver = MIGRATION.slice(
+      MIGRATION.indexOf("function public.resolve_public_test"),
+      MIGRATION.indexOf("function public.public_test_branding"),
+    );
+    expect(resolver).toContain("me.public_token = _token");
+    expect(resolver).toContain("is_org_suspended_for(me.organization_id)");
+  });
+
+  it("mutation test: fails if public-test bypasses token verification", () => {
+    const serve = PUBLIC_FN.slice(PUBLIC_FN.indexOf("Deno.serve"));
+    expect(serve).toContain("const link = await resolveLink(db, token)");
+    expect(serve).toContain("if (!link)");
+  });
+});
+

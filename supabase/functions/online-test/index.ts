@@ -69,7 +69,7 @@ async function resolveTaker(
   req: Request,
   studentId: string,
 ): Promise<{ taker: Taker } | { error: string; status: number }> {
-  const caller = await resolveCaller(req);
+  const caller = await resolveCaller(req, db);
   if (!caller) return { error: "Sign in to start this test.", status: 401 };
   if (!caller.organizationId) {
     return { error: "Your account is not linked to an institution.", status: 403 };
@@ -189,7 +189,7 @@ async function requireStaff(
   db: Db,
   req: Request,
 ): Promise<{ organizationId: string; profileId: string } | { error: string; status: number }> {
-  const caller = await resolveCaller(req);
+  const caller = await resolveCaller(req, db);
   if (!caller) return { error: "Sign in to manage this test.", status: 401 };
   if (!caller.organizationId || !caller.profileId || !caller.role) {
     return { error: "Only staff can manage tests.", status: 403 };
@@ -404,7 +404,7 @@ Deno.serve(async (req) => {
     // below runs with the service role, so RLS does not filter it — an
     // unauthenticated caller supplying a real attempt id would otherwise cause
     // that row to be fetched before anything had checked who they were.
-    if (!(await resolveCaller(req))) {
+    if (!(await resolveCaller(req, db))) {
       return jsonResponse(401, { error: "Sign in to continue this test." });
     }
 

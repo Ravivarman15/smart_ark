@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/core/constants/queryKeys";
+import { toast } from "sonner";
 import { onlineTestService } from "../services/onlineTest.service";
 import type { TestLink, TestLinkOptions } from "../services/onlineTest.service";
 
@@ -27,9 +28,19 @@ export const useIssueTestLink = (examId: string | null) => {
   return useMutation({
     mutationFn: (options: TestLinkOptions = {}) =>
       onlineTestService.issueLink(examId as string, options),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (examId && data) {
+        qc.setQueryData([...queryKeys.exams.all, "link", examId], data);
+      }
       qc.invalidateQueries({ queryKey: [...queryKeys.exams.all, "link", examId ?? ""] });
       qc.invalidateQueries({ queryKey: queryKeys.exams.all });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Couldn't create the test link. Please try again.";
+      toast.error(msg);
     },
   });
 };
@@ -38,9 +49,19 @@ export const useRevokeTestLink = (examId: string | null) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => onlineTestService.revokeLink(examId as string),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (examId && data) {
+        qc.setQueryData([...queryKeys.exams.all, "link", examId], data);
+      }
       qc.invalidateQueries({ queryKey: [...queryKeys.exams.all, "link", examId ?? ""] });
       qc.invalidateQueries({ queryKey: queryKeys.exams.all });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Couldn't turn off the test link. Please try again.";
+      toast.error(msg);
     },
   });
 };

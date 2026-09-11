@@ -55,9 +55,23 @@ export const ShareTestLinkPanel = ({ examId, examTitle }: Props) => {
   const url = link?.token ? publicTestUrl(link.token) : "";
 
   const copy = async () => {
+    if (!url) return;
     try {
-      await navigator.clipboard.writeText(url);
+      if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else if (typeof document !== "undefined") {
+        const textArea = document.createElement("textarea");
+        textArea.value = url;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
       setCopied(true);
+      toast.success("Link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Could not copy — select the link and copy it manually.");
@@ -101,11 +115,16 @@ export const ShareTestLinkPanel = ({ examId, examTitle }: Props) => {
           onClick={() => issue.mutate({ identityFields: ["name"] })}
         >
           {issue.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creating secure link...
+            </>
           ) : (
-            <Link2 className="w-4 h-4 mr-2" />
+            <>
+              <Link2 className="w-4 h-4 mr-2" />
+              Create link
+            </>
           )}
-          Create link
         </Button>
       </div>
     );
@@ -120,7 +139,7 @@ export const ShareTestLinkPanel = ({ examId, examTitle }: Props) => {
       {/* ── The link ───────────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs">Public link</Label>
+          <Label className="text-xs font-semibold">Public link</Label>
           <StatusChip active={link.active} revoked={revoked} expired={expired} />
         </div>
         <div className="flex gap-2">
@@ -130,20 +149,34 @@ export const ShareTestLinkPanel = ({ examId, examTitle }: Props) => {
             onFocus={(e) => e.currentTarget.select()}
             className="font-mono text-xs"
           />
-          <Button variant="outline" size="icon" onClick={copy} title="Copy link">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copy}
+            className="shrink-0"
+            title="Copy link"
+          >
             {copied ? (
-              <Check className="w-4 h-4 text-accent" />
+              <>
+                <Check className="w-4 h-4 mr-1.5 text-accent" />
+                Copied
+              </>
             ) : (
-              <Copy className="w-4 h-4" />
+              <>
+                <Copy className="w-4 h-4 mr-1.5" />
+                Copy link
+              </>
             )}
           </Button>
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             title="Open in a new tab"
+            className="shrink-0"
             onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-4 h-4 mr-1.5" />
+            Open test
           </Button>
         </div>
         {!link.active && (
@@ -155,9 +188,29 @@ export const ShareTestLinkPanel = ({ examId, examTitle }: Props) => {
         )}
       </div>
 
+      {/* ── Metadata summary ─────────────────────────────────────────────────── */}
+      <div className="rounded-lg bg-muted/40 p-3 text-xs space-y-1.5">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Test:</span>
+          <span className="font-medium text-foreground truncate max-w-[240px]">{examTitle}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Link status:</span>
+          <span className="font-medium text-foreground">
+            {link.active ? "Active" : revoked ? "Revoked" : expired ? "Expired" : "Inactive"}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Expires:</span>
+          <span className="font-medium text-foreground">
+            {link.expiresAt ? new Date(link.expiresAt).toLocaleDateString() : "Never"}
+          </span>
+        </div>
+      </div>
+
       {/* ── What we ask the taker ──────────────────────────────────────────── */}
       <div>
-        <Label className="text-xs">Ask each person for</Label>
+        <Label className="text-xs font-semibold">Ask each person for</Label>
         <div className="mt-2 space-y-2.5">
           {ALL_FIELDS.map((f) => (
             <div key={f.id} className="flex items-start gap-3">

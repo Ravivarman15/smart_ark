@@ -121,7 +121,7 @@ describe("there is exactly one grader", () => {
 // ═════════════════════════════════════════════════════════════════════════════
 describe("the caller never names the tenant, the student or the mark", () => {
   it("derives the organization from the verified identity", () => {
-    expect(ENTRY).toContain("resolveCaller(req)");
+    expect(ENTRY).toContain("resolveCaller(req, db)");
     expect(ENTRY).toContain("caller.organizationId");
     // The one thing that must never appear: an org read off the request.
     expect(ENTRY).not.toMatch(/body\.organi[sz]ation/i);

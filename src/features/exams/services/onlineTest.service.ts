@@ -159,9 +159,26 @@ export interface TestLinkOptions {
   identityFields?: IdentityField[];
 }
 
-/** The URL a student opens. Built from the app's own origin, never hardcoded. */
-export const publicTestUrl = (token: string): string =>
-  `${window.location.origin}/test/${token}`;
+/** The URL a student opens. Built from the app's own origin/environment, never hardcoded. */
+export const publicTestUrl = (token: string): string => {
+  if (!token) return "";
+  const origin =
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : "";
+  const configured = (
+    typeof import.meta !== "undefined" &&
+    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_PUBLIC_APP_URL
+  )?.trim();
+  const raw = configured || origin;
+  try {
+    const base = new URL(raw).origin;
+    return `${base}/test/${token}`;
+  } catch {
+    const cleanBase = raw.replace(/\/+$/, "");
+    return `${cleanBase}/test/${token}`;
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBJECTIVE MARKING
