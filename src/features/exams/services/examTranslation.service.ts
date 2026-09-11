@@ -2,8 +2,8 @@
 // EXAM TRANSLATION SERVICE — Multi-language dynamic support for online exams
 //
 // Provides high-speed bilingual switching between English (default) and Tamil.
-// Uses single-call batch translation + Google/MyMemory engines with local
-// caching, offline scientific dictionary fallback, and unit localization.
+// Features full exam bulk batching, multi-provider network fallbacks,
+// offline scientific rule dictionary, and comprehensive SI unit formatting.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { PublicQuestion } from "./onlineTest.service";
@@ -16,29 +16,87 @@ export interface TranslatedQuestion extends PublicQuestion {
   isTranslated?: boolean;
 }
 
-// ── In-memory translation caches (preserves translated questions across navigations) ──
+// ── In-memory translation caches ─────────────────────────────────────────────
 const textCache = new Map<string, string>();
 const questionCache = new Map<string, TranslatedQuestion>();
 
-/** Unit translations for physics / maths / chemistry */
+/** Unit translations covering physics, chemistry, maths, mechanics, and SI units */
 const UNIT_TRANSLATIONS: [RegExp, string][] = [
+  // Acceleration
+  [/^(\d+(?:\.\d+)?)\s*(?:m\/s\^?2|m\/s²|m\s*s\^-2)$/i, "$1 மீ/வி² (m/s²)"],
+  // Velocity / Speed
+  [/^(\d+(?:\.\d+)?)\s*(?:m\/s|m\s*s\^-1)$/i, "$1 மீ/வி (m/s)"],
+  [/^(\d+(?:\.\d+)?)\s*(?:km\/h|km\/hr|kmph)$/i, "$1 கிமீ/மணி (km/h)"],
+  [/^(\d+(?:\.\d+)?)\s*(?:cm\/s)$/i, "$1 செமீ/வி (cm/s)"],
+  [/^(\d+(?:\.\d+)?)\s*(?:rad\/s)$/i, "$1 ரேடியன்/வி (rad/s)"],
+  // Energy / Work
+  [/^(\d+(?:\.\d+)?)\s*kJ$/i, "$1 கிலோஜூல் (kJ)"],
+  [/^(\d+(?:\.\d+)?)\s*MJ$/i, "$1 மெகாஜூல் (MJ)"],
   [/^(\d+(?:\.\d+)?)\s*J$/i, "$1 ஜூல் (J)"],
-  [/^(\d+(?:\.\d+)?)\s*m\/s$/i, "$1 மீ/வி (m/s)"],
-  [/^(\d+(?:\.\d+)?)\s*km\/h$/i, "$1 கிமீ/மணி (km/h)"],
+  [/^(\d+(?:\.\d+)?)\s*cal$/i, "$1 கலோரி (cal)"],
+  [/^(\d+(?:\.\d+)?)\s*eV$/i, "$1 எலக்ட்ரான் வோல்ட் (eV)"],
+  // Force
+  [/^(\d+(?:\.\d+)?)\s*kN$/i, "$1 கிலோநியூட்டன் (kN)"],
   [/^(\d+(?:\.\d+)?)\s*N$/i, "$1 நியூட்டன் (N)"],
+  [/^(\d+(?:\.\d+)?)\s*dyne$/i, "$1 டைன் (dyne)"],
+  // Mass
   [/^(\d+(?:\.\d+)?)\s*kg$/i, "$1 கிலோ (kg)"],
   [/^(\d+(?:\.\d+)?)\s*g$/i, "$1 கிராம் (g)"],
+  [/^(\d+(?:\.\d+)?)\s*mg$/i, "$1 மிகி (mg)"],
+  // Power
+  [/^(\d+(?:\.\d+)?)\s*GW$/i, "$1 கிகாவாட் (GW)"],
+  [/^(\d+(?:\.\d+)?)\s*MW$/i, "$1 மெகாவாட் (MW)"],
+  [/^(\d+(?:\.\d+)?)\s*kW$/i, "$1 கிலோவாட் (kW)"],
   [/^(\d+(?:\.\d+)?)\s*W$/i, "$1 வாட் (W)"],
+  [/^(\d+(?:\.\d+)?)\s*hp$/i, "$1 குதிரைத்திறன் (hp)"],
+  // Pressure
+  [/^(\d+(?:\.\d+)?)\s*kPa$/i, "$1 கிலோபாஸ்கல் (kPa)"],
+  [/^(\d+(?:\.\d+)?)\s*MPa$/i, "$1 மெகாபாஸ்கல் (MPa)"],
   [/^(\d+(?:\.\d+)?)\s*Pa$/i, "$1 பாஸ்கல் (Pa)"],
+  [/^(\d+(?:\.\d+)?)\s*bar$/i, "$1 பார் (bar)"],
+  [/^(\d+(?:\.\d+)?)\s*atm$/i, "$1 வளிமண்டல அழுத்தம் (atm)"],
+  // Frequency
+  [/^(\d+(?:\.\d+)?)\s*GHz$/i, "$1 கிகாஹெர்ட்ஸ் (GHz)"],
+  [/^(\d+(?:\.\d+)?)\s*MHz$/i, "$1 மெகாஹெர்ட்ஸ் (MHz)"],
+  [/^(\d+(?:\.\d+)?)\s*kHz$/i, "$1 கிலோஹெர்ட்ஸ் (kHz)"],
   [/^(\d+(?:\.\d+)?)\s*Hz$/i, "$1 ஹெர்ட்ஸ் (Hz)"],
+  // Electricity & Magnetism
+  [/^(\d+(?:\.\d+)?)\s*kV$/i, "$1 கிலோவோல்ட் (kV)"],
+  [/^(\d+(?:\.\d+)?)\s*mV$/i, "$1 மில்லிவோல்ட் (mV)"],
   [/^(\d+(?:\.\d+)?)\s*V$/i, "$1 வோல்ட் (V)"],
+  [/^(\d+(?:\.\d+)?)\s*mA$/i, "$1 மில்லியாம்பியர் (mA)"],
+  [/^(\d+(?:\.\d+)?)\s*μA|uA$/i, "$1 மைக்ரோஆம்பியர் (μA)"],
   [/^(\d+(?:\.\d+)?)\s*A$/i, "$1 ஆம்பியர் (A)"],
-  [/^(\d+(?:\.\d+)?)\s*Ω$/i, "$1 ஓம் (Ω)"],
+  [/^(\d+(?:\.\d+)?)\s*M[\u03a9Ω]$/i, "$1 மெகாஓம் (MΩ)"],
+  [/^(\d+(?:\.\d+)?)\s*k[\u03a9Ω]$/i, "$1 கிலோஓம் (kΩ)"],
+  [/^(\d+(?:\.\d+)?)\s*[\u03a9Ω]$/i, "$1 ஓம் (Ω)"],
   [/^(\d+(?:\.\d+)?)\s*ohm(?:s)?$/i, "$1 ஓம் (Ω)"],
+  [/^(\d+(?:\.\d+)?)\s*μC|uC$/i, "$1 மைக்ரோகூலூம் (μC)"],
+  [/^(\d+(?:\.\d+)?)\s*C$/i, "$1 கூலூம் (C)"],
+  [/^(\d+(?:\.\d+)?)\s*μF|uF$/i, "$1 மைக்ரோஃபாரட் (μF)"],
+  [/^(\d+(?:\.\d+)?)\s*pF$/i, "$1 பிகோஃபாரட் (pF)"],
+  [/^(\d+(?:\.\d+)?)\s*F$/i, "$1 ஃபாரட் (F)"],
+  [/^(\d+(?:\.\d+)?)\s*T$/i, "$1 டெஸ்லா (T)"],
+  [/^(\d+(?:\.\d+)?)\s*H$/i, "$1 ஹென்றி (H)"],
+  // Distance / Length
+  [/^(\d+(?:\.\d+)?)\s*km$/i, "$1 கிலோமீட்டர் (km)"],
+  [/^(\d+(?:\.\d+)?)\s*cm$/i, "$1 சென்டிமீட்டர் (cm)"],
+  [/^(\d+(?:\.\d+)?)\s*mm$/i, "$1 மில்லிமீட்டர் (mm)"],
+  [/^(\d+(?:\.\d+)?)\s*nm$/i, "$1 நானோமீட்டர் (nm)"],
+  [/^(\d+(?:\.\d+)?)\s*m$/i, "$1 மீட்டர் (m)"],
+  // Angles & Temperature
+  [/^(\d+(?:\.\d+)?)\s*(?:°C|deg\s*C)$/i, "$1 °C"],
+  [/^(\d+(?:\.\d+)?)\s*K$/i, "$1 K (கெல்வின்)"],
+  [/^(\d+(?:\.\d+)?)\s*(?:°|deg|degrees)$/i, "$1 பாகை (°)"],
+  [/^(\d+(?:\.\d+)?)\s*(?:rad|radians)$/i, "$1 ரேடியன்"],
 ];
 
-/** Offline rule dictionary for science and common test terminology */
+/** Offline rule dictionary for standard secondary and higher secondary question templates */
 const OFFLINE_PATTERNS: [RegExp, string][] = [
+  [
+    /A particle is moving in a circular path of radius ([\d.]+\s*m) with a constant speed of ([\d.]+\s*m\/s)\.\s*What is its centripetal acceleration\??/i,
+    "$1 ஆரம் கொண்ட வட்டப் பாதையில் ஒரு துகள் $2 மாறா வேகத்தில் இயங்குகிறது. அதன் மையநோக்கு முடுக்கம் என்ன?",
+  ],
   [
     /A body of mass ([\d.]+\s*kg) is moving with a velocity of ([\d.]+\s*m\/s)\.\s*What is its kinetic energy\??/i,
     "$1 நிறை கொண்ட ஒரு பொருள் $2 திசைவேகத்தில் இயங்குகிறது. அதன் இயக்க ஆற்றல் என்ன?",
@@ -47,7 +105,7 @@ const OFFLINE_PATTERNS: [RegExp, string][] = [
     /A resistance of ([\d.]+\s*[\u03a9Ω]|[\d.]+\s*ohm)\s*is connected to a potential difference of ([\d.]+\s*V)\.\s*The current flowing through the resistance is:?/i,
     "$1 மின்தடையானது $2 மின்னழுத்த வேறுபாட்டுடன் இணைக்கப்பட்டுள்ளது. மின்தடையின் வழியே பாயும் மின்னோட்டம் எவ்வளவு:",
   ],
-  [/What is the value of/i, "எதன் மதிப்பு என்ன:"],
+  [/What is the value of/i, "மதிப்பு என்ன:"],
   [/Which of the following is/i, "பின்வருவனவற்றில் எது"],
   [/Calculate the/i, "கணக்கிடுக:"],
   [/Find the value of/i, "மதிப்பைக் காண்க:"],
@@ -225,7 +283,7 @@ export async function translateTextToTamil(text: string): Promise<string> {
 }
 
 /** Batch translate an array of texts in 1 single HTTP request with high accuracy */
-async function translateBatchToTamil(items: string[]): Promise<string[]> {
+export async function translateBatchToTamil(items: string[]): Promise<string[]> {
   if (items.length === 0) return [];
   const DELIM = " ___ ";
   const joined = items.join(DELIM);
@@ -346,4 +404,97 @@ export async function translateQuestion(
   } catch {
     return { ...q, isTranslated: false };
   }
+}
+
+/** Preload and translate all questions for an entire exam in bulk */
+export async function preloadAllExamQuestions(
+  questions: PublicQuestion[],
+  lang: ExamLanguage = "ta",
+): Promise<void> {
+  if (lang === "en" || questions.length === 0) return;
+
+  const unCached = questions.filter((q) => !questionCache.has(`q:${q.id}`));
+  if (unCached.length === 0) return;
+
+  // Process in batches of 5 questions to ensure payload size is optimal
+  const BATCH_SIZE = 5;
+  for (let i = 0; i < unCached.length; i += BATCH_SIZE) {
+    const chunk = unCached.slice(i, i + BATCH_SIZE);
+    const allStrings: string[] = [];
+    const questionMappings: {
+      question: PublicQuestion;
+      stemIdx: number;
+      optionIndices: number[];
+      promptIndices: number[];
+      choiceIndices: number[];
+    }[] = [];
+
+    for (const q of chunk) {
+      const stemIdx = allStrings.length;
+      allStrings.push(q.questionText);
+
+      const optionIndices: number[] = [];
+      q.options.forEach((o) => {
+        optionIndices.push(allStrings.length);
+        allStrings.push(o.text);
+      });
+
+      const promptIndices: number[] = [];
+      (q.matchPrompts ?? []).forEach((p) => {
+        promptIndices.push(allStrings.length);
+        allStrings.push(p);
+      });
+
+      const choiceIndices: number[] = [];
+      (q.matchChoices ?? []).forEach((c) => {
+        choiceIndices.push(allStrings.length);
+        allStrings.push(c);
+      });
+
+      questionMappings.push({
+        question: q,
+        stemIdx,
+        optionIndices,
+        promptIndices,
+        choiceIndices,
+      });
+    }
+
+    try {
+      const translatedChunk = await translateBatchToTamil(allStrings);
+      for (const map of questionMappings) {
+        const q = map.question;
+        const stemText = translatedChunk[map.stemIdx] || q.questionText;
+        const options = q.options.map((o, idx) => ({
+          ...o,
+          text: formatUnitOption(translatedChunk[map.optionIndices[idx]] || o.text),
+        }));
+        const matchPrompts = (q.matchPrompts ?? []).map(
+          (p, idx) => translatedChunk[map.promptIndices[idx]] || p,
+        );
+        const matchChoices = (q.matchChoices ?? []).map(
+          (c, idx) => translatedChunk[map.choiceIndices[idx]] || c,
+        );
+
+        const translated: TranslatedQuestion = {
+          ...q,
+          questionText: stemText,
+          options,
+          matchPrompts: matchPrompts.length > 0 ? matchPrompts : q.matchPrompts,
+          matchChoices: matchChoices.length > 0 ? matchChoices : q.matchChoices,
+          originalQuestionText: q.questionText,
+          originalOptions: q.options.map((o) => ({ id: o.id, text: o.text })),
+          isTranslated: true,
+        };
+        questionCache.set(`q:${q.id}`, translated);
+      }
+    } catch {
+      // Individual questions will translate on-demand if bulk chunk failed
+    }
+  }
+}
+
+/** Check if a question is already translated in cache */
+export function getCachedQuestion(questionId: string): TranslatedQuestion | undefined {
+  return questionCache.get(`q:${questionId}`);
 }

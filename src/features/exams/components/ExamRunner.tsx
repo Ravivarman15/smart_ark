@@ -410,6 +410,7 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
           <div className="max-w-2xl mx-auto">
             {current && (
               <ExamQuestionView
+                key={current.id}
                 question={current}
                 index={currentIndex}
                 total={displayQuestions.length}

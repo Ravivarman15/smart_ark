@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import type { PublicQuestion } from "../services/onlineTest.service";
 import {
   translateQuestion,
+  preloadAllExamQuestions,
+  getCachedQuestion,
   type ExamLanguage,
   type TranslatedQuestion,
 } from "../services/examTranslation.service";
 
 /**
  * Hook to dynamically translate questions to Tamil or return original English.
- * Caches in memory for instant switching and pre-fetches surrounding questions.
+ * Returns cached translations synchronously to avoid screen flashing,
+ * and bulk pre-loads the full exam paper in the background.
  */
 export function useTranslatedQuestion(
   question: PublicQuestion | undefined,
@@ -16,19 +19,32 @@ export function useTranslatedQuestion(
   allQuestions?: PublicQuestion[],
   currentIndex?: number,
 ) {
+  // Try synchronous cache read to eliminate 1-frame flashes
+  const cached = question && lang === "ta" ? getCachedQuestion(question.id) : undefined;
+
   const [displayQuestion, setDisplayQuestion] = useState<TranslatedQuestion | undefined>(
-    question ? { ...question, isTranslated: false } : undefined,
+    cached ?? (question ? { ...question, isTranslated: false } : undefined),
   );
   const [isTranslating, setIsTranslating] = useState(false);
 
+  // Sync state immediately if question or cache changes
   useEffect(() => {
     if (!question) {
       setDisplayQuestion(undefined);
+      setIsTranslating(false);
       return;
     }
 
     if (lang === "en") {
       setDisplayQuestion({ ...question, isTranslated: false });
+      setIsTranslating(false);
+      return;
+    }
+
+    // Check synchronous cache first
+    const hit = getCachedQuestion(question.id);
+    if (hit) {
+      setDisplayQuestion(hit);
       setIsTranslating(false);
       return;
     }
@@ -50,27 +66,23 @@ export function useTranslatedQuestion(
         }
       });
 
-    // Staggered background pre-fetch next questions to avoid network congestion
-    const timers: number[] = [];
-    if (allQuestions && typeof currentIndex === "number") {
-      for (let i = 1; i <= 3; i++) {
-        const nextQ = allQuestions[currentIndex + i];
-        if (nextQ) {
-          const tId = window.setTimeout(() => {
-            if (active) {
-              translateQuestion(nextQ, "ta").catch(() => undefined);
-            }
-          }, i * 300);
-          timers.push(tId);
-        }
-      }
-    }
-
     return () => {
       active = false;
-      timers.forEach((tId) => window.clearTimeout(tId));
     };
-  }, [question?.id, lang, allQuestions?.length, currentIndex]);
+  }, [question?.id, lang]);
 
-  return { displayQuestion: displayQuestion ?? question, isTranslating };
+  // Bulk preload all questions of the exam in background when in Tamil mode
+  useEffect(() => {
+    if (lang === "ta" && allQuestions && allQuestions.length > 0) {
+      preloadAllExamQuestions(allQuestions, "ta").catch(() => undefined);
+    }
+  }, [lang, allQuestions]);
+
+  return {
+    displayQuestion:
+      lang === "ta"
+        ? getCachedQuestion(question?.id ?? "") ?? displayQuestion ?? question
+        : question,
+    isTranslating,
+  };
 }
