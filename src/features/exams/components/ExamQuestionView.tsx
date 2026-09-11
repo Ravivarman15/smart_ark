@@ -241,12 +241,13 @@ export const ExamQuestionView = ({
       ) : hasOptions ? (
         <div className="space-y-2">
           {question.options.map((opt, i) => {
-            const active = selected.includes(opt.id);
+            const optId = opt.id || `o${i + 1}`;
+            const active = selected.includes(optId);
             return (
               <button
-                key={opt.id}
+                key={optId}
                 type="button"
-                onClick={() => pick(opt.id)}
+                onClick={() => pick(optId)}
                 className={`w-full flex items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors ${
                   active
                     ? "border-accent bg-accent/10"

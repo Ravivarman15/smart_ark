@@ -151,7 +151,14 @@ export async function loadPaper(
         questionType: (q.question_type ?? "single") as GradableType,
         marks: Number(q.marks ?? 1),
         negativeMarks: Number(q.negative_marks ?? 0),
-        options: Array.isArray(q.options) ? q.options : [],
+        options: Array.isArray(q.options)
+          ? q.options.map((o: any, idx: number) => ({
+              ...o,
+              id: o?.id ? String(o.id) : `o${idx + 1}`,
+              text: o?.text ?? "",
+              isCorrect: !!o?.isCorrect,
+            }))
+          : [],
         numericalAnswer: q.numerical_answer ?? null,
         answerText: q.answer_text ?? null,
         matchPairs: Array.isArray(q.match_pairs) ? q.match_pairs : [],
@@ -186,8 +193,8 @@ export function publicQuestion(q: LoadedQuestion) {
     difficulty: q.difficulty,
     hasFormula: q.hasFormula,
     imageUrl: q.imageUrl,
-    options: (q.options ?? []).map((o) => ({
-      id: o.id,
+    options: (q.options ?? []).map((o, idx) => ({
+      id: o.id || `o${idx + 1}`,
       text: o.text,
       imageUrl: (o as { imageUrl?: string }).imageUrl ?? null,
     })),

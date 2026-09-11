@@ -287,17 +287,19 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
       else if (e.key.toLowerCase() === "r") {
         patchAnswer(q.id, { markedForReview: !answers[q.id]?.markedForReview });
       } else if (/^[1-9]$/.test(e.key) && q.questionType !== "numerical") {
-        const opt = q.options[Number(e.key) - 1];
+        const optIndex = Number(e.key) - 1;
+        const opt = q.options[optIndex];
         if (opt) {
+          const optId = opt.id || `o${optIndex + 1}`;
           if (q.questionType === "multiple") {
             const sel = answers[q.id]?.selectedOptionIds ?? [];
             patchAnswer(q.id, {
-              selectedOptionIds: sel.includes(opt.id)
-                ? sel.filter((x) => x !== opt.id)
-                : [...sel, opt.id],
+              selectedOptionIds: sel.includes(optId)
+                ? sel.filter((x) => x !== optId)
+                : [...sel, optId],
             });
           } else {
-            patchAnswer(q.id, { selectedOptionIds: [opt.id] });
+            patchAnswer(q.id, { selectedOptionIds: [optId] });
           }
         }
       }

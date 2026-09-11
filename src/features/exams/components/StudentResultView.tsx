@@ -299,7 +299,12 @@ const ReviewCard = ({ row, index }: { row: ResultAnswerRow; index: number }) => 
       : "border-rose-200 bg-rose-50/40";
 
   const correctIds = useMemo(
-    () => new Set(correctOptionIds(question.options)),
+    () =>
+      new Set(
+        question.options
+          .filter((o) => o.isCorrect)
+          .map((o, idx) => o.id || `o${idx + 1}`),
+      ),
     [question.options],
   );
   const selectedIds = new Set(answer?.selectedOptionIds ?? []);
@@ -352,8 +357,9 @@ const ReviewCard = ({ row, index }: { row: ResultAnswerRow; index: number }) => 
       ) : (
         <div className="space-y-1 mt-2">
           {question.options.map((opt, i) => {
-            const isCorrect = correctIds.has(opt.id);
-            const wasSelected = selectedIds.has(opt.id);
+            const optId = opt.id || `o${i + 1}`;
+            const isCorrect = correctIds.has(optId);
+            const wasSelected = selectedIds.has(optId);
             const cls = isCorrect
               ? "border-emerald-300 bg-emerald-50 text-emerald-900"
               : wasSelected
@@ -361,7 +367,7 @@ const ReviewCard = ({ row, index }: { row: ResultAnswerRow; index: number }) => 
                 : "border-border/60 bg-card/50 text-foreground";
             return (
               <div
-                key={opt.id}
+                key={optId}
                 className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-sm ${cls}`}
               >
                 <span>

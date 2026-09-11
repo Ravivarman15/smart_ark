@@ -139,7 +139,11 @@ const CreateOnlineTestPage = () => {
           difficulty: q.difficulty,
           bloomLevel: "understand",
           tags: [],
-          options: q.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
+          options: q.options.map((o, idx) => ({
+            id: o.id || `o${idx + 1}`,
+            text: o.text,
+            isCorrect: o.isCorrect,
+          })),
           numericalAnswer: q.numericalAnswer?.value,
           numericalTolerance: q.numericalAnswer?.tolerance,
           answerText: q.answerText ?? "",
@@ -194,7 +198,11 @@ const CreateOnlineTestPage = () => {
         bloomLevel: q.bloomLevel ?? "understand",
         chapter: q.chapter || undefined,
         topic: q.topic || undefined,
-        options: (q.options ?? []).map((o) => ({ text: o.text, isCorrect: !!o.isCorrect })),
+        options: (q.options ?? []).map((o, optIdx) => ({
+          id: (o as { id?: string }).id || `o${optIdx + 1}`,
+          text: o.text,
+          isCorrect: !!o.isCorrect,
+        })),
         numericalAnswer:
           q.numericalAnswer != null
             ? { value: q.numericalAnswer, tolerance: q.numericalTolerance ?? 0 }

@@ -87,7 +87,14 @@ const toDomain = (r: QuestionRow): McqQuestion => ({
   difficulty: normDifficulty(r.difficulty),
   marks: Number(r.marks ?? 1),
   negativeMarks: Number(r.negative_marks ?? 0),
-  options: Array.isArray(r.options) ? r.options : [],
+  options: Array.isArray(r.options)
+    ? r.options.map((o: any, idx: number) => ({
+        ...o,
+        id: o?.id ? String(o.id) : `o${idx + 1}`,
+        text: o?.text ?? "",
+        isCorrect: !!o?.isCorrect,
+      }))
+    : [],
   numericalAnswer: r.numerical_answer ?? null,
   explanation: r.explanation ?? undefined,
   imageUrl: r.image_url ?? undefined,
@@ -124,7 +131,14 @@ const toDb = (i: Partial<McqQuestionInput>): Record<string, unknown> => {
   if (i.difficulty !== undefined) out.difficulty = i.difficulty;
   if (i.marks !== undefined) out.marks = i.marks;
   if (i.negativeMarks !== undefined) out.negative_marks = i.negativeMarks;
-  if (i.options !== undefined) out.options = i.options;
+  if (i.options !== undefined) {
+    out.options = i.options?.map((o, idx) => ({
+      id: o.id || `o${idx + 1}`,
+      text: o.text,
+      isCorrect: !!o.isCorrect,
+      ...(o.imageUrl ? { imageUrl: o.imageUrl } : {}),
+    })) ?? [];
+  }
   if (i.numericalAnswer !== undefined)
     out.numerical_answer = i.numericalAnswer ?? null;
   if (i.explanation !== undefined) out.explanation = i.explanation ?? null;
