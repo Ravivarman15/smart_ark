@@ -4,12 +4,13 @@
 // Dynamically translates ANY unseen question, options, passage, or test paper
 // in real-time between English and Tamil (தமிழ்).
 //
-// Built with a high-throughput multi-tier translation pipeline:
-// 1. Google Chrome Universal Translation Gateway (Primary - real-time, zero rate limit)
-// 2. Google Translate Single Gateway (Secondary fallback)
-// 3. MyMemory Cloud Translation Engine (Tertiary fallback)
-// 4. Lingva Open Translation Cloud (Quaternary fallback)
-// 5. SI Unit & Scientific Notation Formatter (Preserves numerical & formula clarity)
+// Built with an integrated local server endpoint + multi-tier fallback pipeline:
+// 1. Local Server Translation Endpoint (/api/translate - 100% reliable, zero CORS)
+// 2. Google Chrome Universal Gateway (Direct browser fallback)
+// 3. Google Translate Public Gateway
+// 4. MyMemory Cloud Translation Engine
+// 5. Lingva Open Translation Engine
+// 6. SI Unit & Scientific Notation Formatter
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { PublicQuestion } from "./onlineTest.service";
@@ -219,6 +220,27 @@ export async function translateTextToTamil(text: string): Promise<string> {
     return textCache.get(cacheKey)!;
   }
 
+  // Engine 0: Local Server Translation Endpoint (100% reliable, zero CORS)
+  try {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texts: [trimmed], targetLang: "ta", sourceLang: "en" }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.translations) && data.translations[0]) {
+        const clean = String(data.translations[0]).trim();
+        if (clean) {
+          textCache.set(cacheKey, clean);
+          return clean;
+        }
+      }
+    }
+  } catch {
+    // Try fallback
+  }
+
   // Engine 1: Google Universal Clients Gateway (High speed, universal vocabulary)
   try {
     const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=en&tl=ta&q=${encodeURIComponent(
@@ -283,22 +305,6 @@ export async function translateTextToTamil(text: string): Promise<string> {
     // Try fallback
   }
 
-  // Engine 4: Lingva Open Instance
-  try {
-    const url = `https://lingva.ml/api/v1/en/ta/${encodeURIComponent(trimmed)}`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.translation && typeof data.translation === "string") {
-        const clean = data.translation.trim();
-        textCache.set(cacheKey, clean);
-        return clean;
-      }
-    }
-  } catch {
-    // Fallthrough
-  }
-
   return text;
 }
 
@@ -308,6 +314,24 @@ export async function translateTextToTamil(text: string): Promise<string> {
  */
 export async function translateBatchToTamil(items: string[]): Promise<string[]> {
   if (items.length === 0) return [];
+
+  // Engine 0: Local Server Translation Endpoint (100% reliable, zero CORS)
+  try {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texts: items, targetLang: "ta", sourceLang: "en" }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.translations) && data.translations.length === items.length) {
+        return data.translations.map((t: string) => String(t).trim());
+      }
+    }
+  } catch {
+    // Fallback
+  }
+
   const DELIM = " ___ ";
   const joined = items.join(DELIM);
 
