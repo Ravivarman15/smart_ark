@@ -291,6 +291,16 @@ export {
 } from "./utils/mcqExamScoring";
 
 export {
+  t,
+  translateQuestion,
+  translateTextToTamil,
+  type ExamLanguage,
+  type TranslatedQuestion,
+  EXAM_I18N,
+} from "./services/examTranslation.service";
+export { useTranslatedQuestion } from "./hooks/useTranslatedQuestion";
+
+export {
   LiveStatusChip,
   AttemptStatusChip,
   ExamTimer,

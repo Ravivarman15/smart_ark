@@ -1,9 +1,11 @@
-import { Bookmark, Sigma } from "lucide-react";
+import { Bookmark, Languages, Loader2, Sigma } from "lucide-react";
 import { DifficultyBadge, QuestionTypeBadge } from "./McqBadges";
 import { isAutoEvaluable } from "../types/mcq.types";
 import type { PublicQuestion } from "../services/onlineTest.service";
 import type { McqQuestionType } from "../types/mcq.types";
 import type { AnswerDraft } from "../types/mcqExam.types";
+import { useTranslatedQuestion } from "../hooks/useTranslatedQuestion";
+import { t, type ExamLanguage } from "../services/examTranslation.service";
 
 interface Props {
   question: PublicQuestion;
@@ -11,6 +13,8 @@ interface Props {
   total: number;
   draft: AnswerDraft;
   onChange: (patch: Partial<AnswerDraft>) => void;
+  lang?: ExamLanguage;
+  allQuestions?: PublicQuestion[];
 }
 
 const letter = (i: number) => String.fromCharCode(65 + i);
@@ -38,36 +42,30 @@ const PLACEHOLDER: Partial<Record<McqQuestionType, string>> = {
   essay: "Write your essay here…",
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Single-question view for the live exam — distraction-free. Renders the stem
-// (image + formula-aware), the answer input matched to the question type, and
-// the mark-for-review toggle. Option order is already frozen by the runner.
-//
-// EVERY question type the importer can produce is answerable here. That is not
-// cosmetic: mcqScoring reads `textValue`, so a type with no input would be
-// submitted empty and scored 0 no matter what the student knew.
-//   • option types ....... single / multiple / true_false / assertion_reason
-//   • numerical .......... number box (tolerance applied by the grader)
-//   • fill_ups/one_word .. one-line text, matched against the key
-//   • match_following .... a select per left item; stored as the right-hand
-//                          column, "|"-joined in left order (scoreAnswer's shape)
-//   • long-form .......... textarea; flagged for teacher evaluation, never
-//                          auto-scored to 0
-// ─────────────────────────────────────────────────────────────────────────────
 export const ExamQuestionView = ({
   question,
   index,
   total,
   draft,
   onChange,
+  lang = "en",
+  allQuestions,
 }: Props) => {
-  const type = question.questionType;
+  const { displayQuestion, isTranslating } = useTranslatedQuestion(
+    question,
+    lang,
+    allQuestions,
+    index,
+  );
+  const activeQ = displayQuestion ?? question;
+
+  const type = activeQ.questionType;
   const isMultiple = type === "multiple";
   const isNumerical = type === "numerical";
   const isShortText = type === "fill_ups" || type === "one_word";
   const isMatch = type === "match_following";
   const isLongForm = LONG_FORM.includes(type);
-  const hasOptions = question.options.length > 0;
+  const hasOptions = activeQ.options.length > 0;
   const teacherGraded = !isAutoEvaluable(type);
 
   const selected = draft.selectedOptionIds ?? [];
@@ -105,16 +103,21 @@ export const ExamQuestionView = ({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">
-            Question {index + 1}
+            {t("question", lang)} {index + 1}
             <span className="text-muted-foreground font-normal"> / {total}</span>
           </span>
-          <QuestionTypeBadge type={question.questionType} />
-          <DifficultyBadge difficulty={question.difficulty} />
+          <QuestionTypeBadge type={activeQ.questionType} />
+          <DifficultyBadge difficulty={activeQ.difficulty} />
+          {isTranslating && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 animate-pulse">
+              <Loader2 className="w-3 h-3 animate-spin" /> {t("translating", lang)}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            +{question.marks}
-            {question.negativeMarks > 0 ? ` / −${question.negativeMarks}` : ""}
+            +{activeQ.marks}
+            {activeQ.negativeMarks > 0 ? ` / −${activeQ.negativeMarks}` : ""}
           </span>
           <button
             type="button"
@@ -130,28 +133,28 @@ export const ExamQuestionView = ({
                 draft.markedForReview ? "fill-amber-400" : ""
               }`}
             />
-            Review
+            {t("review", lang)}
           </button>
         </div>
       </div>
 
       {/* Stem */}
       <div className="space-y-3">
-        {question.hasFormula && (
+        {activeQ.hasFormula && (
           <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-            <Sigma className="w-3 h-3" /> Contains formulae
+            <Sigma className="w-3 h-3" /> {t("containsFormulae", lang)}
           </span>
         )}
         <p
           className={`text-base text-foreground leading-relaxed whitespace-pre-wrap ${
-            question.hasFormula ? "font-mono text-sm" : ""
+            activeQ.hasFormula ? "font-mono text-sm" : ""
           }`}
         >
-          {question.questionText}
+          {activeQ.questionText}
         </p>
-        {question.imageUrl && (
+        {activeQ.imageUrl && (
           <img
-            src={question.imageUrl}
+            src={activeQ.imageUrl}
             alt="Question"
             className="max-h-72 rounded-lg border border-border/60"
           />
@@ -162,7 +165,7 @@ export const ExamQuestionView = ({
       {isNumerical ? (
         <div className="max-w-xs">
           <label className="text-xs font-medium text-muted-foreground">
-            Your numeric answer
+            {t("yourNumericAnswer", lang)}
           </label>
           <input
             type="number"
@@ -174,24 +177,24 @@ export const ExamQuestionView = ({
                   e.target.value === "" ? null : Number(e.target.value),
               })
             }
-            placeholder="Enter a value"
+            placeholder={t("enterValue", lang)}
             className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
           />
         </div>
       ) : isShortText ? (
         <div className="max-w-md">
           <label className="text-xs font-medium text-muted-foreground">
-            {type === "fill_ups" ? "Fill in the blank" : "Your answer"}
+            {type === "fill_ups" ? t("fillInTheBlank", lang) : t("yourAnswer", lang)}
           </label>
           <input
             type="text"
             value={draft.textValue ?? ""}
             onChange={(e) => onChange({ textValue: e.target.value })}
-            placeholder="Type your answer"
+            placeholder={t("typeYourAnswer", lang)}
             className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Spelling and capitalisation are not marked strictly.
+            {t("spellingNote", lang)}
           </p>
         </div>
       ) : isMatch ? (
@@ -207,7 +210,7 @@ export const ExamQuestionView = ({
                 onChange={(e) => setMatch(i, e.target.value)}
                 className="w-52 bg-background border border-border rounded-lg px-2 py-2 text-sm"
               >
-                <option value="">— select —</option>
+                <option value="">{t("selectPrompt", lang)}</option>
                 {choices.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -216,31 +219,31 @@ export const ExamQuestionView = ({
           ))}
           {prompts.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              This question has no match pairs configured — tell your invigilator.
+              {t("noOptionsWarning", lang)}
             </p>
           )}
         </div>
       ) : isLongForm || (!hasOptions && teacherGraded) ? (
         <div>
           <label className="text-xs font-medium text-muted-foreground">
-            Your answer
+            {t("yourAnswer", lang)}
           </label>
           <textarea
             rows={ROWS[type] ?? 6}
             value={draft.textValue ?? ""}
             onChange={(e) => onChange({ textValue: e.target.value })}
-            placeholder={PLACEHOLDER[type] ?? "Write your answer here…"}
+            placeholder={PLACEHOLDER[type] ?? t("typeYourAnswer", lang)}
             className={`mt-1 w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm leading-relaxed ${
               type === "programming" ? "font-mono" : ""
             }`}
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            This answer is marked by your teacher — it is not scored automatically.
+            {t("teacherGradedNote", lang)}
           </p>
         </div>
       ) : hasOptions ? (
         <div className="space-y-2">
-          {question.options.map((opt, i) => {
+          {activeQ.options.map((opt, i) => {
             const optId = opt.id || `o${i + 1}`;
             const active = selected.includes(optId);
             return (
@@ -280,7 +283,7 @@ export const ExamQuestionView = ({
           })}
           {isMultiple && (
             <p className="text-[11px] text-muted-foreground">
-              Multiple answers may be correct — select all that apply.
+              {t("multipleChoiceHint", lang)}
             </p>
           )}
         </div>
@@ -289,8 +292,7 @@ export const ExamQuestionView = ({
         // question. Say so plainly rather than rendering an empty box that looks
         // like the exam is still loading.
         <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          This question has no answer options configured. Tell your invigilator —
-          you will not be penalised for it.
+          {t("noOptionsWarning", lang)}
         </p>
       )}
     </div>

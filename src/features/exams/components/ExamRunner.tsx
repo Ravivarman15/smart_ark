@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Grid3x3,
+  Languages,
   Loader2,
   Maximize,
   Send,
@@ -23,6 +24,7 @@ import { useAntiCheat, useAutosaveAttempt, useSubmitAttempt } from "../hooks";
 import { onlineTestService } from "../services/onlineTest.service";
 import type { OnlineTestSession } from "../services/onlineTest.service";
 import type { AnswerDraft } from "../types/mcqExam.types";
+import { t, type ExamLanguage } from "../services/examTranslation.service";
 
 /**
  * How this runner talks to the server.
@@ -109,6 +111,7 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
   const [remaining, setRemaining] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [lang, setLang] = useState<ExamLanguage>("en");
 
   const autosave = useAutosaveAttempt();
   const submitMut = useSubmitAttempt();
@@ -334,16 +337,45 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
           </p>
           <p className="text-[11px] text-muted-foreground">
             {attempt.studentName} · {attemptedCount}/{displayQuestions.length}{" "}
-            answered
+            {t("answered", lang)}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Dynamic Language / Translator Switcher */}
+          <div className="flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setLang("en")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded-md transition-all ${
+                lang === "en"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Switch to English"
+            >
+              <Languages className="w-3.5 h-3.5" />
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang("ta")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded-md transition-all ${
+                lang === "ta"
+                  ? "bg-background text-emerald-700 dark:text-emerald-400 shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="தமிழுக்கு மாற்றவும் (Translate to Tamil)"
+            >
+              தமிழ்
+            </button>
+          </div>
+
           <ExamTimer remainingSeconds={remaining} />
           <Button
             variant="outline"
             size="icon"
             className="h-8 w-8 hidden sm:flex"
-            title="Fullscreen"
+            title={lang === "ta" ? t("fullscreen", lang) : "Fullscreen"}
             onClick={() =>
               document.documentElement.requestFullscreen?.().catch(() => undefined)
             }
@@ -354,7 +386,7 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
             variant="outline"
             size="icon"
             className="h-8 w-8 lg:hidden"
-            title="Question palette"
+            title={t("palette", lang)}
             onClick={() => setPaletteOpen(true)}
           >
             <Grid3x3 className="w-4 h-4" />
@@ -367,7 +399,7 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
               setShowSummary(true);
             }}
           >
-            <Send className="w-3.5 h-3.5 mr-1.5" /> Submit
+            <Send className="w-3.5 h-3.5 mr-1.5" /> {t("submit", lang)}
           </Button>
         </div>
       </header>
@@ -383,6 +415,8 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
                 total={displayQuestions.length}
                 draft={draft}
                 onChange={(patch) => patchAnswer(current.id, patch)}
+                lang={lang}
+                allQuestions={displayQuestions}
               />
             )}
           </div>
@@ -407,10 +441,10 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
           disabled={currentIndex === 0}
           onClick={() => goTo(currentIndex - 1)}
         >
-          <ChevronLeft className="w-4 h-4 mr-1" /> Previous
+          <ChevronLeft className="w-4 h-4 mr-1" /> {t("previous", lang)}
         </Button>
         <span className="text-xs text-muted-foreground hidden sm:block">
-          Keys: 1-9 answer · ←/→ navigate · R review
+          {t("keysHelp", lang)}
         </span>
         <Button
           variant="outline"
@@ -418,7 +452,7 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
           disabled={currentIndex === displayQuestions.length - 1}
           onClick={() => goTo(currentIndex + 1)}
         >
-          Next <ChevronRight className="w-4 h-4 ml-1" />
+          {t("next", lang)} <ChevronRight className="w-4 h-4 ml-1" />
         </Button>
       </footer>
 
@@ -427,7 +461,7 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
         <div className="fixed inset-0 z-[60] bg-black/40 lg:hidden">
           <div className="absolute right-0 top-0 bottom-0 w-72 bg-background border-l border-border/60 p-4 overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold">Questions</p>
+              <p className="text-sm font-semibold">{t("palette", lang)}</p>
               <button onClick={() => setPaletteOpen(false)}>
                 <X className="w-4 h-4 text-muted-foreground" />
               </button>
@@ -446,22 +480,22 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
       <Dialog open={showSummary} onOpenChange={setShowSummary}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Submit your exam?</DialogTitle>
+            <DialogTitle>{t("submitTitle", lang)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2 text-center">
               <SummaryStat
-                label="Answered"
+                label={lang === "ta" ? "பதிலளித்தவை" : "Answered"}
                 value={attemptedCount}
                 tone="green"
               />
               <SummaryStat
-                label="Unanswered"
+                label={lang === "ta" ? "பதிலளிக்காதவை" : "Unanswered"}
                 value={displayQuestions.length - attemptedCount}
                 tone="rose"
               />
               <SummaryStat
-                label="For review"
+                label={lang === "ta" ? "மறுபரிசீலனை" : "For review"}
                 value={
                   displayQuestions.filter((q) => answers[q.id]?.markedForReview)
                     .length
@@ -470,8 +504,7 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              Once submitted you cannot change your answers. Unanswered
-              questions score zero.
+              {t("submitDesc", lang)}
             </p>
             <div className="flex gap-2">
               <Button
@@ -484,14 +517,14 @@ export const ExamRunner = ({ session, onFinished, transport }: Props) => {
                 ) : (
                   <Send className="w-4 h-4 mr-2" />
                 )}
-                Submit Exam
+                {t("confirmSubmit", lang)}
               </Button>
               <Button
                 variant="ghost"
                 onClick={() => setShowSummary(false)}
                 disabled={submitting}
               >
-                Keep Going
+                {t("cancel", lang)}
               </Button>
             </div>
           </div>
