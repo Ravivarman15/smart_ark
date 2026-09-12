@@ -162,7 +162,7 @@ const CreateMcqExamPage = () => {
       resultRelease: values.resultRelease,
       resultReleaseAt: values.resultReleaseAt || null,
       allowResume: values.allowResume,
-      assignments: assignments.filter((a) => !!a.scopeId),
+      assignments: assignments.filter((a) => a.scopeType === "all" || !!a.scopeId),
     };
   };
 

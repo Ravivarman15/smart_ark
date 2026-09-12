@@ -228,6 +228,126 @@ Deno.serve(async (req) => {
     const examId = body.examId ? String(body.examId) : "";
     const studentId = body.studentId ? String(body.studentId) : "";
 
+    // ── student_exams / student_tests ───────────────────────────────────────
+    if (action === "student_exams" || action === "student_tests") {
+      if (!studentId) {
+        return jsonResponse(400, { error: "studentId is required." });
+      }
+      const resolved = await resolveTaker(db, req, studentId);
+      if ("error" in resolved) {
+        return jsonResponse(resolved.status, { error: resolved.error });
+      }
+
+      const { data: rawExams } = await db
+        .from("exams")
+        .select("*")
+        .eq("organization_id", resolved.taker.organizationId)
+        .eq("mode", "mcq")
+        .neq("status", "draft")
+        .order("created_at", { ascending: false });
+
+      const exams = rawExams ?? [];
+      if (exams.length === 0) {
+        return jsonResponse(200, { exams: [] });
+      }
+
+      const examIds = exams.map((e: Db) => e.id);
+      const [cfgsRes, assignsRes] = await Promise.all([
+        db.from("mcq_exams").select("*").in("exam_id", examIds),
+        db.from("mcq_exam_assignments").select("*").in("exam_id", examIds),
+      ]);
+
+      const cfgs = cfgsRes.data ?? [];
+      const assigns = assignsRes.data ?? [];
+      const cfgByExam = new Map(cfgs.map((c: Db) => [c.exam_id, c]));
+
+      const paperIds = cfgs.map((c: Db) => c.paper_id).filter(Boolean);
+      let papersMap = new Map();
+      if (paperIds.length > 0) {
+        const { data: papers } = await db
+          .from("mcq_papers")
+          .select("id, title, total_marks, total_questions")
+          .in("id", paperIds);
+        if (papers) {
+          papersMap = new Map(papers.map((p: Db) => [p.id, p]));
+        }
+      }
+
+      const { data: student } = await db
+        .from("students")
+        .select("id, batch_id, standard_id")
+        .eq("id", studentId)
+        .eq("organization_id", resolved.taker.organizationId)
+        .maybeSingle();
+
+      const eligibleExams = exams
+        .filter((e: Db) => {
+          const cfg = cfgByExam.get(e.id);
+          const accessMode = cfg?.access_mode ?? "assigned";
+          if (!channelAllowed(accessMode, resolved.taker.channel)) return false;
+
+          const examAssigns = assigns.filter((a: Db) => a.exam_id === e.id);
+          if (examAssigns.length === 0) {
+            if (!e.standard_id && !e.batch_id) return true;
+            if (e.standard_id && student?.standard_id === e.standard_id) return true;
+            if (e.batch_id && student?.batch_id === e.batch_id) return true;
+            return false;
+          }
+          if (examAssigns.some((a: Db) => a.scope_type === "all")) return true;
+          if (examAssigns.some((a: Db) => a.scope_type === "student" && a.scope_id === student?.id)) return true;
+          if (examAssigns.some((a: Db) => a.scope_type === "batch" && a.scope_id === student?.batch_id)) return true;
+          if (examAssigns.some((a: Db) => a.scope_type === "standard" && a.scope_id === student?.standard_id)) return true;
+          return false;
+        })
+        .map((e: Db) => {
+          const cfg = cfgByExam.get(e.id);
+          const paper = cfg?.paper_id ? papersMap.get(cfg.paper_id) : undefined;
+          const examAssigns = assigns.filter((a: Db) => a.exam_id === e.id);
+          return {
+            id: e.id,
+            title: e.title,
+            standardId: e.standard_id ?? undefined,
+            standardName: e.standard_name ?? undefined,
+            batchId: e.batch_id ?? undefined,
+            batchName: e.batch_name ?? undefined,
+            subjectId: e.subject_id ?? undefined,
+            subjectName: e.subject_name ?? undefined,
+            examDate: e.exam_date ?? undefined,
+            instructions: e.instructions ?? undefined,
+            status: e.status ?? "scheduled",
+            paperId: cfg?.paper_id ?? undefined,
+            paperTitle: paper?.title,
+            durationMinutes: Number(cfg?.duration_minutes ?? e.duration_minutes ?? 60),
+            attemptLimit: Number(cfg?.attempt_limit ?? 1),
+            shuffleQuestions: !!cfg?.shuffle_questions,
+            shuffleOptions: !!cfg?.shuffle_options,
+            negativeMarking: !!cfg?.negative_marking,
+            passPercentage: Number(cfg?.pass_percentage ?? 35),
+            windowStart: cfg?.window_start ?? undefined,
+            windowEnd: cfg?.window_end ?? undefined,
+            resultRelease: cfg?.result_release ?? "immediate",
+            resultReleaseAt: cfg?.result_release_at ?? undefined,
+            resultsPublished: e.results_status === "published",
+            liveStatus: cfg?.live_status ?? "not_started",
+            allowResume: cfg?.allow_resume ?? true,
+            totalMarks: Number(paper?.total_marks ?? e.total_marks ?? 0),
+            totalQuestions: Number(paper?.total_questions ?? 0),
+            createdBy: e.created_by ?? undefined,
+            createdAt: e.created_at,
+            updatedAt: e.updated_at,
+            assignments: examAssigns.map((a: Db) => ({
+              id: a.id,
+              examId: a.exam_id,
+              scopeType: a.scope_type,
+              scopeId: a.scope_id ?? undefined,
+              scopeName: a.scope_name ?? undefined,
+            })),
+          };
+        });
+
+      return jsonResponse(200, { exams: eligibleExams });
+    }
+
     // ── start ───────────────────────────────────────────────────────────────
     if (action === "start") {
       if (!examId || !studentId) {

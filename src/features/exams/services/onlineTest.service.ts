@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { AppError } from "@/shared/services";
 import type { McqDifficulty, McqQuestionType } from "../types/mcq.types";
+import type { McqExam } from "../types/mcqExam.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ONLINE TEST — the client half of taking a test.
@@ -242,6 +243,17 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
 }
 
 class OnlineTestService {
+  /**
+   * MCQ exams visible to one student, verified server-side.
+   */
+  async listForStudent(studentId: string): Promise<McqExam[]> {
+    const { exams } = await call<{ exams: McqExam[] }>({
+      action: "student_exams",
+      studentId,
+    });
+    return exams ?? [];
+  }
+
   /**
    * Open or resume an attempt.
    *

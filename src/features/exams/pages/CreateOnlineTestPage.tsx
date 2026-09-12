@@ -244,7 +244,7 @@ const CreateOnlineTestPage = () => {
       });
 
       // 4. Create the online exam
-      await mcqExamService.create(
+      const exam = await mcqExamService.create(
         {
           title: finalTitle,
           paperId: paper.id,
@@ -263,6 +263,16 @@ const CreateOnlineTestPage = () => {
         },
         user?.profileId ?? undefined,
       );
+
+      // Publish the exam so it becomes visible to students
+      await mcqExamService.setPublished(exam.id, true);
+
+      // Set live status: if windowStart is in the future, it is scheduled; otherwise set live
+      const now = Date.now();
+      const isFuture = windowStart && new Date(windowStart).getTime() > now;
+      if (!isFuture) {
+        await mcqExamService.setLiveStatus(exam.id, "live");
+      }
 
       toast.success(`Online test "${finalTitle}" published successfully!`);
       navigate(`${base}/exams/online-tests`);

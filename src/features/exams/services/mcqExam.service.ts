@@ -1,6 +1,7 @@
 import { BaseService, AppError } from "@/shared/services";
 import { round2 } from "../utils/grading";
 import { isTargeted } from "../utils/assignmentTargeting";
+import { onlineTestService } from "./onlineTest.service";
 import type {
   AssignmentDraft,
   ExamAssignment,
@@ -465,11 +466,21 @@ class McqExamService extends BaseService {
     batchId?: string,
     standardId?: string,
   ): Promise<McqExam[]> {
+    try {
+      const edgeExams = await onlineTestService.listForStudent(studentId);
+      if (Array.isArray(edgeExams)) {
+        return edgeExams;
+      }
+    } catch {
+      // Fallback to direct client queries if edge function is unreachable / mock
+    }
+
     const all = await this.list();
     const student = { id: studentId, batchId, standardId, isActive: true };
     return all.filter((e) => {
       if (e.status === "draft") return false;
       if (batchId && e.batchId === batchId) return true;
+      if (standardId && e.standardId === standardId) return true;
       return isTargeted(
         e.assignments.map((a) => ({
           scopeType: a.scopeType,
