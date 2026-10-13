@@ -6,7 +6,7 @@
      Source of truth: src/features/communication/constants/automationEvents.ts
                       src/features/communication/utils/automationState.ts -->
 
-Generated **2026-08-14** from the registry, not from memory.
+Generated **2026-10-13** from the registry, not from memory.
 
 All **32** registered events appear below. There is one registry and one
 state model; this table, the Communication Center and the CI gate
@@ -68,8 +68,8 @@ here cannot drift from what the system actually does.
 | Event | State | Trigger | Resolver | Template | Provider | Channel | Timing | ark | abc-academi |
 |---|---|---|---|---|---|---|---|---|---|
 | `admission_completed` | **MISSING_TRIGGER** | no | yes | `student_welcome` | NONE | both | immediate | on | — |
-| `demo_scheduled` | **READY** | yes | yes | `lead_demo_scheduled_v2` | PENDING | whatsapp | immediate | on | — |
-| `demo_reminder` | **READY** | yes | yes | `lead_demo_reminder_v2` | PENDING | whatsapp | scheduled | off | — |
+| `demo_scheduled` | **READY** | yes | yes | `lead_demo_scheduled_v2` | ACTIVE | whatsapp | immediate | on | — |
+| `demo_reminder` | **READY** | yes | yes | `lead_demo_reminder_v2` | ACTIVE | whatsapp | scheduled | off | — |
 
 ## Payroll
 

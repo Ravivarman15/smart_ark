@@ -31,12 +31,12 @@ describe("renderLeadMessage", () => {
       course_name: "NEET",
       org_name: "Bright Future Academy",
     });
-    expect(r.body).toContain("Hi Arjun");
+    expect(r.body).toContain("Dear Arjun");
     // Was asserting the literal "ARK Learning Arena" — i.e. locking in the
     // branding leak. Now asserts the tenant's own name is substituted.
     expect(r.body).toContain("Bright Future Academy");
     expect(r.body).not.toContain("ARK Learning Arena");
-    expect(r.body).toContain("successfully received your enquiry for NEET");
+    expect(r.body).toContain("received your enquiry for NEET");
     expect(r.missing).toHaveLength(0);
   });
 
@@ -46,14 +46,14 @@ describe("renderLeadMessage", () => {
       student_name: "Arjun",
       course_name: "NEET",
       mobile_number: "9876543210",
-          org_name: "Bright Future Academy",
+      org_name: "Bright Future Academy",
     });
-    expect(r.body).toContain("Asha");
-    expect(r.body).toContain("New Lead Assigned");
+    expect(r.body).toContain("Dear Asha");
+    expect(r.body).toContain("A new enquiry has been assigned to you");
     expect(r.body).toContain("Arjun");
     expect(r.body).toContain("NEET");
     expect(r.body).toContain("9876543210");
-    expect(r.body).toContain("15 minutes");
+    expect(r.body).toContain("agreed follow-up window");
     expect(r.missing).toHaveLength(0);
   });
 
@@ -96,9 +96,9 @@ describe("renderLeadMessage", () => {
       demo_date: "24 Jun 2026",
       demo_time: "05:30 PM",
       faculty_name: "Mr. Rao",
-          org_name: "Bright Future Academy",
+      org_name: "Bright Future Academy",
     });
-    expect(r.body).toContain("Hi Arjun");
+    expect(r.body).toContain("Dear Arjun");
     expect(r.body).toContain("Foundation");
     expect(r.body).toContain("24 Jun 2026");
     expect(r.body).toContain("05:30 PM");
@@ -111,11 +111,11 @@ describe("renderLeadMessage", () => {
       parent_name: "Mr. Sharma",
       student_name: "Arjun",
       course_name: "NEET",
-          org_name: "Bright Future Academy",
+      org_name: "Bright Future Academy",
     });
-    expect(r.body).toContain("Hi Mr. Sharma");
+    expect(r.body).toContain("Dear Mr. Sharma");
     expect(r.body).toContain("admission of Arjun for NEET");
-    expect(r.body).toContain("Welcome to Bright Future Academy");
+    expect(r.body).toContain("Bright Future Academy Administration");
     expect(r.body).not.toContain("ARK Learning Arena");
     expect(r.missing).toHaveLength(0);
   });
@@ -126,9 +126,9 @@ describe("renderLeadMessage", () => {
       course_name: "JEE",
       demo_date: "24 Jun 2026",
       demo_time: "05:30 PM",
-          org_name: "Bright Future Academy",
+      org_name: "Bright Future Academy",
     });
-    expect(r.body).toContain("Hi Arjun");
+    expect(r.body).toContain("Dear Arjun");
     expect(r.body).toContain("JEE");
     expect(r.body).toContain("24 Jun 2026");
     expect(r.body).toContain("05:30 PM");

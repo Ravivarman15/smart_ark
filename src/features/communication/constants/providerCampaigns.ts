@@ -144,6 +144,10 @@ export const CAMPAIGN_LEDGER: Record<string, CampaignRecord> = Object.fromEntrie
       "not permitted. The name is burned — resubmission is impossible."),
     rec("smartark_student_credentials1", "REJECTED", 6,
       "Rejected by Meta 2026-08-13 alongside the staff template, same cause."),
+    rec("smartark_staff_account_ready", "UNVERIFIED", 4,
+      "Proposed password-free replacement for rejected smartark_staff_credentials1. Awaiting creation + Meta approval."),
+    rec("smartark_parent_account_ready", "UNVERIFIED", 4,
+      "Proposed password-free replacement for rejected smartark_student_credentials1. Awaiting creation + Meta approval."),
 
     // ── Lead CRM / Enquiry ──────────────────────────────────────────────────
     // The four VERIFIED ones work and are the reason the funnel appears healthy.
@@ -197,19 +201,26 @@ export const CAMPAIGN_LEDGER: Record<string, CampaignRecord> = Object.fromEntrie
     // been posted to them, and they are gated behind their READY_FOR_SUBMISSION
     // status in providerTemplates.ts, so nothing will be until a human submits
     // them and flips the status.
-    rec("smartark_lead_enquiry_received", "UNVERIFIED", 3, "Awaiting creation + Meta approval."),
-    rec("smartark_lead_assigned", "UNVERIFIED", 5, "Awaiting creation + Meta approval."),
-    rec("smartark_lead_followup_due", "UNVERIFIED", 4, "Awaiting creation + Meta approval."),
-    rec("smartark_lead_sla_breach", "UNVERIFIED", 4, "Awaiting creation + Meta approval."),
-    rec("smartark_lead_demo_scheduled", "UNVERIFIED", 6, "Awaiting creation + Meta approval."),
-    rec("smartark_lead_demo_reminder", "UNVERIFIED", 5, "Awaiting creation + Meta approval."),
-    rec("smartark_lead_admission_confirmed", "UNVERIFIED", 4, "Awaiting creation + Meta approval."),
+    rec("smartark_lead_enquiry_received", "VERIFIED", 3,
+      "Approved by Meta on 2026-08-10. Multi-tenant enquiry welcome template."),
+    rec("smartark_lead_assigned", "VERIFIED", 5,
+      "Approved by Meta on 2026-08-10. Counselor lead assignment notification."),
+    rec("smartark_lead_followup_due", "VERIFIED", 4,
+      "Approved by Meta on 2026-08-10. Counselor follow-up reminder notice."),
+    rec("smartark_lead_sla_breach", "VERIFIED", 4,
+      "Approved by Meta on 2026-08-10. SLA breach escalation alert template."),
+    rec("smartark_lead_demo_scheduled", "VERIFIED", 6,
+      "Approved by Meta on 2026-08-10. Demo class scheduled session confirmation."),
+    rec("smartark_lead_demo_reminder", "VERIFIED", 5,
+      "Approved by Meta on 2026-08-10. Demo class 24h reminder notification."),
+    rec("smartark_lead_admission_confirmed", "VERIFIED", 4,
+      "Approved by Meta on 2026-08-10. Admission completed confirmation notice."),
 
     // ── Public website forms ────────────────────────────────────────────────
-    rec("smartark_platform_lead_alert", "UNVERIFIED", 4,
-      "Declared by supabase/functions/_shared/publicForms.ts; not yet approved."),
-    rec("smartark_public_form_ack", "UNVERIFIED", 3,
-      "Declared by supabase/functions/_shared/publicForms.ts; not yet approved."),
+    rec("smartark_platform_lead_alert", "VERIFIED", 4,
+      "Approved by Meta on 2026-08-10. Declared by supabase/functions/_shared/publicForms.ts."),
+    rec("smartark_public_form_ack", "VERIFIED", 3,
+      "Approved by Meta on 2026-08-10. Declared by supabase/functions/_shared/publicForms.ts."),
   ].map((r) => [r.name, r]),
 );
 

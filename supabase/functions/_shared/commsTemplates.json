@@ -303,7 +303,7 @@
     "teacher_class_scheduled": {
       "key": "teacher_class_scheduled",
       "title": "Class scheduled",
-      "body": "Hi {{teacher_name}}, a class has been scheduled for you.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nPlease confirm your availability.\n\n{{org_name}}",
+      "body": "Hi {{teacher_name}}, a class has been scheduled for you.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nPlease confirm your availability.\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "teacher_name",
         "subject",
@@ -316,7 +316,7 @@
     "teacher_class_rescheduled": {
       "key": "teacher_class_rescheduled",
       "title": "Class rescheduled",
-      "body": "Hi {{teacher_name}}, your {{subject}} class for {{standard}} has been rescheduled.\n\nNew date: {{class_date}}\nNew time: {{class_time}}\n\n{{org_name}}",
+      "body": "Hi {{teacher_name}}, your {{subject}} class for {{standard}} has been rescheduled.\n\nNew date: {{class_date}}\nNew time: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "teacher_name",
         "subject",
@@ -329,7 +329,7 @@
     "teacher_class_cancelled": {
       "key": "teacher_class_cancelled",
       "title": "Class cancelled (teacher)",
-      "body": "Hi {{teacher_name}}, your {{subject}} class for {{standard}} on {{class_date}} at {{class_time}} has been cancelled.\n\nReason: {{reason}}\n\n{{org_name}}",
+      "body": "Hi {{teacher_name}}, your {{subject}} class for {{standard}} on {{class_date}} at {{class_time}} has been cancelled.\n\nReason: {{reason}}\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "teacher_name",
         "subject",
@@ -343,7 +343,7 @@
     "teacher_extra_class": {
       "key": "teacher_extra_class",
       "title": "Extra class assigned",
-      "body": "Hi {{teacher_name}}, an extra class has been assigned to you.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\n{{org_name}}",
+      "body": "Hi {{teacher_name}}, an extra class has been assigned to you.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "teacher_name",
         "subject",
@@ -356,7 +356,7 @@
     "teacher_substitute_assigned": {
       "key": "teacher_substitute_assigned",
       "title": "Substitute assigned",
-      "body": "Hi {{teacher_name}}, you have been assigned as substitute for a class.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\n{{org_name}}",
+      "body": "Hi {{teacher_name}}, you have been assigned as substitute for a class.\n\nSubject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "teacher_name",
         "subject",
@@ -369,7 +369,7 @@
     "class_reminder_faculty": {
       "key": "class_reminder_faculty",
       "title": "Class reminder (faculty)",
-      "body": "Reminder: your {{subject}} class for {{standard}} starts at {{class_time}} today.\n\n{{org_name}}",
+      "body": "Reminder: your {{subject}} class for {{standard}} starts at {{class_time}} today.\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "subject",
         "standard",
@@ -380,7 +380,7 @@
     "class_reminder_coordinator": {
       "key": "class_reminder_coordinator",
       "title": "Class reminder (coordinator)",
-      "body": "Hi {{recipient_name}}, the {{subject}} class for {{standard}} at {{class_time}} has not started yet.\n\nFaculty: {{teacher_name}}\n\n{{org_name}}",
+      "body": "Hi {{recipient_name}}, the {{subject}} class for {{standard}} at {{class_time}} has not started yet.\n\nFaculty: {{teacher_name}}\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "recipient_name",
         "subject",
@@ -393,7 +393,7 @@
     "class_started": {
       "key": "class_started",
       "title": "Class started",
-      "body": "Class started: {{subject}} for {{standard}} at {{class_time}}.\n\nFaculty: {{teacher_name}}\n\n{{org_name}}",
+      "body": "Class started: {{subject}} for {{standard}} at {{class_time}}.\n\nFaculty: {{teacher_name}}\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "subject",
         "standard",
@@ -405,7 +405,7 @@
     "class_ended": {
       "key": "class_ended",
       "title": "Class ended",
-      "body": "Class ended: {{subject}} for {{standard}}.\n\nFaculty: {{teacher_name}}\nDuration: {{duration}}\n\n{{org_name}}",
+      "body": "Class ended: {{subject}} for {{standard}}.\n\nFaculty: {{teacher_name}}\nDuration: {{duration}}\n\nRegards,\n{{org_name}} Academic Office.",
       "variables": [
         "subject",
         "standard",
@@ -417,7 +417,7 @@
     "class_attendance_due": {
       "key": "class_attendance_due",
       "title": "Attendance due",
-      "body": "Reminder: attendance for your {{subject}} class ({{standard}}, {{class_time}}) has not been submitted. The class ends in 10 minutes.\n\n{{org_name}}",
+      "body": "Reminder: attendance for your {{subject}} class ({{standard}}, {{class_time}}) has not been submitted. The class ends in 10 minutes.\n\nThank you,\n{{org_name}} Academic Office.",
       "variables": [
         "subject",
         "standard",
@@ -428,7 +428,7 @@
     "class_attendance_missing": {
       "key": "class_attendance_missing",
       "title": "Attendance missing",
-      "body": "Your {{subject}} class for {{standard}} on {{class_date}} has ended and attendance is still not submitted. Please submit it now.\n\n{{org_name}}",
+      "body": "Your {{subject}} class for {{standard}} on {{class_date}} has ended and attendance is still not submitted. Please submit it now.\n\nThank you,\n{{org_name}} Academic Office.",
       "variables": [
         "subject",
         "standard",
@@ -439,17 +439,17 @@
     "lead_welcome": {
       "key": "lead_welcome",
       "title": "lead_welcome",
-      "body": "Hi {{student_name}}\n\nThank you for your interest in {{org_name}}.\n\nWe have successfully received your enquiry for {{course_name}}.",
+      "body": "Dear {{student_name}},\n\nWe have received your enquiry for {{course_name}}.\n\nOur admissions team will review your details and contact you shortly with the information you requested.\n\nThank you,\n{{org_name}} Admissions Team.",
       "variables": [
         "student_name",
-        "org_name",
-        "course_name"
+        "course_name",
+        "org_name"
       ]
     },
     "lead_assigned_counselor": {
       "key": "lead_assigned_counselor",
       "title": "lead_assigned_counselor",
-      "body": "Hi {{counselor_name}}\n\nNew Lead Assigned\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nMobile:\n{{mobile_number}}\n\nPlease contact within 15 minutes.\n\n{{org_name}}",
+      "body": "Dear {{counselor_name}},\n\nA new enquiry has been assigned to you.\n\nStudent: {{student_name}}\nCourse: {{course_name}}\nContact: {{mobile_number}}\n\nPlease respond within your agreed follow-up window and update the enquiry record once you have made contact.\n\nThank you,\n{{org_name}} Team.",
       "variables": [
         "counselor_name",
         "student_name",
@@ -461,17 +461,18 @@
     "lead_followup_reminder": {
       "key": "lead_followup_reminder",
       "title": "lead_followup_reminder",
-      "body": "Hi {{counselor_name}}\n\nReminder: please follow up with {{student_name}} regarding {{course_name}}. This lead is awaiting your response.",
+      "body": "Dear {{counselor_name}},\n\nA follow-up is pending on the enquiry from {{student_name}} for {{course_name}}.\n\nThis enquiry is still awaiting your response. Please contact them and update the enquiry record.\n\nThank you,\n{{org_name}} Team.",
       "variables": [
         "counselor_name",
         "student_name",
-        "course_name"
+        "course_name",
+        "org_name"
       ]
     },
     "sla_breach_alert": {
       "key": "sla_breach_alert",
       "title": "sla_breach_alert",
-      "body": "Hi {{counselor_name}}\n\nSLA BREACH\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nThis lead has crossed its response SLA. Immediate action required.\n\n{{org_name}}",
+      "body": "Dear {{counselor_name}},\n\nThe enquiry from {{student_name}} for {{course_name}} has passed its agreed response time.\n\nPlease contact them at the earliest and record the outcome against the enquiry.\n\nThank you,\n{{org_name}} Team.",
       "variables": [
         "counselor_name",
         "student_name",
@@ -482,7 +483,7 @@
     "lead_demo_scheduled_v2": {
       "key": "lead_demo_scheduled_v2",
       "title": "lead_demo_scheduled_v2",
-      "body": "Hi {{student_name}},\n\nYour demo session for {{course_name}} is confirmed.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\nFaculty: {{faculty_name}}\n\nWe look forward to seeing you at {{org_name}}!",
+      "body": "Dear {{student_name}},\n\nYour demo session for {{course_name}} is confirmed.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\nFaculty: {{faculty_name}}\n\nPlease arrive ten minutes before the scheduled time. To reschedule, reply to this message or contact the office.\n\nThank you,\n{{org_name}} Admissions Team.",
       "variables": [
         "student_name",
         "course_name",
@@ -495,7 +496,7 @@
     "lead_admission_completed_v2": {
       "key": "lead_admission_completed_v2",
       "title": "lead_admission_completed_v2",
-      "body": "Hi {{parent_name}},\n\nWe are pleased to inform you that the admission of {{student_name}} for {{course_name}} has been successfully completed.\n\nWelcome to {{org_name}}.\n\nWe look forward to supporting your academic journey.\n\nThank you,\n{{org_name}}",
+      "body": "Dear {{parent_name}},\n\nThe admission of {{student_name}} for {{course_name}} is now complete.\n\nThe enrolment record has been created. Fee and schedule details will be shared with you separately.\n\nThank you,\n{{org_name}} Administration.",
       "variables": [
         "parent_name",
         "student_name",
@@ -506,7 +507,7 @@
     "lead_demo_reminder_v2": {
       "key": "lead_demo_reminder_v2",
       "title": "lead_demo_reminder_v2",
-      "body": "Hi {{student_name}},\n\nThis is a reminder for your upcoming demo session for {{course_name}}.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\n\nSee you soon at {{org_name}}!",
+      "body": "Dear {{student_name}},\n\nThis is a reminder of your demo session for {{course_name}}.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\n\nTo reschedule, reply to this message or contact the office.\n\nThank you,\n{{org_name}} Admissions Team.",
       "variables": [
         "student_name",
         "course_name",

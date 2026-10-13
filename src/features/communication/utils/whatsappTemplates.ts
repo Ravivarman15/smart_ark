@@ -403,55 +403,55 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "Class scheduled",
     "Hi {{teacher_name}}, a class has been scheduled for you.\n\n" +
       "Subject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\n" +
-      "Please confirm your availability.\n\n{{org_name}}"
+      "Please confirm your availability.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "teacher_class_rescheduled",
     "staff",
     "Class rescheduled",
     "Hi {{teacher_name}}, your {{subject}} class for {{standard}} has been rescheduled.\n\n" +
-      "New date: {{class_date}}\nNew time: {{class_time}}\n\n{{org_name}}"
+      "New date: {{class_date}}\nNew time: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "teacher_class_cancelled",
     "staff",
     "Class cancelled (teacher)",
     "Hi {{teacher_name}}, your {{subject}} class for {{standard}} on {{class_date}} at {{class_time}} " +
-      "has been cancelled.\n\nReason: {{reason}}\n\n{{org_name}}"
+      "has been cancelled.\n\nReason: {{reason}}\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "teacher_extra_class",
     "staff",
     "Extra class assigned",
     "Hi {{teacher_name}}, an extra class has been assigned to you.\n\n" +
-      "Subject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\n{{org_name}}"
+      "Subject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "teacher_substitute_assigned",
     "staff",
     "Substitute assigned",
     "Hi {{teacher_name}}, you have been assigned as substitute for a class.\n\n" +
-      "Subject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\n{{org_name}}"
+      "Subject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "class_reminder_faculty",
     "staff",
     "Class reminder (faculty)",
-    "Reminder: your {{subject}} class for {{standard}} starts at {{class_time}} today.\n\n{{org_name}}"
+    "Reminder: your {{subject}} class for {{standard}} starts at {{class_time}} today.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "class_reminder_coordinator",
     "staff",
     "Class reminder (coordinator)",
     "Hi {{recipient_name}}, the {{subject}} class for {{standard}} at {{class_time}} " +
-      "has not started yet.\n\nFaculty: {{teacher_name}}\n\n{{org_name}}"
+      "has not started yet.\n\nFaculty: {{teacher_name}}\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "class_started",
     "staff",
     "Class started",
     "Class started: {{subject}} for {{standard}} at {{class_time}}.\n\n" +
-      "Faculty: {{teacher_name}}\n\n{{org_name}}"
+      "Faculty: {{teacher_name}}\n\nRegards,\n{{org_name}} Academic Office."
   ),
   // `duration` is supplied by the class lifecycle from the actual start/end
   // timestamps, not from the scheduled slot — a class that ran late must
@@ -461,21 +461,21 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "staff",
     "Class ended",
     "Class ended: {{subject}} for {{standard}}.\n\n" +
-      "Faculty: {{teacher_name}}\nDuration: {{duration}}\n\n{{org_name}}"
+      "Faculty: {{teacher_name}}\nDuration: {{duration}}\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "class_attendance_due",
     "staff",
     "Attendance due",
     "Reminder: attendance for your {{subject}} class ({{standard}}, {{class_time}}) " +
-      "has not been submitted. The class ends in 10 minutes.\n\n{{org_name}}"
+      "has not been submitted. The class ends in 10 minutes.\n\nThank you,\n{{org_name}} Academic Office."
   ),
   def(
     "class_attendance_missing",
     "staff",
     "Attendance missing",
     "Your {{subject}} class for {{standard}} on {{class_date}} has ended and attendance " +
-      "is still not submitted. Please submit it now.\n\n{{org_name}}"
+      "is still not submitted. Please submit it now.\n\nThank you,\n{{org_name}} Academic Office."
   ),
 ];
 

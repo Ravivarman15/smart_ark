@@ -177,6 +177,18 @@ const SPECS: Record<string, (p: TemplateParamPayload) => string[]> = {
     val(p, "pending_balance"),
     val(p, "org_name"),
   ],
+  smartark_staff_account_ready: (p) => [
+    val(p, "staff_name"),
+    val(p, "role", "designation"),
+    val(p, "login_url"),
+    val(p, "org_name"),
+  ],
+  smartark_parent_account_ready: (p) => [
+    val(p, "parent_name"),
+    val(p, "student_name"),
+    val(p, "login_url"),
+    val(p, "org_name"),
+  ],
   // ── PHASE F — LEAD CRM / ENQUIRY FUNNEL ────────────────────────────────────
   // The legacy lead campaigns take NO org_name parameter, which is why every
   // tenant's enquirers are thanked by ARK: the institution's name is static

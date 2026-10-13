@@ -44,46 +44,64 @@ export const LEAD_TEMPLATES: Record<LeadTemplateKey, LeadTemplate> = {
   // below and send-aisensy delivers the resulting body.
   lead_welcome: def(
     "lead_welcome",
-    "Hi {{student_name}}\n\n" +
-      "Thank you for your interest in {{org_name}}.\n\n" +
-      "We have successfully received your enquiry for {{course_name}}.",
+    "Dear {{student_name}},\n\n" +
+      "We have received your enquiry for {{course_name}}.\n\n" +
+      "Our admissions team will review your details and contact you shortly with the information you requested.\n\n" +
+      "Thank you,\n{{org_name}} Admissions Team.",
   ),
   // {{1}} counselor_name, {{2}} student_name, {{3}} course_name, {{4}} mobile_number
   lead_assigned_counselor: def(
     "lead_assigned_counselor",
-    "Hi {{counselor_name}}\n\nNew Lead Assigned\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nMobile:\n{{mobile_number}}\n\nPlease contact within 15 minutes.\n\n{{org_name}}",
+    "Dear {{counselor_name}},\n\n" +
+      "A new enquiry has been assigned to you.\n\n" +
+      "Student: {{student_name}}\nCourse: {{course_name}}\nContact: {{mobile_number}}\n\n" +
+      "Please respond within your agreed follow-up window and update the enquiry record once you have made contact.\n\n" +
+      "Thank you,\n{{org_name}} Team.",
   ),
   // {{1}} counselor_name, {{2}} student_name, {{3}} course_name
   lead_followup_reminder: def(
     "lead_followup_reminder",
-    "Hi {{counselor_name}}\n\nReminder: please follow up with {{student_name}} regarding {{course_name}}. This lead is awaiting your response.",
+    "Dear {{counselor_name}},\n\n" +
+      "A follow-up is pending on the enquiry from {{student_name}} for {{course_name}}.\n\n" +
+      "This enquiry is still awaiting your response. Please contact them and update the enquiry record.\n\n" +
+      "Thank you,\n{{org_name}} Team.",
   ),
   // {{1}} counselor_name, {{2}} student_name, {{3}} course_name
   sla_breach_alert: def(
     "sla_breach_alert",
-    "Hi {{counselor_name}}\n\nSLA BREACH\n\nStudent:\n{{student_name}}\n\nCourse:\n{{course_name}}\n\nThis lead has crossed its response SLA. Immediate action required.\n\n{{org_name}}",
+    "Dear {{counselor_name}},\n\n" +
+      "The enquiry from {{student_name}} for {{course_name}} has passed its agreed response time.\n\n" +
+      "Please contact them at the earliest and record the outcome against the enquiry.\n\n" +
+      "Thank you,\n{{org_name}} Team.",
   ),
-  // Approved AiSensy Utility template (v2). Positional params:
+  // Approved AiSensy Utility template. Positional params:
   // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time, {{5}} faculty_name
   lead_demo_scheduled_v2: def(
     "lead_demo_scheduled_v2",
-    "Hi {{student_name}},\n\nYour demo session for {{course_name}} is confirmed.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\nFaculty: {{faculty_name}}\n\nWe look forward to seeing you at {{org_name}}!",
+    "Dear {{student_name}},\n\n" +
+      "Your demo session for {{course_name}} is confirmed.\n\n" +
+      "Date: {{demo_date}}\nTime: {{demo_time}}\nFaculty: {{faculty_name}}\n\n" +
+      "Please arrive ten minutes before the scheduled time. To reschedule, reply to this message or contact the office.\n\n" +
+      "Thank you,\n{{org_name}} Admissions Team.",
   ),
-  // Approved AiSensy Utility template (v2). Positional params (order is FINAL):
+  // Approved AiSensy Utility template. Positional params:
   // {{1}} parent_name, {{2}} student_name, {{3}} course_name
   lead_admission_completed_v2: def(
     "lead_admission_completed_v2",
-    "Hi {{parent_name}},\n\n" +
-      "We are pleased to inform you that the admission of {{student_name}} for {{course_name}} has been successfully completed.\n\n" +
-      "Welcome to {{org_name}}.\n\n" +
-      "We look forward to supporting your academic journey.\n\n" +
-      "Thank you,\n{{org_name}}",
+    "Dear {{parent_name}},\n\n" +
+      "The admission of {{student_name}} for {{course_name}} is now complete.\n\n" +
+      "The enrolment record has been created. Fee and schedule details will be shared with you separately.\n\n" +
+      "Thank you,\n{{org_name}} Administration.",
   ),
-  // Approved AiSensy Utility template (v2). Positional params:
+  // Approved AiSensy Utility template. Positional params:
   // {{1}} student_name, {{2}} course_name, {{3}} demo_date, {{4}} demo_time
   lead_demo_reminder_v2: def(
     "lead_demo_reminder_v2",
-    "Hi {{student_name}},\n\nThis is a reminder for your upcoming demo session for {{course_name}}.\n\nDate: {{demo_date}}\nTime: {{demo_time}}\n\nSee you soon at {{org_name}}!",
+    "Dear {{student_name}},\n\n" +
+      "This is a reminder of your demo session for {{course_name}}.\n\n" +
+      "Date: {{demo_date}}\nTime: {{demo_time}}\n\n" +
+      "To reschedule, reply to this message or contact the office.\n\n" +
+      "Thank you,\n{{org_name}} Admissions Team.",
   ),
   lead_low_performance: def(
     "lead_low_performance",

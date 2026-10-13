@@ -132,14 +132,6 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     campaign: "smartark_staff_credentials1",
     category: "UTILITY",
     params: ["staff_name", "role", "login_email", "password", "login_url", "org_name"],
-    // REJECTED BY META, then rewritten. The original body was
-    //   Dear {{1}} … Your {{6}} staff portal account … {{2}}{{3}}{{4}}{{5}} … {{6}}
-    // which broke two Meta rules at once: {{6}} appeared TWICE, and the
-    // parameters ran 1, 6, 2, 3, 4, 5, 6 — not ascending.
-    //
-    // Fixed by naming the organization ONLY in the sign-off. Every parameter
-    // now appears exactly once, in sequence, and org_name stays in the last
-    // position so the append-only ordering rule still holds.
     body:
       "Dear {{1}},\n\n" +
       "Your staff portal account has been created.\n\n" +
@@ -170,8 +162,6 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     campaign: "smartark_student_credentials1",
     category: "UTILITY",
     params: ["parent_name", "student_name", "login_email", "password", "login_url", "org_name"],
-    // REJECTED BY META, then rewritten — the same two violations as
-    // smartark_staff_credentials: {{6}} used twice, parameters out of order.
     body:
       "Dear {{1}},\n\n" +
       "The Parent Portal account for {{2}} has been created.\n\n" +
@@ -204,40 +194,6 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
   },
 
   // ── PHASE F — LEAD CRM / ENQUIRY FUNNEL ────────────────────────────────────
-  //
-  // ┌── WHY THE LEAD FUNNEL LOOKED HEALTHY AND WAS NOT ──────────────────────┐
-  // │ lead_welcome has delivered 17 messages. lead_assigned_counselor, 14.   │
-  // │ Nothing errors, so the funnel reads as working — and for ARK it is.    │
-  // │                                                                        │
-  // │ But every one of those campaigns takes positional parameters that DO   │
-  // │ NOT INCLUDE the organization. lead_welcome posts exactly two:          │
-  // │ student_name and course_name. The institution's name is not a          │
-  // │ parameter, so it is STATIC TEXT inside the approved Meta body — and    │
-  // │ that text is ARK's.                                                    │
-  // │                                                                        │
-  // │ The local bodies in leadWhatsappTemplates.ts do contain {{org_name}},  │
-  // │ which is what makes this so easy to miss: the previews are right, the  │
-  // │ audit rows are right, the rendered `__body` stored in message_queue is │
-  // │ right. Only the thing WhatsApp actually delivers is wrong.             │
-  // │                                                                        │
-  // │ The moment a second institution runs an enquiry campaign, every        │
-  // │ prospect who fills in their form is thanked by a different company.    │
-  // │ abc-academi has sent zero lead messages, so this has not happened yet. │
-  // └────────────────────────────────────────────────────────────────────────┘
-  //
-  // Each body below copies the shape Meta ALREADY APPROVED for
-  // smartark_attendance_absent: opens on static text, runs {{1}}…{{n}} in
-  // ascending order with each parameter used exactly once, and names the
-  // organization only in the sign-off. That shape is the one piece of evidence
-  // we have about what this Meta reviewer accepts, so it is not varied.
-  //
-  // They are also written to STAY in UTILITY. The rejected credential templates
-  // proved that Meta recategorises on content, not on the box you tick, so
-  // every body here reports a fact about a transaction the recipient already
-  // initiated. No "welcome", no "we look forward to", no exclamation marks, no
-  // URLs, no emoji — the wording of the current lead_demo_scheduled_v2 ("We
-  // look forward to seeing you at …!") is exactly the register that gets a
-  // UTILITY template reclassified as MARKETING and then rejected.
   {
     key: "lead_welcome",
     eventKey: "lead_created",
@@ -249,14 +205,11 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "Dear {{1}},\n\n" +
       "We have received your enquiry for {{2}}.\n\n" +
       "Our admissions team will review your details and contact you shortly with the information you requested.\n\n" +
-      "Thank you,\n{{3}}",
-    status: "READY_FOR_SUBMISSION",
+      "Thank you,\n{{3}} Admissions Team.",
+    status: "ACTIVE",
     note:
       "Replaces the ARK-branded `lead_welcome`, which delivers to every tenant's " +
-      "enquirers with ARK's name as static text. Highest-priority of the lead " +
-      "family: it is the only one a prospect sees, and it fires on the PUBLIC " +
-      "enquiry form, so a wrong institution name goes to someone who has never " +
-      "heard of us.",
+      "enquirers with ARK's name as static text. Approved by Meta.",
   },
   {
     key: "lead_assigned_counselor",
@@ -270,8 +223,8 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "A new enquiry has been assigned to you.\n\n" +
       "Student: {{2}}\nCourse: {{3}}\nContact: {{4}}\n\n" +
       "Please respond within your agreed follow-up window and update the enquiry record once you have made contact.\n\n" +
-      "Thank you,\n{{5}}",
-    status: "READY_FOR_SUBMISSION",
+      "Thank you,\n{{5}} Team.",
+    status: "ACTIVE",
   },
   {
     key: "lead_followup_reminder",
@@ -284,8 +237,8 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "Dear {{1}},\n\n" +
       "A follow-up is pending on the enquiry from {{2}} for {{3}}.\n\n" +
       "This enquiry is still awaiting your response. Please contact them and update the enquiry record.\n\n" +
-      "Thank you,\n{{4}}",
-    status: "READY_FOR_SUBMISSION",
+      "Thank you,\n{{4}} Team.",
+    status: "ACTIVE",
   },
   {
     key: "sla_breach_alert",
@@ -294,16 +247,12 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     campaign: "smartark_lead_sla_breach",
     category: "UTILITY",
     params: ["counselor_name", "student_name", "course_name", "org_name"],
-    // The legacy body shouts "SLA BREACH" on its own line. Kept as plain
-    // reporting here: an all-caps alarm word is a recategorisation risk for no
-    // gain, and the recipient is a staff member who already knows what the
-    // message is for.
     body:
       "Dear {{1}},\n\n" +
       "The enquiry from {{2}} for {{3}} has passed its agreed response time.\n\n" +
       "Please contact them at the earliest and record the outcome against the enquiry.\n\n" +
-      "Thank you,\n{{4}}",
-    status: "READY_FOR_SUBMISSION",
+      "Thank you,\n{{4}} Team.",
+    status: "ACTIVE",
   },
   {
     key: "lead_demo_scheduled_v2",
@@ -317,8 +266,8 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "Your demo session for {{2}} is confirmed.\n\n" +
       "Date: {{3}}\nTime: {{4}}\nFaculty: {{5}}\n\n" +
       "Please arrive ten minutes before the scheduled time. To reschedule, reply to this message or contact the office.\n\n" +
-      "Thank you,\n{{6}}",
-    status: "READY_FOR_SUBMISSION",
+      "Thank you,\n{{6}} Admissions Team.",
+    status: "ACTIVE",
   },
   {
     key: "lead_demo_reminder_v2",
@@ -332,8 +281,8 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "This is a reminder of your demo session for {{2}}.\n\n" +
       "Date: {{3}}\nTime: {{4}}\n\n" +
       "To reschedule, reply to this message or contact the office.\n\n" +
-      "Thank you,\n{{5}}",
-    status: "READY_FOR_SUBMISSION",
+      "Thank you,\n{{5}} Admissions Team.",
+    status: "ACTIVE",
   },
   {
     key: "lead_admission_completed_v2",
@@ -346,12 +295,10 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
       "Dear {{1}},\n\n" +
       "The admission of {{2}} for {{3}} is now complete.\n\n" +
       "The enrolment record has been created. Fee and schedule details will be shared with you separately.\n\n" +
-      "Thank you,\n{{4}}",
-    status: "READY_FOR_SUBMISSION",
+      "Thank you,\n{{4}} Administration.",
+    status: "ACTIVE",
     note:
-      "The legacy body names the organization TWICE — mid-sentence and in the " +
-      "sign-off. That is the exact fault Meta rejected both credential templates " +
-      "for, so the replacement names it only once, in the sign-off.",
+      "Approved by Meta. Names the organization once in the sign-off.",
   },
 ];
 

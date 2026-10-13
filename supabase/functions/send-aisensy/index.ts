@@ -203,6 +203,29 @@ TEMPLATE_PARAM_SPECS["smartark_fee_receipt"] = (p) => [
   tVal(p, "pending_balance"),
   tVal(p, "org_name"),
 ];
+TEMPLATE_PARAM_SPECS["smartark_staff_account_ready"] = (p) => [
+  tVal(p, "staff_name"),
+  tVal(p, "role", "designation"),
+  tVal(p, "login_url"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_parent_account_ready"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "login_url"),
+  tVal(p, "org_name"),
+];
+
+// Campaigns known to be permanently dead or rejected at the provider.
+// Posting to them is guaranteed to fail (e.g. HTTP 400), burning provider quotas
+// and wasting retry budgets.
+const DEAD_CAMPAIGNS = new Set([
+  "staff_credentials",
+  "inquiry_followup",
+  "smartark_staff_credentials1",
+  "smartark_student_credentials1",
+]);
+
 // ── PHASE F — LEAD CRM / ENQUIRY FUNNEL ─────────────────────────────────────
 // Each is its legacy order with org_name appended. The legacy lead campaigns
 // take no org parameter at all, so the institution's name is static text in the
@@ -329,6 +352,7 @@ interface QueueRow {
   channel: string;
   provider: string;
   template: string;
+  template_key?: string | null;
   recipient_name: string | null;
   recipient_phone: string | null;
   payload: Record<string, unknown> | null;
@@ -434,6 +458,18 @@ Deno.serve(async (req) => {
             ok: false,
             responseStatus: 0,
             error: !dest ? "no destination phone" : "no campaign/template name",
+            transient: false,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      if (DEAD_CAMPAIGNS.has(direct.campaignName)) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            responseStatus: 400,
+            error: `DEAD_CAMPAIGN: Campaign permanently rejected or does not exist at provider (${direct.campaignName})`,
             transient: false,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -561,7 +597,7 @@ Deno.serve(async (req) => {
     // ── Claim due rows: queued, scheduled, not waiting on backoff ───────────
     let q = supabase
       .from("message_queue")
-      .select("id, organization_id, channel, provider, template, recipient_name, recipient_phone, payload, campaign_id, retry_count, context_type, context_id")
+      .select("id, organization_id, channel, provider, template, template_key, recipient_name, recipient_phone, payload, campaign_id, retry_count, context_type, context_id")
       .eq("status", "queued")
       .eq("provider", "aisensy")
       .in("channel", ["whatsapp", "sms"])
@@ -588,6 +624,27 @@ Deno.serve(async (req) => {
     // must not make 200 identical lookups.
     const orgCredsCache = new Map<string, WhatsappCredentials>();
 
+    // Per-organization automation settings cache to verify that events have not been
+    // disabled since being enqueued.
+    const orgSettingsCache = new Map<string, Map<string, boolean>>();
+    const distinctOrgIds = Array.from(new Set(queue.map((r) => r.organization_id).filter(Boolean)));
+    if (distinctOrgIds.length > 0) {
+      try {
+        const { data: settingsData } = await supabase
+          .from("comms_automation_settings")
+          .select("organization_id, event_key, enabled")
+          .in("organization_id", distinctOrgIds);
+        for (const s of (settingsData ?? []) as Array<{ organization_id: string; event_key: string; enabled: boolean }>) {
+          if (!orgSettingsCache.has(s.organization_id)) {
+            orgSettingsCache.set(s.organization_id, new Map());
+          }
+          orgSettingsCache.get(s.organization_id)!.set(s.event_key, s.enabled);
+        }
+      } catch (e) {
+        console.warn("[send-aisensy] Failed to prefetch comms_automation_settings:", e);
+      }
+    }
+
     for (const row of queue) {
       // Mark processing so a concurrent invocation doesn't double-send.
       await supabase
@@ -595,6 +652,26 @@ Deno.serve(async (req) => {
         .update({ status: "processing" })
         .eq("id", row.id)
         .eq("status", "queued");
+
+      const rowOrg = (row as { organization_id?: string }).organization_id ?? null;
+
+      // Guard: Recheck automation setting — if the organization has disabled this
+      // event since it was enqueued (or during retry backoff), cancel it now.
+      if (rowOrg && orgSettingsCache.has(rowOrg)) {
+        const orgSettings = orgSettingsCache.get(rowOrg)!;
+        const candidateKeys = [row.context_type, row.template_key, row.template].filter((k): k is string => !!k);
+        const matchedKey = candidateKeys.find((k) => orgSettings.has(k));
+        if (matchedKey && orgSettings.get(matchedKey) === false) {
+          const reason = `event_disabled_after_enqueue: Automation for '${matchedKey}' is disabled for this organization`;
+          await supabase
+            .from("message_queue")
+            .update({ status: "cancelled", last_error: reason })
+            .eq("id", row.id);
+          await updateLeadLog(supabase, row, { status: "cancelled", error: reason });
+          await audit(supabase, row, "skip", { reason: "event_disabled_after_enqueue", eventKey: matchedKey });
+          continue;
+        }
+      }
 
       const dest = normalizePhone(row.recipient_phone ?? "");
       const payload = row.payload ?? {};
@@ -626,7 +703,6 @@ Deno.serve(async (req) => {
       // whenever the organization has no integration, chose 'platform', or has
       // a custom one that is unverified or missing its key. Every existing
       // tenant therefore behaves exactly as before.
-      const rowOrg = (row as { organization_id?: string }).organization_id ?? null;
       let rowCreds = orgCredsCache.get(rowOrg ?? "platform");
       if (!rowCreds) {
         rowCreds = await resolveWhatsappCredentials(supabase, rowOrg);
@@ -634,6 +710,19 @@ Deno.serve(async (req) => {
       }
 
       const campaignName = row.template || rowCreds.defaultCampaign || defaultCampaign;
+
+      // Guard: never burn provider calls or retry budgets on dead/rejected campaigns
+      if (DEAD_CAMPAIGNS.has(campaignName)) {
+        const reason = `DEAD_CAMPAIGN: Campaign permanently rejected or does not exist at provider (${campaignName})`;
+        await supabase
+          .from("message_queue")
+          .update({ status: "failed", last_error: reason })
+          .eq("id", row.id);
+        await updateLeadLog(supabase, row, { status: "failed", error: reason });
+        await audit(supabase, row, "fail", { reason: "dead_campaign", campaignName });
+        failed += 1;
+        continue;
+      }
       const userName = row.recipient_name || "Smart ARK";
       const source = "ARK Lead CRM";
       // Official AiSensy Campaign API V2 body. apiKey goes IN THE BODY (no
