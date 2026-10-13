@@ -114,3 +114,22 @@ Confirm:
 - ARK fee records unchanged.
 - ARK message queue unchanged.
 - Zero cross-tenant contamination.
+
+---
+
+## 5. Campaign ON/OFF Toggle Verification Protocol
+
+When verifying that turning off a campaign (such as `fee_paid` / `fee_receipt` or `attendance_absent`) strictly suppresses delivery:
+
+1. **Set Toggle to OFF**:
+   - In the **Communication Center** or module settings (e.g. **Fee Management > Smart Reminder Engine**), set the campaign switch to **OFF**.
+   - Verify `comms_automation_settings` has `enabled: false` for the event key.
+2. **Execute Event Action**:
+   - Trigger the associated business event (e.g., collect a fee payment or mark student absent) in the `testing` tenant.
+3. **Assert Suppression**:
+   - Verify the delivery service returns `skipped: true` with `reason: "automation_disabled"`.
+   - Verify no new row is inserted into `message_queue` for WhatsApp.
+   - Verify `comms_audit` records an audit row with `action: "skip"` and `reason: "automation_disabled"`.
+   - Verify zero HTTP requests are dispatched to AiSensy.
+4. **Assert Server-Side Drain Cancellation**:
+   - If a row was previously queued during a transient backoff, verify that when the Edge Function drainer `send-aisensy` executes, it detects `enabled: false`, cancels the row (`status = 'cancelled'`), and refuses to call the provider.

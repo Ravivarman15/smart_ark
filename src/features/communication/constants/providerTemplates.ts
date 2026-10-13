@@ -300,6 +300,263 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     note:
       "Approved by Meta. Names the organization once in the sign-off.",
   },
+
+  // ── PHASE G — FEE DUE REMINDER ─────────────────────────────────────────────
+  {
+    key: "fee_due_reminder",
+    eventKey: "fee_due",
+    legacyCampaign: "fee_due",
+    campaign: "smartark_fee_due_reminder",
+    category: "UTILITY",
+    params: ["parent_name", "amount_due", "student_name", "due_date", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "This is a reminder that a fee payment of ₹{{2}} is due for {{3}} on or before {{4}}.\n\n" +
+      "Please contact our office if you have any questions regarding this balance.\n\n" +
+      "Thank you,\n{{5}} Accounts Team.",
+    status: "ACTIVE",
+  },
+
+  // ── PHASE H — ACADEMIC & FACULTY ALLOCATION (Approved Meta UTILITY) ─────────
+  {
+    key: "teacher_class_scheduled",
+    eventKey: "teacher_class_scheduled",
+    legacyCampaign: "teacher_class_scheduled",
+    campaign: "smartark_teacher_class_scheduled",
+    category: "UTILITY",
+    params: ["faculty_name", "subject", "date", "start_time", "end_time", "room", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "A class for {{2}} has been scheduled on {{3}} from {{4}} to {{5}} in Room {{6}}.\n\n" +
+      "Regards,\n{{7}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "teacher_class_rescheduled",
+    eventKey: "teacher_class_rescheduled",
+    legacyCampaign: "teacher_class_rescheduled",
+    campaign: "smartark_teacher_class_rescheduled",
+    category: "UTILITY",
+    params: ["faculty_name", "subject", "date", "start_time", "end_time", "room", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "Your class for {{2}} has been rescheduled to {{3}} from {{4}} to {{5}} in Room {{6}}.\n\n" +
+      "Regards,\n{{7}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "teacher_class_cancelled",
+    eventKey: "teacher_class_cancelled",
+    legacyCampaign: "teacher_class_cancelled",
+    campaign: "smartark_teacher_class_cancelled",
+    category: "UTILITY",
+    params: ["faculty_name", "subject", "date", "time", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "Your class for {{2}} on {{3}} ({{4}}) has been cancelled.\n\n" +
+      "Regards,\n{{5}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "teacher_extra_class",
+    eventKey: "teacher_extra_class",
+    legacyCampaign: "teacher_extra_class",
+    campaign: "smartark_teacher_extra_class",
+    category: "UTILITY",
+    params: ["faculty_name", "subject", "date", "time", "room", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "An extra class for {{2}} has been assigned to you on {{3}} at {{4}} in {{5}}.\n\n" +
+      "Regards,\n{{6}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "teacher_substitute_assigned",
+    eventKey: "teacher_substitute_assigned",
+    legacyCampaign: "teacher_substitute_assigned",
+    campaign: "smartark_teacher_substitute_assigned",
+    category: "UTILITY",
+    params: ["faculty_name", "subject", "date", "time", "room", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "You have been assigned as substitute faculty for {{2}} on {{3}} at {{4}} in {{5}}.\n\n" +
+      "Regards,\n{{6}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "class_reminder_faculty",
+    eventKey: "class_reminder_faculty",
+    legacyCampaign: "class_reminder_faculty",
+    campaign: "smartark_class_reminder_faculty",
+    category: "UTILITY",
+    params: ["faculty_name", "subject", "time", "room", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "Your class for {{2}} starts in 15 minutes at {{3}} in {{4}}.\n\n" +
+      "Regards,\n{{5}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "class_reminder_coordinator",
+    eventKey: "class_reminder_coordinator",
+    legacyCampaign: "class_reminder_coordinator",
+    campaign: "smartark_class_reminder_coordinator",
+    category: "UTILITY",
+    params: ["subject", "faculty_name", "time", "room", "org_name"],
+    body:
+      "Coordinator Alert:\n\n" +
+      "The class for {{1}} (Faculty: {{2}}) has not started and is due at {{3}} in {{4}}.\n\n" +
+      "Regards,\n{{5}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "class_started",
+    eventKey: "class_started",
+    legacyCampaign: "class_started",
+    campaign: "smartark_class_started",
+    category: "UTILITY",
+    params: ["subject", "faculty_name", "time", "room", "org_name"],
+    body:
+      "Academic Notice:\n\n" +
+      "Class for {{1}} (Faculty: {{2}}) went live at {{3}} in {{4}}.\n\n" +
+      "Regards,\n{{5}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "class_ended",
+    eventKey: "class_ended",
+    legacyCampaign: "class_ended",
+    campaign: "smartark_class_ended",
+    category: "UTILITY",
+    params: ["subject", "faculty_name", "time", "duration", "org_name"],
+    body:
+      "Academic Notice:\n\n" +
+      "Class for {{1}} (Faculty: {{2}}) concluded at {{3}}. Duration: {{4}} hrs.\n\n" +
+      "Regards,\n{{5}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "class_attendance_due",
+    eventKey: "class_attendance_due",
+    legacyCampaign: "class_attendance_due",
+    campaign: "smartark_class_attendance_due",
+    category: "UTILITY",
+    params: ["subject", "org_name"],
+    body:
+      "Attendance Reminder:\n\n" +
+      "10 minutes remain in the session for {{1}}. Please complete and submit student attendance.\n\n" +
+      "Thank you,\n{{2}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "class_attendance_missing",
+    eventKey: "class_attendance_missing",
+    legacyCampaign: "class_attendance_missing",
+    campaign: "smartark_class_attendance_missing",
+    category: "UTILITY",
+    params: ["subject", "org_name"],
+    body:
+      "Attendance Alert:\n\n" +
+      "The session for {{1}} has ended, but student attendance has not been submitted. Please record attendance immediately.\n\n" +
+      "Thank you,\n{{2}} Academic Office.",
+    status: "ACTIVE",
+  },
+  {
+    key: "class_cancelled_students",
+    eventKey: "class_cancelled_students",
+    legacyCampaign: "class_cancelled",
+    campaign: "smartark_class_cancelled_students",
+    category: "UTILITY",
+    params: ["subject", "date", "time", "org_name"],
+    body:
+      "Notice to Students and Parents:\n\n" +
+      "The scheduled class for {{1}} on {{2}} at {{3}} has been cancelled. Please contact the academic office for rescheduled timings.\n\n" +
+      "Regards,\n{{4}} Administration.",
+    status: "ACTIVE",
+  },
+
+  // ── PHASE I — ACADEMIC MILESTONES, STAFF PAYROLL & TASKS ──────────────────
+  {
+    key: "exam_result",
+    eventKey: "exam_published",
+    legacyCampaign: "exam_result",
+    campaign: "smartark_exam_result",
+    category: "UTILITY",
+    params: ["parent_name", "student_name", "exam_title", "marks_obtained", "total_marks", "grade", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "The exam results for {{2}} in {{3}} are now published.\n\n" +
+      "Marks Obtained: {{4}} / {{5}}\nGrade: {{6}}\n\n" +
+      "Thank you,\n{{7}} Academic Team.",
+    status: "ACTIVE",
+  },
+  {
+    key: "exam_reminder",
+    eventKey: "exam_scheduled",
+    legacyCampaign: "exam_reminder",
+    campaign: "smartark_exam_reminder",
+    category: "UTILITY",
+    params: ["parent_name", "student_name", "exam_title", "exam_date", "exam_time", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "This is a reminder for {{2}} regarding the upcoming exam {{3}} scheduled on {{4}} at {{5}}.\n\n" +
+      "Thank you,\n{{6}} Examination Cell.",
+    status: "APPROVED",
+  },
+  {
+    key: "birthday_wish",
+    eventKey: "birthday_student",
+    legacyCampaign: "birthday_wish",
+    campaign: "smartark_birthday_wish",
+    category: "UTILITY",
+    params: ["parent_name", "student_name", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "We wish {{2}} a very happy birthday and a wonderful year ahead filled with learning and success.\n\n" +
+      "Warm regards,\n{{3}} Team.",
+    status: "ACTIVE",
+  },
+  {
+    key: "payroll_approved",
+    eventKey: "payroll_approved",
+    legacyCampaign: "payroll_approved",
+    campaign: "smartark_payroll_approved",
+    category: "UTILITY",
+    params: ["staff_name", "month_year", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "Your payroll for {{2}} has been approved and processed. Your payslip is available on the staff portal.\n\n" +
+      "Regards,\n{{3}} Accounts Team.",
+    status: "ACTIVE",
+  },
+  {
+    key: "task_assigned",
+    eventKey: "task_assigned",
+    legacyCampaign: "task_assigned",
+    campaign: "smartark_task_assigned",
+    category: "UTILITY",
+    params: ["assignee_name", "task_title", "due_date", "priority", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "A new task has been assigned to you.\n\n" +
+      "Task: {{2}}\nDue Date: {{3}}\nPriority: {{4}}\n\n" +
+      "Regards,\n{{5}} Team.",
+    status: "ACTIVE",
+  },
+  {
+    key: "task_reminder",
+    eventKey: "task_due",
+    legacyCampaign: "task_reminder",
+    campaign: "smartark_task_reminder",
+    category: "UTILITY",
+    params: ["assignee_name", "task_title", "due_date", "org_name"],
+    body:
+      "Dear {{1}},\n\n" +
+      "This is a reminder that your assigned task is due soon.\n\n" +
+      "Task: {{2}}\nDue Date: {{3}}\n\n" +
+      "Regards,\n{{4}} Team.",
+    status: "ACTIVE",
+  },
 ];
 
 export const PROVIDER_TEMPLATES_BY_KEY: Record<string, ProviderTemplate> =
@@ -307,6 +564,11 @@ export const PROVIDER_TEMPLATES_BY_KEY: Record<string, ProviderTemplate> =
     acc[t.key] = t;
     return acc;
   }, {} as Record<string, ProviderTemplate>);
+
+// Key aliases for backward compatibility and alternate event mappings
+if (PROVIDER_TEMPLATES_BY_KEY["class_cancelled_students"]) {
+  PROVIDER_TEMPLATES_BY_KEY["class_cancelled"] = PROVIDER_TEMPLATES_BY_KEY["class_cancelled_students"];
+}
 
 /**
  * The campaign to actually post for a template key.

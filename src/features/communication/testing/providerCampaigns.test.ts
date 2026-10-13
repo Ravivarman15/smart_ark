@@ -53,6 +53,15 @@ const SAMPLE: Record<string, string> = {
   course: "NEET Repeater", mobile_number: "+919876543210",
   demo_date: "12 Aug 2026", demo_time: "4:30 PM", faculty_name: "Mr. Iyer",
   org_name: "Example Institute", __body: "rendered body",
+  // Fees
+  amount_due: "5,000", due_date: "25 Oct 2026",
+  // Academic & Faculty
+  subject: "Physics", start_time: "10:00 AM", end_time: "11:30 AM",
+  time: "10:00 AM", room: "Lab 2", duration: "1.5",
+  // Milestones, Exams, Payroll, Tasks
+  exam_title: "Term 1 Final", marks_obtained: "85", total_marks: "100", grade: "A",
+  exam_date: "18 Oct 2026", exam_time: "09:00 AM", month_year: "October 2026",
+  assignee_name: "Priya S", task_title: "Complete Grading", priority: "High",
 };
 
 /**

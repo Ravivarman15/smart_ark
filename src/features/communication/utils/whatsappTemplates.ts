@@ -35,6 +35,33 @@ export function extractVariables(body: string): string[] {
   return out;
 }
 
+// ── Variable Aliases ─────────────────────────────────────────────────────────
+// Enables backward compatibility between legacy variable names and canonical
+// Meta-approved parameter names across ERP resolvers, callers, and UI templates.
+const VAR_ALIASES: Record<string, string[]> = {
+  amount_due: ["amount_pending", "amount", "pending_amount"],
+  amount_pending: ["amount_due", "amount", "pending_amount"],
+  exam_title: ["exam_name", "title"],
+  exam_name: ["exam_title", "title"],
+  marks_obtained: ["marks", "marks_scored", "score"],
+  marks: ["marks_obtained", "marks_scored", "score"],
+  total_marks: ["total", "max_marks"],
+  total: ["total_marks", "max_marks"],
+  date: ["class_date", "attendance_date", "schedule_date", "exam_date"],
+  time: ["class_time", "start_time", "exam_time"],
+  class_time: ["time", "start_time", "exam_time"],
+  class_date: ["date", "attendance_date", "schedule_date", "exam_date"],
+  room: ["venue", "room_no"],
+  venue: ["room", "room_no"],
+  faculty_name: ["teacher_name", "staff_name"],
+  teacher_name: ["faculty_name", "staff_name"],
+  staff_name: ["faculty_name", "teacher_name", "assignee_name"],
+  assignee_name: ["staff_name", "recipient_name"],
+  course_name: ["course", "subject", "subject_name"],
+  org_name: ["branch_name", "school_name", "institute_name"],
+  parent_name: ["name", "student_name", "recipient_name"],
+};
+
 /**
  * Replace every {{name}} / {name} token in a body with the matching value.
  * Missing values fall through to the second argument (defaultsTo) or "".
@@ -45,7 +72,18 @@ export function renderBody(
   defaultsTo = ""
 ): string {
   return body.replace(VAR_RE, (_match, key: string) => {
-    const v = vars[key];
+    let v = vars[key];
+    if ((v === undefined || v === null || v === "") && VAR_ALIASES[key]) {
+      for (const alt of VAR_ALIASES[key]) {
+        if (vars[alt] !== undefined && vars[alt] !== null && vars[alt] !== "") {
+          v = vars[alt];
+          break;
+        }
+      }
+    }
+    if ((v === undefined || v === null || v === "") && key.startsWith("org_")) {
+      v = (vars.branch_name as string) || "";
+    }
     return v === undefined || v === null ? defaultsTo : String(v);
   });
 }
@@ -58,7 +96,17 @@ export function missingVariables(
   provided: Record<string, unknown>
 ): string[] {
   return required.filter((k) => {
-    const v = provided[k];
+    // Organization branding variables are tenant-level and auto-injected; not required from recipient caller
+    if (k.startsWith("org_")) return false;
+    let v = provided[k];
+    if ((v === undefined || v === null || v === "") && VAR_ALIASES[k]) {
+      for (const alt of VAR_ALIASES[k]) {
+        if (provided[alt] !== undefined && provided[alt] !== null && provided[alt] !== "") {
+          v = provided[alt];
+          break;
+        }
+      }
+    }
     return v === undefined || v === null || v === "";
   });
 }
@@ -164,10 +212,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "exam_result",
     "exam",
     "Exam result published",
-    "{{student_name}}'s result for {{exam_name}} is now published. Score: {{marks}}/{{total}} ({{percentage}}%). Grade: {{grade}}.",
-    {
-      buttons: [{ type: "url", label: "View Report", value: "{{report_url}}" }],
-    }
+    "Dear {{parent_name}},\n\nThe exam results for {{student_name}} in {{exam_title}} are now published.\n\nMarks Obtained: {{marks_obtained}} / {{total_marks}}\nGrade: {{grade}}\n\nThank you,\n{{org_name}} Academic Team."
   ),
   def(
     "fee_status",
@@ -179,9 +224,9 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "fee_due_reminder",
     "fee",
     "Fee due reminder",
-    "Reminder: fee of {{amount_pending}} for {{student_name}} ({{batch_name}}) is due on {{due_date}}. Please pay to avoid late fee.",
+    "Dear {{parent_name}},\n\nThis is a reminder that a fee payment of ₹{{amount_due}} is due for {{student_name}} on or before {{due_date}}.\n\nPlease contact our office if you have any questions regarding this balance.\n\nThank you,\n{{org_name}} Accounts Team.",
     {
-      buttons: [{ type: "url", label: "Pay Now", value: "{{pay_url}}" }],
+      variables: ["parent_name", "amount_pending", "student_name", "due_date"],
     }
   ),
   // ── Enterprise Attendance (AiSensy Utility templates) ──────────────────────
@@ -226,7 +271,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "birthday_wish",
     "birthday",
     "Birthday wishes",
-    "Wishing {{student_name}} a very happy birthday! 🎂 May the year ahead bring joy, growth and success. — Team {{branch_name}}"
+    "Dear {{parent_name}},\n\nWe wish {{student_name}} a very happy birthday and a wonderful year ahead filled with learning and success.\n\nWarm regards,\n{{org_name}} Team."
   ),
   def(
     "payment_received",
@@ -344,25 +389,19 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "payroll_approved",
     "staff",
     "Payroll approved",
-    "Hi {{staff_name}}, payroll for {{salary_month}} has been approved. Net Salary: {{net_salary}} will be credited to your account on {{pay_date}}."
+    "Dear {{staff_name}},\n\nYour payroll for {{month_year}} has been approved and processed. Your payslip is available on the staff portal.\n\nRegards,\n{{org_name}} Accounts Team."
   ),
   def(
     "task_assigned",
     "general",
     "Task assigned",
-    "Hi {{staff_name}}, a new task '{{task_name}}' has been assigned to you by {{assigned_by}}. Due: {{due_date}}.",
-    {
-      buttons: [{ type: "url", label: "View Task", value: "{{task_url}}" }],
-    }
+    "Dear {{assignee_name}},\n\nA new task has been assigned to you.\n\nTask: {{task_title}}\nDue Date: {{due_date}}\nPriority: {{priority}}\n\nRegards,\n{{org_name}} Team."
   ),
   def(
     "task_reminder",
     "general",
     "Task reminder",
-    "Reminder: task '{{task_name}}' is due on {{due_date}}. Current status: {{status}}. Please update or complete it.",
-    {
-      buttons: [{ type: "url", label: "Open Task", value: "{{task_url}}" }],
-    }
+    "Dear {{assignee_name}},\n\nThis is a reminder that your assigned task is due soon.\n\nTask: {{task_title}}\nDue Date: {{due_date}}\n\nRegards,\n{{org_name}} Team."
   ),
   def(
     "certificate_ready",
@@ -377,7 +416,13 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "class_cancelled",
     "announcement",
     "Class cancelled",
-    "Notice: the {{subject_name}} class scheduled for {{class_date}} at {{class_time}} has been CANCELLED. A reschedule will be communicated shortly. — Team {{branch_name}}"
+    "Notice to Students and Parents:\n\nThe scheduled class for {{subject}} on {{date}} at {{time}} has been cancelled. Please contact the academic office for rescheduled timings.\n\nRegards,\n{{org_name}} Administration."
+  ),
+  def(
+    "class_cancelled_students",
+    "announcement",
+    "Class cancelled (students)",
+    "Notice to Students and Parents:\n\nThe scheduled class for {{subject}} on {{date}} at {{time}} has been cancelled. Please contact the academic office for rescheduled timings.\n\nRegards,\n{{org_name}} Administration."
   ),
 
   // ── ACADEMICS / ALLOCATION ────────────────────────────────────────────────
@@ -401,81 +446,67 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     "teacher_class_scheduled",
     "staff",
     "Class scheduled",
-    "Hi {{teacher_name}}, a class has been scheduled for you.\n\n" +
-      "Subject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\n" +
-      "Please confirm your availability.\n\nRegards,\n{{org_name}} Academic Office."
+    "Dear {{faculty_name}},\n\nA class for {{subject}} has been scheduled on {{date}} from {{start_time}} to {{end_time}} in Room {{room}}.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "teacher_class_rescheduled",
     "staff",
     "Class rescheduled",
-    "Hi {{teacher_name}}, your {{subject}} class for {{standard}} has been rescheduled.\n\n" +
-      "New date: {{class_date}}\nNew time: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office."
+    "Dear {{faculty_name}},\n\nYour class for {{subject}} has been rescheduled to {{date}} from {{start_time}} to {{end_time}} in Room {{room}}.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "teacher_class_cancelled",
     "staff",
     "Class cancelled (teacher)",
-    "Hi {{teacher_name}}, your {{subject}} class for {{standard}} on {{class_date}} at {{class_time}} " +
-      "has been cancelled.\n\nReason: {{reason}}\n\nRegards,\n{{org_name}} Academic Office."
+    "Dear {{faculty_name}},\n\nYour class for {{subject}} on {{date}} ({{time}}) has been cancelled.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "teacher_extra_class",
     "staff",
     "Extra class assigned",
-    "Hi {{teacher_name}}, an extra class has been assigned to you.\n\n" +
-      "Subject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office."
+    "Dear {{faculty_name}},\n\nAn extra class for {{subject}} has been assigned to you on {{date}} at {{time}} in {{room}}.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "teacher_substitute_assigned",
     "staff",
     "Substitute assigned",
-    "Hi {{teacher_name}}, you have been assigned as substitute for a class.\n\n" +
-      "Subject: {{subject}}\nClass: {{standard}}\nDate: {{class_date}}\nTime: {{class_time}}\n\nRegards,\n{{org_name}} Academic Office."
+    "Dear {{faculty_name}},\n\nYou have been assigned as substitute faculty for {{subject}} on {{date}} at {{time}} in {{room}}.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "class_reminder_faculty",
     "staff",
     "Class reminder (faculty)",
-    "Reminder: your {{subject}} class for {{standard}} starts at {{class_time}} today.\n\nRegards,\n{{org_name}} Academic Office."
+    "Dear {{faculty_name}},\n\nYour class for {{subject}} starts in 15 minutes at {{time}} in {{room}}.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "class_reminder_coordinator",
     "staff",
     "Class reminder (coordinator)",
-    "Hi {{recipient_name}}, the {{subject}} class for {{standard}} at {{class_time}} " +
-      "has not started yet.\n\nFaculty: {{teacher_name}}\n\nRegards,\n{{org_name}} Academic Office."
+    "Coordinator Alert:\n\nThe class for {{subject}} (Faculty: {{faculty_name}}) has not started and is due at {{time}} in {{room}}.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "class_started",
     "staff",
     "Class started",
-    "Class started: {{subject}} for {{standard}} at {{class_time}}.\n\n" +
-      "Faculty: {{teacher_name}}\n\nRegards,\n{{org_name}} Academic Office."
+    "Academic Notice:\n\nClass for {{subject}} (Faculty: {{faculty_name}}) went live at {{time}} in {{room}}.\n\nRegards,\n{{org_name}} Academic Office."
   ),
-  // `duration` is supplied by the class lifecycle from the actual start/end
-  // timestamps, not from the scheduled slot — a class that ran late must
-  // report what really happened.
   def(
     "class_ended",
     "staff",
     "Class ended",
-    "Class ended: {{subject}} for {{standard}}.\n\n" +
-      "Faculty: {{teacher_name}}\nDuration: {{duration}}\n\nRegards,\n{{org_name}} Academic Office."
+    "Academic Notice:\n\nClass for {{subject}} (Faculty: {{faculty_name}}) concluded at {{time}}. Duration: {{duration}} hrs.\n\nRegards,\n{{org_name}} Academic Office."
   ),
   def(
     "class_attendance_due",
     "staff",
     "Attendance due",
-    "Reminder: attendance for your {{subject}} class ({{standard}}, {{class_time}}) " +
-      "has not been submitted. The class ends in 10 minutes.\n\nThank you,\n{{org_name}} Academic Office."
+    "Attendance Reminder:\n\n10 minutes remain in the session for {{subject}}. Please complete and submit student attendance.\n\nThank you,\n{{org_name}} Academic Office."
   ),
   def(
     "class_attendance_missing",
     "staff",
     "Attendance missing",
-    "Your {{subject}} class for {{standard}} on {{class_date}} has ended and attendance " +
-      "is still not submitted. Please submit it now.\n\nThank you,\n{{org_name}} Academic Office."
+    "Attendance Alert:\n\nThe session for {{subject}} has ended, but student attendance has not been submitted. Please record attendance immediately.\n\nThank you,\n{{org_name}} Academic Office."
   ),
 ];
 

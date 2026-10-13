@@ -95,7 +95,21 @@ class FeeMessagingService extends BaseService {
 
   /** Queue a payment-receipt message after a successful collection. */
   async enqueueReceipt(t: FeeMessageTarget) {
-    return this.enqueue([this.row(FEE_WA_TEMPLATES.receipt, "fee_receipt", t)]);
+    try {
+      const { commsAutomationSettingsService } = await import(
+        "@/features/communication/services/commsAutomationSettings.service"
+      );
+      const setting = await commsAutomationSettingsService.get("fee_paid");
+      if (!setting.enabled) {
+        return { queued: 0, skipped: true };
+      }
+      if (setting.channel === "email") {
+        return { queued: 0, skipped: true };
+      }
+    } catch {
+      /* Proceed with best-effort queueing if settings service cannot be reached */
+    }
+    return this.enqueue([this.row(FEE_WA_TEMPLATES.receipt, "fee_paid", t)]);
   }
 
   /** Queue a single fee-due reminder. */

@@ -171,7 +171,7 @@ describe("Cutover is deliberate, never accidental", () => {
   });
 
   it("an unregistered template is left completely alone", () => {
-    expect(resolveCampaign("birthday_wish")).toBeNull();
+    expect(resolveCampaign("holiday_notice")).toBeNull();
   });
 
   it("reports branding leakage accurately per template", () => {
@@ -371,4 +371,17 @@ const SAMPLE: Record<string, string> = {
   password: "Tmp#4821", login_url: "https://example.com/login",
   receipt_no: "RCP-2026-0417", amount_paid: "12,400", pending_balance: "3,600",
   org_name: "Example Institute",
+  // Leads & CRM
+  counselor_name: "Divya R", course_name: "NEET Intensive", course: "NEET Intensive",
+  mobile_number: "+919876543210", demo_date: "15 Oct 2026", demo_time: "10:00 AM",
+  faculty_name: "Dr. Raman",
+  // Fees
+  amount_due: "5,000", due_date: "25 Oct 2026",
+  // Academic & Faculty
+  subject: "Physics", date: "15 Oct 2026", start_time: "10:00 AM", end_time: "11:30 AM",
+  time: "10:00 AM", room: "Lab 2", duration: "1.5",
+  // Milestones, Exams, Payroll, Tasks
+  exam_title: "Term 1 Final", marks_obtained: "85", total_marks: "100", grade: "A",
+  exam_date: "18 Oct 2026", exam_time: "09:00 AM", month_year: "October 2026",
+  assignee_name: "Priya S", task_title: "Complete Grading", priority: "High",
 };

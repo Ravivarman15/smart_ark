@@ -67,6 +67,7 @@ Every template in this catalog strictly complies with Meta's official WhatsApp B
   ```
 - **Rollback:** Fallback to legacy `ark_attendance_absent`.
 
+
 ---
 
 ### 1.2 Attendance Corrected to Present

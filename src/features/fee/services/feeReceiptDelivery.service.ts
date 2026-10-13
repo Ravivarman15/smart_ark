@@ -157,7 +157,7 @@ class FeeReceiptDeliveryService extends BaseService {
       const res = await this.db
         .from("message_queue" as never)
         .select("channel, status")
-        .eq("context_type", "fee_receipt")
+        .in("context_type", ["fee_paid", "fee_receipt"])
         .eq("payload->>receipt_no", receiptNo)
         .limit(50);
       if (res.error) return { whatsapp: false, email: false };
@@ -277,11 +277,28 @@ class FeeReceiptDeliveryService extends BaseService {
   async deliverReceipt(input: DeliverReceiptInput): Promise<DeliverReceiptResult> {
     const result: DeliverReceiptResult = { skipped: false, whatsapp: "skipped", email: "skipped" };
     try {
-      // 1. Channel selection. The receipt is ALWAYS sent immediately on a
-      // collection / resend — the `fee_paid` toggle only chooses the channels
-      // (defaults to both). It never blocks delivery, so a receipt can never go
-      // out silently un-sent.
+      // 1. Channel selection and automation setting check.
       const setting = await commsAutomationSettingsService.get("fee_paid");
+      if (!setting.enabled && !input.force) {
+        await commsAuditService.log({
+          entityType: "automation",
+          entityId: "fee_paid",
+          action: "skip",
+          actorId: input.actorId,
+          payload: {
+            reason: "automation_disabled",
+            receiptNo: input.receiptNo,
+            studentFeeId: input.studentFeeId,
+          },
+        });
+        return {
+          skipped: true,
+          reason: "automation_disabled",
+          whatsapp: "skipped",
+          email: "skipped",
+          receiptUrl: undefined,
+        };
+      }
       const channels = setting.channel ? resolveChannels(setting.channel) : ["whatsapp", "email"];
 
       // 2. Resolve the fee + student (contacts, class/section, admission no).
@@ -359,7 +376,7 @@ class FeeReceiptDeliveryService extends BaseService {
           const enq = await aisensyService.enqueue({
             channel: "whatsapp",
             rendered,
-            contextType: "fee_receipt",
+            contextType: "fee_paid",
             contextId: input.studentFeeId,
             recipient: {
               kind: "guardian",

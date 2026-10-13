@@ -276,6 +276,266 @@ TEMPLATE_PARAM_SPECS["smartark_lead_admission_confirmed"] = (p) => [
   tVal(p, "course_name", "course"),
   tVal(p, "org_name"),
 ];
+
+// ── FEE DUE REMINDERS ────────────────────────────────────────────────────────
+TEMPLATE_PARAM_SPECS["fee_due"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "amount_due", "amount_pending", "amount"),
+  tVal(p, "student_name"),
+  tVal(p, "due_date"),
+];
+TEMPLATE_PARAM_SPECS["smartark_fee_due_reminder"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "amount_due", "amount_pending", "amount"),
+  tVal(p, "student_name"),
+  tVal(p, "due_date"),
+  tVal(p, "org_name"),
+];
+
+// ── ACADEMIC & FACULTY ALLOCATION ────────────────────────────────────────────
+TEMPLATE_PARAM_SPECS["teacher_class_scheduled"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "start_time", "time", "class_time"),
+  tVal(p, "end_time", "time", "class_time"),
+  tVal(p, "room", "room_no", "venue"),
+];
+TEMPLATE_PARAM_SPECS["smartark_teacher_class_scheduled"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "start_time", "time", "class_time"),
+  tVal(p, "end_time", "time", "class_time"),
+  tVal(p, "room", "room_no", "venue"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["teacher_class_rescheduled"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "start_time", "time", "class_time"),
+  tVal(p, "end_time", "time", "class_time"),
+  tVal(p, "room", "room_no", "venue"),
+];
+TEMPLATE_PARAM_SPECS["smartark_teacher_class_rescheduled"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "start_time", "time", "class_time"),
+  tVal(p, "end_time", "time", "class_time"),
+  tVal(p, "room", "room_no", "venue"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["teacher_class_cancelled"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "time", "class_time", "start_time"),
+];
+TEMPLATE_PARAM_SPECS["smartark_teacher_class_cancelled"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["teacher_extra_class"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+];
+TEMPLATE_PARAM_SPECS["smartark_teacher_extra_class"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["teacher_substitute_assigned"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+];
+TEMPLATE_PARAM_SPECS["smartark_teacher_substitute_assigned"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["class_reminder_faculty"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+];
+TEMPLATE_PARAM_SPECS["smartark_class_reminder_faculty"] = (p) => [
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["class_reminder_coordinator"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+];
+TEMPLATE_PARAM_SPECS["smartark_class_reminder_coordinator"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["class_started"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+];
+TEMPLATE_PARAM_SPECS["smartark_class_started"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "time", "class_time", "start_time"),
+  tVal(p, "room", "room_no", "venue"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["class_ended"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "time", "class_time", "end_time"),
+  tVal(p, "duration"),
+];
+TEMPLATE_PARAM_SPECS["smartark_class_ended"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "faculty_name", "teacher_name", "staff_name"),
+  tVal(p, "time", "class_time", "end_time"),
+  tVal(p, "duration"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["class_attendance_due"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_class_attendance_due"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["class_attendance_missing"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_class_attendance_missing"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["class_cancelled"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "time", "class_time"),
+];
+TEMPLATE_PARAM_SPECS["smartark_class_cancelled_students"] = (p) => [
+  tVal(p, "subject", "subject_name"),
+  tVal(p, "date", "class_date"),
+  tVal(p, "time", "class_time"),
+  tVal(p, "org_name"),
+];
+
+// ── MILESTONES, STAFF PAYROLL & TASKS ────────────────────────────────────────
+TEMPLATE_PARAM_SPECS["exam_result"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "exam_title", "exam_name", "title"),
+  tVal(p, "marks_obtained", "marks", "score"),
+  tVal(p, "total_marks", "total"),
+  tVal(p, "grade"),
+];
+TEMPLATE_PARAM_SPECS["smartark_exam_result"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "exam_title", "exam_name", "title"),
+  tVal(p, "marks_obtained", "marks", "score"),
+  tVal(p, "total_marks", "total"),
+  tVal(p, "grade"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["exam_reminder"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "exam_title", "exam_name", "title"),
+  tVal(p, "exam_date", "date"),
+  tVal(p, "exam_time", "time"),
+];
+TEMPLATE_PARAM_SPECS["smartark_exam_reminder"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "exam_title", "exam_name", "title"),
+  tVal(p, "exam_date", "date"),
+  tVal(p, "exam_time", "time"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["birthday_wish"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_birthday_wish"] = (p) => [
+  tVal(p, "parent_name"),
+  tVal(p, "student_name"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["payroll_approved"] = (p) => [
+  tVal(p, "staff_name", "name"),
+  tVal(p, "month_year", "salary_month", "month"),
+];
+TEMPLATE_PARAM_SPECS["smartark_payroll_approved"] = (p) => [
+  tVal(p, "staff_name", "name"),
+  tVal(p, "month_year", "salary_month", "month"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["task_assigned"] = (p) => [
+  tVal(p, "assignee_name", "staff_name", "name"),
+  tVal(p, "task_title", "task_name", "title"),
+  tVal(p, "due_date"),
+  tVal(p, "priority"),
+];
+TEMPLATE_PARAM_SPECS["smartark_task_assigned"] = (p) => [
+  tVal(p, "assignee_name", "staff_name", "name"),
+  tVal(p, "task_title", "task_name", "title"),
+  tVal(p, "due_date"),
+  tVal(p, "priority"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["task_reminder"] = (p) => [
+  tVal(p, "assignee_name", "staff_name", "name"),
+  tVal(p, "task_title", "task_name", "title"),
+  tVal(p, "due_date"),
+];
+TEMPLATE_PARAM_SPECS["smartark_task_reminder"] = (p) => [
+  tVal(p, "assignee_name", "staff_name", "name"),
+  tVal(p, "task_title", "task_name", "title"),
+  tVal(p, "due_date"),
+  tVal(p, "org_name"),
+];
+
+// ── PUBLIC WEBSITE FORMS ────────────────────────────────────────────────────
+TEMPLATE_PARAM_SPECS["smartark_platform_lead_alert"] = (p) => [
+  tVal(p, "name", "student_name"),
+  tVal(p, "phone", "mobile_number"),
+  tVal(p, "course", "course_name"),
+  tVal(p, "org_name"),
+];
+TEMPLATE_PARAM_SPECS["smartark_public_form_ack"] = (p) => [
+  tVal(p, "name", "student_name"),
+  tVal(p, "course", "course_name"),
+  tVal(p, "org_name"),
+];
 // ── Credential redaction ────────────────────────────────────────────────────
 // A credential message must carry the password to be rendered and posted, so it
 // is necessarily present in message_queue.payload while the row is queued. Once
@@ -627,22 +887,25 @@ Deno.serve(async (req) => {
     // Per-organization automation settings cache to verify that events have not been
     // disabled since being enqueued.
     const orgSettingsCache = new Map<string, Map<string, boolean>>();
-    const distinctOrgIds = Array.from(new Set(queue.map((r) => r.organization_id).filter(Boolean)));
-    if (distinctOrgIds.length > 0) {
-      try {
-        const { data: settingsData } = await supabase
-          .from("comms_automation_settings")
-          .select("organization_id, event_key, enabled")
-          .in("organization_id", distinctOrgIds);
-        for (const s of (settingsData ?? []) as Array<{ organization_id: string; event_key: string; enabled: boolean }>) {
+    const globalSettings = new Map<string, boolean>();
+    try {
+      const { data: settingsData } = await supabase
+        .from("comms_automation_settings")
+        .select("organization_id, event_key, enabled");
+      for (const s of (settingsData ?? []) as Array<{ organization_id: string | null; event_key: string; enabled: boolean }>) {
+        if (s.organization_id) {
           if (!orgSettingsCache.has(s.organization_id)) {
             orgSettingsCache.set(s.organization_id, new Map());
           }
           orgSettingsCache.get(s.organization_id)!.set(s.event_key, s.enabled);
         }
-      } catch (e) {
-        console.warn("[send-aisensy] Failed to prefetch comms_automation_settings:", e);
+        // If disabled anywhere, also register in globalSettings as safety fallback
+        if (s.enabled === false || !globalSettings.has(s.event_key)) {
+          globalSettings.set(s.event_key, s.enabled);
+        }
       }
+    } catch (e) {
+      console.warn("[send-aisensy] Failed to prefetch comms_automation_settings:", e);
     }
 
     for (const row of queue) {
@@ -654,12 +917,54 @@ Deno.serve(async (req) => {
         .eq("status", "queued");
 
       const rowOrg = (row as { organization_id?: string }).organization_id ?? null;
+      const orgSettings = (rowOrg && orgSettingsCache.get(rowOrg)) || globalSettings;
 
       // Guard: Recheck automation setting — if the organization has disabled this
       // event since it was enqueued (or during retry backoff), cancel it now.
-      if (rowOrg && orgSettingsCache.has(rowOrg)) {
-        const orgSettings = orgSettingsCache.get(rowOrg)!;
-        const candidateKeys = [row.context_type, row.template_key, row.template].filter((k): k is string => !!k);
+      if (orgSettings) {
+        const EVENT_KEY_ALIASES: Record<string, string> = {
+          fee_receipt: "fee_paid",
+          smartark_fee_receipt: "fee_paid",
+          fee_due_reminder: "fee_due",
+          smartark_fee_due_reminder: "fee_due",
+          attendance_absent: "attendance_absent",
+          smartark_attendance_absent: "attendance_absent",
+          attendance_corrected: "attendance_corrected",
+          smartark_attendance_corrected: "attendance_corrected",
+          lead_welcome: "lead_enquiry_received",
+          smartark_lead_enquiry_received: "lead_enquiry_received",
+          lead_assigned_counselor: "lead_assigned",
+          smartark_lead_assigned: "lead_assigned",
+          lead_followup_reminder: "lead_followup_due",
+          smartark_lead_followup_due: "lead_followup_due",
+          sla_breach_alert: "lead_sla_breach",
+          smartark_lead_sla_breach: "lead_sla_breach",
+          lead_demo_scheduled_v2: "demo_scheduled",
+          smartark_lead_demo_scheduled: "demo_scheduled",
+          lead_demo_reminder_v2: "demo_reminder",
+          smartark_lead_demo_reminder: "demo_reminder",
+          lead_admission_completed_v2: "admission_completed",
+          smartark_lead_admission_confirmed: "admission_completed",
+          exam_result: "exam_published",
+          smartark_exam_result: "exam_published",
+          exam_reminder: "exam_scheduled",
+          smartark_exam_reminder: "exam_scheduled",
+          birthday_wish: "birthday_student",
+          smartark_birthday_wish: "birthday_student",
+          payroll_approved: "payroll_approved",
+          smartark_payroll_approved: "payroll_approved",
+          task_assigned: "task_assigned",
+          smartark_task_assigned: "task_assigned",
+          task_reminder: "task_due",
+          smartark_task_reminder: "task_due",
+          class_cancelled: "class_cancelled_students",
+          smartark_class_cancelled_students: "class_cancelled_students",
+        };
+        const rawKeys = [row.context_type, row.template_key, row.template].filter((k): k is string => !!k);
+        const candidateKeys = [
+          ...rawKeys,
+          ...rawKeys.map((k) => EVENT_KEY_ALIASES[k]).filter((k): k is string => !!k),
+        ];
         const matchedKey = candidateKeys.find((k) => orgSettings.has(k));
         if (matchedKey && orgSettings.get(matchedKey) === false) {
           const reason = `event_disabled_after_enqueue: Automation for '${matchedKey}' is disabled for this organization`;

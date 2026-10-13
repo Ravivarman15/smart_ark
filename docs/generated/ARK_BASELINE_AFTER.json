@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-12T06:40:22.456Z",
+  "capturedAt": "2026-10-13T16:59:39.535Z",
   "organization": {
     "country": "IN",
     "created_at": "2026-08-06 05:00:39.563436+00",
@@ -19,14 +19,14 @@
     "profiles": 20,
     "organization_users": 22,
     "student_attendance": 6688,
-    "teacher_attendance": 102,
+    "teacher_attendance": 106,
     "exam_results": 1488,
     "student_fees": 149,
-    "fee_installments": 215,
+    "fee_installments": 216,
     "payroll_runs": 3,
     "leads": 35,
-    "message_queue": 833,
-    "comms_audit": 787,
+    "message_queue": 838,
+    "comms_audit": 791,
     "invoices": 0,
     "payments": 0,
     "organization_features": 1

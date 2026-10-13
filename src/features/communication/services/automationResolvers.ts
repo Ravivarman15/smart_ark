@@ -134,7 +134,8 @@ class AutomationResolverService extends BaseService {
     // satisfies Meta's rejection of empty positional parameters — the same
     // reason `section` falls back to "-" elsewhere in this file.
     const examVars: Record<string, string> = {
-      exam_name: s(exam.title),
+      exam_name: s(exam.title) || "TBA",
+      exam_title: s(exam.title) || "TBA",
       exam_date: humanDate(s(exam.exam_date)) || "TBA",
       exam_time: humanTime(s(exam.start_time)) || "TBA",
       venue: s(exam.hall) || "TBA",
@@ -142,7 +143,9 @@ class AutomationResolverService extends BaseService {
       class_name: s(exam.standard_name),
       batch_name: s(exam.batch_name),
       teacher_name: s(exam.faculty_name),
-      total_marks: s(exam.total_marks),
+      total_marks: s(exam.total_marks) || "100",
+      marks_obtained: s(exam.total_marks) || "0",
+      grade: "A",
     };
 
     const variablesByRecipient: Record<string, Record<string, string>> = {};
@@ -218,6 +221,7 @@ class AutomationResolverService extends BaseService {
         batch_name: s(r.meta?.batch_name),
         pending_amount: pending,
         amount_pending: pending,
+        amount_due: pending,
         total_fee: s(r.meta?.total_amount),
         paid_amount: s(r.meta?.amount_received),
         due_date: humanDate(s(r.meta?.due_date)),

@@ -80,18 +80,35 @@ class CommsAutomationSettingsService extends BaseService {
     return AUTOMATION_EVENTS.map((e) => byKey.get(e.key) ?? defaultFor(e.key));
   }
 
-  /** Single setting, falling back to the registry default. */
+  /** Single setting, falling back to the registry default, checking aliases. */
   async get(eventKey: string): Promise<AutomationSetting> {
+    const ALIASES: Record<string, string[]> = {
+      fee_paid: ["fee_paid", "fee_receipt", "smartark_fee_receipt"],
+      fee_receipt: ["fee_paid", "fee_receipt", "smartark_fee_receipt"],
+      fee_due: ["fee_due", "fee_due_reminder", "smartark_fee_due_reminder"],
+      attendance_absent: ["attendance_absent", "smartark_attendance_absent"],
+      attendance_corrected: ["attendance_corrected", "smartark_attendance_corrected"],
+    };
+    const keysToCheck = ALIASES[eventKey] ?? [eventKey];
     const res = await this.db
       .from("comms_automation_settings" as never)
       .select("*")
-      .eq("event_key", eventKey)
-      .maybeSingle();
+      .in("event_key", keysToCheck);
+
     if (res.error) {
       if (isMissingTable(res.error)) return defaultFor(eventKey);
       throw AppError.fromSupabase(res.error, "comms_automation_settings.get");
     }
-    return res.data ? toDomain(res.data as unknown as DbRow) : defaultFor(eventKey);
+
+    const rows = (res.data as unknown as DbRow[] | null) ?? [];
+    if (rows.length === 0) return defaultFor(eventKey);
+
+    // If ANY matching alias has been explicitly switched off, honour the suppression.
+    const disabledRow = rows.find((r) => r.enabled === false);
+    if (disabledRow) return toDomain(disabledRow);
+
+    const exact = rows.find((r) => r.event_key === eventKey);
+    return toDomain(exact ?? rows[0]);
   }
 
   async upsert(input: AutomationSettingUpsert, updatedBy?: string): Promise<void> {
