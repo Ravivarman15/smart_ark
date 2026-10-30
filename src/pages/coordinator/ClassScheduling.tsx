@@ -15,6 +15,7 @@ import {
   ArrowRightLeft,
   Users2,
   Radio,
+  UserCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -193,6 +194,8 @@ const ClassScheduling: React.FC = () => {
   const [preset, setPreset] = useState<RangePreset>("today");
   const [pickedDate, setPickedDate] = useState(todayIso);
   const [statusFilter, setStatusFilter] = useState<ScheduleStatus | "all">("all");
+  const [filterMode, setFilterMode] = useState<"timing" | "staff" | "teacher">("timing");
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
   const range = useMemo(() => resolveRange(preset, pickedDate), [preset, pickedDate]);
 
   const { data: schedules = [] } = useSchedules({
@@ -201,11 +204,46 @@ const ClassScheduling: React.FC = () => {
     to: range.to,
   });
 
-  const visibleSchedules = useMemo(
-    () =>
-      statusFilter === "all" ? schedules : schedules.filter((c) => c.status === statusFilter),
-    [schedules, statusFilter],
-  );
+  const availableTeachers = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of teachers) {
+      if (t.id && t.name) {
+        map.set(t.id, t.name);
+      }
+    }
+    for (const s of schedules) {
+      if (s.teacherId && !map.has(s.teacherId)) {
+        map.set(s.teacherId, s.teacherName || nameOf(s.teacherId) || "Teacher");
+      }
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [teachers, schedules]);
+
+  const selectedTeacherName = useMemo(() => {
+    if (!selectedTeacherId || selectedTeacherId === "all") return "";
+    return availableTeachers.find((t) => t.id === selectedTeacherId)?.name ?? nameOf(selectedTeacherId);
+  }, [selectedTeacherId, availableTeachers]);
+
+  const handleFilterModeChange = (mode: "timing" | "staff" | "teacher") => {
+    setFilterMode(mode);
+    if (mode === "teacher") {
+      if (!selectedTeacherId && availableTeachers.length > 0) {
+        setSelectedTeacherId(availableTeachers[0].id);
+      }
+    } else {
+      setSelectedTeacherId("");
+    }
+  };
+
+  const visibleSchedules = useMemo(() => {
+    let list = statusFilter === "all" ? schedules : schedules.filter((c) => c.status === statusFilter);
+    if (filterMode === "teacher" && selectedTeacherId && selectedTeacherId !== "all") {
+      list = list.filter((c) => c.teacherId === selectedTeacherId);
+    }
+    return list;
+  }, [schedules, statusFilter, filterMode, selectedTeacherId]);
   const { data: studentCounts = {} } = useClassStudentCounts(
     useMemo(() => schedules.map((s) => s.id), [schedules]),
   );
@@ -519,7 +557,11 @@ const ClassScheduling: React.FC = () => {
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-base">
-              {range.label} · {visibleSchedules.length} class
+              {range.label}
+              {filterMode === "teacher" && selectedTeacherName ? ` · ${selectedTeacherName}` : ""}
+              {filterMode === "staff" ? " · Staff wise" : ""}
+              {" · "}
+              {visibleSchedules.length} class
               {visibleSchedules.length === 1 ? "" : "es"}
             </CardTitle>
           </div>
@@ -531,6 +573,56 @@ const ClassScheduling: React.FC = () => {
             onPreset={setPreset}
             onDate={(d) => { setPickedDate(d); setPreset("date"); }}
           >
+            {/* View / Grouping Filter: Timing wise, Staff wise, Select a teacher */}
+            <Select
+              value={filterMode}
+              onValueChange={(v) => handleFilterModeChange(v as "timing" | "staff" | "teacher")}
+            >
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue placeholder="View by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="timing">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Timing wise</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="staff">
+                  <div className="flex items-center gap-2">
+                    <Users2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Staff wise</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="teacher">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Select a teacher</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* When "Select a teacher" is selected, dynamically pick teacher from organization */}
+            {filterMode === "teacher" && (
+              <Select
+                value={selectedTeacherId}
+                onValueChange={(v) => setSelectedTeacherId(v)}
+              >
+                <SelectTrigger className="h-9 min-w-[170px] max-w-[220px]">
+                  <SelectValue placeholder="Select teacher..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  <SelectItem value="all">All teachers</SelectItem>
+                  {availableTeachers.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             <Select
               value={statusFilter}
               onValueChange={(v) => setStatusFilter(v as ScheduleStatus | "all")}
@@ -551,9 +643,13 @@ const ClassScheduling: React.FC = () => {
 
           <ScheduleDayList
             schedules={visibleSchedules}
-            emptyTitle={`No classes ${range.label.toLowerCase()}`}
+            groupBy={filterMode === "staff" ? "staff" : "timing"}
+            nameOfTeacher={nameOf}
+            emptyTitle={`No classes ${range.label.toLowerCase()}${filterMode === "teacher" && selectedTeacherName ? ` for ${selectedTeacherName}` : ""}`}
             emptyHint={
-              preset === "today"
+              filterMode === "teacher"
+                ? "Try picking another teacher, adjusting the date range preset, or selecting 'All teachers'."
+                : preset === "today"
                 ? "Try Tomorrow or This week, or schedule one with the button above."
                 : "Adjust the range or the status filter."
             }

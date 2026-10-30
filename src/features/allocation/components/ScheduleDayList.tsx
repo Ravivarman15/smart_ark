@@ -23,12 +23,12 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useMemo } from "react";
-import { CalendarX2, Eye, Radio } from "lucide-react";
+import { CalendarX2, Eye, Radio, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  classTitle, durationLabel, formatDay, groupByDay, timeRangeLabel, todayIso,
+  classTitle, durationLabel, formatDay, groupByDay, groupByStaff, timeRangeLabel, todayIso,
 } from "../utils/scheduleView";
 import type { ClassSchedule, ScheduleStatus } from "../types/allocation.types";
 import { ClassDetailsDialog } from "./ClassDetailsDialog";
@@ -53,15 +53,24 @@ interface Props {
   /** Extra detail under the title — student counts, teacher name, timings. */
   renderMeta?: (c: ClassSchedule) => React.ReactNode;
   onRowClick?: (c: ClassSchedule) => void;
+  /** Grouping mode: by chronological day/time or by staff member */
+  groupBy?: "timing" | "staff";
+  /** Resolve teacher ID to readable name for staff grouping fallback */
+  nameOfTeacher?: (teacherId?: string) => string;
 }
 
 export const ScheduleDayList: React.FC<Props> = ({
   schedules, isLoading, emptyTitle = "No classes in this range",
   emptyHint, renderActions, renderMeta, onRowClick,
+  groupBy = "timing", nameOfTeacher,
 }) => {
   const [detailsTarget, setDetailsTarget] = useState<ClassSchedule | null>(null);
   const today = todayIso();
-  const groups = React.useMemo(() => groupByDay(schedules, today), [schedules, today]);
+  const dayGroups = React.useMemo(() => groupByDay(schedules, today), [schedules, today]);
+  const staffGroups = React.useMemo(
+    () => groupByStaff(schedules, nameOfTeacher),
+    [schedules, nameOfTeacher],
+  );
 
   if (isLoading) {
     return (
@@ -73,7 +82,9 @@ export const ScheduleDayList: React.FC<Props> = ({
     );
   }
 
-  if (groups.length === 0) {
+  const hasItems = groupBy === "staff" ? staffGroups.length > 0 : dayGroups.length > 0;
+
+  if (!hasItems) {
     return (
       <div className="rounded-lg border border-dashed border-border p-10 text-center">
         <CalendarX2 className="mx-auto h-6 w-6 text-muted-foreground/60" />
@@ -83,116 +94,143 @@ export const ScheduleDayList: React.FC<Props> = ({
     );
   }
 
+  const renderClassItem = (c: ClassSchedule) => (
+    <div
+      key={c.id}
+      onClick={onRowClick ? () => onRowClick(c) : undefined}
+      className={cn(
+        "flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5 transition-colors sm:flex-row sm:items-center sm:gap-3",
+        c.status === "cancelled" && "opacity-60",
+        c.status === "in_progress" && "border-emerald-500/50 bg-emerald-500/5",
+        onRowClick && "cursor-pointer hover:bg-accent/40",
+      )}
+    >
+      {/* Time first and fixed-width, so the column aligns down the
+          day and can be scanned without reading the rows. */}
+      <div className="flex shrink-0 items-baseline gap-2 sm:w-[140px] sm:flex-col sm:items-start sm:gap-0.5">
+        <span className="text-sm font-medium tabular-nums">
+          {timeRangeLabel(c.startTime, c.endTime)}
+        </span>
+        <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+          <span>{durationLabel(c.durationMinutes)}</span>
+          {c.scheduleDate && (
+            <>
+              <span>·</span>
+              <span className="font-medium text-foreground/75">{formatDay(c.scheduleDate)}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="truncate text-sm font-medium">{classTitle(c)}</span>
+          {c.isExtra && (
+            <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
+              Extra
+            </Badge>
+          )}
+          {c.status === "in_progress" ? (
+            <Badge className="gap-1 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <Radio className="h-3 w-3" /> Live
+            </Badge>
+          ) : (
+            <Badge className={STATUS_TONE[c.status] ?? "bg-muted"}>{c.status}</Badge>
+          )}
+          {c.lateMinutes > 0 && (
+            <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
+              {c.lateMinutes}m late
+            </Badge>
+          )}
+          {c.attendanceSubmitted && (
+            <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              Attendance ✓
+            </Badge>
+          )}
+        </div>
+        {renderMeta && (
+          <div className="mt-0.5 text-xs text-muted-foreground">{renderMeta(c)}</div>
+        )}
+      </div>
+
+      <div
+        className="flex shrink-0 flex-wrap items-center gap-1.5"
+        // Row actions must not also trigger the row's own click.
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5 text-xs font-medium border-border hover:bg-accent/60"
+          title="View class & student details"
+          onClick={() => setDetailsTarget(c)}
+        >
+          <Eye className="h-3.5 w-3.5 text-primary" />
+          <span>View Details</span>
+        </Button>
+        {renderActions && renderActions(c)}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-5">
-      {groups.map((g) => (
-        <section key={g.date}>
-          {/* Sticky so the day stays visible while scrolling a long list —
-              the whole point of grouping is lost if the heading scrolls away
-              and you are back to guessing which day you are looking at. */}
-          <header
-            className={cn(
-              "sticky top-0 z-10 -mx-1 mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md bg-background/95 px-1 py-1.5 backdrop-blur",
-              g.isPast && "opacity-70",
-            )}
-          >
-            <h3
+      {groupBy === "staff" ? (
+        staffGroups.map((g) => (
+          <section key={g.teacherId}>
+            <header className="sticky top-0 z-10 -mx-1 mb-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md bg-background/95 px-1 py-1.5 backdrop-blur">
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <UserCheck className="h-3.5 w-3.5" />
+                </div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  {g.teacherName}
+                </h3>
+              </div>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {g.items.length} class{g.items.length === 1 ? "" : "es"}
+                {g.totalMinutes > 0 && ` · ${durationLabel(g.totalMinutes)}`}
+              </span>
+            </header>
+
+            <div className="space-y-1.5">
+              {g.items.map(renderClassItem)}
+            </div>
+          </section>
+        ))
+      ) : (
+        dayGroups.map((g) => (
+          <section key={g.date}>
+            {/* Sticky so the day stays visible while scrolling a long list —
+                the whole point of grouping is lost if the heading scrolls away
+                and you are back to guessing which day you are looking at. */}
+            <header
               className={cn(
-                "text-sm font-semibold",
-                g.isToday && "text-primary",
+                "sticky top-0 z-10 -mx-1 mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md bg-background/95 px-1 py-1.5 backdrop-blur",
+                g.isPast && "opacity-70",
               )}
             >
-              {g.heading}
-            </h3>
-            <span className="text-xs text-muted-foreground">{g.subheading}</span>
-            <span className="ml-auto text-xs text-muted-foreground">
-              {g.items.length} class{g.items.length === 1 ? "" : "es"}
-              {g.totalMinutes > 0 && ` · ${durationLabel(g.totalMinutes)}`}
-            </span>
-          </header>
-
-          <div className="space-y-1.5">
-            {g.items.map((c) => (
-              <div
-                key={c.id}
-                onClick={onRowClick ? () => onRowClick(c) : undefined}
+              <h3
                 className={cn(
-                  "flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5 transition-colors sm:flex-row sm:items-center sm:gap-3",
-                  c.status === "cancelled" && "opacity-60",
-                  c.status === "in_progress" && "border-emerald-500/50 bg-emerald-500/5",
-                  onRowClick && "cursor-pointer hover:bg-accent/40",
+                  "text-sm font-semibold",
+                  g.isToday && "text-primary",
                 )}
               >
-                {/* Time first and fixed-width, so the column aligns down the
-                    day and can be scanned without reading the rows. */}
-                <div className="flex shrink-0 items-baseline gap-2 sm:w-[140px] sm:flex-col sm:items-start sm:gap-0.5">
-                  <span className="text-sm font-medium tabular-nums">
-                    {timeRangeLabel(c.startTime, c.endTime)}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
-                    <span>{durationLabel(c.durationMinutes)}</span>
-                    {c.scheduleDate && (
-                      <>
-                        <span>·</span>
-                        <span className="font-medium text-foreground/75">{formatDay(c.scheduleDate)}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
+                {g.heading}
+              </h3>
+              <span className="text-xs text-muted-foreground">{g.subheading}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {g.items.length} class{g.items.length === 1 ? "" : "es"}
+                {g.totalMinutes > 0 && ` · ${durationLabel(g.totalMinutes)}`}
+              </span>
+            </header>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="truncate text-sm font-medium">{classTitle(c)}</span>
-                    {c.isExtra && (
-                      <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
-                        Extra
-                      </Badge>
-                    )}
-                    {c.status === "in_progress" ? (
-                      <Badge className="gap-1 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                        <Radio className="h-3 w-3" /> Live
-                      </Badge>
-                    ) : (
-                      <Badge className={STATUS_TONE[c.status] ?? "bg-muted"}>{c.status}</Badge>
-                    )}
-                    {c.lateMinutes > 0 && (
-                      <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
-                        {c.lateMinutes}m late
-                      </Badge>
-                    )}
-                    {c.attendanceSubmitted && (
-                      <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                        Attendance ✓
-                      </Badge>
-                    )}
-                  </div>
-                  {renderMeta && (
-                    <div className="mt-0.5 text-xs text-muted-foreground">{renderMeta(c)}</div>
-                  )}
-                </div>
-
-                <div
-                  className="flex shrink-0 flex-wrap items-center gap-1.5"
-                  // Row actions must not also trigger the row's own click.
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 px-2.5 text-xs font-medium border-border hover:bg-accent/60"
-                    title="View class & student details"
-                    onClick={() => setDetailsTarget(c)}
-                  >
-                    <Eye className="h-3.5 w-3.5 text-primary" />
-                    <span>View Details</span>
-                  </Button>
-                  {renderActions && renderActions(c)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
+            <div className="space-y-1.5">
+              {g.items.map(renderClassItem)}
+            </div>
+          </section>
+        ))
+      )}
 
       <ClassDetailsDialog
         schedule={detailsTarget}

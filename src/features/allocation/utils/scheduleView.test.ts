@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
-  classTitle, durationLabel, formatDay, groupByDay, localIso, relativeDay,
+  classTitle, durationLabel, formatDay, groupByDay, groupByStaff, localIso, relativeDay,
   resolveRange, shiftIso, timeRangeLabel,
 } from "./scheduleView";
 import type { ClassSchedule } from "../types/allocation.types";
@@ -230,6 +230,58 @@ describe("groupByDay", () => {
 
   it("returns nothing for an empty list", () => {
     expect(groupByDay([], today)).toEqual([]);
+  });
+});
+
+describe("groupByStaff", () => {
+  it("groups classes by staff member and sorts teachers alphabetically", () => {
+    const groups = groupByStaff([
+      cls({ teacherId: "t2", teacherName: "Vilva Karthiga", startTime: "10:00" }),
+      cls({ teacherId: "t1", teacherName: "Archana Govindaraj", startTime: "09:00" }),
+    ]);
+    expect(groups.map((g) => g.teacherName)).toEqual(["Archana Govindaraj", "Vilva Karthiga"]);
+    expect(groups[0].items).toHaveLength(1);
+    expect(groups[1].items).toHaveLength(1);
+  });
+
+  it("orders classes within a staff member by date and start time", () => {
+    const groups = groupByStaff([
+      cls({ teacherId: "t1", teacherName: "Archana Govindaraj", scheduleDate: "2026-08-13", startTime: "09:00" }),
+      cls({ teacherId: "t1", teacherName: "Archana Govindaraj", scheduleDate: "2026-08-12", startTime: "14:00" }),
+      cls({ teacherId: "t1", teacherName: "Archana Govindaraj", scheduleDate: "2026-08-12", startTime: "09:00" }),
+    ]);
+    expect(groups[0].items.map((c) => `${c.scheduleDate} ${c.startTime}`)).toEqual([
+      "2026-08-12 09:00",
+      "2026-08-12 14:00",
+      "2026-08-13 09:00",
+    ]);
+  });
+
+  it("calculates total duration in minutes excluding cancelled classes", () => {
+    const groups = groupByStaff([
+      cls({ teacherId: "t1", teacherName: "Archana Govindaraj", durationMinutes: 60, status: "scheduled" }),
+      cls({ teacherId: "t1", teacherName: "Archana Govindaraj", durationMinutes: 90, status: "cancelled" }),
+    ]);
+    expect(groups[0].items).toHaveLength(2);
+    expect(groups[0].totalMinutes).toBe(60);
+  });
+
+  it("resolves teacher name using nameOf callback if teacherName is missing", () => {
+    const nameOf = (id?: string) => (id === "t1" ? "Archana Govindaraj" : "Other");
+    const groups = groupByStaff(
+      [cls({ teacherId: "t1", teacherName: undefined })],
+      nameOf,
+    );
+    expect(groups[0].teacherName).toBe("Archana Govindaraj");
+  });
+
+  it("places unassigned classes at the end", () => {
+    const groups = groupByStaff([
+      cls({ teacherId: undefined, teacherName: undefined }),
+      cls({ teacherId: "t1", teacherName: "Archana Govindaraj" }),
+    ]);
+    expect(groups[0].teacherName).toBe("Archana Govindaraj");
+    expect(groups[1].teacherName).toBe("Unassigned Staff");
   });
 });
 

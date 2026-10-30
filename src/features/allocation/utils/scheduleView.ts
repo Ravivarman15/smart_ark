@@ -192,6 +192,64 @@ export const groupByDay = (
     });
 };
 
+export interface StaffGroup {
+  teacherId: string;
+  teacherName: string;
+  items: ClassSchedule[];
+  totalMinutes: number;
+}
+
+/**
+ * Group classes into ordered staff/teacher groups, each ordered by date and start time.
+ */
+export const groupByStaff = (
+  schedules: ClassSchedule[],
+  nameOf?: (teacherId?: string) => string,
+): StaffGroup[] => {
+  const byStaff = new Map<string, { name: string; items: ClassSchedule[] }>();
+
+  for (const s of schedules) {
+    const key = s.teacherId || "unassigned";
+    let name = s.teacherName;
+    if (!name && nameOf) {
+      name = nameOf(s.teacherId);
+    }
+    if (!name) {
+      name = s.teacherId ? "Teacher" : "Unassigned Staff";
+    }
+
+    if (!byStaff.has(key)) {
+      byStaff.set(key, { name, items: [] });
+    }
+    byStaff.get(key)!.items.push(s);
+  }
+
+  return [...byStaff.entries()]
+    .map(([teacherId, { name, items }]) => {
+      const ordered = [...items].sort(
+        (a, b) =>
+          (a.scheduleDate || "").localeCompare(b.scheduleDate || "") ||
+          a.startTime.localeCompare(b.startTime) ||
+          a.endTime.localeCompare(b.endTime) ||
+          (a.standardName ?? "").localeCompare(b.standardName ?? "") ||
+          (a.subjectName ?? "").localeCompare(b.subjectName ?? ""),
+      );
+      return {
+        teacherId,
+        teacherName: name,
+        items: ordered,
+        totalMinutes: ordered
+          .filter((c) => c.status !== "cancelled")
+          .reduce((n, c) => n + (c.durationMinutes || 0), 0),
+      };
+    })
+    .sort((a, b) => {
+      if (a.teacherId === "unassigned") return 1;
+      if (b.teacherId === "unassigned") return -1;
+      return a.teacherName.localeCompare(b.teacherName);
+    });
+};
+
 /**
  * "Std 4 · A · Maths" — every standard of a combined class, not just the
  * primary, otherwise a Std 2 + Std 4 class reads as if it only covers one.
