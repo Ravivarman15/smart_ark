@@ -45,3 +45,4 @@ At trigger and dispatch time:
 | `orgBranding.test.ts` | Missing org name degrades to blank, never to a fallback tenant | PASS |
 | `providerTemplates.test.ts` | `org_name` is always the LAST positional parameter across all templates | PASS |
 | `whatsappMasterReadiness.test.ts` | Every template is multi-tenant capable with `org_name` anchored sign-off | PASS |
+

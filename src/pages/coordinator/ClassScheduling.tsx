@@ -16,6 +16,7 @@ import {
   Users2,
   Radio,
   UserCheck,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ import {
 import { StandardPlanBuilder } from "@/features/allocation/components/StandardPlanBuilder";
 import { ScheduleRangeBar } from "@/features/allocation/components/ScheduleRangeBar";
 import { ScheduleDayList } from "@/features/allocation/components/ScheduleDayList";
+import { EditScheduleDialog } from "@/features/allocation/components/EditScheduleDialog";
 import type {
   ClassMode,
   ClassSchedule,
@@ -259,6 +261,8 @@ const ClassScheduling: React.FC = () => {
   const [subTeacherId, setSubTeacherId] = useState("");
   // Editing who is in an already-scheduled class (students join and leave).
   const [rosterTarget, setRosterTarget] = useState<ClassSchedule | null>(null);
+  // Edit an existing schedule (full field edit dialog).
+  const [editTarget, setEditTarget] = useState<ClassSchedule | null>(null);
 
   const doSubstitute = async () => {
     if (!subTarget || !subTeacherId) return;
@@ -677,6 +681,15 @@ const ClassScheduling: React.FC = () => {
                   <Button variant="ghost" size="sm" title="Students in this class" onClick={() => setRosterTarget(c)}>
                     <Users2 className="h-4 w-4 text-teal-500" />
                   </Button>
+                  {/* Edit — available to management/admin (isOverride) and
+                      coordinators who manage this teacher's schedule. The
+                      button appears only on editable statuses so a completed
+                      or cancelled class cannot be silently rewritten. */}
+                  {(isOverride || managedStaffIds.includes(c.teacherId ?? "")) && (
+                    <Button variant="ghost" size="sm" title="Edit class schedule" onClick={() => setEditTarget(c)}>
+                      <Pencil className="h-4 w-4 text-orange-500" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" title="Assign substitute" onClick={() => { setSubTarget({ id: c.id, mode: "substitute" }); setSubTeacherId(""); }}>
                     <UserCog className="h-4 w-4 text-blue-500" />
                   </Button>
@@ -709,6 +722,13 @@ const ClassScheduling: React.FC = () => {
         schedule={rosterTarget}
         open={!!rosterTarget}
         onOpenChange={(v) => !v && setRosterTarget(null)}
+      />
+
+      {/* Edit an existing class schedule (full field edit) */}
+      <EditScheduleDialog
+        schedule={editTarget}
+        open={!!editTarget}
+        onOpenChange={(v) => !v && setEditTarget(null)}
       />
 
       {/* Substitute / Transfer dialog */}
